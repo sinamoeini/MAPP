@@ -16,7 +16,7 @@ OBJ_FILES   = $(addprefix $(OBJ),$(notdir $(CPP_FILES:.cpp=.o)))
 $(OBJ)%.o: $(SRC)%.cpp $(MAKEFILE)
 	$(CC) -c $(CFLAGS) -o $@ $(INCLUDES) $(LIBS) $<
 
-exec: 	$(OBJ_FILES) $(MAKEFILE)
+MAPP: 	$(OBJ_FILES) $(MAKEFILE)
 	$(CC) $(CFLAGS) $(OBJ_FILES) -o $@ $(INCLUDES) $(LIBS)
 
 clean:  
