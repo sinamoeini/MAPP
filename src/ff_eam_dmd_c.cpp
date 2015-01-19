@@ -2220,7 +2220,8 @@ void ForceField_EAM_DMD_C::create_2nd_neigh_lst()
  fj
  --------------------------------------------*/
 TYPE0 ForceField_EAM_DMD_C::
-mat(TYPE0 fi,TYPE0 fj,int itype)
+mat(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
+    ,int itype)
 {
     if(fi>fj)
         return fi+0.5;
@@ -2231,7 +2232,8 @@ mat(TYPE0 fi,TYPE0 fj,int itype)
  dmat(fi,fj)/dfi
  --------------------------------------------*/
 TYPE0 ForceField_EAM_DMD_C::
-dmat(TYPE0 fi,TYPE0 fj,int itype)
+dmat0(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
+     ,int itype)
 {
     
     if(fi>fj)
@@ -2239,21 +2241,13 @@ dmat(TYPE0 fi,TYPE0 fj,int itype)
     else
         return 0.0;
 }
-/*--------------------------------------------
- return M_{ij}^{\alpha}
- this fucntion should be symmetric wrt fi &
- fj
- --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::
-mat1(TYPE0 ki,TYPE0 kj,int itype)
-{
-    return 0.0;
-}
+
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
 TYPE0 ForceField_EAM_DMD_C::
-dmat1(TYPE0 ki,TYPE0 kj,int itype)
+dmat1(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
+,int itype)
 {
     
     return 0.0;
@@ -2416,8 +2410,8 @@ void ForceField_EAM_DMD_C::c_d_calc()
                 crdj=crd[jcomp+itype];
                 fi=n[icomp+itype];
                 fj=n[jcomp+itype];
-                exp_fi=exp(beta*(fi-mat(fi,fj,itype)-mat1(crdi,crdj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,fj,itype)-mat1(crdi,crdj,itype)));
+                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
                 w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
                 w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
                 
@@ -2606,8 +2600,8 @@ TYPE0 ForceField_EAM_DMD_C::calc_g(int chk,TYPE0 alpha,
                 crdj=crd[jcomp+itype];
                 fi=n[icomp+itype];
                 fj=n[jcomp+itype];
-                exp_fi=exp(beta*(fi-mat(fi,fj,itype)-mat1(crdi,crdj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,fj,itype)-mat1(crdi,crdj,itype)));
+                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
                 w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
                 w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
  
@@ -2666,21 +2660,21 @@ TYPE0 ForceField_EAM_DMD_C::calc_g(int chk,TYPE0 alpha,
                 crdi=crd[icomp+itype];
                 crdj=crd[jcomp+itype];
                 
-                exp_fi=exp(beta*(fi-mat(fi,fj,itype)-mat1(crdi,crdj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,fj,itype)-mat1(crdi,crdj,itype)));
+                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
                 
                 w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
                 w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
-                l_ij=s_ij*dmat1(crdi,crdj,itype)*(w_ji-w_ij);
+                l_ij=s_ij*dmat1(fi,crdi,fj,crdj,itype)*(w_ji-w_ij);
                 
-                t[2*(icomp+itype)]+=s_ij*(w_ij+dmat(fi,fj,itype)*(w_ji-w_ij));
+                t[2*(icomp+itype)]+=s_ij*(w_ij+dmat0(fi,crdi,fj,crdj,itype)*(w_ji-w_ij));
                 t[2*(icomp+itype)+1]+=l_ij;
                 g[icomp+itype]-=alpha*((1.0-c[jcomp+itype])*exp_fi+c[jcomp+itype]*exp_fj)*s_ij;
                 
                 if(jatm<natms)
                 {
-                    t[2*(jcomp+itype)]-=s_ij*(w_ji+dmat(fi,fj,itype)*(w_ij-w_ji));
-                    t[2*(jcomp+itype)+1]+=l_ij;
+                    t[2*(jcomp+itype)]-=s_ij*(w_ji+dmat0(fj,crdj,fi,crdi,itype)*(w_ij-w_ji));
+                    t[2*(jcomp+itype)+1]+=s_ij*dmat1(fj,crdj,fi,crdi,itype)*(w_ji-w_ij);
                     g[jcomp+itype]+=alpha*((1.0-c[icomp+itype])*exp_fj+c[icomp+itype]*exp_fi)*s_ij;
 
                 }

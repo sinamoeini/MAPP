@@ -2227,9 +2227,9 @@ TYPE0 ForceField_EAM_DMD::
 mat(TYPE0 fi,TYPE0 fj,int itype)
 {
     if(fi>fj)
-        return fi+0.5;
+        return fi+delta_e[itype];
     else
-        return fj+0.5;
+        return fj+delta_e[itype];
 }
 /*--------------------------------------------
  dmat(fi,fj)/dfi

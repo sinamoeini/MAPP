@@ -77,10 +77,9 @@ namespace MAPP_NS
         int neigh_lst_sz_sz;
         /*--------------------------------------------*/
         
-        TYPE0 mat(TYPE0,TYPE0,int);
-        TYPE0 dmat(TYPE0,TYPE0,int);
-        TYPE0 mat1(TYPE0,TYPE0,int);
-        TYPE0 dmat1(TYPE0,TYPE0,int);
+        TYPE0 mat(TYPE0,TYPE0,TYPE0,TYPE0,int);
+        TYPE0 dmat0(TYPE0,TYPE0,TYPE0,TYPE0,int);
+        TYPE0 dmat1(TYPE0,TYPE0,TYPE0,TYPE0,int);
         TYPE0 calc_ent(TYPE0);
         
     public:
