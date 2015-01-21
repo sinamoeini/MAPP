@@ -131,20 +131,66 @@ void MAPP::read_file()
     no_commands=0;
     int input_file_chk=1;
     char* line;
-    CREATE1D(line,MAXCHAR);
+    int lngth;
+    int size=5;
+    int line_complt,pos;
+    int max_line_char;
+    char* srch;
+    max_line_char=size;
+    
+    CREATE1D(line,size);
+    
+    
     while (input_file_chk)
     {
         if(atoms->my_p_no==0)
         {
-            fgets(line,MAXCHAR,input_file);
+            pos=0;
+            line_complt=0;
+            
+            while (line_complt==0)
+            {
+                fgets(&line[pos],size-pos,input_file);
+                lngth=static_cast<int>(strlen(line));
+                while(line[lngth-1]!='\n')
+                {
+                    pos=lngth;
+                    GROW(line,size,pos+max_line_char);
+                    size=pos+max_line_char;
+                    fgets(&line[pos],size-pos,input_file);
+                    lngth=static_cast<int>(strlen(line));
+                }
+
+                srch=NULL;
+                srch=strchr(line,'\\');
+                if(srch==NULL)
+                {
+                    line_complt=1;
+                }
+                else
+                {
+                    pos=static_cast<int>(srch-line);
+                    GROW(line,size,pos+max_line_char);
+                    size=pos+max_line_char;
+                }
+            }
+            
+            
             if(feof(input_file))
                 input_file_chk=0;
+            
         }
+        
+        
         MPI_Bcast(&input_file_chk,1,MPI_INT,0,world);
         if(input_file_chk==0)
             continue;
-        MPI_Bcast(line,MAXCHAR,MPI_CHAR,0,world);
+
+        MPI_Bcast(&size,1,MPI_INT,0,world);
+        MPI_Bcast(line,size,MPI_CHAR,0,world);
+        
         command(line);
+        
     }
     
     delete [] line;
@@ -561,5 +607,114 @@ int MAPP::hash_remover(char* line,char*& newline)
  --------------------------------------------*/
 void MAPP::test()
 {
+    
+    
+    int input_file_chk=1;
+    char* line;
+    int lngth;
+    int size=5;
+    int incrs=5;
+    CREATE1D(line,size);
+    int no_chars=5;
+    int pos;
+    int new_size;
+    
+    while (input_file_chk)
+    {
+        if(atoms->my_p_no==0)
+        {
+            
+            
+            pos=0;
+            fgets(&line[pos],no_chars,input_file);
+            
+            
+            lngth=static_cast<int>(strlen(line));
+            while(line[lngth-1]!='\n')
+            {
+
+                
+                GROW(line,size,size+incrs-1);
+                pos=lngth-1;
+                fgets(&line[pos],incrs,input_file);
+                size+=incrs-1;
+                lngth=static_cast<int>(strlen(line));
+            }
+            
+            
+            char* ll=NULL;
+            ll=strchr(line,'>');
+            if(ll!=NULL)
+            {
+                pos=static_cast<int>(ll-line);
+                new_size=pos+size;
+                GROW(line,size,new_size);
+                
+            }
+            
+            if(feof(input_file))
+                input_file_chk=0;
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    int max_line_char=1024;
+    size=max_line_char;
+    
+    CREATE1D(line,max_line_char);
+    
+    char* srch=NULL;
+    pos=0;
+    int line_complt=0;
+    
+    
+    pos=0;
+    line_complt=0;
+    while (line_complt==0)
+    {
+        fgets(&line[pos],size-pos,input_file);
+        lngth=static_cast<int>(strlen(line));
+        while(line[lngth-1]!='\n')
+        {
+            pos=lngth;
+            GROW(line,size,pos+max_line_char);
+            size=pos+max_line_char;
+            fgets(&line[pos],lngth-pos,input_file);
+        }
+        srch=NULL;
+        srch=strchr(line,'>');
+        if(srch==NULL)
+        {
+            line_complt=1;
+        }
+        else
+        {
+            pos=static_cast<int>(srch-line);
+            GROW(line,size,pos+max_line_char);
+            size=pos+max_line_char;
+        }
+    }
+    
+    
+    
+    
+   
+    
+    
+    
+    
+    
 }
 
