@@ -55,12 +55,9 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     min=NULL;
     clock=NULL;
     write=NULL;
-    /*
+    
     mode=MD_mode;
-    atoms->add<TYPE0>(1, 3,"x");
-    atoms->add<int>(1, 1,"type");
-    atoms->add<int>(0, 1,"id");
-    */
+
     input_file=NULL;
     input_file=stdin;
     
@@ -187,9 +184,6 @@ void MAPP::read_file()
         MPI_Bcast(&input_file_chk,1,MPI_INT,0,world);
         if(input_file_chk==0)
             continue;
-        /*
-        MPI_Bcast(&size,1,MPI_INT,0,world);
-         */
         
         MPI_Bcast(&new_size,1,MPI_INT,0,world);
         if(new_size!=size)
