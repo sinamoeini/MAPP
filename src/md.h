@@ -5,13 +5,22 @@
 #include <iostream>
 #include "init.h"
 #include "atoms.h"
+#include "thermo_dynamics.h"
 namespace MAPP_NS {
     
     class MD : protected InitPtrs
     {
     private:
     protected:
+        
+        class ThermoDynamics* thermo;
+        int pe_idx;
+        int ke_idx;
+        int temp_idx;
+        int stress_idx;
+        
     public:
+        
         MD(MAPP *);
         virtual ~MD()=0;
         virtual void init()=0;

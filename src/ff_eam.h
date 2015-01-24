@@ -19,14 +19,19 @@ namespace MAPP_NS
         TYPE0*** phi_r_arr;
         TYPE0*** rho_arr;
         
-        void set_setfl(int,char**);
-        void set_funcfl(int,char**);
-        void set_fs(int,char**);
-        int line_read(FILE*,char*&);
+
         
         int eam_mode;
         int nr,nrho;
         TYPE0 dr,drho,dr_inv,drho_inv,rho_max;
+        
+
+        
+        
+        void set_setfl(int,char**);
+        void set_funcfl(int,char**);
+        void set_fs(int,char**);
+        int line_read(FILE*,char*&);
         
         void allocate();
         int allocated;
@@ -34,6 +39,7 @@ namespace MAPP_NS
         
         void set_arrays();
         void interpolate(int,TYPE0,TYPE0**);
+        TYPE0 interpolate(TYPE0*,int,TYPE0,int);
         
         
         int** type2rho;
@@ -59,7 +65,7 @@ namespace MAPP_NS
         void coef(int,char**);
 
         void create_2nd_neigh_lst(){};
-        TYPE0 calc_g(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
+        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
         void c_d_calc(){};
     };
     

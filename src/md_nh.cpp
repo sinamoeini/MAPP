@@ -23,7 +23,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-MD_NH::MD_NH(MAPP* mapp,int narg,char** arg)
+MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
 : MD(mapp)
 {
     if(forcefield==NULL)
@@ -325,24 +325,12 @@ MD_NH::MD_NH(MAPP* mapp,int narg,char** arg)
     CREATE1D(x_ave_tot,3);
     
     boltz=0.0;
-    
-    
-    char** argss;
-    int nargs=mapp->parse_line((char*)"KE Temp. PE S_xx S_yy S_zz S_yz S_zx S_xy",argss);
-    ke_idx=0;
-    temp_idx=1;
-    pe_idx=2;
-    stress_idx=3;
-    
-    thermo=new ThermoDynamics(mapp,nargs,argss);
-    for(int i=0;i<nargs;i++)
-        delete [] argss[i];
-    delete [] argss;
+
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-MD_NH::~MD_NH()
+MD_nh::~MD_nh()
 {
     delete thermo;
     
@@ -382,7 +370,7 @@ MD_NH::~MD_NH()
 /*--------------------------------------------
  setup before start of run
  --------------------------------------------*/
-void MD_NH::init()
+void MD_nh::init()
 {
     if(boltz==0.0)
         error->abort("boltzmann constant is not set");
@@ -567,7 +555,7 @@ void MD_NH::init()
 /*--------------------------------------------
  finalize after the run is complete
  --------------------------------------------*/
-void MD_NH::fin()
+void MD_nh::fin()
 {
     thermo->fin();
     if(write!=NULL)
@@ -583,7 +571,7 @@ void MD_NH::fin()
 /*--------------------------------------------
  MDrun
  --------------------------------------------*/
-void MD_NH::run(int no_stps)
+void MD_nh::run(int no_stps)
 {
     TYPE0* enst;
     CREATE1D(enst,7);
@@ -682,7 +670,7 @@ void MD_NH::run(int no_stps)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_NH::update_H(TYPE0 dlt)
+void MD_nh::update_H(TYPE0 dlt)
 {
     TYPE0 dlt2,dlt4,dlt8,exfac;
     dlt2=0.5*dlt;
@@ -795,7 +783,7 @@ void MD_NH::update_H(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_NH::update_x(TYPE0 dlt)
+void MD_nh::update_x(TYPE0 dlt)
 {
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
@@ -900,7 +888,7 @@ void MD_NH::update_x(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_NH::update_x_d(TYPE0 dlt)
+void MD_nh::update_x_d(TYPE0 dlt)
 {
     
     char* dof=NULL;
@@ -964,7 +952,7 @@ void MD_NH::update_x_d(TYPE0 dlt)
 /*--------------------------------------------
  Nosé–Hoover thermostat chains 
  --------------------------------------------*/
-void MD_NH::update_NH_T(TYPE0 dlt)
+void MD_nh::update_NH_T(TYPE0 dlt)
 {
     TYPE0 dltm,dltm2,dltm4,exfac,velfac;
     int natoms=atoms->natms;
@@ -1034,7 +1022,7 @@ void MD_NH::update_NH_T(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_NH::update_NH_tau(TYPE0 dlt)
+void MD_nh::update_NH_tau(TYPE0 dlt)
 {
     TYPE0 dltm,dltm2,dltm4,exfac,kec;
     int dof=0;
@@ -1105,7 +1093,7 @@ void MD_NH::update_NH_tau(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_NH::update_omega_d(TYPE0 dlt)
+void MD_nh::update_omega_d(TYPE0 dlt)
 {
     //TYPE0** H=atoms->H;
     MTK_1=0.0;
@@ -1132,7 +1120,7 @@ void MD_NH::update_omega_d(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_NH::update_x_d_xpnd(TYPE0 dlt)
+void MD_nh::update_x_d_xpnd(TYPE0 dlt)
 {
     TYPE0 fac[3];
     TYPE0 temp[6];
@@ -1198,7 +1186,7 @@ void MD_NH::update_x_d_xpnd(TYPE0 dlt)
 /*--------------------------------------------
  zero acceleration
  --------------------------------------------*/
-void MD_NH::zero_f()
+void MD_nh::zero_f()
 {
     TYPE0* f;
     atoms->vectors[f_n].ret(f);
@@ -1208,7 +1196,7 @@ void MD_NH::zero_f()
 /*--------------------------------------------
  create initial velocity 
  --------------------------------------------*/
-void MD_NH::create_vel(int seed,TYPE0 temperature)
+void MD_nh::create_vel(int seed,TYPE0 temperature)
 {
     char* dof=NULL;
     if(dof_n!=-1)
@@ -1279,7 +1267,7 @@ void MD_NH::create_vel(int seed,TYPE0 temperature)
 /*--------------------------------------------
  create initial velocity
  --------------------------------------------*/
-void MD_NH::init_vel(TYPE0 temperature)
+void MD_nh::init_vel(TYPE0 temperature)
 {
 
     TYPE0* x_d;
@@ -1338,7 +1326,7 @@ void MD_NH::init_vel(TYPE0 temperature)
 /*--------------------------------------------
  create initial velocity
  --------------------------------------------*/
-void MD_NH::couple()
+void MD_nh::couple()
 {
     TYPE0 tmp;
     if(chk_stress==XYZ)

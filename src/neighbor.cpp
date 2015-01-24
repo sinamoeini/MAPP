@@ -83,7 +83,7 @@ void Neighbor::init()
         CREATE1D(s_tmp,d);
     }
 
-    if(mapp->mode==MD)
+    if(mapp->mode==MD_mode)
         type_n=atoms->find("type");
     create_bin_list();
 }
@@ -171,7 +171,7 @@ void Neighbor::create_list(int box_change,int s_or_x)
     TYPE0* x;
     atoms->vectors[0].ret(x);
     int* type=NULL;
-    if(mapp->mode==MD)
+    if(mapp->mode==MD_mode)
         atoms->vectors[type_n].ret(type);
     int x_dim=atoms->vectors[0].dim;
 
@@ -203,7 +203,7 @@ void Neighbor::create_list(int box_change,int s_or_x)
                 {
                     if(jatm>iatm)
                     {
-                        if(mapp->mode==MD)
+                        if(mapp->mode==MD_mode)
                             cut_sq=cut_sk_sq[COMP(type[iatm],type[jatm])];
                         else
                             cut_sq=cut_sk_sq[0];

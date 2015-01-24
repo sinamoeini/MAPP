@@ -23,7 +23,7 @@
 #include "command_styles.h"
 #include <cmath>
 #include <stdio.h>
-#define MAPP_VERSION "beta"
+#define MAPP_VERSION "Beta"
 using namespace MAPP_NS;
 using namespace std;
 /*--------------------------------------------
@@ -56,11 +56,12 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     clock=NULL;
     write=NULL;
     
-    mode=MD;
+    mode=MD_mode;
+    /*
     atoms->add<TYPE0>(1, 3,"x");
     atoms->add<int>(1, 1,"type");
     atoms->add<int>(0, 1,"id");
-    
+    */
     input_file=NULL;
     input_file=stdin;
     
@@ -99,7 +100,7 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     
     
     
-    //test();
+    test();
 
     
 }
@@ -478,13 +479,13 @@ void MAPP::change_mode(int narg,char** args)
     int new_mode;
     if(strcmp(args[1],"md")==0)
     {
-        new_mode=MD;
+        new_mode=MD_mode;
         if(atoms->my_p_no==0)
             printf("mode set to md\n");
     }
     else if(strcmp(args[1],"dmd")==0)
     {
-        new_mode=DMD;
+        new_mode=DMD_mode;
         if(atoms->my_p_no==0)
             printf("mode set to dmd\n");
     }
@@ -603,118 +604,70 @@ int MAPP::hash_remover(char* line,char*& newline)
     return narg;
 }
 /*--------------------------------------------
+ hash sign remover:
+ it removes the statement after hash sign,
+ replaces the withe spaces with space;
+ for example:
+ line=
+ "  this  is a    test, #here is comment";
+ will be converted to:
+ newline=
+ "this is a test,";
+ narg=4;
+ --------------------------------------------*/
+void MAPP::concatenate(int narg,char** args
+,char*& line)
+{
+    int lngth=0;
+    int pos=0;
+    for(int i=0;i<narg;i++)
+        lngth+=static_cast<int>(strlen(args[i]));
+    
+    lngth+=narg;
+    CREATE1D(line,lngth);
+    for(int i=0;i<narg;i++)
+    {
+        lngth=static_cast<int>(strlen(args[i]));
+        for(int j=0;j<lngth;j++)
+        {
+            line[pos]=args[i][j];
+            pos++;
+        }
+        
+        if(i!=narg-1)
+        {
+            line[pos]=' ';
+            pos++;
+        }
+        else
+        {
+            line[pos]='\0';
+            pos++;
+        }
+    }
+}
+/*--------------------------------------------
  test
  --------------------------------------------*/
 void MAPP::test()
 {
+    /*
+    int no_vecs=atoms->no_vecs;
+    int* vecs;
+    VecLst* list;
     
+    CREATE1D(vecs,no_vecs);
     
-    int input_file_chk=1;
-    char* line;
-    int lngth;
-    int size=5;
-    int incrs=5;
-    CREATE1D(line,size);
-    int no_chars=5;
-    int pos;
-    int new_size;
+    for(int i=0;i<no_vecs;i++)
+        vecs[i]=i;
     
-    while (input_file_chk)
-    {
-        if(atoms->my_p_no==0)
-        {
-            
-            
-            pos=0;
-            fgets(&line[pos],no_chars,input_file);
-            
-            
-            lngth=static_cast<int>(strlen(line));
-            while(line[lngth-1]!='\n')
-            {
-
-                
-                GROW(line,size,size+incrs-1);
-                pos=lngth-1;
-                fgets(&line[pos],incrs,input_file);
-                size+=incrs-1;
-                lngth=static_cast<int>(strlen(line));
-            }
-            
-            
-            char* ll=NULL;
-            ll=strchr(line,'>');
-            if(ll!=NULL)
-            {
-                pos=static_cast<int>(ll-line);
-                new_size=pos+size;
-                GROW(line,size,new_size);
-                
-            }
-            
-            if(feof(input_file))
-                input_file_chk=0;
-        }
-    }
+    list=new VecLst(this,vecs,no_vecs);
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    int max_line_char=1024;
-    size=max_line_char;
-    
-    CREATE1D(line,max_line_char);
-    
-    char* srch=NULL;
-    pos=0;
-    int line_complt=0;
-    
-    
-    pos=0;
-    line_complt=0;
-    while (line_complt==0)
-    {
-        fgets(&line[pos],size-pos,input_file);
-        lngth=static_cast<int>(strlen(line));
-        while(line[lngth-1]!='\n')
-        {
-            pos=lngth;
-            GROW(line,size,pos+max_line_char);
-            size=pos+max_line_char;
-            fgets(&line[pos],lngth-pos,input_file);
-        }
-        srch=NULL;
-        srch=strchr(line,'>');
-        if(srch==NULL)
-        {
-            line_complt=1;
-        }
-        else
-        {
-            pos=static_cast<int>(srch-line);
-            GROW(line,size,pos+max_line_char);
-            size=pos+max_line_char;
-        }
-    }
-    
-    
-    
-    
-   
-    
-    
-    
-    
-    
+    atoms->reset_comm(list);
+        
+    if(no_vecs)
+        delete [] vecs;
+    delete [] list;
+     */
 }
 

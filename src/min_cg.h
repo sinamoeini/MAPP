@@ -7,7 +7,7 @@
 #include <iostream>
 #include "min.h"
 namespace MAPP_NS {
-    class Min_CG : public Min {
+    class Min_cg : public Min {
     private:
     protected:
         int f_prev_n;
@@ -23,8 +23,8 @@ namespace MAPP_NS {
         TYPE0** f_H;
         TYPE0** h_H;
     public:
-        Min_CG(MAPP *,int,char**);
-        ~Min_CG();
+        Min_cg(MAPP *,int,char**);
+        ~Min_cg();
         void run();
         void init();
         void fin();

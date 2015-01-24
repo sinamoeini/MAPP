@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 namespace MAPP_NS {
-    enum {MD,VG,DMD};
+    enum {MD_mode,DMD_mode};
     class MAPP {
     private:
     protected:
@@ -50,9 +50,10 @@ namespace MAPP_NS {
         void write_style(int,char**);
         void command_style(int,char**);
         void change_mode(int,char**);
+        
         int parse_line(char*,char**&);
         int hash_remover(char*,char*&);
-        
+        void concatenate(int,char**,char*&);
         void test();
     };
 

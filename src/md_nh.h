@@ -3,17 +3,17 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #ifdef MD_Style
-    MDStyle(MD_NH,nh)
+    MDStyle(MD_nh,nh)
 #else
-#ifndef __MAPP__NH__
-#define __MAPP__NH__
+#ifndef __MAPP__md_nh__
+#define __MAPP__md_nh__
 #include "init.h"
 #include "atoms.h"
 #include "thermo_dynamics.h"
 #include "md.h"
 #include <iostream>
 namespace MAPP_NS {
-    class MD_NH : public MD{
+    class MD_nh : public MD{
     private:
         int x_n,x_d_n,f_n,type_n,id_n,dof_n;
         TYPE0 MTK_1,MTK_2;
@@ -62,19 +62,13 @@ namespace MAPP_NS {
         TYPE0* x_ave_tot;
         
         VecLst* vecs_comm;
-        class ThermoDynamics* thermo;
         
-        
-        int pe_idx;
-        int ke_idx;
-        int temp_idx;
-        int stress_idx;
         int omega_denom;
         int x_dim,x_d_dim,f_dim,dof_dim;
     protected:
     public:
-        MD_NH(MAPP *,int,char**);
-        ~MD_NH();
+        MD_nh(MAPP *,int,char**);
+        ~MD_nh();
         void init();
         void fin();
         void run(int);

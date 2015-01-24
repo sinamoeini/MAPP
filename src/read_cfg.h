@@ -34,11 +34,12 @@ namespace MAPP_NS {
         int last_type;
         
         void read_header();
-        void read_atom();
+        void read_atom_md();
         void read_atom_dmd();
         void M3sqroot(TYPE0**,TYPE0**);
         void set_box();
-        void add_atom_read_x(int,TYPE0*);
+        void add_atom_read_x(int);
+        void add_atom_read_x();
         
         int type_n,x_n,x_d_n,id_n,c_n;
         int ch_x_d,ch_type,ch_id,ch_c;
@@ -47,6 +48,9 @@ namespace MAPP_NS {
         int curr_id;
         char* ch_buff;
         VecLst* vec_list;
+        
+        TYPE0* tmp_buff;
+        int tmp_buff_size;
     protected:
     public:
         ReadCFG(MAPP *,int,char**);

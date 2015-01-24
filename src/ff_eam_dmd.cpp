@@ -10,7 +10,7 @@ enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 ForceField_EAM_DMD::
 ForceField_EAM_DMD(MAPP* mapp) : ForceField(mapp)
 {
-    if(mapp->mode!=DMD)
+    if(mapp->mode!=DMD_mode)
         error->abort("this forcefield works only with dmd mode");
     
     no_i=0;
@@ -2412,8 +2412,8 @@ void ForceField_EAM_DMD::c_d_calc()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD::calc_g(int chk,TYPE0 alpha,
-                                TYPE0* a,TYPE0* g)
+TYPE0 ForceField_EAM_DMD::g_calc(int chk,TYPE0 alpha,
+TYPE0* a,TYPE0* g)
 {
     TYPE0* x;
     atoms->vectors[x_n].ret(x);

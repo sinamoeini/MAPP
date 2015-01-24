@@ -8,7 +8,7 @@ MinStyle(Min_LBFGS,l-bfgs)
 #include <iostream>
 #include "min.h"
 namespace MAPP_NS {
-    class Min_LBFGS :public Min
+    class Min_lbfgs :public Min
     {
     private:
     protected:
@@ -34,8 +34,8 @@ namespace MAPP_NS {
         TYPE0** f_H;
         TYPE0** h_H;
     public:
-        Min_LBFGS(MAPP *,int,char**);
-        ~Min_LBFGS();
+        Min_lbfgs(MAPP *,int,char**);
+        ~Min_lbfgs();
         void run();
         void init();
         void fin();

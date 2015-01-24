@@ -14,7 +14,8 @@ using namespace MAPP_NS;
 Min::Min(MAPP* mapp):InitPtrs(mapp)
 {
     if(forcefield==NULL)
-        error->abort("force field is not initiated");
+        error->abort("ff should be "
+        "initiated before min");
     
     
     chng_box=0;
@@ -24,10 +25,10 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
     char** args;
     
     int narg;
-    if(mapp->mode==MD)
+    if(mapp->mode==MD_mode)
         narg=mapp->parse_line((char*)
         "PE S_xx S_yy S_zz S_yz S_zx S_xy",args);
-    else if (mapp->mode==DMD)
+    else if (mapp->mode==DMD_mode)
         narg=mapp->parse_line((char*)
         "FE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     

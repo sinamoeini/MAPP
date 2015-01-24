@@ -17,8 +17,9 @@ enum{FCC,BCC,HCP,DIM,DIAMOND,B1,C11,L12,B2};
 ForceField_meam::
 ForceField_meam(MAPP* mapp):ForceField(mapp)
 {
-    if(mapp->mode!=MD)
-        error->abort("this forcefield works only with md mode");
+    if(mapp->mode!=MD_mode)
+        error->abort("ff meam works only "
+        "for md mode");
     
     max_pairs=0;
     int no_types=atom_types->no_types;
@@ -33,9 +34,9 @@ ForceField_meam(MAPP* mapp):ForceField(mapp)
             CREATE1D(c_max[i],no_types);
         }
         
-        for(int j=0;j<no_types;j++)
+        for(int i=0;i<no_types;i++)
         {
-            for(int i=0;i<no_types;i++)
+            for(int j=0;j<no_types;j++)
             {
                 CREATE1D(c_min[i][j],no_types);
                 CREATE1D(c_max[i][j],no_types);
@@ -338,7 +339,7 @@ void ForceField_meam::G_gam(TYPE0 Gamma,int ibar
         }
     }
     else
-        error->abort("ibar error in MEAM");
+    {}
 }
 /*--------------------------------------------
  dG_gam
@@ -387,7 +388,7 @@ void ForceField_meam::dG_gam(TYPE0 Gamma,int ibar
         }
     }
     else
-        error->abort("ibar error in MEAM");
+    {}
 }
 /*--------------------------------------------
  fcut
@@ -505,7 +506,7 @@ get_shpfcn(TYPE0* s,int latt)
         s[2]=0.4;
     }
     else
-        error->abort("unknown lattice in meam");
+    {}
 }
 /*--------------------------------------------
  Zij
@@ -588,7 +589,8 @@ TYPE0& S,int latt,TYPE0 cmin,TYPE0 cmax)
         a=2.0/sqrt(3.0);
         num=4;
     }
-    else error->abort("wrong type");
+    else
+    {}
     
     TYPE0 C=4.0/(a*a)-1.0;
     TYPE0 x=(C-cmin)/(cmax-cmin);
@@ -764,378 +766,7 @@ void ForceField_meam::force_calc
 
     
     int istart=0;
-    /*
-    for(int iatm=0;iatm<atoms->natms;iatm++)
-    {
-        my_list_size=neighbor->neighbor_list_size[iatm];
-        my_list=neighbor->neighbor_list[iatm];
-        icomp=iatm*3;
-        icomp_rho=iatm*rho_dim;
-        itype=type[iatm];
-        for(int jn=0;jn<my_list_size;jn++)
-        {
-            jatm=my_list[jn];
-            if(jatm>iatm)
-            {
-                fcpair[istart]=scrfcn[istart]=dscrfcn[istart]=0.0;
-                jtype=type[jatm];
-                jcomp=jatm*3;
-                jcomp_rho=jatm*rho_dim;
-                
-                xij=x[icomp]-x[jcomp];
-                yij=x[icomp+1]-x[jcomp+1];
-                zij=x[icomp+2]-x[jcomp+2];
-                delij[0]=-xij;
-                delij[1]=-yij;
-                delij[2]=-zij;
-                rij2=xij*xij+yij*yij+zij*zij;
-                rij=sqrt(rij2);
-                
-                if(rij<rc_meam)
-                {
-                    rnorm=(rc_meam-rij)*delr_meam_inv;
-                    sij=1.0;
-                    dsij=0.0;
-                    rbound = ebound_meam[itype][jtype]*rij2;
-                    
-                    kn=0;
-                    dfcut(rnorm,fcij,dfcij);
-                    dfcij*=delr_meam_inv;
-                    while(kn<my_list_size && sij!=0.0)
-                    {
-                        katm=my_list[kn];
-                        
-                        if(katm!=jatm)
-                        {
-                            ktype=type[katm];
-                            kcomp=3*katm;
-                            
-                            xjk=x[jcomp]-x[kcomp];
-                            yjk=x[jcomp+1]-x[kcomp+1];
-                            zjk=x[jcomp+2]-x[kcomp+2];
-                            rjk2=xjk*xjk+yjk*yjk+zjk*zjk;
-                            
-                            if(rjk2<rbound)
-                            {
-                                xki=x[kcomp]-x[icomp];
-                                yki=x[kcomp+1]-x[icomp+1];
-                                zki=x[kcomp+2]-x[icomp+2];
-                                rki2=xki*xki+yki*yki+zki*zki;
-                                
-                                if(rki2<rbound)
-                                {
-                                    x_ki=rki2/rij2;
-                                    x_jk=rjk2/rij2;
-                                    a=1.0-(x_ki-x_jk)*(x_ki-x_jk);
-                                    if(a>0)
-                                    {
-                                        cikj=(2.0*(x_ki+x_jk)+a-2.0)/a;
-                                        cmax=c_max[itype][jtype][ktype];
-                                        cmin=c_min[itype][jtype][ktype];
-                                        if(cikj<cmax&&cikj>cmin)
-                                        {
-                                            cikj=(cikj-cmin)/(cmax-cmin);
-                                            dfcut(cikj,sikj,dfikj);
-                                            sij*=sikj;
-                                            coef1=dfikj/((cmax-cmin)*sikj);
-                                            dCfunc(rij2,rki2,rjk2,dcikj);
-                                            dsij+=coef1*dcikj;
-                                        }
-                                        else if(cikj<cmin)
-                                        {
-                                            sij=0.0;
-                                            dsij=0.0;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        kn++;
-                    }
-                    coef1=sij*fcij;
-                    coef2=sij*dfcij/rij;
-                    dsij*=coef1;
-                    dsij-=coef2;
-                    if(sij==1.0 || sij==0.0)
-                        dsij=0.0;
-                    if(sij*fcij==1.0 || sij*fcij==0.0)
-                        dsij=0.0;
-                }
-                else
-                {
-                    fcij=0.0;
-                    dfcij=0.0;
-                    sij=0.0;
-                    dsij=0.0;
-                }
-                
-                fcpair[istart]=fcij;
-                scrfcn[istart]=sij;
-                dscrfcn[istart]=dsij;
-                
-                if(sij*fcij!=0.0)
-                {
-                    sij*=fcij;
-                    ai=rij/re_meam[itype][itype]-1.0;
-                    aj=rij/re_meam[jtype][jtype]-1.0;
-                    ro0i=rho0_meam[itype];
-                    ro0j=rho0_meam[jtype];
-                    
-                    rhoa0i=sij*ro0i*exp(-beta0_meam[itype]*ai);
-                    rhoa1i=sij*ro0i*exp(-beta1_meam[itype]*ai);
-                    rhoa2i=sij*ro0i*exp(-beta2_meam[itype]*ai);
-                    rhoa3i=sij*ro0i*exp(-beta3_meam[itype]*ai);
-                    
-                    rhoa0j=sij*ro0j*exp(-beta0_meam[jtype]*aj);
-                    rhoa1j=sij*ro0j*exp(-beta1_meam[jtype]*aj);
-                    rhoa2j=sij*ro0j*exp(-beta2_meam[jtype]*aj);
-                    rhoa3j=sij*ro0j*exp(-beta3_meam[jtype]*aj);
-                    
-                    
-                    if(ialloy==1)
-                    {
-                        rhoa1i*=t1_meam[itype];
-                        rhoa2i*=t2_meam[itype];
-                        rhoa3i*=t3_meam[itype];
-                        
-                        rhoa1j*=t1_meam[jtype];
-                        rhoa2j*=t2_meam[jtype];
-                        rhoa3j*=t3_meam[jtype];
-                    }
-                    
-                    rho[icomp_rho]+=rhoa0j;
-                    if(jatm<atoms->natms)
-                        rho[jcomp_rho]+=rhoa0i;
-                    
-                    
-                    if(ialloy!=2)
-                    {
-                        
-                        rho[icomp_rho+27]+=t1_meam[jtype]*rhoa0j;
-                        rho[icomp_rho+28]+=t2_meam[jtype]*rhoa0j;
-                        rho[icomp_rho+29]+=t3_meam[jtype]*rhoa0j;
-                        if(jatm<atoms->natms)
-                        {
-                            rho[jcomp_rho+27]+=t1_meam[itype]*rhoa0i;
-                            rho[jcomp_rho+28]+=t2_meam[itype]*rhoa0i;
-                            rho[jcomp_rho+29]+=t3_meam[itype]*rhoa0i;
-                        }
-                        
-                    }
-                    if(ialloy==1)
-                    {
-                        
-                        rho[icomp_rho+30]+=t1_meam[jtype]*t1_meam[jtype]*rhoa0j;
-                        rho[icomp_rho+31]+=t2_meam[jtype]*t2_meam[jtype]*rhoa0j;
-                        rho[icomp_rho+32]+=t3_meam[jtype]*t3_meam[jtype]*rhoa0j;
-                        if(jatm<atoms->natms)
-                        {
-                            rho[jcomp_rho+30]+=t1_meam[itype]*t1_meam[itype]*rhoa0i;
-                            rho[jcomp_rho+31]+=t2_meam[itype]*t2_meam[itype]*rhoa0i;
-                            rho[jcomp_rho+32]+=t3_meam[itype]*t3_meam[itype]*rhoa0i;
-                        }
-                    }
-                    
-                    rho[icomp_rho+13]+=rhoa2j;
-                    if(jatm<atoms->natms)
-                        rho[jcomp_rho+13]+=rhoa2i;
-                    
-                    
-                    iArho1_comp=icomp_rho+4;
-                    iArho2_comp=icomp_rho+7;
-                    iArho3_comp=icomp_rho+14;
-                    iArhob3_comp=icomp_rho+24;
-                    
-                    jArho1_comp=jcomp_rho+4;
-                    jArho2_comp=jcomp_rho+7;
-                    jArho3_comp=jcomp_rho+14;
-                    jArhob3_comp=jcomp_rho+24;
-                    
-                    A1j=rhoa1j/rij;
-                    B1j=rhoa3j/rij;
-                    A2j=rhoa2j/rij2;
-                    A3j=rhoa3j/(rij2*rij);
-                    
-                    for(int i=0;i<3;i++)
-                    {
-                        rho[iArho1_comp++]+=delij[i]*A1j;
-                        rho[iArhob3_comp++]+=delij[i]*B1j;
-                        for(int j=i;j<3;j++)
-                        {
-                            rho[iArho2_comp++]+=delij[i]*delij[j]*A2j;
-                            for(int k=j;k<3;k++)
-                            {
-                                rho[iArho3_comp++]+=delij[i]*delij[j]*delij[k]*A3j;
-                            }
-                        }
-                    }
-                    
-                    
-                    if(jatm<atoms->natms)
-                    {
-                        
-                        A1i=rhoa1i/rij;
-                        B1i=rhoa3i/rij;
-                        A2i=rhoa2i/rij2;
-                        A3i=rhoa3i/(rij2*rij);
-                        
-                        for(int i=0;i<3;i++)
-                        {
-                            rho[jArho1_comp++]-=delij[i]*A1i;
-                            rho[jArhob3_comp++]-=delij[i]*B1i;
-                            for(int j=i;j<3;j++)
-                            {
-                                rho[jArho2_comp++]+=delij[i]*delij[j]*A2i;
-                                for(int k=j;k<3;k++)
-                                {
-                                    rho[jArho3_comp++]-=delij[i]*delij[j]*delij[k]*A3i;
-                                }
-                            }
-                        }
-                    }
-                    
-                }
-                
-                istart++;
-            }
-        }
-        
-        
-        
-        rho[icomp_rho+1]=0.0;
-        rho[icomp_rho+2]=-rho[icomp_rho+13]*rho[icomp_rho+13]/3.0;
-        rho[icomp_rho+3]=0.0;
-        for(int i=0;i<3;i++)
-        {
-            rho[icomp_rho+1]+=rho[icomp_rho+4+i]*rho[icomp_rho+4+i];
-            rho[icomp_rho+3]-=0.6*rho[icomp_rho+24+i]*rho[icomp_rho+24+i];
-        }
-        
-        for(int i=0;i<6;i++)
-        {
-            rho[icomp_rho+2]+=v2d[i]*rho[icomp_rho+7+i]*rho[icomp_rho+7+i];
-        }
-        
-        for(int i=0;i<10;i++)
-        {
-            rho[icomp_rho+3]+=v3d[i]*rho[icomp_rho+14+i]*rho[icomp_rho+14+i];
-        }
-        
-        if(rho[icomp_rho]>0.0)
-        {
-            if(ialloy==1)
-            {
-                rho[icomp_rho+27]=rho[icomp_rho+27]/rho[icomp_rho+30];
-                rho[icomp_rho+28]=rho[icomp_rho+28]/rho[icomp_rho+31];
-                rho[icomp_rho+29]=rho[icomp_rho+29]/rho[icomp_rho+32];
-            }
-            else if(ialloy==2)
-            {
-                rho[icomp_rho+27]=t1_meam[itype];
-                rho[icomp_rho+28]=t2_meam[itype];
-                rho[icomp_rho+29]=t3_meam[itype];
-            }
-            else
-            {
-                rho[icomp_rho+27]=rho[icomp_rho+27]/rho[icomp_rho];
-                rho[icomp_rho+28]=rho[icomp_rho+28]/rho[icomp_rho];
-                rho[icomp_rho+29]=rho[icomp_rho+29]/rho[icomp_rho];
-            }
-        }
-        
-        
-        rho[icomp_rho+33]=rho[icomp_rho+27]*rho[icomp_rho+1]
-        +rho[icomp_rho+28]*rho[icomp_rho+2]+rho[icomp_rho+29]*rho[icomp_rho+3];
-        
-        if(rho[icomp_rho]>0.0)
-            rho[icomp_rho+33]=rho[icomp_rho+33]/(rho[icomp_rho]*rho[icomp_rho]);
-        
-        
-        
-        Z=Z_meam[itype];
-        
-        G_gam(rho[icomp_rho+33],ibar_meam[itype],gsmooth_factor,G);
-        
-        if(ibar_meam[itype]<=0)
-            Gbar=1.0;
-        else
-        {
-            get_shpfcn(s,lattice[itype][itype]);
-            if(mix_ref_t==1)
-                gam=(rho[icomp_rho+27]*s[0]+rho[icomp_rho+28]*s[1]+rho[icomp_rho+29]*s[2])/(Z*Z);
-            else
-                gam=(t1_meam[itype]*s[0]+t2_meam[itype]*s[1]+t3_meam[itype]*s[2])/(Z*Z);
-            
-            G_gam(gam,ibar_meam[itype],gsmooth_factor,Gbar);
-        }
-        
-        rho_vec[iatm]=rho[icomp_rho]*G;
-        
-        if(mix_ref_t==1)
-        {
-            if(ibar_meam[itype]<=0.0)
-            {
-                Gbar=1.0;
-                dGbar=0.0;
-            }
-            else
-            {
-                get_shpfcn(s,lattice[itype][itype]);
-                gam=(rho[icomp_rho+27]*s[0]+rho[icomp_rho+28]*s[1]+rho[icomp_rho+29]*s[2])/(Z*Z);
-                dG_gam(gam,ibar_meam[itype],gsmooth_factor,Gbar,dGbar);
-            }
-            rho_bkgd=rho0_meam[itype]*Z*Gbar;
-        }
-        else
-        {
-            if(bkgd_dyn==1)
-            {
-                rho_bkgd=rho0_meam[itype]*Z;
-            }
-            else
-                rho_bkgd=rho_ref_meam[itype];
-        }
-        
-        rhob=rho_vec[iatm]/rho_bkgd;
-        denom=1.0/rho_bkgd;
-        dG_gam(rho[icomp_rho+33],ibar_meam[itype],gsmooth_factor,G,dG);
-        rho[icomp_rho+34]=(G-2.0*dG*rho[icomp_rho+33])*denom;
-        
-        if(rho[icomp_rho]!=0)
-            rho[icomp_rho+35]=(dG/rho[icomp_rho])*denom;
-        else
-            rho[icomp_rho+35]=0.0;
-        
-        if(mix_ref_t==1)
-            rho[icomp_rho+36]=rho[icomp_rho]*G*dGbar*denom/(Gbar*Z*Z);
-        else
-            rho[icomp_rho+36]=0.0;
-        
-        B=A_meam[itype]*Ec_meam[itype][itype];
-        
-        if(rhob!=0.0)
-        {
-            if(emb_lin_neg==1 && rhob<=0.0)
-            {
-                rho[icomp_rho+37]=-B;
-                nrgy_strss[0]-=B*rhob;
-            }
-            else
-            {
-                rho[icomp_rho+37]=B*(log(rhob)+1.0);
-                nrgy_strss[0]+=B*rhob*log(rhob);
-            }
-        }
-        else
-        {
-            if(emb_lin_neg==1)
-                rho[icomp_rho+37]=-B;
-            else
-                rho[icomp_rho+37]=B;
-        }
-        
-    }
-    */
+
     
     
 
@@ -2593,9 +2224,10 @@ TYPE0 ForceField_meam::energy_calc()
 void ForceField_meam::coef(int narg,char** args)
 {
     if(narg!=3)
-        error->abort("wrong coeff command for MEAM FF");
-    read_global(args[1]);
+        error->abort("ff_coef for ff meam "
+        "should have at least 2 arguments");
     
+    read_global(args[1]);
     read_local(args[2]);
     
     int no_types=atom_types->no_types;
@@ -2608,19 +2240,7 @@ void ForceField_meam::coef(int narg,char** args)
     dr_inv=1.0/dr;
     compute_pair_meam();
     
-    /*
-    for(int i=0;i<nr;i++)
-        printf("%20.16lf \n",phirar[0][i][0]);
-    */
-/*
-    printf("eeee  %26.20lf\n",zbl(2.1,ielt_meam[0],ielt_meam[0]));
-    printf("eeee  %26.20lf\n",zbl(2.1,ielt_meam[1],ielt_meam[0]));
-    printf("eeee  %26.20lf\n",zbl(2.1,ielt_meam[1],ielt_meam[1]));
-*/
-    /*
-    for(int i=0;i<nr;i++)
-        printf("%26.20lf\n",phirar[0][i][0]);
-    */
+
 }
 /*--------------------------------------------
  reset the vectors
@@ -2659,6 +2279,7 @@ void ForceField_meam::reset()
  --------------------------------------------*/
 void ForceField_meam::read_global(char* file_name)
 {
+    int ibar;
     FILE* fp=NULL;
     if(atoms->my_p_no==0)
     {
@@ -2714,7 +2335,8 @@ void ForceField_meam::read_global(char* file_name)
         if(nargs)
         {
             if(nargs+no_param_args>19)
-                error->abort("wrong number of arguments");
+                error->abort("invalid number of "
+                "parameters in %s file for %s",file_name,args[0]);
             
             for(int i=0;i<nargs;i++)
             {
@@ -2757,7 +2379,8 @@ void ForceField_meam::read_global(char* file_name)
                 else if(strcmp(param_args[1],"hcp")==0) lattice[itype][itype]=HCP;
                 else if(strcmp(param_args[1],"dim")==0) lattice[itype][itype]=DIM;
                 else if(strcmp(param_args[1],"dia")==0) lattice[itype][itype]=DIAMOND;
-                else error->abort("unknown lattice");
+                else error->abort("invalid lattice type in "
+                "%s file for %s: %s",file_name,param_args[0],param_args[1]);
                 
                 Z_meam[itype]=atof(param_args[2]);
                 ielt_meam[itype]=atoi(param_args[3]);
@@ -2778,6 +2401,10 @@ void ForceField_meam::read_global(char* file_name)
                     re_meam[itype][itype]=atof(param_args[10]);
                 else if(lattice[itype][itype]==DIAMOND)
                     re_meam[itype][itype]=atof(param_args[10])*0.25*sqrt(3.0);
+
+                if(re_meam[itype][itype]>0.0)
+                    error->abort("re in %s file for %s"
+                    " should be greater than 0.0",file_name,param_args[0]);
                 
                 Ec_meam[itype][itype]=atof(param_args[11]);
                 A_meam[itype]=atof(param_args[12]);
@@ -2787,6 +2414,12 @@ void ForceField_meam::read_global(char* file_name)
                 t3_meam[itype]=atof(param_args[16]);
                 rho0_meam[itype]=atof(param_args[17]);
                 ibar_meam[itype]=atoi(param_args[18]);
+                
+                ibar=ibar_meam[itype];
+                if(ibar!=-5 || ibar!=0 || ibar!=1 || ibar!=3 || ibar!=4)
+                    error->abort("ibar in %s file for %s "
+                    "can only be -5 or 0 or 1 or 3 or 4",file_name,param_args[0]);
+                
             }
             
             for(int i=0;i<19;i++)
@@ -2848,8 +2481,6 @@ void ForceField_meam::read_global(char* file_name)
     rc_meam=4.0;
     gsmooth_factor=99.0;
     
-    
-    
 }
 /*--------------------------------------------
  read the global file and broad cast the
@@ -2871,7 +2502,8 @@ void ForceField_meam::read_local(char* file_name)
     int lenght;
     char* line;
     CREATE1D(line,MAXCHAR);
-    
+    char* n_line;
+    CREATE1D(n_line,MAXCHAR);
     
     int icomp_0,icomp_1,icomp_2;
     int no_types=atom_types->no_types;
@@ -2891,32 +2523,134 @@ void ForceField_meam::read_local(char* file_name)
         if(atoms->my_p_no==0)
         {
             fgets(line,MAXCHAR,fp);
-            lenght=static_cast<int>(strlen(line))+1;
+            memcpy(n_line,line,MAXCHAR*sizeof(char));
+            lenght=static_cast<int>(strlen(n_line))+1;
             for(int i=0;i<lenght;i++)
-                if(line[i]=='\'' ||
-                   line[i]==','  ||
-                   line[i]=='('  ||
-                   line[i]==')'  ||
-                   line[i]=='=')
-                    line[i]=' ';
+                if(n_line[i]=='\'' ||
+                   n_line[i]==','  ||
+                   n_line[i]=='('  ||
+                   n_line[i]==')'  ||
+                   n_line[i]=='=')
+                    n_line[i]=' ';
         }
         MPI_Bcast(&lenght,1,MPI_INT,0,world);
+        MPI_Bcast(n_line,lenght,MPI_CHAR,0,world);
         MPI_Bcast(line,lenght,MPI_CHAR,0,world);
-        nargs=mapp->parse_line(line,args);
+        nargs=mapp->parse_line(n_line,args);
 
         if(nargs)
         {
-            if(strcmp(args[0],"Ec")==0)
+            if(0){}
+            /*
+             0 dimensional values
+             */
+            else if(strcmp(args[0],"emb_lin_neg")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                emb_lin_neg=atoi(args[1]);
+                if(emb_lin_neg<0 || emb_lin_neg>1)
+                    error->abort("emb_lin_neg in %s file can only be 0 or 1",file_name);
+            }
+            else if(strcmp(args[0],"bkgd_dyn")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                bkgd_dyn=atoi(args[1]);
+                if(bkgd_dyn<0 || bkgd_dyn>1)
+                    error->abort("bkgd_dyn in %s file can only be 0 or 1",file_name);
+            }
+            else if(strcmp(args[0],"ialloy")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                ialloy=atoi(args[1]);
+                if(ialloy<0 || ialloy>2)
+                    error->abort("ialloy in %s file can only be 0 or 1 or 2",file_name);
+            }
+            else if(strcmp(args[0],"mixture_ref_t")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                mix_ref_t=atoi(args[1]);
+                if(mix_ref_t<0 || mix_ref_t>1)
+                    error->abort("mixture_ref_t in %s file can only be 0 or 1",file_name);
+            }
+            else if(strcmp(args[0],"erose_form")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                erose_form=atoi(args[1]);
+                if(erose_form<0 || erose_form>2)
+                    error->abort("erose_form in %s file can only be 0 or 1 or 2",file_name);
+            }
+            else if(strcmp(args[0],"augt1")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                augt1=atoi(args[1]);
+                if(ialloy<0 || ialloy>2)
+                    error->abort("augt1 in %s file can only be 0 or 1 or 2",file_name);
+            }
+            else if(strcmp(args[0],"rc")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                rc_meam=atof(args[1]);
+                if(rc_meam<=0.0)
+                    error->abort("rc in %s file should be greater than 0.0",file_name);
+            }
+            else if(strcmp(args[0],"delr")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                delr_meam=atof(args[1]);
+                if(delr_meam<=0.0)
+                    error->abort("delr in %s file should be greater than 0.0",file_name);
+            }
+            else if(strcmp(args[0],"gsmooth_factor")==0)
+            {
+                if(nargs!=2)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                gsmooth_factor=atof(args[1]);
+                if(gsmooth_factor<0.5 || gsmooth_factor>99.0)
+                    error->abort("gsmooth_factor in %s file should be between 0.5 & 99.0",file_name);
+            }
+            /*
+             end of 0 dimensional values
+             */
+            /*
+            1 dimensional values
+             */
+            else if(strcmp(args[0],"rho0")==0)
+            {
+                if(nargs!=3)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                icomp_0=atoi(args[1])-1;
+                
+                if(icomp_0<0 && icomp_0>=no_types)
+                    error->abort("wrong component in %s file for rho0(%i)",file_name,icomp_0+1);
+                icomp_0=type_ref[icomp_0];
+                rho0_meam[icomp_0]=atof(args[2]);
+            }
+            
+            /*
+             end of 1 dimensional values
+             */
+            /*
+             2 dimensional values & symmetric
+             */
+            else if(strcmp(args[0],"Ec")==0)
             {
                 if(nargs!=4)
-                    error->abort("wrong command");
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component in %s file for Ec(%i,%i)",icomp_0+1,icomp_1+1);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component in %s file for Ec(%i,%i)",icomp_0+1,icomp_1+1);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 Ec_meam[icomp_0][icomp_1]=atof(args[3]);
@@ -2926,82 +2660,134 @@ void ForceField_meam::read_local(char* file_name)
             else if(strcmp(args[0],"alpha")==0)
             {
                 if(nargs!=4)
-                    error->abort("wrong command");
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component in %s file for alpha(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component in %s file for alpha(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 alpha_meam[icomp_0][icomp_1]=atof(args[3]);
                 alpha_meam[icomp_1][icomp_0]=alpha_meam[icomp_0][icomp_1];
             }
-            else if(strcmp(args[0],"rho0")==0)
+            else if(strcmp(args[0],"lattce")==0)
             {
-                if(nargs!=3)
-                    error->abort("wrong command");
+                if(nargs!=4)
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
+                icomp_1=atoi(args[2])-1;
+                if(icomp_0<0 && icomp_0>=no_types)
+                    error->abort("wrong component in %s file for lattce(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(icomp_1<0 && icomp_1>=no_types)
+                    error->abort("wrong component in %s file for lattce(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                
+                int tmp_latt;
+                if(strcmp(args[3],"fcc")==0) tmp_latt=FCC;
+                else if(strcmp(args[3],"bcc")==0) tmp_latt=BCC;
+                else if(strcmp(args[3],"hcp")==0) tmp_latt=HCP;
+                else if(strcmp(args[3],"dim")==0) tmp_latt=DIM;
+                else if(strcmp(args[3],"dia")==0) tmp_latt=DIAMOND;
+                else if(strcmp(args[3],"b1")==0) tmp_latt=B1;
+                else if(strcmp(args[3],"c11")==0) tmp_latt=C11;
+                else if(strcmp(args[3],"l12")==0) tmp_latt=L12;
+                else if(strcmp(args[3],"b2")==0) tmp_latt=B2;
+                else error->abort("wrong component in %s file for lattce(%i,%i) = %s",file_name,icomp_0+1,icomp_1+1,args[3]);
+
+                icomp_0=type_ref[icomp_0];
+                icomp_1=type_ref[icomp_1];
+                lattice[icomp_1][icomp_0]=lattice[icomp_0][icomp_1]=tmp_latt;
+            }
+            else if(strcmp(args[0],"nn2")==0)
+            {
+                if(nargs!=4)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                icomp_0=atoi(args[1])-1;
+                icomp_1=atoi(args[2])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component in %s file for nn2(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(icomp_1<0 && icomp_1>=no_types)
+                    error->abort("wrong component in %s file for nn2(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(atoi(args[3])<0 || atoi(args[3])>1)
+                    error->abort("nn2(%i,%i) in %s file should be 0 or 1",icomp_0+1,icomp_1+1,file_name);
+                
                 icomp_0=type_ref[icomp_0];
-                rho0_meam[icomp_0]=atof(args[2]);
+                icomp_1=type_ref[icomp_1];
+                nn2_meam[icomp_0][icomp_1]=atoi(args[3]);
+                nn2_meam[icomp_1][icomp_0]=nn2_meam[icomp_0][icomp_1];
+            }
+            else if(strcmp(args[0],"re")==0)
+            {
+                if(nargs!=4)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                icomp_0=atoi(args[1])-1;
+                icomp_1=atoi(args[2])-1;
+                
+                if(icomp_0<0 && icomp_0>=no_types)
+                    error->abort("wrong component in %s file for re(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(icomp_1<0 && icomp_1>=no_types)
+                    error->abort("wrong component in %s file for re(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(atof(args[3])<=0.0)
+                    error->abort("re(%i,%i) in %s file should be greater than 0.0",icomp_0+1,icomp_1+1,file_name);
+                icomp_0=type_ref[icomp_0];
+                icomp_1=type_ref[icomp_1];
+                re_meam[icomp_0][icomp_1]=atof(args[3]);
+                re_meam[icomp_1][icomp_0]=re_meam[icomp_0][icomp_1];
+            }
+            /*
+             end of 2 dimensional values & symmetric
+             */
+            /*
+             2 dimensional values & non-symmetric
+             */
+            else if(strcmp(args[0],"zbl")==0)
+            {
+                if(nargs!=4)
+                    error->abort("invalid line in %s file: %s",file_name,line);
+                
+                icomp_0=MIN(atoi(args[1]),atoi(args[2]))-1;
+                icomp_1=MAX(atoi(args[1]),atoi(args[2]))-1;
+                
+                if(icomp_0<0 && icomp_0>=no_types)
+                    error->abort("wrong component in %s file for zbl(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(icomp_1<0 && icomp_1>=no_types)
+                    error->abort("wrong component in %s file for zbl(%i,%i)",file_name,icomp_0+1,icomp_1+1);
+                if(atoi(args[3])<0 || atoi(args[3])>1)
+                    error->abort("zbl(%i,%i) in %s file should be 0 or 1",icomp_0+1,icomp_1+1,file_name);
+                icomp_0=type_ref[icomp_0];
+                icomp_1=type_ref[icomp_1];
+                zbl_meam[icomp_0][icomp_1]=atoi(args[3]);
             }
             else if(strcmp(args[0],"delta")==0)
             {
                 if(nargs!=4)
-                    error->abort("wrong command");
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component in %s file for delta(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component in %s file for delta(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 delta_meam[icomp_0][icomp_1]=atof(args[3]);
             }
-            else if(strcmp(args[0],"lattce")==0)
-            {
-                if(nargs!=4)
-                    error->abort("wrong command");
-                icomp_0=atoi(args[1])-1;
-                icomp_1=atoi(args[2])-1;
-                if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
-                if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
-                icomp_0=type_ref[icomp_0];
-                icomp_1=type_ref[icomp_1];
-                
-                if(strcmp(args[3],"fcc")==0) lattice[icomp_0][icomp_1]=FCC;
-                else if(strcmp(args[3],"bcc")==0) lattice[icomp_0][icomp_1]=BCC;
-                else if(strcmp(args[3],"hcp")==0) lattice[icomp_0][icomp_1]=HCP;
-                else if(strcmp(args[3],"dim")==0) lattice[icomp_0][icomp_1]=DIM;
-                else if(strcmp(args[3],"dia")==0) lattice[icomp_0][icomp_1]=DIAMOND;
-                else if(strcmp(args[3],"b1")==0) lattice[icomp_0][icomp_1]=B1;
-                else if(strcmp(args[3],"c11")==0) lattice[icomp_0][icomp_1]=C11;
-                else if(strcmp(args[3],"l12")==0) lattice[icomp_0][icomp_1]=L12;
-                else if(strcmp(args[3],"b2")==0) lattice[icomp_0][icomp_1]=B2;
-                else error->abort("unknown lattice %s",args[3]);
-                
-                lattice[icomp_1][icomp_0]=lattice[icomp_0][icomp_1];
-            }
+            
             else if(strcmp(args[0],"attrac")==0)
             {
                 if(nargs!=4)
-                    error->abort("wrong command");
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component in %s file for attrac(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component in %s file for attrac(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 attrac_meam[icomp_0][icomp_1]=atof(args[3]);
@@ -3009,48 +2795,38 @@ void ForceField_meam::read_local(char* file_name)
             else if(strcmp(args[0],"repuls")==0)
             {
                 if(nargs!=4)
-                    error->abort("wrong command: %s",line);
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component in %s file for repuls(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component in %s file for repuls(%i,%i)",file_name,icomp_0+1,icomp_1+1);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 repuls_meam[icomp_0][icomp_1]=atof(args[3]);
             }
-            else if(strcmp(args[0],"nn2")==0)
-            {
-                if(nargs!=4)
-                    error->abort("wrong command");
-                icomp_0=atoi(args[1])-1;
-                icomp_1=atoi(args[2])-1;
-                
-                if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
-                if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
-                icomp_0=type_ref[icomp_0];
-                icomp_1=type_ref[icomp_1];
-                nn2_meam[icomp_0][icomp_1]=atoi(args[3]);
-                nn2_meam[icomp_1][icomp_0]=nn2_meam[icomp_0][icomp_1];
-            }
+            /*
+             end of 2 dimensional values & non-symmetric
+             */
+            /*
+             3 dimensional values
+             */
             else if(strcmp(args[0],"Cmin")==0)
             {
                 if(nargs!=5)
-                    error->abort("wrong command");
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 icomp_2=atoi(args[3])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component for Cmin(%i,%i,%i) in %s file",icomp_0+1,icomp_1+1,icomp_2+1,file_name);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component for Cmin(%i,%i,%i) in %s file",icomp_0+1,icomp_1+1,icomp_2+1,file_name);
                 if(icomp_2<0 && icomp_2>=no_types)
-                    error->abort("unknown component: %i",icomp_2);
+                    error->abort("wrong component for Cmin(%i,%i,%i) in %s file",icomp_0+1,icomp_1+1,icomp_2+1,file_name);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 icomp_2=type_ref[icomp_2];
@@ -3060,109 +2836,28 @@ void ForceField_meam::read_local(char* file_name)
             else if(strcmp(args[0],"Cmax")==0)
             {
                 if(nargs!=5)
-                    error->abort("wrong command");
+                    error->abort("invalid line in %s file: %s",file_name,line);
                 icomp_0=atoi(args[1])-1;
                 icomp_1=atoi(args[2])-1;
                 icomp_2=atoi(args[3])-1;
                 
                 if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
+                    error->abort("wrong component for Cmax(%i,%i,%i) in %s file",icomp_0+1,icomp_1+1,icomp_2+1,file_name);
                 if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
+                    error->abort("wrong component for Cmax(%i,%i,%i) in %s file",icomp_0+1,icomp_1+1,icomp_2+1,file_name);
                 if(icomp_2<0 && icomp_2>=no_types)
-                    error->abort("unknown component: %i",icomp_2);
+                    error->abort("wrong component for Cmax(%i,%i,%i) in %s file",icomp_0+1,icomp_1+1,icomp_2+1,file_name);
                 icomp_0=type_ref[icomp_0];
                 icomp_1=type_ref[icomp_1];
                 icomp_2=type_ref[icomp_2];
                 c_max[icomp_0][icomp_1][icomp_2]=atof(args[4]);
                 c_max[icomp_1][icomp_0][icomp_2]=c_max[icomp_0][icomp_1][icomp_2];
             }
-            else if(strcmp(args[0],"rc")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                rc_meam=atof(args[1]);
-            }
-            else if(strcmp(args[0],"delr")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                delr_meam=atof(args[1]);
-            }
-            else if(strcmp(args[0],"augt1")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                augt1=atoi(args[1]);
-            }
-            else if(strcmp(args[0],"gsmooth_factor")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                gsmooth_factor=atof(args[1]);
-            }
-            else if(strcmp(args[0],"re")==0)
-            {
-                if(nargs!=4)
-                    error->abort("wrong command");
-                icomp_0=atoi(args[1])-1;
-                icomp_1=atoi(args[2])-1;
-                
-                if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
-                if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
-                icomp_0=type_ref[icomp_0];
-                icomp_1=type_ref[icomp_1];
-                re_meam[icomp_0][icomp_1]=atof(args[3]);
-                re_meam[icomp_1][icomp_0]=re_meam[icomp_0][icomp_1];
-            }
-            else if(strcmp(args[0],"ialloy")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                ialloy=atoi(args[1]);
-            }
-            else if(strcmp(args[0],"mixture_ref_t")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                mix_ref_t=atoi(args[1]);
-            }
-            else if(strcmp(args[0],"erose_form")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                erose_form=atoi(args[1]);
-            }
-            else if(strcmp(args[0],"zbl")==0)
-            {
-                error->abort("wrong command");
-                icomp_0=MIN(atoi(args[1]),atoi(args[2]))-1;
-                icomp_1=MAX(atoi(args[1]),atoi(args[2]))-1;
-                
-                if(icomp_0<0 && icomp_0>=no_types)
-                    error->abort("unknown component: %i",icomp_0);
-                if(icomp_1<0 && icomp_1>=no_types)
-                    error->abort("unknown component: %i",icomp_1);
-                icomp_0=type_ref[icomp_0];
-                icomp_1=type_ref[icomp_1];
-                zbl_meam[icomp_0][icomp_1]=atoi(args[3]);
-            }
-            else if(strcmp(args[0],"emb_lin_neg")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                emb_lin_neg=atoi(args[1]);
-            }
-            else if(strcmp(args[0],"bkgd_dyn")==0)
-            {
-                if(nargs!=2)
-                    error->abort("wrong command");
-                emb_lin_neg=atoi(args[1]);
-            }
+            /*
+             end of 3 dimensional values
+             */
             else
-                error->abort("wrong input");
+                error->abort("invalid line in %s file: %s",file_name,line);
             
             
             for(int i=0;i<nargs;i++)
@@ -3179,8 +2874,7 @@ void ForceField_meam::read_local(char* file_name)
         MPI_Bcast(&eof,1,MPI_INT,0,world);
     }
     
-
-    //delete [] args;
+    delete [] n_line;
     delete [] line;
     
     if(atoms->my_p_no==0)

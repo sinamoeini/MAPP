@@ -7,7 +7,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min_CG::Min_CG(MAPP* mapp,int narg,char** arg):Min(mapp)
+Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
 {
         
     CREATE2D(H_dof,dim,dim);
@@ -63,7 +63,7 @@ Min_CG::Min_CG(MAPP* mapp,int narg,char** arg):Min(mapp)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Min_CG::~Min_CG()
+Min_cg::~Min_cg()
 {
     delete thermo;
     for(int i=0;i<dim;i++)
@@ -73,7 +73,7 @@ Min_CG::~Min_CG()
 /*--------------------------------------------
  init before a run
  --------------------------------------------*/
-void Min_CG::init()
+void Min_cg::init()
 {
 
     x_dim=atoms->vectors[0].dim;
@@ -81,7 +81,7 @@ void Min_CG::init()
     if(f_n<0)
         f_n=atoms->add<TYPE0>(0,x_dim,"f");
     
-    if(mapp->mode==DMD)
+    if(mapp->mode==DMD_mode)
         c_type_n=atoms->find("c");
     else
         c_type_n=atoms->find("type");
@@ -97,7 +97,7 @@ void Min_CG::init()
         vecs_comm=new VecLst(mapp,7,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,id_n);
     else
     {
-        if(mapp->mode==MD)
+        if(mapp->mode==MD_mode)
             vecs_comm=new VecLst(mapp,8,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,id_n);
         else
         {
@@ -224,7 +224,7 @@ void Min_CG::init()
 /*--------------------------------------------
  min
  --------------------------------------------*/
-void Min_CG::run()
+void Min_cg::run()
 {
     
     TYPE0* x;
@@ -563,7 +563,7 @@ void Min_CG::run()
 /*--------------------------------------------
  finishing minimization
  --------------------------------------------*/
-void Min_CG::fin()
+void Min_cg::fin()
 {
     forcefield->fin();
     neighbor->fin();

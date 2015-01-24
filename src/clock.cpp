@@ -9,6 +9,13 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Clock::Clock(MAPP* mapp):InitPtrs(mapp)
 {
+    if(forcefield==NULL)
+        error->abort("ff should be "
+        "initiated before clock");
+    
+    if(mapp->mode!=DMD_mode)
+        error->abort("clock works only "
+        "for md mode");
     
     char** args;
     int narg=mapp->parse_line((char*)

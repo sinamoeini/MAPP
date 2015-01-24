@@ -413,7 +413,7 @@ TYPE0 Clock_CN::solve(TYPE0 del_t)
     atoms->update(c_n);
     thermo->stop_comm_time();
     
-    curr_cost=forcefield->calc_g(0,beta,a,g);
+    curr_cost=forcefield->g_calc(0,beta,a,g);
     rectify(g);
     memcpy(h,g,dof_lcl*sizeof(TYPE0));
     
@@ -463,7 +463,7 @@ TYPE0 Clock_CN::solve(TYPE0 del_t)
             thermo->stop_comm_time();
             
             thermo->start_force_time();
-            curr_cost=forcefield->calc_g(0,beta,a,g);
+            curr_cost=forcefield->g_calc(0,beta,a,g);
             rectify(g);
             thermo->stop_force_time();
             
@@ -480,7 +480,7 @@ TYPE0 Clock_CN::solve(TYPE0 del_t)
                 thermo->stop_comm_time();
                 
                 thermo->start_force_time();
-                curr_cost=forcefield->calc_g(1,beta,a,g);
+                curr_cost=forcefield->g_calc(1,beta,a,g);
                 thermo->stop_force_time();
             }
         }

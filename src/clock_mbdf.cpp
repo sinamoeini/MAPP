@@ -533,7 +533,7 @@ TYPE0 Clock_MBDF::solve(TYPE0 del_t,int ord)
     thermo->stop_comm_time();
     
     thermo->start_force_time();
-    curr_cost=forcefield->calc_g(0,beta,a,g);
+    curr_cost=forcefield->g_calc(0,beta,a,g);
     rectify(g);
     thermo->stop_force_time();
     
@@ -585,7 +585,7 @@ TYPE0 Clock_MBDF::solve(TYPE0 del_t,int ord)
             thermo->stop_comm_time();
             
             thermo->start_force_time();
-            curr_cost=forcefield->calc_g(0,beta,a,g);
+            curr_cost=forcefield->g_calc(0,beta,a,g);
             rectify(g);
             thermo->stop_force_time();
             
@@ -602,7 +602,7 @@ TYPE0 Clock_MBDF::solve(TYPE0 del_t,int ord)
                 thermo->stop_comm_time();
                 
                 thermo->start_force_time();
-                curr_cost=forcefield->calc_g(1,beta,a,g);
+                curr_cost=forcefield->g_calc(1,beta,a,g);
                 thermo->stop_force_time();
             }
         }

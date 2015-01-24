@@ -22,7 +22,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min_LBFGS::Min_LBFGS(MAPP* mapp,int narg,char** arg):Min(mapp)
+Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
 {
 
     m_it=2;
@@ -88,7 +88,7 @@ Min_LBFGS::Min_LBFGS(MAPP* mapp,int narg,char** arg):Min(mapp)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Min_LBFGS::~Min_LBFGS()
+Min_lbfgs::~Min_lbfgs()
 {
     delete thermo;
     for(int i=0;i<dim;i++)
@@ -98,14 +98,14 @@ Min_LBFGS::~Min_LBFGS()
 /*--------------------------------------------
  init before a run
  --------------------------------------------*/
-void Min_LBFGS::init()
+void Min_lbfgs::init()
 {
     char* vec_name;
     
     CREATE1D(s_list,m_it);
     CREATE1D(y_list,m_it);
     x_dim=atoms->vectors[0].dim;
-    if(mapp->mode==DMD)
+    if(mapp->mode==DMD_mode)
         c_type_n=atoms->find("c");
     else
         c_type_n=atoms->find("type");
@@ -141,13 +141,13 @@ void Min_LBFGS::init()
         CREATE1D(tmp_lst,2*m_it+7);
     else
     {
-        if(mapp->mode==MD)
+        if(mapp->mode==MD_mode)
         {
             CREATE1D(tmp_lst,2*m_it+8);
             tmp_lst[icurs++]=dof_n;
 
         }
-        else if (mapp->mode==DMD)
+        else if (mapp->mode==DMD_mode)
         {
             CREATE1D(tmp_lst,2*m_it+9);
             tmp_lst[icurs++]=dof_n;
@@ -299,7 +299,7 @@ void Min_LBFGS::init()
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Min_LBFGS::run()
+void Min_lbfgs::run()
 {
     TYPE0* f;
     TYPE0* x;
@@ -788,7 +788,7 @@ void Min_LBFGS::run()
 /*--------------------------------------------
  fin after a run
  --------------------------------------------*/
-void Min_LBFGS::fin()
+void Min_lbfgs::fin()
 {
     forcefield->fin();
     neighbor->fin();

@@ -1,4 +1,3 @@
-
 #include "error.h"
 #include "md.h"
 #include <stdlib.h>
@@ -10,7 +9,26 @@ using namespace MAPP_NS;
 MD::MD(MAPP* mapp):InitPtrs(mapp)
 {
     if(forcefield==NULL)
-        error->abort("force field is not initiated");
+        error->abort("ff should be "
+        "initiated before md");
+    
+    if(mapp->mode!=MD_mode)
+        error->abort("md works only "
+        "for md mode");
+    
+    char** args;
+    int narg=mapp->parse_line((char*)"KE Temp. "
+    "PE S_xx S_yy S_zz S_yz S_zx S_xy",args);
+    ke_idx=0;
+    temp_idx=1;
+    pe_idx=2;
+    stress_idx=3;
+    
+    thermo=new ThermoDynamics(mapp,narg,args);
+    for(int i=0;i<narg;i++)
+        delete [] args[i];
+    delete [] args;
+    
 
 }
 /*--------------------------------------------

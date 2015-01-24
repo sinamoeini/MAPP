@@ -9,9 +9,9 @@ using namespace std;
 CommandFix::CommandFix(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
-    if(mapp->mode==MD)
+    if(mapp->mode==MD_mode)
         md(narg,args);
-    else if(mapp->mode==DMD)
+    else if(mapp->mode==DMD_mode)
         dmd(narg,args);
 }
 /*--------------------------------------------

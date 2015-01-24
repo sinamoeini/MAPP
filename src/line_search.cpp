@@ -232,7 +232,7 @@ int LineSearch_BackTrack::line_min(TYPE0& nrgy,TYPE0& alph)
     TYPE0* h;
     TYPE0* x;
     
-    if(mapp->mode==DMD)
+    if(mapp->mode==DMD_mode)
     {
         atoms->vectors[0].ret(x);
         min_h=INFINITY;

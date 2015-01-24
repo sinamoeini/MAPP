@@ -266,7 +266,7 @@ TYPE0 Clock_Adams::solve(TYPE0 bet)
     min_gamma=1.0e-16;
     int chk;
     
-    curr_cost=forcefield->calc_g(0,delta_t*bet,a,g);
+    curr_cost=forcefield->g_calc(0,delta_t*bet,a,g);
     
     TYPE0 tot_ratio;
     
@@ -328,7 +328,7 @@ TYPE0 Clock_Adams::solve(TYPE0 bet)
             
             atoms->update(c_n);
             
-            curr_cost=forcefield->calc_g(1,delta_t*bet,a,g);
+            curr_cost=forcefield->g_calc(1,delta_t*bet,a,g);
             ideal_cost=cost-slope*max_gamma*g_h;
             if(curr_cost<ideal_cost)
                 chk=0;
@@ -340,7 +340,7 @@ TYPE0 Clock_Adams::solve(TYPE0 bet)
             }
         }
         
-        curr_cost=forcefield->calc_g(0,delta_t*bet,a,g);
+        curr_cost=forcefield->g_calc(0,delta_t*bet,a,g);
         
         
         inner=0.0;

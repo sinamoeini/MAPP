@@ -24,6 +24,7 @@ namespace MAPP_NS {
         
         int add_type(TYPE0,char*);
         int find_type(char*);
+        int find_type_exist(char*);
     };
 }
 #endif /* defined(__MAPP__atom_types__) */

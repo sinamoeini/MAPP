@@ -17,8 +17,10 @@ namespace MAPP_NS {
         TYPE0* sigma;
         TYPE0* epsilon;
         TYPE0* offset;
-        int* chk_coef;
         TYPE0* nrgy_strss;
+        void read_file(char*);
+        int read_line(FILE*,char*&);
+        
     protected:
     public:
         ForceField_lj(MAPP *);
@@ -31,7 +33,7 @@ namespace MAPP_NS {
         int shift;
         
         void create_2nd_neigh_lst(){};
-        TYPE0 calc_g(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
+        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
         void c_d_calc(){};
     };
 }

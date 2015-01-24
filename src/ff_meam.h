@@ -210,7 +210,7 @@ namespace MAPP_NS
         void coef(int,char**);
         
         void create_2nd_neigh_lst(){};
-        TYPE0 calc_g(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
+        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
         void c_d_calc(){};
     };
 }

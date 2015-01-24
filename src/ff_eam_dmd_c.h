@@ -1,5 +1,5 @@
 #ifdef FF_Style
-FFStyle(ForceField_EAM_DMD_C,eam_dmd_c)
+FFStyle(ForceField_eam_dmd_c,eam_dmd_c)
 #else
 
 #ifndef __MAPP__ff_eam_dmd_c__
@@ -11,7 +11,7 @@ FFStyle(ForceField_EAM_DMD_C,eam_dmd_c)
 #include "atoms.h"
 namespace MAPP_NS
 {
-    class ForceField_EAM_DMD_C : public ForceField
+    class ForceField_eam_dmd_c : public ForceField
     {
     private:
         int no_types;
@@ -20,15 +20,17 @@ namespace MAPP_NS
         TYPE0*** phi_r_arr;
         TYPE0*** rho_arr;
         
+
+        
+        int eam_mode;
+        int nr,nrho;
+        TYPE0 dr,drho,dr_inv,drho_inv,rho_max;
+
         void set_setfl(int,char**);
         void set_funcfl(int,char**);
         void set_fs(int,char**);
         int line_read(FILE*,char*&);
         void setup_delta_e(char*);
-        
-        int eam_mode;
-        int nr,nrho;
-        TYPE0 dr,drho,dr_inv,drho_inv,rho_max;
         
         void allocate();
         int allocated;
@@ -36,6 +38,7 @@ namespace MAPP_NS
         
         void set_arrays();
         void interpolate(int,TYPE0,TYPE0**);
+        TYPE0 interpolate(TYPE0*,int,TYPE0,int);
         void interpolate_m(int,TYPE0,TYPE0**);
         
         int** type2rho;
@@ -83,8 +86,8 @@ namespace MAPP_NS
         TYPE0 calc_ent(TYPE0);
         
     public:
-        ForceField_EAM_DMD_C(MAPP *);
-        ~ForceField_EAM_DMD_C();
+        ForceField_eam_dmd_c(MAPP *);
+        ~ForceField_eam_dmd_c();
         void force_calc(int,TYPE0*);
         TYPE0 energy_calc();
         void init();
@@ -92,7 +95,7 @@ namespace MAPP_NS
         void coef(int,char**);
         
         void create_2nd_neigh_lst();
-        TYPE0 calc_g(int,TYPE0,TYPE0*,TYPE0*);
+        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*);
         void c_d_calc();
     };
     

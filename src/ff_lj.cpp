@@ -24,26 +24,20 @@ using namespace MAPP_NS;
 ForceField_lj::
 ForceField_lj(MAPP* mapp) : ForceField(mapp)
 {
-    if(mapp->mode!=MD)
-        error->abort("this forcefield works only with md mode");
+    if(mapp->mode!=MD_mode)
+        error->abort("ff lj works only "
+        "for md mode");
     
-    if(atoms->dimension!=3)
-        error->abort("to use LJ potential, dimension of the box should be 3");
     arr_size=shift=0;
-    
     int no_types=atom_types->no_types;
     
     int size=static_cast<int>((no_types+2)*(no_types+1)/2);
-    GROW(cut_sq,arr_size,size);
-    GROW(cut_sk_sq,arr_size,size);
-    GROW(sigma,arr_size,size);
-    GROW(epsilon,arr_size,size);
-    GROW(offset,arr_size,size);
-    GROW(chk_coef,arr_size,size);
+    CREATE1D(cut_sq,size);
+    CREATE1D(cut_sk_sq,size);
+    CREATE1D(sigma,size);
+    CREATE1D(epsilon,size);
+    CREATE1D(offset,size);
     arr_size=size;
-    
-    for (int i=0;i<arr_size;i++)
-        chk_coef[i]=0;
     
     CREATE1D(nrgy_strss,7);
 }
@@ -59,7 +53,6 @@ ForceField_lj::~ForceField_lj()
         delete [] sigma;
         delete [] epsilon;
         delete [] offset;
-        delete [] chk_coef;
     }
     
     delete [] nrgy_strss;
@@ -112,12 +105,7 @@ void ForceField_lj::coef(int narg,char** arg)
         offset[curs]=0.0;
     }
     
-    chk_coef[curs]=1;
-    
-    if (cut==0.0||sig==0.0||eps==0.0)
-        chk_coef[curs]=0;
-    else
-        chk_coef[curs]=1;
+
 }
 /*--------------------------------------------
  initiate before a run
@@ -128,12 +116,12 @@ void ForceField_lj::init()
     TYPE0 ph_cut=0.0;
     
     for (int i=0;i<arr_size;i++)
-        if (chk_coef[i])
-        {
-            cut_sk_sq[i]=cut_sq[i]+skin*skin
-            +2*sqrt(cut_sq[i])*skin;
-            ph_cut=MAX(ph_cut,sqrt(cut_sq[i]));
-        }
+    {
+        cut_sk_sq[i]=cut_sq[i]+skin*skin
+        +2*sqrt(cut_sq[i])*skin;
+        ph_cut=MAX(ph_cut,sqrt(cut_sq[i]));
+    }
+
     
     atoms->set_ph(ph_cut);
     
@@ -157,11 +145,7 @@ void ForceField_lj::fin()
 void ForceField_lj::
 force_calc(int st_clc,TYPE0* en_st)
 {
-    /*
-    TYPE0* x=(TYPE0*)atoms->vectors[x_n].ret_vec();
-    TYPE0* f=(TYPE0*)atoms->vectors[f_n].ret_vec();
-    int* type=(int*)atoms->vectors[type_n].ret_vec();
-     */
+
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
     TYPE0* f;
@@ -191,65 +175,63 @@ force_calc(int st_clc,TYPE0* en_st)
             jatm=neighbor_list[iatm][j];
             jtype=type[jatm];
             curs=COMP(itype,jtype);
-            if(chk_coef[curs])
+            icomp=3*iatm;
+            jcomp=3*jatm;
+            dx0=x[icomp]-x[jcomp];
+            dx1=x[icomp+1]-x[jcomp+1];
+            dx2=x[icomp+2]-x[jcomp+2];
+            
+            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+            
+            csq=cut_sq[curs];
+            if (rsq<csq)
             {
-                icomp=3*iatm;
-                jcomp=3*jatm;
-                dx0=x[icomp]-x[jcomp];
-                dx1=x[icomp+1]-x[jcomp+1];
-                dx2=x[icomp+2]-x[jcomp+2];
+                sig=sigma[curs];
+                eps=epsilon[curs];
+                sig2=sig*sig/rsq;
+                sig6=sig2*sig2*sig2;
+                sig12=sig6*sig6;
                 
-                rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+                ft=24.0*eps*(2.0*sig12-sig6)/rsq;
                 
-                csq=cut_sq[curs];
-                if (rsq<csq)
+                
+                f[icomp]+=ft*dx0;
+                f[icomp+1]+=ft*dx1;
+                f[icomp+2]+=ft*dx2;
+                if(jatm<natms)
                 {
-                    sig=sigma[curs];
-                    eps=epsilon[curs];
-                    sig2=sig*sig/rsq;
-                    sig6=sig2*sig2*sig2;
-                    sig12=sig6*sig6;
-                    
-                    ft=24.0*eps*(2.0*sig12-sig6)/rsq;
-                    
-
-                    f[icomp]+=ft*dx0;
-                    f[icomp+1]+=ft*dx1;
-                    f[icomp+2]+=ft*dx2;
-                    if(jatm<natms)
+                    nrgy_strss[0]+=4.0*eps*(sig12-sig6)
+                    +offset[curs];
+                    f[jcomp]-=ft*dx0;
+                    f[jcomp+1]-=ft*dx1;
+                    f[jcomp+2]-=ft*dx2;
+                    if (st_clc)
                     {
-                        nrgy_strss[0]+=4.0*eps*(sig12-sig6)
-                        +offset[curs];
-                        f[jcomp]-=ft*dx0;
-                        f[jcomp+1]-=ft*dx1;
-                        f[jcomp+2]-=ft*dx2;
-                        if (st_clc)
-                        {
-                            nrgy_strss[1]-=ft*dx0*dx0;
-                            nrgy_strss[2]-=ft*dx1*dx1;
-                            nrgy_strss[3]-=ft*dx2*dx2;
-                            nrgy_strss[4]-=ft*dx1*dx2;
-                            nrgy_strss[5]-=ft*dx2*dx0;
-                            nrgy_strss[6]-=ft*dx0*dx1;
-                        }
-                        
+                        nrgy_strss[1]-=ft*dx0*dx0;
+                        nrgy_strss[2]-=ft*dx1*dx1;
+                        nrgy_strss[3]-=ft*dx2*dx2;
+                        nrgy_strss[4]-=ft*dx1*dx2;
+                        nrgy_strss[5]-=ft*dx2*dx0;
+                        nrgy_strss[6]-=ft*dx0*dx1;
                     }
-                    else
+                    
+                }
+                else
+                {
+                    nrgy_strss[0]+=2.0*eps*(sig12-sig6)
+                    +offset[curs]*0.5;
+                    if (st_clc)
                     {
-                        nrgy_strss[0]+=2.0*eps*(sig12-sig6)
-                        +offset[curs]*0.5;
-                        if (st_clc)
-                        {
-                            nrgy_strss[1]-=0.5*ft*dx0*dx0;
-                            nrgy_strss[2]-=0.5*ft*dx1*dx1;
-                            nrgy_strss[3]-=0.5*ft*dx2*dx2;
-                            nrgy_strss[4]-=0.5*ft*dx1*dx2;
-                            nrgy_strss[5]-=0.5*ft*dx2*dx0;
-                            nrgy_strss[6]-=0.5*ft*dx0*dx1;
-                        }
-                    }                    
+                        nrgy_strss[1]-=0.5*ft*dx0*dx0;
+                        nrgy_strss[2]-=0.5*ft*dx1*dx1;
+                        nrgy_strss[3]-=0.5*ft*dx2*dx2;
+                        nrgy_strss[4]-=0.5*ft*dx1*dx2;
+                        nrgy_strss[5]-=0.5*ft*dx2*dx0;
+                        nrgy_strss[6]-=0.5*ft*dx0*dx1;
+                    }
                 }
             }
+            
         }
     }
     
@@ -303,33 +285,30 @@ TYPE0 ForceField_lj::energy_calc()
             jatm=neighbor_list[iatm][j];
             jtype=type[jatm];
             curs=COMP(itype,jtype);
-            if(chk_coef[curs])
+            icomp=3*iatm;
+            jcomp=3*jatm;
+            dx0=x[icomp]-x[jcomp];
+            dx1=x[icomp+1]-x[jcomp+1];
+            dx2=x[icomp+2]-x[jcomp+2];
+            
+            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+            
+            csq=cut_sq[curs];
+            if (rsq<csq)
             {
-                icomp=3*iatm;
-                jcomp=3*jatm;
-                dx0=x[icomp]-x[jcomp];
-                dx1=x[icomp+1]-x[jcomp+1];
-                dx2=x[icomp+2]-x[jcomp+2];
+                sig=sigma[curs];
+                eps=epsilon[curs];
+                sig2=sig*sig/rsq;
+                sig6=sig2*sig2*sig2;
+                sig12=sig6*sig6;
                 
-                rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+                if(jatm<natms)
+                    en+=4.0*eps*(sig12-sig6)
+                    +offset[curs];
+                else
+                    en+=2.0*eps*(sig12-sig6)
+                    +offset[curs]*0.5;
                 
-                csq=cut_sq[curs];
-                if (rsq<csq)
-                {
-                    sig=sigma[curs];
-                    eps=epsilon[curs];
-                    sig2=sig*sig/rsq;
-                    sig6=sig2*sig2*sig2;
-                    sig12=sig6*sig6;
-                    
-                    if(jatm<natms)
-                        en+=4.0*eps*(sig12-sig6)
-                        +offset[curs];
-                    else
-                        en+=2.0*eps*(sig12-sig6)
-                        +offset[curs]*0.5;
-                    
-                }
             }
         }
     }
@@ -338,5 +317,216 @@ TYPE0 ForceField_lj::energy_calc()
     return en_tot;
 }
 
+/*--------------------------------------------
+ initiate before a run
+ --------------------------------------------*/
+void ForceField_lj::read_file(char* file_name)
+{
+    int no_types=atom_types->no_types;
+    
+    int* type_ref;
+
+    
+    int* eps_chk;
+    int* sigma_chk;
+    int* r_c_chk;
+
+    CREATE1D(eps_chk,no_types*(no_types+1));
+    CREATE1D(sigma_chk,no_types*(no_types+1));
+    CREATE1D(r_c_chk,no_types*(no_types+1));
+
+    
+    FILE* fp=NULL;
+    char* line;
+    CREATE1D(line,MAXCHAR);
+    
+    int lngth;
+    char** args=NULL;
+    int narg;
+    int no_types_file;
+    
+
+    for(int i=0;i<no_types*(no_types+1);i++)
+        eps_chk[i]=sigma_chk[i]=eps_chk[i]=0;
+    
+    
+    if(atoms->my_p_no==0)
+    {
+        fp=fopen(file_name,"r");
+        if(fp==NULL)
+            error->abort("ff lj file %s not found",file_name);
+    }
+    
+    /*
+     reading the header of the file
+     find the first line and read the
+     atomic types in the file
+     */
+    
+    lngth=read_line(fp,line);
+    narg=0;
+    while(narg==0)
+    {
+        if(lngth!=-1)
+            narg=mapp->parse_line(line,args);
+        else
+            error->abort("%s file ended immaturely",file_name);
+        
+        lngth=read_line(fp,line);
+    }
+    
+    if(narg<no_types)
+        error->abort("the number of atoms in %s file"
+        " is less than the number of atom types present in the system",file_name);
+    
+    no_types_file=narg;
+    
+    
+    
+    CREATE1D(type_ref,no_types);
+    
+    for(int i=0;i<no_types_file;i++)
+    {
+        type_ref[i]=atom_types->find_type_exist(args[i]);
+    }
+    
+    for(int i=0;i<narg;i++)
+        delete [] args[i];
+    if(narg)
+        delete [] args;
+    
+    
+    //lngth=read_line(fp,line);
+    int icmp,jcmp,curs;
+    TYPE0 tmp;
+    while(lngth!=-1)
+    {
+        if(lngth>1)
+        {
+            if(sscanf(line,"r_c(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+            {
+                if(icmp<0 || icmp>no_types_file-1)
+                    error->abort("wrong component in ff lj file for r_c(%i,%i)",icmp,jcmp);
+                if(jcmp<0 || jcmp>no_types_file-1)
+                    error->abort("wrong component in ff lj file for r_c(%i,%i)",icmp,jcmp);
+                
+                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+                {
+                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                    if(tmp<=0.0)
+                        error->abort("r_c(%d,%d) in %s "
+                        "file should be greater than 0.0",icmp,jcmp,file_name);
+                    r_c_chk[curs]=1;
+                    cut_sq[curs]=tmp*tmp;
+                    TYPE0 skin=atoms->skin;
+                    cut_sk_sq[curs]=(tmp+skin)*(tmp+skin);
+                }
+            }
+            else if(sscanf(line,"epsilon(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+            {
+                if(icmp<0 || icmp>no_types_file-1)
+                    error->abort("wrong component in ff lj file for epsilon(%i,%i)",icmp,jcmp);
+                if(jcmp<0 || jcmp>no_types_file-1)
+                    error->abort("wrong component in ff lj file for epsilon(%i,%i)",icmp,jcmp);
+                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+                {
+                    if(tmp<=0.0)
+                        error->abort("epsilon(%d,%d) in %s "
+                        "file should be greater than 0.0",icmp,jcmp,file_name);
+                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                    eps_chk[curs]=1;
+                    epsilon[curs]=tmp;
+                }
+            }
+            else if(sscanf(line,"sigma(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+            {
+                if(icmp<0 || icmp>no_types_file-1)
+                    error->abort("wrong component in ff lj file for sigma(%i,%i)",icmp,jcmp);
+                if(jcmp<0 || jcmp>no_types_file-1)
+                    error->abort("wrong component in ff lj file for sigma(%i,%i)",icmp,jcmp);
+                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+                {
+                    if(tmp<=0.0)
+                        error->abort("sigma(%d,%d) in %s "
+                        "file should be greater than 0.0",icmp,jcmp,file_name);
+                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                    eps_chk[curs]=1;
+                    sigma[curs]=tmp;
+                }
+            }
+            else
+                error->abort("invalid line in %s file: %s",file_name,line);
+        }
+        
+        lngth=read_line(fp,line);
+    }
+    
+    if(atoms->my_p_no==0)
+        fclose(fp);
+    
+    /*
+     check wether all the values are set or not
+     */
+    
+    
+    for(int i=0;i<no_types;i++)
+        for(int j=i;j<no_types;j++)
+        {
+            curs=COMP(i,j);
+            if(eps_chk[curs]==0)
+                error->abort("epsilon(%s,%s) was not set by %s file "
+                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
+            if(sigma_chk[curs]==0)
+                error->abort("sigma(%s,%s) was not set by %s file "
+                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
+            if(r_c_chk[curs]==0)
+                error->abort("r_c(%s,%s) was not set by %s file "
+                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
+        }
+    
+    
+    //clean up
+    
+    if(no_types)
+    {
+        delete [] eps_chk;
+        delete [] sigma_chk;
+        delete [] r_c_chk;
+
+    }
+    
+    if(no_types_file)
+        delete [] type_ref;
+    
+    delete [] line;
+}
+/*--------------------------------------------
+ initiate before a run
+ --------------------------------------------*/
+int ForceField_lj::read_line(FILE* file,char*& line)
+{
+    int lenght;
+    int eof=0;
+    if(atoms->my_p_no==0)
+        if(feof(file))
+            eof=-1;
+    MPI_Bcast(&eof,1,MPI_INT,0,world);
+    if(eof==-1)
+        return -1;
+    
+    if(atoms->my_p_no==0)
+    {
+        char* n_line;
+        fgets(line,MAXCHAR,file);
+        mapp->hash_remover(line,n_line);
+        delete [] line;
+        line =n_line;
+        lenght=static_cast<int>(strlen(line))+1;
+    }
+    MPI_Bcast(&lenght,1,MPI_INT,0,world);
+    MPI_Bcast(line,lenght,MPI_CHAR,0,world);
+    
+    return lenght;
+}
 
 

@@ -13,6 +13,7 @@ Atoms::Atoms(MAPP* mapp,MPI_Comm communicator)
     
     comm_world=communicator;
     dimension=3;
+    tot_natms=0;
     natms=0;
     natms_ph=0;
     atm_vec_ph_size=0;
@@ -2251,15 +2252,15 @@ void Atoms::hard_auto_grid_proc(TYPE0 f)
     }
     
     if(my_p_no==0)
-        fprintf(output,"Autogrid performed:");
+        fprintf(output,"autogrid performed: ");
     
     for(int i=0;i<dimension-1;i++)
         if(my_p_no==0)
-            fprintf(output," %d by",tot_p_grid[i]);
+            fprintf(output,"%d\u00D7",tot_p_grid[i]);
     if(my_p_no==0)
-        fprintf(output," %d",tot_p_grid[dimension-1]);
+        fprintf(output,"%d",tot_p_grid[dimension-1]);
     if(my_p_no==0)
-        fprintf(output,"\n\n");
+        fprintf(output,"\n");
 }
 /*--------------------------------------------
  autogrid the domain
@@ -2558,15 +2559,15 @@ void Atoms::auto_grid_proc()
         /static_cast<TYPE0>(tot_p_grid[i]);
     }
     if(my_p_no==0)
-        fprintf(output,"Autogrid performed:");
+        fprintf(output,"autogrid performed: ");
     
     for(int i=0;i<dimension-1;i++)
         if(my_p_no==0)
-            fprintf(output," %d by",tot_p_grid[i]);
+            fprintf(output,"%d\u00D7",tot_p_grid[i]);
     if(my_p_no==0)
-        fprintf(output," %d",tot_p_grid[dimension-1]);
+        fprintf(output,"%d",tot_p_grid[dimension-1]);
     if(my_p_no==0)
-        fprintf(output,"\n\n");
+        fprintf(output,"\n");
     
     
 }

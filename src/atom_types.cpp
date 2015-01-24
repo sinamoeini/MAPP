@@ -78,4 +78,15 @@ int AtomTypes::find_type(char* name)
         return -1;
     }
 }
+/*--------------------------------------------
+ find a type without error
+ --------------------------------------------*/
+int AtomTypes::find_type_exist(char* name)
+{
 
+    for (int i=0;i<no_types;i++)
+        if(!strcmp(name,atom_names[i]))
+            return i;
+    
+    return -1;
+}

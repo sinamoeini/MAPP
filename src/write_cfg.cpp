@@ -76,7 +76,7 @@ WriteCFG::WriteCFG(MAPP* mapp,int narg
     if(vec_list[0]!=0)
         error->abort("vector x should be included");
     
-    if(mapp->mode==DMD)
+    if(mapp->mode==DMD_mode)
     {
         c_n=atoms->find("c");
         if(vec_list[1]!=c_n)
@@ -84,7 +84,7 @@ WriteCFG::WriteCFG(MAPP* mapp,int narg
     }
     
     
-    if(mapp->mode==MD)
+    if(mapp->mode==MD_mode)
     {
         type_cmp=atoms->find("type");
         GROW(vec_list,no_vecs,no_vecs+1);
@@ -118,7 +118,7 @@ WriteCFG::~WriteCFG()
  --------------------------------------------*/
 void WriteCFG::write_file(int stp)
 {
-    if(mapp->mode==MD)
+    if(mapp->mode==MD_mode)
         write_file_md(stp);
     else
         write_file_dmd(stp);

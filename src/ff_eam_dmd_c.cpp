@@ -7,11 +7,12 @@ enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ForceField_EAM_DMD_C::
-ForceField_EAM_DMD_C(MAPP* mapp) : ForceField(mapp)
+ForceField_eam_dmd_c::
+ForceField_eam_dmd_c(MAPP* mapp) : ForceField(mapp)
 {
-    if(mapp->mode!=DMD)
-        error->abort("this forcefield works only with dmd mode");
+    if(mapp->mode!=DMD_mode)
+        error->abort("ff eam_dmd works only "
+        "for dmd mode");
     
     no_i=0;
     allocated=0;
@@ -23,7 +24,7 @@ ForceField_EAM_DMD_C(MAPP* mapp) : ForceField(mapp)
     no_types=atom_types->no_types;
     if(atoms->vectors[0].dim!=3+no_types)
         error->abort("the dimension of x"
-                     " vector should be 3 + no of types");
+        " vector should be 3 + no of types");
     
     
     
@@ -45,7 +46,7 @@ ForceField_EAM_DMD_C(MAPP* mapp) : ForceField(mapp)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-ForceField_EAM_DMD_C::~ForceField_EAM_DMD_C()
+ForceField_eam_dmd_c::~ForceField_eam_dmd_c()
 {
     
     if(no_types)
@@ -90,7 +91,7 @@ ForceField_EAM_DMD_C::~ForceField_EAM_DMD_C()
 /*--------------------------------------------
  force calculation
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::
+void ForceField_eam_dmd_c::
 force_calc(int st_clc,TYPE0* en_st)
 {
     TYPE0* x;
@@ -253,13 +254,13 @@ force_calc(int st_clc,TYPE0* en_st)
                                     E[jatm*no_types+jtype]+=g_0*c[iatm*no_types+itype];
                                     if(itype>=jtype)
                                         nrgy_strss[0]+=0.5*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                            +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
+                                        +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
                                 }
                                 else
                                 {
                                     if(itype>=jtype)
                                         nrgy_strss[0]+=0.25*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                             +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
+                                        +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
                                 }
                             }
                         }
@@ -300,7 +301,7 @@ force_calc(int st_clc,TYPE0* en_st)
                                     if(itype>=jtype)
                                     {
                                         nrgy_strss[0]+=0.5*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                            +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*phi[phi_start+type2phi[itype][jtype]];
+                                        +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*phi[phi_start+type2phi[itype][jtype]];
                                     }
                                 }
                                 else
@@ -308,7 +309,7 @@ force_calc(int st_clc,TYPE0* en_st)
                                     if(itype>=jtype)
                                     {
                                         nrgy_strss[0]+=0.25*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                             +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*phi[phi_start+type2phi[itype][jtype]];
+                                        +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*phi[phi_start+type2phi[itype][jtype]];
                                     }
                                 }
                             }
@@ -456,7 +457,7 @@ force_calc(int st_clc,TYPE0* en_st)
 /*--------------------------------------------
  energy calculation
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::energy_calc()
+TYPE0 ForceField_eam_dmd_c::energy_calc()
 {
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
@@ -534,7 +535,6 @@ TYPE0 ForceField_EAM_DMD_C::energy_calc()
                                         p=fabs(tmp0)*dr_inv;
                                         m=static_cast<int>(p);
                                         m=MIN(m,nr-2);
-                                        
                                         p-=m;
                                         p=MIN(p,1.0);
                                         p2=p*p;
@@ -674,7 +674,7 @@ TYPE0 ForceField_EAM_DMD_C::energy_calc()
 /*--------------------------------------------
  init before running
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::init()
+void ForceField_eam_dmd_c::init()
 {
     TYPE0 skin=atoms->skin;
     TYPE0 ph_cut=0.0;
@@ -705,7 +705,7 @@ void ForceField_EAM_DMD_C::init()
 /*--------------------------------------------
  fin after running
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::fin()
+void ForceField_eam_dmd_c::fin()
 {
     atoms->del(crd_n);
     atoms->del(v_n);
@@ -737,18 +737,44 @@ void ForceField_EAM_DMD_C::fin()
  mass conversion from amu to eVs^2/A^2:
  1.0364269184093291236e-28
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::coef(int narg,char** arg)
+void ForceField_eam_dmd_c::coef(int narg,char** arg)
 {
     TYPE0 kb,T,hbar;
     if (narg<9)
-        error->abort("wrong coeff command "
-                     "for eam Force Field");
+        error->abort("ff_coef for ff eam_dmd "
+        "should have at least 8 arguments");
+    
+    
     rsq_crd=atof(arg[1]);
+    if(rsq_crd<=0.0)
+        error->abort("coordination cutoff for ff eam_dmd "
+        "should be greater than 0.0");
+    
     rsq_crd*=rsq_crd;
+    
     set_weight_abs(atoi(arg[2]));
+    
     alpha_min=atof(arg[3]);
+    if(alpha_min<=0.0)
+        error->abort("minimum alpha for ff eam_dmd "
+        "should be greater than 0.0");
+    
     alpha_max=atof(arg[4]);
+    if(alpha_max<=0.0)
+        error->abort("maximum alpha for ff eam_dmd "
+        "should be greater than 0.0");
+    
+    if(alpha_max<=alpha_min)
+        error->abort("maximum alpha should be less "
+        "than minimum alpha for ff eam_dmd");
+    
+    
     T=atof(arg[5]);
+    if(T<=0.0)
+        error->abort("temperature for ff eam_dmd "
+        "should be greater than 0.0");
+    
+    
     kb=8.617332478e-5;
     hbar=6.5821192815e-16;
     
@@ -804,41 +830,48 @@ void ForceField_EAM_DMD_C::coef(int narg,char** arg)
 /*--------------------------------------------
  read from file and assign DeltaE
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::setup_delta_e(char* file)
+void ForceField_eam_dmd_c::setup_delta_e(char* file_name)
 {
     FILE* fp=NULL;
     char* line;
     CREATE1D(line,MAXCHAR);
     char** arg=NULL;
     int narg;
+    int tot_no_types;
+    int* delta_e_chk;
+    CREATE1D(delta_e_chk,no_types);
     
+    for(int i=0;i<no_types;i++)
+        delta_e_chk[i]=0;
     
     if(atoms->my_p_no==0)
     {
-        fp=fopen(file,"r");
+        fp=fopen(file_name,"r");
         if(fp==NULL)
-            error->abort("file %s not found",file);
+            error->abort("ff eam_dmd file %s not found",file_name);
     }
     
     narg=0;
     while(narg==0)
     {
         if(line_read(fp,line)==-1)
-            error->abort("delta_E file ended immaturely");
+            error->abort("%s file ended immaturely",file_name);
         
         narg=mapp->parse_line(line,arg);
     }
-    if(narg!=no_types)
-        error->abort("wrong line in delta_E file");
     
+    tot_no_types=narg;
+    
+    if(tot_no_types<no_types)
+        error->abort("the number of atoms in %s file"
+        " is less than the number of atom types"
+        " present in the system",file_name);
+
     
     int* type_ref;
-    CREATE1D(type_ref,no_types);
-    for(int itype=0;itype<no_types;itype++)
-        type_ref[itype]=-1;
-    
-    for(int i=0;i<no_types;i++)
-        type_ref[i]=atom_types->find_type(arg[i]);
+    CREATE1D(type_ref,tot_no_types);
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+        type_ref[ityp]=atom_types->find_type_exist(arg[ityp]);
     
     for(int i=0;i<narg;i++)
         delete [] arg[i];
@@ -846,21 +879,23 @@ void ForceField_EAM_DMD_C::setup_delta_e(char* file)
         delete [] arg;
     
     
-    for(int itype=0;itype<no_types;itype++)
+    for(int itype=0;itype<tot_no_types;itype++)
     {
         narg=0;
         while(narg==0)
         {
             if(line_read(fp,line)==-1)
-                error->abort("delta_E file ended immaturely");
-            
+                error->abort("%s file ended immaturely",file_name);
             narg=mapp->parse_line(line,arg);
         }
         
         if(narg!=1)
-            error->abort("wrong line in delta_E file");
-        
-        delta_e[type_ref[itype]]=atof(arg[0]);
+            error->abort("invalid line in %s file: %s",file_name,line);
+        if(type_ref[itype]!=-1)
+        {
+            delta_e[type_ref[itype]]=atof(arg[0]);
+            delta_e_chk[type_ref[itype]]=1;
+        }
         
         for(int i=0;i<narg;i++)
             delete [] arg[i];
@@ -869,18 +904,29 @@ void ForceField_EAM_DMD_C::setup_delta_e(char* file)
     }
     
     
+    for(int i=0;i<no_types;i++)
+        if(delta_e_chk[i]==0)
+            error->abort("delta_e(%s) was not set by %s file "
+            ,file_name,atom_types->atom_names[i]);
+    
     delete [] line;
-    delete [] type_ref;
+    if(tot_no_types)
+        delete [] type_ref;
+    if(no_types)
+        delete [] delta_e_chk;
+    
+    
 }
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::set_funcfl(int no_files
-                                    ,char** file_names)
+void ForceField_eam_dmd_c::set_funcfl(int no_files
+,char** file_names)
 {
     if(no_files!=no_types)
-        error->abort("no of types and number "
-                     "of files should be equal in eam");
+        error->abort("for FuncFL mode number of"
+        " ff eam_dmd files should be equal to the number"
+        " of atom types present in the system");
     
     TYPE0* drs;
     TYPE0* drhos;
@@ -904,7 +950,8 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
     CREATE1D(line,MAXCHAR);
     int narg;
     char** arg;
-    int no;
+    TYPE0 mass;
+    
     for(int ityp=0;ityp<no_types;ityp++)
     {
         fp=NULL;
@@ -912,21 +959,61 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
         {
             fp=fopen(file_names[ityp],"r");
             if(fp==NULL)
-                error->abort("file %s not found",file_names[ityp]);
+                error->abort("ff eam_dmd file %s not found",file_names[ityp]);
         }
         
-        for(int i=0;i<3;i++)
+        for(int i=0;i<2;i++)
             if(line_read(fp,line)==-1)
-                error->abort("eam potential file ended immaturely");
+                error->abort("%s file ended immaturely",file_names[ityp]);
+        
+        narg=mapp->parse_line(line,arg);
+        if(narg!=4)
+            error->abort("invalid line in %s file: %s",file_names[ityp],line);
+        
+        mass=atof(arg[1]);
+        
+        if(mass!=atom_types->mass[ityp])
+            error->abort("mass of element %s in %s file (%lf) does not match "
+            "the mass that is already assigned to the element (%lf), make "
+            "sure that you are chosing the right sequence of ff eam_dmd files are "
+            "used",atom_types->atom_names[ityp],file_names[ityp],mass
+            ,atom_types->mass[ityp]);
+        
+        for(int i=0;i<narg;i++)
+            delete arg[i];
+        if(narg)
+            delete [] arg;
+        
+        
+        
+        
+        if(line_read(fp,line)==-1)
+            error->abort("%s file ended immaturely",file_names[ityp]);
         
         narg=mapp->parse_line(line,arg);
         if(narg!=5)
-            error->abort("wrong line in eam file: %s",line);
+            error->abort("invalid line in %s file: %s",file_names[ityp],line);
         
         nrhos[ityp]=atoi(arg[0]);
         nrs[ityp]=atoi(arg[2]);
         drhos[ityp]=atof(arg[1]);
         drs[ityp]=atof(arg[3]);
+        
+        if(nrhos[ityp]<5)
+            error->abort("nrho in %s file must be larger than 5",file_names[ityp]);
+        if(nrs[ityp]<5)
+            error->abort("nr in %s file must be larger than 5",file_names[ityp]);
+        if(drhos[ityp]<=0.0)
+            error->abort("drho in %s file must be larger than 0.0",file_names[ityp]);
+        if(drs[ityp]<=0.0)
+            error->abort("dr in %s file must be larger than 0.0",file_names[ityp]);
+        
+        for(int i=0;i<narg;i++)
+            delete arg[i];
+        if(narg)
+            delete [] arg;
+        
+        
         
         int tot=nrhos[ityp]+2*nrs[ityp];
         
@@ -936,12 +1023,12 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
         while (ipos<tot)
         {
             if(line_read(fp,line)==-1)
-                error->abort("eam potential file ended immaturely");
+                error->abort("%s file ended immaturely",file_names[ityp]);
             
             narg=mapp->parse_line(line,arg);
             
             if(ipos+narg>tot)
-                error->abort("eam potential file ended immaturely");
+                error->abort("%s file ended immaturely",file_names[ityp]);
             
             for(int i=0;i<narg;i++)
             {
@@ -957,14 +1044,14 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
         if(atoms->my_p_no==0)
             fclose(fp);
         
-        CREATE1D(tmp_F[ityp],nrhos[ityp]+1);
-        CREATE1D(tmp_zi[ityp],nrs[ityp]+1);
-        CREATE1D(tmp_rho[ityp],nrs[ityp]+1);
+        CREATE1D(tmp_F[ityp],nrhos[ityp]);
+        CREATE1D(tmp_zi[ityp],nrs[ityp]);
+        CREATE1D(tmp_rho[ityp],nrs[ityp]);
         
-        tmp_rho[ityp][0]=tmp_zi[ityp][0]=tmp_F[ityp][0]=0.0;
-        memcpy(&tmp_F[ityp][1],&tmp[0],nrhos[ityp]*sizeof(TYPE0));
-        memcpy(&tmp_zi[ityp][1],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(TYPE0));
-        memcpy(&tmp_rho[ityp][1],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(TYPE0));
+        
+        memcpy(tmp_F[ityp],&tmp[0],nrhos[ityp]*sizeof(TYPE0));
+        memcpy(tmp_zi[ityp],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(TYPE0));
+        memcpy(tmp_rho[ityp],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(TYPE0));
         
         delete [] tmp;
         
@@ -986,35 +1073,28 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
     }
     
     nr=static_cast<int>(maxr/maxdr+0.5);
-    nrho=static_cast<int>(maxr/maxdr+0.5);
+    nrho=static_cast<int>(maxrho/maxdrho+0.5);
     dr=maxdr;
     drho=maxdrho;
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
     allocate();
     
-    TYPE0 r,p,coef1,coef2,coef3,coef4;
+    TYPE0 r,p,tmp0,tmp1;
     int k;
-    TYPE0 sixth=1.0/6.0;
     
-    for(int i=0;i<no_types;i++)
+    for(int ityp=0;ityp<no_types;ityp++)
     {
-        for(int j=0;j<nrho;j++)
+        for(int i=0;i<nrho;i++)
         {
-            r=static_cast<TYPE0>(j)*drho;
-            p=r/drhos[i]+1.0;
+            r=static_cast<TYPE0>(i)*drho;
+            p=r/drhos[ityp];
             k=static_cast<int> (p);
-            k=MIN(k,nrhos[i]-2);
-            k=MAX(k,2);
+            k=MIN(k,nrhos[ityp]-2);
             p-=k;
-            p=MIN(p,2.0);
-            coef1=-sixth*p*(p-1.0)*(p-2.0);
-            coef2=0.5*(p*p-1.0)*(p-2.0);
-            coef3=-0.5*p*(p+1.0)*(p-2.0);
-            coef4=sixth*p*(p*p-1.0);
-            F_arr[i][j][0]=coef1*tmp_F[i][k-1]+
-            coef2*tmp_F[i][k]+coef3*tmp_F[i][k+1]+
-            coef4*tmp_F[i][k+2];
+            p=MIN(p,1.0);
+            
+            F_arr[ityp][i][0]=interpolate(tmp_F[ityp],nrs[ityp],p,k);
         }
     }
     
@@ -1022,68 +1102,45 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
-        no=ityp*(ityp+1);
         for(int i=0;i<nr;i++)
         {
             r=static_cast<TYPE0>(i)*dr;
-            p=r/drs[ityp]+1.0;
+            p=r/drs[ityp];
             k=static_cast<int> (p);
             k=MIN(k,nrs[ityp]-2);
-            k=MAX(k,2);
             p-=k;
-            p=MIN(p,2.0);
-            coef1=-sixth*p*(p-1.0)*(p-2.0);
-            coef2=0.5*(p*p-1.0)*(p-2.0);
-            coef3=-0.5*p*(p+1.0)*(p-2.0);
-            coef4=sixth*p*(p*p-1.0);
-            
-            rho_arr[no][i][0]=coef1*tmp_rho[ityp][k-1]+
-            coef2*tmp_rho[ityp][k]+coef3*tmp_rho[ityp][k+1]+
-            coef4*tmp_rho[ityp][k+2];
+            p=MIN(p,1.0);
+            rho_arr[type2rho[ityp][0]][i][0]=interpolate(tmp_rho[ityp],nrs[ityp],p,k);
         }
     }
     
-    TYPE0 tmp0,tmp1;
+    
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
-        for(int jtyp=ityp;jtyp<no_types;jtyp++)
+        for(int jtyp=0;jtyp<ityp+1;jtyp++)
         {
-            no=COMP(ityp,jtyp);
-            
             for(int i=0;i<nr;i++)
             {
+                
                 r=static_cast<TYPE0>(i)*dr;
                 
-                p=r/drs[ityp]+1.0;
-                k=static_cast<int>(p);
+                p=r/drs[ityp];
+                k=static_cast<int> (p);
                 k=MIN(k,nrs[ityp]-2);
-                k=MAX(k,2);
                 p-=k;
-                p=MIN(p,2.0);
-                coef1=-sixth*p*(p-1.0)*(p-2.0);
-                coef2=0.5*(p*p-1.0)*(p-2.0);
-                coef3=-0.5*p*(p+1.0)*(p-2.0);
-                coef4=sixth*p*(p*p-1.0);
-                tmp0=coef1*tmp_zi[ityp][k-1]+
-                coef2*tmp_zi[ityp][k]+coef3*tmp_zi[ityp][k+1]+
-                coef4*tmp_zi[ityp][k+2];
+                p=MIN(p,1.0);
+                tmp0=interpolate(tmp_zi[ityp],nrs[ityp],p,k);
                 
-                p=r/drs[jtyp] + 1.0;
-                k=static_cast<int>(p);
+                
+                p=r/drs[jtyp];
+                k=static_cast<int> (p);
                 k=MIN(k,nrs[jtyp]-2);
-                k=MAX(k,2);
                 p-=k;
-                p=MIN(p,2.0);
-                coef1=-sixth*p*(p-1.0)*(p-2.0);
-                coef2=0.5*(p*p-1.0)*(p-2.0);
-                coef3=-0.5*p*(p+1.0)*(p-2.0);
-                coef4=sixth*p*(p*p-1.0);
-                tmp1=coef1*tmp_zi[jtyp][k-1]+
-                coef2*tmp_zi[jtyp][k]+coef3*tmp_zi[jtyp][k+1]+
-                coef4*tmp_zi[jtyp][k+2];
+                p=MIN(p,1.0);
+                tmp1=interpolate(tmp_zi[jtyp],nrs[jtyp],p,k);
                 
-                phi_r_arr[no][i][0]=27.2*0.529*tmp0*tmp1;
+                phi_r_arr[type2phi[ityp][jtyp]][i][0]=27.2*0.529*tmp0*tmp1;
             }
         }
     }
@@ -1116,11 +1173,12 @@ void ForceField_EAM_DMD_C::set_funcfl(int no_files
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::set_setfl(int no_files
-                                   ,char** file_names)
+void ForceField_eam_dmd_c::set_setfl(int no_files
+                               ,char** file_names)
 {
     if(no_files!=1)
-        error->abort("one file is needed for eam");
+        error->abort("for SetFL mode number of"
+        " ff eam_dmd files should be one");
     
     FILE* fp=NULL;
     char* line;
@@ -1131,105 +1189,98 @@ void ForceField_EAM_DMD_C::set_setfl(int no_files
     {
         fp=fopen(file_names[0],"r");
         if(fp==NULL)
-            error->abort("file %s not found",file_names[0]);
+            error->abort("%s file not found",file_names[0]);
     }
     
     for(int i=0;i<4;i++)
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
     
     char** arg;
     int narg;
     
     narg=mapp->parse_line(line,arg);
     if(narg<2 || narg-1 < no_types)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     int tot_no_types=narg-1;
     
-    int** type_ref;
-    CREATE1D(type_ref,no_types);
-    for(int i=0;i<no_types;i++)
-        CREATE1D(type_ref[i],2);
-    
-    for(int i=0;i<no_types;i++)
-    {
-        int ityp=0;
-        while(strcmp(arg[ityp+1],atom_types->atom_names[i])!=0
-              &&ityp<tot_no_types)
-            ityp++;
-        
-        if(ityp==narg-1)
-            error->abort("atom type not found in eam file");
-        type_ref[i][0]=ityp;
-        type_ref[i][1]=i;
-    }
+    int* type_ref;
+    CREATE1D(type_ref,tot_no_types);
+    for(int i=0;i<tot_no_types;i++)
+        type_ref[i]=atom_types->find_type_exist(arg[i+1]);
     
     for(int j=0;j<narg;j++)
         delete [] arg[j];
-    delete [] arg;
+    if(narg)
+        delete [] arg;
+    
+    int* tmp_type_ref;
+    CREATE1D(tmp_type_ref,no_types);
+    for(int i=0;i<no_types;i++)
+        tmp_type_ref[i]=-1;
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+        if(type_ref[ityp]!=-1)
+            tmp_type_ref[type_ref[ityp]]=0;
     
     for(int i=0;i<no_types;i++)
-    {
-        for(int j=i+1;j<no_types;j++)
-        {
-            if(type_ref[i][0]>type_ref[j][0])
-            {
-                int tmp0,tmp1;
-                
-                tmp0=type_ref[i][0];
-                tmp1=type_ref[i][1];
-                
-                type_ref[i][0]=type_ref[j][0];
-                type_ref[i][1]=type_ref[j][1];
-                
-                type_ref[j][0]=tmp0;
-                type_ref[j][1]=tmp1;
-            }
-        }
-    }
+        if(tmp_type_ref[i]==-1)
+            error->abort("%s file does not contain "
+            "parameters for element %s",file_names[0]
+            ,atom_types->atom_names[i]);
+    if(no_types)
+        delete [] tmp_type_ref;
+    
     
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
+        error->abort("%s file ended immaturely",file_names[0]);
     narg=mapp->parse_line(line,arg);
     
     
     if(narg!=5)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     nrho=atoi(arg[0]);
     nr=atoi(arg[2]);
     drho=atof(arg[1]);
     dr=atof(arg[3]);
+    
+    for(int j=0;j<narg;j++)
+        delete [] arg[j];
+    if(narg)
+        delete [] arg;
+    
+    if(nrho<5)
+        error->abort("nrho in %s file must be larger than 5",file_names[0]);
+    if(nr<5)
+        error->abort("nr in %s file must be larger than 5",file_names[0]);
+    if(drho<=0.0)
+        error->abort("drho in %s file must be larger than 0.0",file_names[0]);
+    if(dr<=0.0)
+        error->abort("dr in %s file must be larger than 0.0",file_names[0]);
+    
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
     
     
-    
-    
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
-    delete [] arg;
-    
-    
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
+        error->abort("%s file ended immaturely",file_names[0]);
     
     
     int ipos=0;
-    int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)/2*nr;
+    int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)*nr/2;
     
     TYPE0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
         
         if(ipos+narg>tot)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         for(int i=0;i<narg;i++)
         {
@@ -1250,83 +1301,74 @@ void ForceField_EAM_DMD_C::set_setfl(int no_files
     allocate();
     
     
-    int icur_pos,jcur_pos;
     int component;
-    icur_pos=0;
+    
     ipos=0;
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            component=type_ref[icur_pos][1];
+            ipos+=nrho+nr;
+        }
+        else
+        {
+            component=type_ref[ityp];
             
             for(int i=0;i<nrho;i++)
                 F_arr[component][i][0]=tmp[ipos+i];
             
             ipos+=nrho;
             
+            component=type2rho[type_ref[ityp]][type_ref[0]];
             for(int i=0;i<nr;i++)
                 rho_arr[component][i][0]=tmp[ipos+i];
             
             ipos+=nr;
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nrho+nr;
         }
         
     }
     
-    icur_pos=0;
+    
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            jcur_pos=0;
+            ipos+=nr*(ityp+1);
+        }
+        else
+        {
             for(int jtyp=0;jtyp<ityp+1;jtyp++)
             {
-                if(jtyp==type_ref[jcur_pos][0])
+                if(type_ref[jtyp]==-1)
                 {
-                    component=type2phi[type_ref[icur_pos][1]][type_ref[jcur_pos][1]];
+                    ipos+=nr;
+                }
+                else
+                {
+                    component=type2phi[type_ref[ityp]][type_ref[jtyp]];
                     
                     for(int i=0;i<nr;i++)
                         phi_r_arr[component][i][0]=tmp[ipos+i];
                     
                     ipos+=nr;
-                    
-                    jcur_pos++;
                 }
-                else
-                {
-                    ipos+=nr;
-                }
+                
             }
-            
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nr*(ityp+1);
         }
     }
     
     
     delete [] tmp;
     
-    for(int i=0;i<no_types;i++)
-        delete [] type_ref[i];
-    if(no_types)
+    if(tot_no_types)
         delete [] type_ref;
     
 }
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::set_fs(int no_files
-                                ,char** file_names)
+void ForceField_eam_dmd_c::set_fs(int no_files
+,char** file_names)
 {
     if(no_files!=1)
         error->abort("one file is needed for eam");
@@ -1340,108 +1382,97 @@ void ForceField_EAM_DMD_C::set_fs(int no_files
     {
         fp=fopen(file_names[0],"r");
         if(fp==NULL)
-            error->abort("file %s not found",file_names[0]);
+            error->abort("%s file not found",file_names[0]);
     }
     
     for(int i=0;i<4;i++)
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
     
     char** arg;
     int narg;
     
     narg=mapp->parse_line(line,arg);
     if(narg<2 || narg-1 < no_types)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     int tot_no_types=narg-1;
-    
-    int** type_ref;
-    CREATE1D(type_ref,no_types);
-    for(int i=0;i<no_types;i++)
-        CREATE1D(type_ref[i],2);
-    
-    for(int i=0;i<no_types;i++)
-    {
-        int ityp=0;
-        while(strcmp(arg[ityp+1],atom_types->atom_names[i])!=0
-              &&ityp<tot_no_types)
-            ityp++;
-        
-        if(ityp==narg-1)
-            error->abort("atom type not found in eam file");
-        type_ref[i][0]=ityp;
-        type_ref[i][1]=i;
-    }
     
     for(int j=0;j<narg;j++)
         delete [] arg[j];
     if(narg)
         delete [] arg;
     
+    int* type_ref;
+    CREATE1D(type_ref,tot_no_types);
+    for(int i=0;i<tot_no_types;i++)
+        type_ref[i]=atom_types->find_type_exist(arg[i+1]);
+    
+    int* tmp_type_ref;
+    CREATE1D(tmp_type_ref,no_types);
     for(int i=0;i<no_types;i++)
-    {
-        for(int j=i+1;j<no_types;j++)
-        {
-            if(type_ref[i][0]>type_ref[j][0])
-            {
-                int tmp0,tmp1;
-                
-                tmp0=type_ref[i][0];
-                tmp1=type_ref[i][1];
-                
-                type_ref[i][0]=type_ref[j][0];
-                type_ref[i][1]=type_ref[j][1];
-                
-                type_ref[j][0]=tmp0;
-                type_ref[j][1]=tmp1;
-            }
-        }
-    }
+        tmp_type_ref[i]=-1;
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+        if(type_ref[ityp]!=-1)
+            tmp_type_ref[type_ref[ityp]]=0;
+    
+    for(int i=0;i<no_types;i++)
+        if(tmp_type_ref[i]==-1)
+            error->abort("%s file does not contain "
+            "parameters for element %s",file_names[0]
+            ,atom_types->atom_names[i]);
+    if(no_types)
+        delete [] tmp_type_ref;
+    
     
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
+        error->abort("%s file ended immaturely",file_names[0]);
     narg=mapp->parse_line(line,arg);
     
-    
     if(narg!=5)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     nrho=atoi(arg[0]);
     nr=atoi(arg[2]);
     drho=atof(arg[1]);
     dr=atof(arg[3]);
-    dr_inv=1.0/dr;
-    drho_inv=1.0/drho;
-    
-    
-    
     
     for(int j=0;j<narg;j++)
         delete [] arg[j];
     if(narg)
         delete [] arg;
     
+    if(nrho<5)
+        error->abort("nrho in %s file must be larger than 5",file_names[0]);
+    if(nr<5)
+        error->abort("nr in %s file must be larger than 5",file_names[0]);
+    if(drho<=0.0)
+        error->abort("drho in %s file must be larger than 0.0",file_names[0]);
+    if(dr<=0.0)
+        error->abort("dr in %s file must be larger than 0.0",file_names[0]);
+    
+    dr_inv=1.0/dr;
+    drho_inv=1.0/drho;
+    
     
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
-    
+        error->abort("%s file ended immaturely",file_names[0]);
     
     
     int ipos=0;
     int tot=tot_no_types*nrho+tot_no_types*tot_no_types*nr
-    +tot_no_types*(tot_no_types+1)/2*nr;
+    +tot_no_types*(tot_no_types+1)*nr/2;
     TYPE0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
         
         if(ipos+narg>tot)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         for(int i=0;i<narg;i++)
         {
@@ -1451,7 +1482,6 @@ void ForceField_EAM_DMD_C::set_fs(int no_files
         }
         if(narg)
             delete [] arg;
-        
     }
     
     delete [] line;
@@ -1461,102 +1491,81 @@ void ForceField_EAM_DMD_C::set_fs(int no_files
     allocate();
     
     
-    int icur_pos,jcur_pos;
     int component;
     
-    
-    
     ipos=0;
-    icur_pos=0;
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            component=type_ref[icur_pos][1];
+            ipos+=nr*tot_no_types+nrho;
+        }
+        else
+        {
+            component=type_ref[ityp];
             
             for(int i=0;i<nrho;i++)
                 F_arr[component][i][0]=tmp[ipos+i];
             
             ipos+=nrho;
             
-            
-            jcur_pos=0;
             for(int jtyp=0;jtyp<tot_no_types;jtyp++)
             {
-                if(jtyp==type_ref[jcur_pos][0])
+                if(type_ref[jtyp]==-1)
                 {
-                    
-                    component=type2rho[type_ref[icur_pos][1]][type_ref[jcur_pos][1]];
+                    ipos+=nr;
+                }
+                else
+                {
+                    component=type2rho[type_ref[ityp]][type_ref[jtyp]];
                     
                     for(int i=0;i<nr;i++)
                         rho_arr[component][i][0]=tmp[ipos+i];
                     
                     ipos+=nr;
-                    jcur_pos++;
                 }
-                else
-                {
-                    ipos+=nr;
-                }
+                
             }
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nr*tot_no_types+nrho;
         }
     }
     
     
-    icur_pos=0;
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            jcur_pos=0;
+            ipos+=nr*(ityp+1);
+        }
+        else
+        {
             for(int jtyp=0;jtyp<ityp+1;jtyp++)
             {
-                if(jtyp==type_ref[jcur_pos][0])
+                if(type_ref[jtyp]==-1)
                 {
-                    component=type2phi[type_ref[icur_pos][1]][type_ref[jcur_pos][1]];
+                    ipos+=nr;
+                }
+                else
+                {
+                    component=type2phi[type_ref[ityp]][type_ref[jtyp]];
                     
                     for(int i=0;i<nr;i++)
                         phi_r_arr[component][i][0]=tmp[ipos+i];
                     
                     ipos+=nr;
-                    
-                    jcur_pos++;
-                }
-                else
-                {
-                    ipos+=nr;
                 }
             }
-            
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nr*(ityp+1);
         }
     }
     
-    
     delete [] tmp;
-    
-    for(int i=0;i<no_types;i++)
-        delete [] type_ref[i];
-    if(no_types)
+    if(tot_no_types)
         delete [] type_ref;
-    
 }
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-int ForceField_EAM_DMD_C::line_read(FILE* file
-                                  ,char*& line)
+int ForceField_eam_dmd_c::line_read(FILE* file
+                              ,char*& line)
 {
     int lenght;
     int eof=0;
@@ -1580,11 +1589,12 @@ int ForceField_EAM_DMD_C::line_read(FILE* file
 /*--------------------------------------------
  clean up the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::clean_up()
+void ForceField_eam_dmd_c::clean_up()
 {
     if(allocated==0)
         return;
     
+    int no_types=atom_types->no_types;
     
     for(int i=0;i<no_types;i++)
     {
@@ -1600,54 +1610,54 @@ void ForceField_EAM_DMD_C::clean_up()
     
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
     {
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] phi_r_arr[i][j];
-            delete [] phi_r_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] phi_r_arr[ityp][i];
+            delete [] phi_r_arr[ityp];
         }
         delete [] phi_r_arr;
         
-        for(int i=0;i<no_types;i++)
+        for(int ityp=0;ityp<no_types;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] rho_arr[i][j];
-            delete [] rho_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] rho_arr[ityp][i];
+            delete [] rho_arr[ityp];
         }
         delete [] rho_arr;
         
         
-        for(int i=0;i<no_types;i++)
+        for(int ityp=0;ityp<no_types;ityp++)
         {
-            for(int j=0;j<nrho;j++)
-                delete [] F_arr[i][j];
-            delete [] F_arr[i];
+            for(int i=0;i<nrho;i++)
+                delete [] F_arr[ityp][i];
+            delete [] F_arr[ityp];
         }
         delete [] F_arr;
     }
     else if(eam_mode==FINNIS_FL)
     {
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] phi_r_arr[i][j];
-            delete [] phi_r_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] phi_r_arr[ityp][i];
+            delete [] phi_r_arr[ityp];
         }
         delete [] phi_r_arr;
         
-        for(int i=0;i<no_types*no_types;i++)
+        for(int ityp=0;ityp<no_types*no_types;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] rho_arr[i][j];
-            delete [] rho_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] rho_arr[ityp][i];
+            delete [] rho_arr[ityp];
         }
         delete [] rho_arr;
         
-        for(int i=0;i<no_types;i++)
+        for(int ityp=0;ityp<no_types;ityp++)
         {
-            for(int j=0;j<nrho;j++)
-                delete [] F_arr[i][j];
-            delete [] F_arr[i];
+            for(int i=0;i<nrho;i++)
+                delete [] F_arr[ityp][i];
+            delete [] F_arr[ityp];
         }
         delete [] F_arr;
     }
@@ -1657,17 +1667,18 @@ void ForceField_EAM_DMD_C::clean_up()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::allocate()
+void ForceField_eam_dmd_c::allocate()
 {
+    int no_types=atom_types->no_types;
     
     CREATE2D(type2phi,no_types,no_types);
     CREATE2D(type2rho,no_types,no_types);
     
-    for(int i=0;i<no_types;i++)
-        for(int j=0;j<no_types;j++)
+    for(int ityp=0;ityp<no_types;ityp++)
+        for(int jtyp=0;jtyp<no_types;jtyp++)
         {
-            type2phi[i][j]=COMP(i,j);
-            type2rho[i][j]=j*no_types+i;
+            type2phi[ityp][jtyp]=COMP(ityp,jtyp);
+            type2rho[ityp][jtyp]=jtyp*no_types+ityp;
         }
     
     
@@ -1676,55 +1687,57 @@ void ForceField_EAM_DMD_C::allocate()
     {
         
         CREATE1D(phi_r_arr,no_types*(no_types+1)/2);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            CREATE1D(phi_r_arr[i],nr);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            for(int j=0;j<nr;j++)
-                CREATE1D(phi_r_arr[i][j],7);
+        
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            CREATE1D(phi_r_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(phi_r_arr[ityp][i],7);
         
         CREATE1D(rho_arr,no_types*no_types);
-        for(int i=0;i<no_types;i++)
-            CREATE1D(rho_arr[i],nr);
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<nr;j++)
-                CREATE1D(rho_arr[i][j],7);
+        for(int ityp=0;ityp<no_types;ityp++)
+            CREATE1D(rho_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(rho_arr[type2rho[ityp][0]][i],7);
         
-        for(int i=1;i<no_types;i++)
-            for(int j=0;j<no_types;j++)
-                rho_arr[type2rho[i][j]]
-                =rho_arr[type2rho[i][0]];
+        
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int jtyp=0;jtyp<no_types;jtyp++)
+                rho_arr[type2rho[ityp][jtyp]]
+                =rho_arr[type2rho[ityp][0]];
         
         CREATE1D(F_arr,no_types);
-        for(int i=0;i<no_types;i++)
-            CREATE1D(F_arr[i],nrho+1);
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<nrho+1;j++)
-                CREATE1D(F_arr[i][j],9);
+        for(int ityp=0;ityp<no_types;ityp++)
+            CREATE1D(F_arr[ityp],nrho);
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int i=0;i<nrho;i++)
+                CREATE1D(F_arr[ityp][i],9);
         
     }
     else if(eam_mode==FINNIS_FL)
     {
         
         CREATE1D(phi_r_arr,no_types*(no_types+1)/2);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            CREATE1D(phi_r_arr[i],nr);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            for(int j=0;j<nr;j++)
-                CREATE1D(phi_r_arr[i][j],7);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            CREATE1D(phi_r_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(phi_r_arr[ityp][i],7);
         
         CREATE1D(rho_arr,no_types*no_types);
-        for(int i=0;i<no_types*no_types;i++)
-            CREATE1D(rho_arr[i],nr);
-        for(int i=0;i<no_types*no_types;i++)
-            for(int k=0;k<nr;k++)
-                CREATE1D(rho_arr[i][k],7);
+        for(int ityp=0;ityp<no_types*no_types;ityp++)
+            CREATE1D(rho_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types*no_types;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(rho_arr[ityp][i],7);
         
         CREATE1D(F_arr,no_types);
-        for(int i=0;i<no_types;i++)
-            CREATE1D(F_arr[i],nrho+1);
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<nrho+1;j++)
-                CREATE1D(F_arr[i][j],9);
+        for(int ityp=0;ityp<no_types;ityp++)
+            CREATE1D(F_arr[ityp],nrho);
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int i=0;i<nrho;i++)
+                CREATE1D(F_arr[ityp][i],9);
     }
     
     allocated=1;
@@ -1732,7 +1745,7 @@ void ForceField_EAM_DMD_C::allocate()
 /*--------------------------------------------
  set the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::set_arrays()
+void ForceField_eam_dmd_c::set_arrays()
 {
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
     {
@@ -1763,8 +1776,8 @@ void ForceField_EAM_DMD_C::set_arrays()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::interpolate(int n,TYPE0 delta
-                                     ,TYPE0** spline)
+void ForceField_eam_dmd_c::interpolate(int n
+,TYPE0 delta,TYPE0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1783,7 +1796,6 @@ void ForceField_EAM_DMD_C::interpolate(int n,TYPE0 delta
         2.0*(spline[i+1][0]-spline[i][0]);
     }
     
-    
     spline[n-1][2]=0.0;
     spline[n-1][3]=0.0;
     for(int i=0;i<n;i++)
@@ -1795,10 +1807,65 @@ void ForceField_EAM_DMD_C::interpolate(int n,TYPE0 delta
     
 }
 /*--------------------------------------------
+ interpolate for a single array
+ --------------------------------------------*/
+TYPE0 ForceField_eam_dmd_c::interpolate(TYPE0* arr
+,int n,TYPE0 p,int k)
+{
+    
+    // k_min=0 k_max=n-1
+    TYPE0 coef0,coef1,coef2,coef3,tmp;
+    
+    coef0=arr[k];
+    
+    if(k==0)
+    {
+        coef1=arr[1]-arr[0];
+        tmp=0.5*(arr[2]-arr[0]);
+        coef2=(-arr[0]+2.0*arr[1]-arr[2])/2.0;
+        coef3=(arr[0]-2.0*arr[1]+arr[2])/2.0;
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    else if(k==1)
+    {
+        coef1=0.5*(arr[2]-arr[0]);
+        tmp=((arr[0]-arr[4])+8.0*(arr[3]-arr[1]))/12.0;
+        coef2=(11.0*arr[0]-28.0*arr[1]+24.0*arr[2]-8.0*arr[3]+arr[4])/12.0;
+        coef3=(-5.0*arr[0]+16.0*arr[1]-18.0*arr[2]+8.0*arr[3]-arr[4])/12.0;
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    else if(k==n-2)
+    {
+        coef1=0.5*(arr[n-1]-arr[n-3]);
+        tmp=arr[n-1]-arr[n-2];
+        coef2=arr[n-3]-3.0*arr[n-2]+2.0*arr[n-1];
+        coef3=0.5*(-arr[n-3]+3.0*arr[n-2]-2.0*arr[n-1]);
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    else if (k==n-1)
+    {
+        coef1=arr[n-1]-arr[n-2];
+        return coef0+coef1*p;
+    }
+    else
+    {
+        coef1=((arr[k-2]-arr[k+2])+
+               8.0*(arr[k+1]-arr[k-1]))/12.0;
+        tmp=((arr[k-1]-arr[k+3])+
+             8.0*(arr[k+2]-arr[k]))/12.0;
+        
+        coef2=(-2.0*arr[k-2]+15.0*arr[k-1]-28.0*arr[k]+21.0*arr[k+1]-6.0*arr[k+2])/12.0;
+        coef3=(arr[k-2]-7.0*arr[k-1]+16.0*arr[k]-17.0*arr[k+1]+7.0*arr[k+2])/12.0;
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    
+    
+}
+/*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::interpolate_m(int n,TYPE0 delta
-                                       ,TYPE0** spline)
+void ForceField_eam_dmd_c::interpolate_m(int n
+,TYPE0 delta,TYPE0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1844,11 +1911,13 @@ void ForceField_EAM_DMD_C::interpolate_m(int n,TYPE0 delta
  Gaussian-Hermite quadrature weights and
  abscissas for 1 to 14 points
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::set_weight_abs(int n)
+void ForceField_eam_dmd_c::set_weight_abs(int n)
 {
     
     if(n<1 || n>14)
-        error->abort("n should be between 1 and 14");
+        error->abort("number of gaussian "
+        "points for ff eam_dmd should be "
+        "between 1 & 14");
     
     if(no_i)
     {
@@ -2141,7 +2210,7 @@ void ForceField_EAM_DMD_C::set_weight_abs(int n)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::create_2nd_neigh_lst()
+void ForceField_eam_dmd_c::create_2nd_neigh_lst()
 {
     
     TYPE0 dx0,dx1,dx2,rsq;
@@ -2207,31 +2276,28 @@ void ForceField_EAM_DMD_C::create_2nd_neigh_lst()
         }
     }
     
-    
     if(tmp_neigh_list_size)
         delete [] tmp_neigh_list;
-    
 
-    
 }
 /*--------------------------------------------
  return M_{ij}^{\alpha}
  this fucntion should be symmetric wrt fi &
  fj
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::
+TYPE0 ForceField_eam_dmd_c::
 mat(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
     ,int itype)
 {
     if(fi>fj)
-        return fi+0.5;
+        return fi+delta_e[itype];
     else
-        return fj+0.5;
+        return fj+delta_e[itype];
 }
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::
+TYPE0 ForceField_eam_dmd_c::
 dmat0(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
      ,int itype)
 {
@@ -2245,7 +2311,7 @@ dmat0(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::
+TYPE0 ForceField_eam_dmd_c::
 dmat1(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
 ,int itype)
 {
@@ -2255,7 +2321,7 @@ dmat1(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
 /*--------------------------------------------
  return M_{ij}^{\alpha}
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::calc_ent(TYPE0 x)
+TYPE0 ForceField_eam_dmd_c::calc_ent(TYPE0 x)
 {
     if(x<1.0e-8 || 0.99999999<x)
         return 0.0;
@@ -2266,7 +2332,7 @@ TYPE0 ForceField_EAM_DMD_C::calc_ent(TYPE0 x)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_EAM_DMD_C::c_d_calc()
+void ForceField_eam_dmd_c::c_d_calc()
 {
     
     TYPE0* x;
@@ -2433,8 +2499,8 @@ void ForceField_EAM_DMD_C::c_d_calc()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD_C::calc_g(int chk,TYPE0 alpha,
-                                 TYPE0* a,TYPE0* g)
+TYPE0 ForceField_eam_dmd_c::g_calc(int chk
+,TYPE0 alpha,TYPE0* a,TYPE0* g)
 {
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
