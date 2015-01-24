@@ -8,9 +8,7 @@
 #include "error.h"
 #include "memory.h"
 #include "atom_types.h"
-#include "ff.h"
 using namespace MAPP_NS;
-enum{TYPE_XD_ID,TYPE_ID_XD,ID_TYPE_XD,ID_XD_TYPE,XD_ID_TYPE,XD_TYPE_ID};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
@@ -18,48 +16,20 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
 :Read(mapp)
 {
     
-    /*
-     delete all the atomic vectors first
-     */
-    
-    if(forcefield!=NULL)
-    {
-        delete forcefield;
-        forcefield=NULL;
-        error->warning("you should reinitiate ff & ff_coef");
-    }
-    
-    
-    int no_vecs=atoms->no_vecs;
-
-    for(int i=no_vecs-1;i>-1;i--)
-        atoms->del(i);
-    
-    atoms->natms=0;
-    atoms->natms_ph=0;
-    atoms->tot_natms=0;
-    
-    delete atom_types;
-    atom_types=new AtomTypes(mapp);
-    
-    
-    
-    curr_id=-1;
-    
     if(narg!=3)
-        error->abort("wrong command");
-    
+        error->abort("read cfg should only have 1 argument");
+    file_name=args[2];
     if(atoms->dimension!=3)
-        error->abort("in order to read a cfg"
-                     " file the box dimension should be 3");
+        error->abort("read cfg works only with 3 dimensional boxes");
+    
+    curr_id=0;
+    
     
     // setup the defaults
     basic_length=1.0;
     R=1.0;
     entry_count=6;
     ext_cfg=0;
-    header_cmplt=0;
-    atom_cmplt=0;
     vel_chk=1;
 
     CREATE2D(H_x,3,3);
@@ -83,13 +53,14 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
     CREATE1D(line,MAXCHAR);
     if(atoms->my_p_no==0)
     {
-        cfgfile=fopen(args[2],"r");
+        cfgfile=fopen(file_name,"r");
         if(cfgfile==NULL)
-            error->abort("file %s not found",args[2]);
+            error->abort("file %s not found",file_name);
     }
     
     
     fpos_t pos;
+    header_cmplt=0;
     while (!header_cmplt)
     {
         if(atoms->my_p_no==0)
@@ -112,8 +83,11 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
         x_n=atoms->add<TYPE0>(1, 3,"x");
         id_n=atoms->add<int>(0, 1,"id");
         type_n=atoms->add<int>(1, 1,"type");
-        
-        
+        /*
+        x_n=atoms->find("x");
+        id_n=atoms->find("id");
+        type_n=atoms->find("type");
+        */
         if(vel_chk)
         {
             x_d_n=atoms->add<TYPE0>(0, 3,"x_d");
@@ -127,6 +101,7 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
         }
         else
         {
+            
             vec_list=new VecLst(mapp,3,x_n,type_n,id_n);
             
             ch_id=atoms->vectors[x_n].byte_size;
@@ -139,7 +114,7 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
     else if(mapp->mode==DMD_mode)
     {
         if((entry_count-3)%2!=0)
-            error->abort("wrong number of entry for DMD in cfg file");
+            error->abort("entry_count-3 in %s file should be divisible by 2",file_name);
         dmd_no_types=(entry_count-3)/2;
         
         
@@ -155,10 +130,12 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
         CREATE1D(tmp_buff,tmp_buff_size);
         
         if(ext_cfg==0)
-            error->abort("DMD mode can only read extended cfg");
+            error->abort("based on entry_count in %s file only %d types of atoms should be present",file_name,dmd_no_types);
     }
+    
     CREATE1D(ch_buff,vec_list->byte_size);
     
+    atom_cmplt=0;
     while (!atom_cmplt)
     {
         if(atoms->my_p_no==0)
@@ -169,6 +146,14 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
         else if(mapp->mode==DMD_mode)
             read_atom_dmd();
     }
+    
+    if(mapp->mode==DMD_mode)
+    {
+        if(atom_types->no_types!=dmd_no_types)
+            error->abort("%s file should conatin properties of %d atom types",file_name,dmd_no_types);
+    }
+    
+    
     int loc_no=atoms->natms;
     int tot_no=0;
     MPI_Allreduce(&loc_no,&tot_no,1,MPI_INT,MPI_SUM,world);
@@ -190,7 +175,7 @@ ReadCFG::~ReadCFG()
 {
     delete vec_list;
     delete [] line;
-    delete [] trns;
+    
     
     for(int i=0;i<3;i++)
     {
@@ -199,6 +184,7 @@ ReadCFG::~ReadCFG()
         delete [] H0[i];
         delete [] H_x[i];
         delete [] H_x_d[i];
+        delete [] trns[i];
     }
     
     delete [] eta_sq;
@@ -206,6 +192,8 @@ ReadCFG::~ReadCFG()
     delete [] H0;
     delete [] H_x;
     delete [] H_x_d;
+    delete [] trns;
+    
     delete [] ch_buff;
     
     if(tmp_buff_size)
@@ -247,7 +235,7 @@ void ReadCFG::read_header()
             header_cmplt=1;
         
         else
-            error->abort("unknown command: %s",command);
+            error->abort("invalid line in %s file: %s",file_name,command);
     }
     else if(narg==3)
     {
@@ -255,29 +243,32 @@ void ReadCFG::read_header()
         {
             icmp--;
             jcmp--;
-            if (icmp>2 || icmp<0
-                || jcmp>2 || jcmp<0)
-                error->abort("unknown component: %s",command);
+            if (icmp>2 || icmp<0)
+                 error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
+            if(jcmp>2 || jcmp<0)
+                error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
             trns[icmp][jcmp]=tmp;
         }
         else if(sscanf(command,"eta(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
         {
             icmp--;
             jcmp--;
-            if (icmp>2||icmp<0||jcmp>2||jcmp<0)
-                error->abort("unknown component %s",command);
+            if (icmp>2 || icmp<0)
+                error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
+            if(jcmp>2 || jcmp<0)
+                error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
             eta[icmp][jcmp]=tmp;
         }
-        else if(sscanf(command,
-                       "entry_count = %d",&tmpno)==1)
+        else if(sscanf(command,"entry_count = %d",&tmpno)==1)
         {
             entry_count=tmpno;
             ext_cfg=1;
             int mincomp=3+(3*vel_chk);
             if (entry_count < mincomp)
-                error->abort("wrong number of entry_count");
+                error->abort("entry_count in %s should at least be equal to %d",file_name,mincomp);
         }
-        else error->abort("unknown command: %s",command);
+        else
+            error->abort("invalid line in %s file: %s",file_name,command);
     }
     else if(narg==4)
     {
@@ -286,10 +277,11 @@ void ReadCFG::read_header()
         {
             icmp--;
             jcmp--;
-            if (icmp>2||icmp<0||jcmp>2||jcmp<0)
-                error->abort("unknown component: %s",command);
-            else
-                H0[icmp][jcmp]=tmp;
+            if (icmp>2 || icmp<0)
+                error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
+            if(jcmp>2 || jcmp<0)
+                error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
+            H0[icmp][jcmp]=tmp;
         }
         else if(sscanf(command,"R = %lf %s",&tmp,strtmp1)==2)
         {
@@ -299,38 +291,40 @@ void ReadCFG::read_header()
         {
             int mincomp=3+(3*vel_chk);
             if(icmp+mincomp+1>entry_count)
-                error->abort("auxilary component larger than entry_count");
+                error->abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
         }
         else
-            error->abort("unknown command: %s",command);
+            error->abort("invalid line in %s file: %s",file_name,command);
     }
     else if(narg==5)
     {
-        if(sscanf(command,
-                  "Number of particles = %d",&tmpno)==1)
+        if(sscanf(command,"Number of particles = %d",&tmpno)==1)
             atoms->tot_natms=tmpno;
         else if(sscanf(command,"auxiliary[%d] = %s %s %s",&icmp,strtmp1,strtmp2,strtmp3)==4)
         {
             int mincomp=3+(3*vel_chk);
             if(icmp+mincomp+1>entry_count)
-                error->abort("auxilary component larger than entry_count");
+                error->abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
         }
 
         else
-            error->abort("unknown command: %s",command);
+            error->abort("invalid line in %s file: %s",file_name,command);
     }
     else if(narg==6)
     {
-        if(sscanf(command,
-                  "A = %lf Angstrom (basic length-scale)",&tmp)==1)
+        if(sscanf(command,"A = %lf Angstrom (basic length-scale)",&tmp)==1)
+        {
+            if(tmp<=0.0)
+                error->abort("A in %s file should be greater than 0.0",file_name);
             basic_length=tmp;
+        }
         else
-            error->abort("unknown command: %s",command);
+            error->abort("invalid line in %s file: %s",file_name,command);
     }
     else if (narg==8&&ext_cfg==0)
         header_cmplt=1;
     else
-        error->abort("unknown command: %s",command);
+        error->abort("invalid line in %s file: %s",file_name,command);
     
     delete [] command;
     delete [] strtmp3;
@@ -389,8 +383,8 @@ void ReadCFG::set_box()
         }
     M3EQV(H_x,H_x_d);
     
-    if (M3DET(H_x)==0)
-        error->abort("H determinant is zero");
+    if (M3DET(H_x)==0.0)
+        error->abort("determinant of H in %s file is 0.0",file_name);
     TYPE0 det;
     
     for (int i=0;i<3;i++)
@@ -463,9 +457,9 @@ void ReadCFG::read_atom_md()
     
     
     if (narg!=8 && ext_cfg==0)
-        error->abort("wrong format: %s",line);
+        error->abort("invalid line in %s file: %s",file_name,line);
     if (ext_cfg && !(narg==1 || narg==entry_count))
-        error->abort("wrong extended format: %s",line);
+        error->abort("invalid line in %s file: %s",file_name,line);
     
     if(ext_cfg)
     {
@@ -478,15 +472,14 @@ void ReadCFG::read_atom_md()
             
             narg=mapp->parse_line(line,arg);
             if(narg!=1)
-                error->abort("error cfg: %s",line);
+                error->abort("invalid line in %s file: %s",file_name,line);
             if(mass<=0.0)
-                error->abort("mass cannot be zero");
+                error->abort("mass of %s %s file (%lf) should be greater than 0.0",arg[0],file_name,line,mass);
             last_type=
             atom_types->add_type(mass,arg[0]);
         }
         else if(narg==entry_count)
         {
-
             if (vel_chk)
             {
                 for (int i=0;i<6;i++)
@@ -510,7 +503,7 @@ void ReadCFG::read_atom_md()
             
         }
         else
-            error->abort("unknown line: %s",line);
+            error->abort("invalid line in %s file: %s",file_name,line);
     }
     else
     {
@@ -519,8 +512,9 @@ void ReadCFG::read_atom_md()
             mass=static_cast<TYPE0>(atof(arg[0]));
             last_type=
             atom_types->add_type(mass,arg[1]);
+            if(mass<=0.0)
+                error->abort("mass of %s %s file (%lf) should be greater than 0.0",arg[1],file_name,line,mass);
  
-            
             for (int i=0;i<3;i++)
                 tmp_buff[i]=static_cast<TYPE0>(atof(arg[i+2]));
             for (int i=3;i<6;i++)
@@ -529,7 +523,7 @@ void ReadCFG::read_atom_md()
 
         }
         else
-            error->abort("unknown line: %s",line);
+            error->abort("invalid line in %s file: %s",file_name,line);
     }
     
     
@@ -561,10 +555,9 @@ void ReadCFG::read_atom_dmd()
     }
     
     
-    if (narg!=8 && ext_cfg==0)
-        error->abort("wrong format: %s",line);
+
     if (ext_cfg && !(narg==1 || narg==entry_count))
-        error->abort("wrong extended format: %s",line);
+        error->abort("invalid line in %s file: %s",file_name,line);
     
 
     if(narg==1)
@@ -576,24 +569,29 @@ void ReadCFG::read_atom_dmd()
         
         narg=mapp->parse_line(line,arg);
         if(narg!=1)
-            error->abort("error cfg: %s",line);
+            error->abort("invalid line in %s file: %s",file_name,line);
         if(mass<=0.0)
-            error->abort("mass cannot be zero");
-        last_type=
-        atom_types->add_type(mass,arg[0]);
+            error->abort("mass of %s %s file (%lf) should be greater than 0.0",arg[0],file_name,line,mass);
+        last_type=atom_types->add_type(mass,arg[0]);
         if(last_type>=dmd_no_types)
-            error->abort("exceeded the number of types in DMD");
+            error->abort("based on entry_count in %s file only %d types of atoms should be present",file_name,dmd_no_types);
     }
     else if(narg==entry_count)
     {
         for (int i=0;i<entry_count;i++)
             tmp_buff[i]=static_cast<TYPE0>(atof(arg[i]));
+        for(int i=3;i<3+dmd_no_types;i++)
+            if(tmp_buff[i]<=0.0)
+                error->abort("values of alpha vector in %s file should be greater than 0.0",file_name);
+        for(int i=3+dmd_no_types;i<3+2*dmd_no_types;i++)
+            if(tmp_buff[i]<0.0 || tmp_buff[i]>1.0)
+                error->abort("values of c vector in %s file should be between 0.0 & 1.0",file_name);
         
         add_atom_read_x();
         
     }
     else
-        error->abort("unknown line: %s",line);
+        error->abort("invalid line in %s file: %s",file_name,line);
 
     
     
@@ -607,7 +605,6 @@ void ReadCFG::read_atom_dmd()
  --------------------------------------------*/
 void ReadCFG::add_atom_read_x(int t)
 {
-    curr_id++;
     
     for(int i=0;i<3;i++)
     {
@@ -636,7 +633,10 @@ void ReadCFG::add_atom_read_x(int t)
     for(int i=0;i<3;i++)
         if(!(atoms->s_lo[i]<=tmp_buff[i]
              && tmp_buff[i]<atoms->s_hi[i]))
+        {
+            curr_id++;
             return;
+        }
     
     memcpy(ch_buff,tmp_buff,3*sizeof(TYPE0));
     memcpy(&ch_buff[ch_type],&t,sizeof(int));
@@ -646,15 +646,13 @@ void ReadCFG::add_atom_read_x(int t)
         memcpy(&ch_buff[ch_x_d],&tmp_buff[3],3*sizeof(TYPE0));
     
     atoms->unpack(ch_buff,0,1,vec_list);
-    
+    curr_id++;
 }
 /*--------------------------------------------
  addatom_read_x
  --------------------------------------------*/
 void ReadCFG::add_atom_read_x()
 {
-    curr_id++;
-    
     for(int i=0;i<3;i++)
     {
         while(tmp_buff[i]>=1.0)
@@ -666,7 +664,10 @@ void ReadCFG::add_atom_read_x()
     for(int i=0;i<3;i++)
         if(!(atoms->s_lo[i]<=tmp_buff[i]
              && tmp_buff[i]<atoms->s_hi[i]))
+        {
+            curr_id++;
             return;
+        }
     
     memcpy(ch_buff,tmp_buff,(3+dmd_no_types)*sizeof(TYPE0));
     memcpy(&ch_buff[ch_id],&curr_id,sizeof(int));
@@ -674,6 +675,7 @@ void ReadCFG::add_atom_read_x()
     ,dmd_no_types*sizeof(TYPE0));
     
     atoms->unpack(ch_buff,0,1,vec_list);
+    curr_id++;
 }
 /*--------------------------------------------
  calculates square root of 3x3 matrix
@@ -698,13 +700,11 @@ void ReadCFG::M3sqroot(TYPE0** A,TYPE0** Asq)
     TYPE0 IIIA=M3DET(A);
     TYPE0 k=IA*IA-3*IIA;
     if(k<0.0)
-        error->abort("error in taking the square root of"
-                     " the matrix: it is not positive definite");
+        error->abort("eta in %s should be positive definite",file_name);
     if(k<TOLERANCE)
     {
         if(IA<=0.0)
-            error->abort("error in taking the square root of"
-                         " the matrix: it is not positive definite");
+            error->abort("eta in %s should be positive definite",file_name);
         M3ZERO(Asq);
         for(int i=0;i<3;i++)
             Asq[i][i]=sqrt(IA/3.0);
@@ -715,23 +715,21 @@ void ReadCFG::M3sqroot(TYPE0** A,TYPE0** Asq)
     
     TYPE0 temp=l/(k*sqrt(k));
     if(temp>1.0||temp<-1.0)
-        error->abort("error in taking the square root of"
-                     " the matrix: it is not positive definite");
+        error->abort("eta in %s should be positive definite",file_name);
+    
     TYPE0 phi=acos(temp);
     TYPE0 lambda=sqrt((1.0/3.0)*(IA+2*sqrt(k)*cos(phi/3.0)));
     
     TYPE0 IIIAsq=sqrt(IIIA);
     TYPE0 y=-lambda*lambda+IA+2*IIIAsq/lambda;
     if(y<0.0)
-        error->abort("error in taking the square root of"
-                     " the matrix: it is not positive definite");
+        error->abort("eta in %s should be positive definite",file_name);
     TYPE0 IAsq=lambda+sqrt(y);
     TYPE0 IIAsq=0.5*(IAsq*IAsq-IA);
     
     TYPE0 coef0=IAsq*IIAsq-IIIAsq;
     if(coef0==0)
-        error->abort("error in taking the square root of"
-                     " the matrix: it is not positive definite");
+        error->abort("eta in %s should be positive definite",file_name);
     coef0=1.0/coef0;
     
     M3ZERO(Asq);

@@ -400,7 +400,7 @@ void ForceField_eam::coef(int narg,char** arg)
 {
     if (narg<3)
         error->abort("ff_coef for ff eam "
-        "should have at least 2 arguments");
+        "should at least have 2 arguments");
     
     clean_up();
     if(strcmp(arg[1],"FS")==0)

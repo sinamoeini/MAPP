@@ -23,7 +23,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
     initial_del_t=-1.0;
     
     if(narg<3)
-        error->abort("clock cn should have at least 1 arguement");
+        error->abort("clock cn should at least have 1 arguement");
     
     no_steps=atoi(arg[2]);
     if(no_steps<=0)

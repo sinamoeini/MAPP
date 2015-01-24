@@ -51,6 +51,8 @@ namespace MAPP_NS {
         
         TYPE0* tmp_buff;
         int tmp_buff_size;
+        char* file_name;
+        
     protected:
     public:
         ReadCFG(MAPP *,int,char**);

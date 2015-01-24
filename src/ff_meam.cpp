@@ -2225,7 +2225,7 @@ void ForceField_meam::coef(int narg,char** args)
 {
     if(narg!=3)
         error->abort("ff_coef for ff meam "
-        "should have at least 2 arguments");
+        "should at least have 2 arguments");
     
     read_global(args[1]);
     read_local(args[2]);

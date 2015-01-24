@@ -311,6 +311,7 @@ namespace MAPP_NS {
         
         //communication related parameters
         void auto_grid_proc();
+        void man_grid_proc(int,char**);
         
         int tot_n;
         int my_n_no;
@@ -354,6 +355,7 @@ namespace MAPP_NS {
         int tot_byte_size;
         
         void del(int);
+        void restart();
         int find(const char* name);
         int find_exist(const char* name);
         template <typename TYPE>

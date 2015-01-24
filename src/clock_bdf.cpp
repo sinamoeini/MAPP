@@ -24,7 +24,7 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
     initial_del_t=-1.0;
     
     if(narg<3)
-        error->abort("clock bdf should have at least 1 arguement");
+        error->abort("clock bdf should at least have 1 arguement");
     
     no_steps=atoi(arg[2]);
     if(no_steps<=0)
@@ -691,14 +691,14 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     int chk;
     
 
-    /*
+    
     memcpy(c,y_0,dof_lcl*sizeof(TYPE0));
     thermo->start_comm_time();
     atoms->update(c_n);
     thermo->stop_comm_time();
-    */
-   
     
+   
+    /*
     TYPE0 tot_ratio;
     ratio=1.0;
     for(int i=0;i<dof_lcl;i++)
@@ -716,7 +716,7 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     thermo->start_comm_time();
     atoms->update(c_n);
     thermo->stop_comm_time();
-    
+    */
     
     
     thermo->start_force_time();
@@ -738,7 +738,6 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     while(curr_cost>m_tol*static_cast<TYPE0>(dof_tot)
           && iter<max_iter && max_gamma>min_gamma)
     {
-        //cout <<"gggg" <<endl;
         memcpy(g0,g,dof_lcl*sizeof(TYPE0));
         memcpy(c0,c,dof_lcl*sizeof(TYPE0));
         

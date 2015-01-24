@@ -742,7 +742,7 @@ void ForceField_eam_dmd_c::coef(int narg,char** arg)
     TYPE0 kb,T,hbar;
     if (narg<9)
         error->abort("ff_coef for ff eam_dmd "
-        "should have at least 8 arguments");
+        "should at least have 8 arguments");
     
     
     rsq_crd=atof(arg[1]);
@@ -823,8 +823,6 @@ void ForceField_eam_dmd_c::coef(int narg,char** arg)
     cut_sq=rc*rc;
     mod_rc=rc+xi[no_i-1]/sqrt(alpha_min);
     cut_sq_mod=mod_rc*mod_rc;
-    
-    
     
 }
 /*--------------------------------------------

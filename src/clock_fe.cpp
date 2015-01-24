@@ -16,7 +16,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
     min_del_t=1.0e-12;
     max_del_t=1.0e4;
     if(narg<3)
-        error->abort("clock fe should have at least 1 arguement");
+        error->abort("clock fe should at least have 1 arguement");
     
     no_steps=atoi(arg[2]);
     if(no_steps<=0)

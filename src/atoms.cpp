@@ -199,6 +199,48 @@ Atoms::~Atoms()
     
 }
 /*--------------------------------------------
+ clean up the and reset
+ --------------------------------------------*/
+void Atoms::restart()
+{
+    
+    
+    delete ph_lst;
+    
+    
+    if(snd_buff_0_capacity)
+        delete [] snd_buff_0;
+    if(snd_buff_1_capacity)
+        delete [] snd_buff_1;
+    if(rcv_buff_capacity)
+        delete [] rcv_buff;
+    if(snd_ph_buff_capacity)
+        delete [] snd_ph_buff;
+    if(rcv_ph_buff_capacity)
+        delete [] rcv_ph_buff;
+    
+    if(no_vecs)
+        delete [] vectors;
+    
+    ph_lst= new SwapLst<int>(mapp);
+    
+    snd_buff_0_capacity=0;
+    snd_buff_1_capacity=0;
+    rcv_buff_capacity=0;
+    snd_ph_buff_capacity=0;
+    rcv_ph_buff_capacity=0;
+    
+    no_vecs=0;
+    tot_byte_size=0;
+    
+    tot_natms=0;
+    natms=0;
+    natms_ph=0;
+    atm_vec_ph_size=0;
+    atm_vec_size=0;
+    tot_cut_ph=0.0;
+}
+/*--------------------------------------------
  
  --------------------------------------------*/
 void Atoms::chng_dim(int dim)
@@ -2559,15 +2601,113 @@ void Atoms::auto_grid_proc()
         /static_cast<TYPE0>(tot_p_grid[i]);
     }
     if(my_p_no==0)
+    {
         fprintf(output,"autogrid performed: ");
-    
-    for(int i=0;i<dimension-1;i++)
-        if(my_p_no==0)
+        
+        for(int i=0;i<dimension-1;i++)
             fprintf(output,"%d\u00D7",tot_p_grid[i]);
-    if(my_p_no==0)
+        
         fprintf(output,"%d",tot_p_grid[dimension-1]);
-    if(my_p_no==0)
+        
         fprintf(output,"\n");
+    }
+    
+    
+}
+/*--------------------------------------------
+ manually grid the domain
+ --------------------------------------------*/
+void Atoms::man_grid_proc(int narg,char** args)
+{
+    if(narg!=dimension+1)
+        error->abort("grid should at least"
+        " have %d arguement",dimension);
+    
+    for(int i=0;i<dimension;i++)
+        tot_p_grid[i]=atoi(args[i+1]);
+
+    int tmp=1;
+    for(int i=0;i<dimension;i++)
+    {
+        if(tot_p_grid[i]<1)
+            error->abort("number of processors "
+            "in dimension %d for grid cannot be "
+            "less than 1",i);
+        tmp*=tot_p_grid[i];
+    }
+    if(tmp!=tot_p)
+    {
+        /*
+        char err_msg[MAXCHAR];
+        sprintf(err_msg,"%d\u00D7",tot_p_grid[0]);
+        for(int i=1;i<dimension-1;i++)
+            sprintf(err_msg,"%s%d\u00D7",err_msg,tot_p_grid[i]);
+        sprintf(err_msg,"%s%d",err_msg,tot_p_grid[dimension-1]);
+        
+        error->abort("for grid %d\u2260%s",tot_p,err_msg);
+         */
+        error->abort("for grid total number of "
+        "processors should be equal to the "
+        "product of arguments");
+    }
+
+    
+        
+    int* list;
+    CREATE1D(list,dimension);
+    for(int i=0;i<dimension;i++)
+        list[i]=1;
+
+    MPI_Comm cartesian;
+    MPI_Cart_create(comm_world,dimension,tot_p_grid,list,1,&cartesian);
+    MPI_Cart_get(cartesian,dimension,tot_p_grid,list,my_loc);
+    for(int i=0;i<dimension;i++)
+        MPI_Cart_shift(cartesian,i,1,&neigh_p[i][0],&neigh_p[i][1]);
+    
+    MPI_Comm_free(&cartesian);
+    
+    if(dimension)
+        delete [] list;
+    
+    for(int i=0;i<dimension;i++)
+    {
+        s_lo[i]=
+        static_cast<TYPE0>(my_loc[i])
+        /static_cast<TYPE0>(tot_p_grid[i]);
+        
+        s_hi[i]=
+        (static_cast<TYPE0>(my_loc[i])+1.0)
+        /static_cast<TYPE0>(tot_p_grid[i]);
+    }
+    
+    if(no_vecs)
+    {
+        CREATE1D(list,no_vecs);
+        for(int i=0;i<no_vecs;i++)
+            list[i]=i;
+        VecLst* vecs_comm;
+        vecs_comm=new VecLst(mapp,list,no_vecs);
+        
+        reset_comm(vecs_comm);
+        
+        delete vecs_comm;
+        if(no_vecs)
+            delete [] list;
+    }
+    
+    
+    if(my_p_no==0)
+    {
+
+        fprintf(output,"manual grid performed: ");
+        
+        for(int i=0;i<dimension-1;i++)
+            fprintf(output,"%d\u00D7",tot_p_grid[i]);
+        
+        fprintf(output,"%d",tot_p_grid[dimension-1]);
+        
+        fprintf(output,"\n");
+    }
     
     
 }

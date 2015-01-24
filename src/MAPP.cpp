@@ -55,9 +55,8 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     min=NULL;
     clock=NULL;
     write=NULL;
-    
-    mode=MD_mode;
     /*
+    mode=MD_mode;
     atoms->add<TYPE0>(1, 3,"x");
     atoms->add<int>(1, 1,"type");
     atoms->add<int>(0, 1,"id");
@@ -133,12 +132,13 @@ void MAPP::read_file()
     int input_file_chk=1;
     char* line;
     int lngth;
-    int size=5;
+    int size=MAXCHAR;
+    int new_size;
     int line_complt,pos;
     int max_line_char;
     char* srch;
     max_line_char=size;
-    
+    new_size=size;
     CREATE1D(line,size);
     
     
@@ -176,6 +176,7 @@ void MAPP::read_file()
                 }
             }
             
+            new_size=size;
             
             if(feof(input_file))
                 input_file_chk=0;
@@ -186,8 +187,18 @@ void MAPP::read_file()
         MPI_Bcast(&input_file_chk,1,MPI_INT,0,world);
         if(input_file_chk==0)
             continue;
-
+        /*
         MPI_Bcast(&size,1,MPI_INT,0,world);
+         */
+        
+        MPI_Bcast(&new_size,1,MPI_INT,0,world);
+        if(new_size!=size)
+        {
+            delete [] line;
+            CREATE1D(line,new_size);
+            size=new_size;
+        }
+        
         MPI_Bcast(line,size,MPI_CHAR,0,world);
         
         command(line);
@@ -204,13 +215,16 @@ void MAPP::command(char* command)
     char** args;
     int narg;
     narg=parse_line(command,args);
-    
     if(narg)
         no_commands++;
     
     if(narg==0)
     {
         return;
+    }
+    else if(strcmp(args[0],"grid")==0)
+    {
+        atoms->man_grid_proc(narg,args);
     }
     else if(strcmp(args[0],"skin")==0)
     {
@@ -414,7 +428,6 @@ void MAPP::read_style(int narg,char** args)
         error->abort("wrong style of md: %s",args[1]);
     #undef Read_Style
     delete read;
-    
 }
 /*--------------------------------------------
  differnt read styles

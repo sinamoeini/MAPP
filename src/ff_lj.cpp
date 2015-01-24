@@ -255,10 +255,7 @@ force_calc(int st_clc,TYPE0* en_st)
  --------------------------------------------*/
 TYPE0 ForceField_lj::energy_calc()
 {
-    /*
-    TYPE0* x=(TYPE0*)atoms->vectors[x_n].ret_vec();
-    int* type=(int*)atoms->vectors[type_n].ret_vec();
-     */
+
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
     int* type;
