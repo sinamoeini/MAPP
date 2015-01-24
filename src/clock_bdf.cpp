@@ -8,7 +8,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_BDF::Clock_BDF(MAPP* mapp,int narg
+Clock_bdf::Clock_bdf(MAPP* mapp,int narg
 ,char** arg):Clock(mapp)
 {
     min_gamma=1.0e-10;
@@ -24,16 +24,16 @@ Clock_BDF::Clock_BDF(MAPP* mapp,int narg
     initial_del_t=-1.0;
     
     if(narg<3)
-        error->abort("invalid arguments");
+        error->abort("clock bdf should have at least 1 arguement");
+    
     no_steps=atoi(arg[2]);
     if(no_steps<=0)
-        error->abort("no of steps should "
-        "be greater than zero");
+        error->abort("no of steps for clock bdf should be greater than 0");
     
     if(narg>3)
     {
         if((narg-3)%2!=0)
-            error->abort("wrong number of inputs");
+            error->abort("every keyword in clock bdf should be followed by it's value");
         int iarg=3;
         while(iarg<narg)
         {
@@ -102,36 +102,36 @@ Clock_BDF::Clock_BDF(MAPP* mapp,int narg
                 iarg++;
                 initial_del_t=atof(arg[iarg]);
                 if(initial_del_t<=0.0)
-                    error->abort("initial_del_t should be larger than zero");
+                    error->abort("initial_del_t in clock bdf should be greater than 0.0");
                 iarg++;
             }
             else
-                error->abort("unknown keyword: %s",arg[iarg]);
+                error->abort("unknown keyword in clock bdf: %s",arg[iarg]);
         }
     }
     
     if(min_gamma<=0.0)
-        error->abort("min_gamma should be larger than zero");
+        error->abort("min_gamma in clock bdf should be greater than 0.0");
     if(gamma_red<=0.0 || gamma_red>=1.0)
-        error->abort("gamma_red should be between zero and one");
+        error->abort("gamma_red in clock bdf should be between 0.0 & 1.0");
     if(slope<=0.0 || slope>=1.0)
-        error->abort("slope should be between zero and one");
+        error->abort("slope in clock bdf should be between 0.0 & 1.0");
     if(max_iter<=0)
-        error->abort("max_iter should be larger than zero");
+        error->abort("max_iter in clock bdf should be greater than 0");
     if(max_order<=0)
-        error->abort("max_order should be larger than zero");
+        error->abort("max_order in clock bdf should be greater than 0");
     if(m_tol<=0.0)
-        error->abort("m_tol should be larger than zero");
+        error->abort("m_tol in clock bdf should be greater than 0.0");
     if(a_tol<=0.0)
-        error->abort("a_tol should be larger than zero");
+        error->abort("a_tol in clock bdf should be greater than 0.0");
     if(e_tol<0.0)
-        error->abort("e_tol should be larger than zero");
+        error->abort("e_tol in clock bdf should be equal or greater than 0.0");
     if(min_del_t<=0.0)
-        error->abort("min_del_t should be larger than zero");
+        error->abort("min_del_t in clock bdf should be greater than 0.0");
     if(max_del_t<=0.0)
-        error->abort("max_del_t should be larger than zero");
+        error->abort("max_del_t in clock bdf should be greater than 0.0");
     if(min_del_t>=max_del_t)
-        error->abort("max_del_t should be larger than min_del_t");
+        error->abort("max_del_t in clock bdf should be greater than min_del_t");
     
     
     c_n=atoms->find("c");
@@ -165,7 +165,7 @@ Clock_BDF::Clock_BDF(MAPP* mapp,int narg
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_BDF::~Clock_BDF()
+Clock_bdf::~Clock_bdf()
 {
     
     
@@ -199,7 +199,7 @@ Clock_BDF::~Clock_BDF()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_BDF::init()
+void Clock_bdf::init()
 {
     TYPE0* c;
     TYPE0* c_d;
@@ -275,7 +275,7 @@ void Clock_BDF::init()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_BDF::fin()
+void Clock_bdf::fin()
 {
     
     if(write!=NULL)
@@ -293,7 +293,7 @@ void Clock_BDF::fin()
 /*--------------------------------------------
  calculate the coefficients
  --------------------------------------------*/
-int Clock_BDF::interpolate(TYPE0 del_t,int q)
+int Clock_bdf::interpolate(TYPE0 del_t,int q)
 {
     TYPE0 tmp0,tmp1,c0,c1,c2,c3,c4,t_new;
     t_new=t[0]+del_t;
@@ -370,7 +370,7 @@ int Clock_BDF::interpolate(TYPE0 del_t,int q)
 /*--------------------------------------------
  lower order error estimate
  --------------------------------------------*/
-void Clock_BDF::hi_lo_err_est(TYPE0 del_t,int q)
+void Clock_bdf::hi_lo_err_est(TYPE0 del_t,int q)
 {
     
     TYPE0* c_d;
@@ -477,7 +477,7 @@ void Clock_BDF::hi_lo_err_est(TYPE0 del_t,int q)
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_BDF::run()
+void Clock_bdf::run()
 {
     int dim=atoms->dimension;
     TYPE0* energy_stress;
@@ -675,7 +675,7 @@ void Clock_BDF::run()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-TYPE0 Clock_BDF::solve(TYPE0 del_t,int q)
+TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
 {
     
     TYPE0* c;
@@ -885,7 +885,7 @@ TYPE0 Clock_BDF::solve(TYPE0 del_t,int q)
 /*--------------------------------------------
  for error
  --------------------------------------------*/
-void Clock_BDF::err_coef(TYPE0* coef,int q)
+void Clock_bdf::err_coef(TYPE0* coef,int q)
 {
     
     TYPE0 c0=1.0,tmp0;

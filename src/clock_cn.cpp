@@ -7,7 +7,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_CN::Clock_CN(MAPP* mapp,int narg
+Clock_cn::Clock_cn(MAPP* mapp,int narg
                    ,char** arg):Clock(mapp)
 {
 
@@ -23,16 +23,16 @@ Clock_CN::Clock_CN(MAPP* mapp,int narg
     initial_del_t=-1.0;
     
     if(narg<3)
-        error->abort("invalid arguments");
+        error->abort("clock cn should have at least 1 arguement");
+    
     no_steps=atoi(arg[2]);
     if(no_steps<=0)
-        error->abort("no of steps should "
-                     "be greater than zero");
+        error->abort("no of steps for clock cn should be greater than 0");
     
     if(narg>3)
     {
         if((narg-3)%2!=0)
-            error->abort("wrong number of inputs");
+            error->abort("every keyword in clock cn should be followed by it's value");
         int iarg=3;
         while(iarg<narg)
         {
@@ -95,34 +95,34 @@ Clock_CN::Clock_CN(MAPP* mapp,int narg
                 iarg++;
                 initial_del_t=atof(arg[iarg]);
                 if(initial_del_t<=0.0)
-                    error->abort("initial_del_t should be larger than zero");
+                    error->abort("initial_del_t in clock cn should be greater than 0.0");
                 iarg++;
             }
             else
-                error->abort("unknown keyword: %s",arg[iarg]);
+                error->abort("unknown keyword in clock cn: %s",arg[iarg]);
         }
     }
     
     if(min_gamma<=0.0)
-        error->abort("min_gamma should be larger than zero");
+        error->abort("min_gamma in clock cn should be greater than 0.0");
     if(gamma_red<=0.0 || gamma_red>=1.0)
-        error->abort("gamma_red should be between zero and one");
+        error->abort("gamma_red in clock cn should be between 0.0 & 1.0");
     if(slope<=0.0 || slope>=1.0)
-        error->abort("slope should be between zero and one");
+        error->abort("slope in clock cn should be between 0.0 & 1.0");
     if(max_iter<=0)
-        error->abort("max_iter should be larger than zero");
+        error->abort("max_iter in clock cn should be greater than 0.0");
     if(m_tol<=0.0)
-        error->abort("m_tol should be larger than zero");
+        error->abort("m_tol in clock cn should be greater than 0.0");
     if(a_tol<=0.0)
-        error->abort("a_tol should be larger than zero");
+        error->abort("a_tol in clock cn should be greater than 0.0");
     if(e_tol<0.0)
-        error->abort("e_tol should be larger than zero");
+        error->abort("e_tol in clock cn should be equal or greater than 0.0");
     if(min_del_t<=0.0)
-        error->abort("min_del_t should be larger than zero");
+        error->abort("min_del_t in clock cn should be greater than 0.0");
     if(max_del_t<=0.0)
-        error->abort("max_del_t should be larger than zero");
+        error->abort("max_del_t in clock cn should be greater than 0.0");
     if(min_del_t>=max_del_t)
-        error->abort("max_del_t should be larger than min_del_t");
+        error->abort("max_del_t in clock bdf should be greater than min_del_t");
     
 
     
@@ -153,7 +153,7 @@ Clock_CN::Clock_CN(MAPP* mapp,int narg
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_CN::~Clock_CN()
+Clock_cn::~Clock_cn()
 {
     delete thermo;
     
@@ -178,7 +178,7 @@ Clock_CN::~Clock_CN()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_CN::init()
+void Clock_cn::init()
 {
     TYPE0* c;
     TYPE0* c_d;
@@ -244,7 +244,7 @@ void Clock_CN::init()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_CN::fin()
+void Clock_cn::fin()
 {
     
     if(write!=NULL)
@@ -263,7 +263,7 @@ void Clock_CN::fin()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_CN::run()
+void Clock_cn::run()
 {
     int dim=atoms->dimension;
     TYPE0* energy_stress;
@@ -363,7 +363,7 @@ void Clock_CN::run()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-int Clock_CN::interpolate(TYPE0 del_t)
+int Clock_cn::interpolate(TYPE0 del_t)
 {
     TYPE0 c0=del_t+0.5*del_t*del_t/(t[0]-t[1]);
     TYPE0 c1=-0.5*del_t*del_t/(t[0]-t[1]);
@@ -392,7 +392,7 @@ int Clock_CN::interpolate(TYPE0 del_t)
 /*--------------------------------------------
  init
  --------------------------------------------*/
-TYPE0 Clock_CN::solve(TYPE0 del_t)
+TYPE0 Clock_cn::solve(TYPE0 del_t)
 {
     TYPE0* c;
     atoms->vectors[c_n].ret(c);

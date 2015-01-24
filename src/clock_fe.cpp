@@ -8,7 +8,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_FE::Clock_FE(MAPP* mapp,int narg
+Clock_fe::Clock_fe(MAPP* mapp,int narg
     ,char** arg):Clock(mapp)
 {
     e_tol=0.0;
@@ -16,16 +16,16 @@ Clock_FE::Clock_FE(MAPP* mapp,int narg
     min_del_t=1.0e-12;
     max_del_t=1.0e4;
     if(narg<3)
-        error->abort("invalid arguments");
+        error->abort("clock fe should have at least 1 arguement");
+    
     no_steps=atoi(arg[2]);
     if(no_steps<=0)
-        error->abort("no of steps should "
-                     "be greater than zero");
+        error->abort("no of steps for clock fe should be greater than 0");
     
     if(narg>3)
     {
         if((narg-3)%2!=0)
-            error->abort("wrong number of inputs");
+            error->abort("every keyword in clock fe should be followed by it's value");
         int iarg=3;
         while(iarg<narg)
         {
@@ -55,21 +55,21 @@ Clock_FE::Clock_FE(MAPP* mapp,int narg
                 iarg++;
             }
             else
-                error->abort("unknown keyword: %s",arg[iarg]);
+                error->abort("unknown keyword in clock fe: %s",arg[iarg]);
         }
     }
     
 
     if(a_tol<=0.0)
-        error->abort("a_tol should be larger than zero");
+        error->abort("a_tol in clock fe should be greater than 0.0");
     if(e_tol<0.0)
-        error->abort("e_tol should be larger than zero");
+        error->abort("e_tol in clock fe should be equal or greater than 0.0");
     if(min_del_t<=0.0)
-        error->abort("min_del_t should be larger than zero");
+        error->abort("min_del_t in clock fe should be greater than 0.0");
     if(max_del_t<=0.0)
-        error->abort("max_del_t should be larger than zero");
+        error->abort("max_del_t in clock fe should be greater than 0.0");
     if(min_del_t>=max_del_t)
-        error->abort("max_del_t should be larger than min_del_t");
+        error->abort("max_del_t in clock fe should be greater than min_del_t");
     
     
    
@@ -90,7 +90,7 @@ Clock_FE::Clock_FE(MAPP* mapp,int narg
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_FE::~Clock_FE()
+Clock_fe::~Clock_fe()
 {
     delete thermo;
     
@@ -105,7 +105,7 @@ Clock_FE::~Clock_FE()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_FE::init()
+void Clock_fe::init()
 {
     int f_n=atoms->find_exist("f");
     if(f_n<0)
@@ -165,7 +165,7 @@ void Clock_FE::init()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_FE::fin()
+void Clock_fe::fin()
 {
     if(write!=NULL)
         write->fin();
@@ -181,7 +181,7 @@ void Clock_FE::fin()
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_FE::run()
+void Clock_fe::run()
 {
     TYPE0 curr_t=0.0;
     int dim=atoms->dimension;

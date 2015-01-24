@@ -1,5 +1,5 @@
 #ifdef Min_Style
-    MinStyle(Min_CG,cg)
+    MinStyle(Min_cg,cg)
 #else
 #ifndef __MAPP__min_cg__
 #define __MAPP__min_cg__

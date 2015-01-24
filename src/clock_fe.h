@@ -1,5 +1,5 @@
 #ifdef Clock_Style
-    ClockStyle(Clock_FE,fe)
+    ClockStyle(Clock_fe,fe)
 #else
 #ifndef __MAPP__clock_fe__
 #define __MAPP__clock_fe__
@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "clock.h"
 namespace MAPP_NS {
-    class Clock_FE :public Clock
+    class Clock_fe :public Clock
     {
     private:
     protected:
@@ -26,8 +26,8 @@ namespace MAPP_NS {
         TYPE0* dy_1;
         
     public:
-        Clock_FE(MAPP *,int,char**);
-        ~Clock_FE();
+        Clock_fe(MAPP *,int,char**);
+        ~Clock_fe();
         void run();
         void init();
         void fin();

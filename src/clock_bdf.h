@@ -1,5 +1,5 @@
 #ifdef Clock_Style
-    ClockStyle(Clock_BDF,bdf)
+    ClockStyle(Clock_bdf,bdf)
 #else
 #ifndef __MAPP__clock_bdf__
 #define __MAPP__clock_bdf__
@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "clock.h"
 namespace MAPP_NS {
-    class Clock_BDF :public Clock
+    class Clock_bdf :public Clock
     {
     private:
     protected:
@@ -53,8 +53,8 @@ namespace MAPP_NS {
         TYPE0 lwr_alpha_dy,lwr_alpha_y;
         
     public:
-        Clock_BDF(MAPP *,int,char**);
-        ~Clock_BDF();
+        Clock_bdf(MAPP *,int,char**);
+        ~Clock_bdf();
         void run();
         void init();
         void fin();

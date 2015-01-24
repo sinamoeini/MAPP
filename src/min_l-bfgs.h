@@ -1,6 +1,6 @@
 
 #ifdef Min_Style
-MinStyle(Min_LBFGS,l-bfgs)
+MinStyle(Min_lbfgs,l-bfgs)
 
 #else
 #ifndef __MAPP__min_lbfgs__

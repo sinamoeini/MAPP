@@ -145,7 +145,8 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
         
         x_n=atoms->add<TYPE0>(1,3+dmd_no_types,"x");
         id_n=atoms->add<int>(0, 1,"id");
-        c_n=atoms->add<int>(1,dmd_no_types,"c");
+        c_n=atoms->add<TYPE0>(1,dmd_no_types,"c");
+        vec_list=new VecLst(mapp,3,x_n,id_n,c_n);
         
         ch_id=atoms->vectors[x_n].byte_size;
         ch_c=ch_id+atoms->vectors[id_n].byte_size;
@@ -156,7 +157,6 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
         if(ext_cfg==0)
             error->abort("DMD mode can only read extended cfg");
     }
-    
     CREATE1D(ch_buff,vec_list->byte_size);
     
     while (!atom_cmplt)
@@ -545,7 +545,6 @@ void ReadCFG::read_atom_dmd()
 {
     char** arg;
     TYPE0 mass;
-    TYPE0* buff;
     int narg=mapp->parse_line(line,arg);
     
     if(atoms->my_p_no==0)
@@ -587,13 +586,11 @@ void ReadCFG::read_atom_dmd()
     }
     else if(narg==entry_count)
     {
-        CREATE1D(buff,entry_count);
         for (int i=0;i<entry_count;i++)
-            buff[i]=static_cast<TYPE0>(atof(arg[i]));
+            tmp_buff[i]=static_cast<TYPE0>(atof(arg[i]));
         
-        add_atom_read_x(last_type);
+        add_atom_read_x();
         
-        delete [] buff;
     }
     else
         error->abort("unknown line: %s",line);
