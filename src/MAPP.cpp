@@ -113,6 +113,9 @@ MAPP::~MAPP()
     
     if(write!=NULL)
         delete write;
+    
+    if(forcefield!=NULL)
+        delete forcefield;
 
     delete neighbor;
     delete atom_types;

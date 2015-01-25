@@ -17,7 +17,6 @@ namespace MAPP_NS {
         TYPE0* sigma;
         TYPE0* epsilon;
         TYPE0* offset;
-        TYPE0* nrgy_strss;
         void read_file(char*);
         int read_line(FILE*,char*&);
         

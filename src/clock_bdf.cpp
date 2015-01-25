@@ -9,7 +9,7 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Clock_bdf::Clock_bdf(MAPP* mapp,int narg
-,char** arg):Clock(mapp)
+                     ,char** arg):Clock(mapp)
 {
     min_gamma=1.0e-10;
     gamma_red=0.8;
@@ -159,7 +159,7 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
     CREATE1D(dalpha_y,max_order);
     CREATE1D(coef,max_order);
     CREATE1D(lwr_alpha,max_order);
- 
+    
     
 }
 /*--------------------------------------------
@@ -208,16 +208,27 @@ void Clock_bdf::init()
     if(f_n<0)
         f_n=atoms->add<TYPE0>(0,atoms->vectors[0].dim,"f");
     
+    int dof_tot_r=dof_tot;
     if(cdof_n>-1)
     {
         int dof_n=atoms->find("dof");
         vecs_comm=new VecLst(mapp,5,0,c_n,c_d_n,cdof_n,dof_n);
+        
+        char* cdof;
+        atoms->vectors[cdof_n].ret(cdof);
+        int fixed_lcl=0;
+        int fixed_tot=0;
+        for(int i=0;i<dof_lcl;i++)
+            if(cdof[i]==1)fixed_lcl++;
+        MPI_Allreduce(&fixed_lcl,&fixed_tot,1,MPI_INT,MPI_SUM,world);
+        dof_tot_r-=fixed_tot;
         
     }
     else
     {
         vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
     }
+    correc_fac=1.0/static_cast<TYPE0>(dof_tot_r);
     
     vecs_comm->add_update(0);
     atoms->reset_comm(vecs_comm);
@@ -379,7 +390,7 @@ void Clock_bdf::hi_lo_err_est(TYPE0 del_t,int q)
     atoms->vectors[c_n].ret(c);
     
     TYPE0 curr_t=t[0]+del_t;
-
+    
     
     TYPE0 c0=0.0,c1=1.0,tmp0;
     TYPE0 lo_err_lcl,hi_err_lcl;
@@ -413,7 +424,7 @@ void Clock_bdf::hi_lo_err_est(TYPE0 del_t,int q)
         }
         Q_n=(a_0/hi_a_0)*(1.0+a_1)/(1.0+hi_a_1)*(del_t/(t[0]-t[1]));
         hi_l1_q=l1_q+1.0/(curr_t-t[q]);
-        hi_err_pre_fac=-(curr_t-t[q])/(q+2);
+        hi_err_pre_fac=-(curr_t-t[q])/static_cast<TYPE0>(q+2);
         hi_err_pre_fac*=1.0/(hi_l1_q*(1.0+a_1)*del_t*del_t);
     }
     
@@ -495,17 +506,17 @@ void Clock_bdf::run()
     int ord=1;
     int chk;
     int const_stp=0;
-    int initial_phase=0;
     
     eq_ratio=1.0;
     
     int istep=0;
     while (eq_ratio>=1.0 && istep <no_steps)
     {
+        
         chk=interpolate(del_t,ord);
         while(chk==-1)
         {
-            if(initial_phase) initial_phase=0;
+
             del_t*=0.8;
             del_t=MAX(del_t,min_del_t);
             chk=interpolate(del_t,ord);
@@ -514,7 +525,6 @@ void Clock_bdf::run()
         //cost=0.0;
         while(err>=1.0 || cost>=1.0)
         {
-            if(initial_phase) initial_phase=0;
             
             err1=MAX(err,cost);
             ratio=pow(0.5/err1,1.0/static_cast<TYPE0>(ord+1));
@@ -557,102 +567,77 @@ void Clock_bdf::run()
         }
         
         
+        if(ord!=1 && const_stp>ord+1)
+            lo_ord_avail=1;
+        else
+            lo_ord_avail=0;
         
-        tmp_y=y[max_order-1];
-        for(int i=max_order-1;i>0;i--)
+        if(ord<max_order && istep!=0)
+            hi_ord_avail=1;
+        else
+            hi_ord_avail=0;
+        
+        hi_lo_err_est(del_t,ord);
+        
+        if(hi_ord_avail && lo_ord_avail)
         {
-            t[i]=t[i-1];
-            y[i]=y[i-1];
-        }
-        
-        y[0]=tmp_y;
-        t[0]+=del_t;
-        
-        memcpy(y[0],c,dof_lcl*sizeof(TYPE0));
-        memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
-        
-        
-        
-        
-        
-        if(initial_phase)
-        {
-            del_t=MIN(del_t*2.0,max_del_t);
-            if(ord<max_order && istep>=ord+3)
+            lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(ord));
+            hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(ord+2));
+            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
+            
+            if(hi_ratio>lo_ratio && hi_ratio>ratio)
+            {
                 ord++;
+                ratio=hi_ratio;
+            }
+            else if(lo_ratio>hi_ratio && lo_ratio>ratio)
+            {
+                ord--;
+                ratio=lo_ratio;
+            }
+            
+        }
+        else if(hi_ord_avail==1&& lo_ord_avail==0)
+        {
+            hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(ord+2));
+            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
+            
+            if(hi_ratio>ratio)
+            {
+                ord++;
+                ratio=hi_ratio;
+            }
+        }
+        else if(hi_ord_avail==0 && lo_ord_avail==1)
+        {
+            lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(ord));
+            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
+            if(lo_ratio>ratio)
+            {
+                ord--;
+                ratio=lo_ratio;
+            }
+        }
+        else
+            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
+        
+        
+        
+        
+        if(ratio>=2.0)
+        {
+            ratio=2.0;
+            const_stp=0;
+        }
+        else if(ratio<=0.5)
+        {
+            ratio=0.5;
+            const_stp=0;
         }
         else
         {
-            if(ord!=1 && const_stp>ord+1)
-                lo_ord_avail=1;
-            else
-                lo_ord_avail=0;
-            
-            if((ord<max_order && istep!=0) && const_stp>ord+1)
-                hi_ord_avail=1;
-            else
-                hi_ord_avail=0;
-            
-            hi_lo_err_est(del_t,ord);
-            
-            if(hi_ord_avail && lo_ord_avail)
-            {
-                lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(ord));
-                hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(ord+2));
-                ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-                
-                if(hi_ratio>lo_ratio && hi_ratio>ratio)
-                {
-                    ord++;
-                    ratio=hi_ratio;
-                }
-                else if(lo_ratio>hi_ratio && lo_ratio>ratio)
-                {
-                    ord--;
-                    ratio=lo_ratio;
-                }
-                
-            }
-            else if(hi_ord_avail==1&& lo_ord_avail==0)
-            {
-                hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(ord+2));
-                ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-                
-                if(hi_ratio>ratio)
-                {
-                    ord++;
-                    ratio=hi_ratio;
-                }
-            }
-            else if(hi_ord_avail==0 && lo_ord_avail==1)
-            {
-                lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(ord));
-                ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-                if(lo_ratio>ratio)
-                {
-                    ord--;
-                    ratio=lo_ratio;
-                }
-            }
-            else
-                ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-            
-            if(ratio>=2.0)
-            {
-                ratio=2.0;
-                const_stp=0;
-            }
-            else if(ratio<=0.5)
-            {
-                ratio=0.5;
-                const_stp=0;
-            }
-            else
-            {
-                ratio=1.0;
-                const_stp++;
-            }
-            
+            ratio=1.0;
+            const_stp++;
         }
         
         
@@ -664,12 +649,24 @@ void Clock_bdf::run()
         else
             del_t=del_t_tmp;
         
-
+        tmp_y=y[max_order-1];
+        for(int i=max_order-1;i>0;i--)
+        {
+            t[i]=t[i-1];
+            y[i]=y[i-1];
+        }
+        
+        y[0]=tmp_y;
+        t[0]+=del_t;
+        //forcefield->c_d_calc();
+        memcpy(y[0],c,dof_lcl*sizeof(TYPE0));
+        memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
+        
         step_no++;
         istep++;
     }
     
-
+    
     delete [] energy_stress;
 }
 /*--------------------------------------------
@@ -688,16 +685,18 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     TYPE0 ratio;
     TYPE0 g0_g0,g_g,g_g0,g_h;
     TYPE0 curr_cost,ideal_cost,cost;
+    //TYPE0 sum_lcl;
+    //TYPE0 sum_tot;
     int chk;
     
-
+    
     
     memcpy(c,y_0,dof_lcl*sizeof(TYPE0));
     thermo->start_comm_time();
     atoms->update(c_n);
     thermo->stop_comm_time();
     
-   
+    
     /*
     TYPE0 tot_ratio;
     ratio=1.0;
@@ -712,7 +711,6 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
     for(int i=0;i<dof_lcl;i++)
         c[i]=y[0][i]+dy[i]*del_t*tot_ratio;
-
     thermo->start_comm_time();
     atoms->update(c_n);
     thermo->stop_comm_time();
@@ -723,6 +721,16 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     curr_cost=forcefield->g_calc(0,beta,a,g);
     rectify(g);
     thermo->stop_force_time();
+    /*
+    sum_lcl=0.0;
+    sum_tot=0.0;
+    for(int i=0;i<dof_lcl;i++)
+        sum_lcl+=g[i];
+    MPI_Allreduce(&sum_lcl,&sum_tot,1,MPI_TYPE0,MPI_SUM,world);
+    for(int i=0;i<dof_lcl;i++)
+        g[i]-=correc_fac*sum_tot;
+    rectify(g);
+     */
     memcpy(h,g,dof_lcl*sizeof(TYPE0));
     
     inner=0.0;
@@ -757,11 +765,18 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
             }
         }
         MPI_Allreduce(&gamma,&max_gamma,1,MPI_TYPE0,MPI_MIN,world);
-
+        
         max_gamma*=0.9;
         chk=1;
         
         cost=curr_cost;
+        /*
+        TYPE0 sum=0.0;
+        for(int i=0;i<dof_lcl;i++)
+            sum+=c_d[i];
+        printf("sum %lf \n",sum);
+          */  
+            
         while(chk && max_gamma>min_gamma)
         {
             for(int i=0;i<dof_lcl;i++)
@@ -775,7 +790,16 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
             curr_cost=forcefield->g_calc(0,beta,a,g);
             rectify(g);
             thermo->stop_force_time();
-
+            /*
+            sum_lcl=0.0;
+            sum_tot=0.0;
+            for(int i=0;i<dof_lcl;i++)
+                sum_lcl+=g[i];
+            MPI_Allreduce(&sum_lcl,&sum_tot,1,MPI_TYPE0,MPI_SUM,world);
+            for(int i=0;i<dof_lcl;i++)
+                g[i]-=correc_fac*sum_tot;
+            rectify(g);
+            */
             ideal_cost=cost-slope*max_gamma*g_h;
             if(curr_cost<ideal_cost)
                 chk=0;
@@ -870,8 +894,7 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     
     err=sqrt(err/(static_cast<TYPE0>(dof_tot)*a_tol));
     err*=fabs(err_pre_fac);
-
-    
+    //printf("errro %lf %lf \n",err,err_pre_fac);
     
     for(int i=0;i<dof_lcl;i++)
         if(c[i]<0.0 || c[i]>1.0)

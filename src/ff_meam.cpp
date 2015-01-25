@@ -96,8 +96,7 @@ ForceField_meam(MAPP* mapp):ForceField(mapp)
             }
         }
         
-        CREATE1D(cut_sq,tot_types);
-        CREATE1D(cut_sk_sq,tot_types);
+
     }
     
     
@@ -155,7 +154,6 @@ ForceField_meam(MAPP* mapp):ForceField(mapp)
         }
     }
     
-    CREATE1D(nrgy_strss,7);
     
     third=1.0/3.0;
     sixth=1.0/6.0;
@@ -257,9 +255,7 @@ ForceField_meam::~ForceField_meam()
         delete [] ibar_meam;
         delete [] ielt_meam;
         delete [] type_ref;
-        
-        delete [] cut_sq;
-        delete [] cut_sk_sq;
+
     }
     
     
@@ -279,7 +275,6 @@ ForceField_meam::~ForceField_meam()
     delete [] vind2d;
 
     
-    delete [] nrgy_strss;
     
     delete [] v;
     delete [] fj;

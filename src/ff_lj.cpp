@@ -32,14 +32,11 @@ ForceField_lj(MAPP* mapp) : ForceField(mapp)
     int no_types=atom_types->no_types;
     
     int size=static_cast<int>((no_types+2)*(no_types+1)/2);
-    CREATE1D(cut_sq,size);
-    CREATE1D(cut_sk_sq,size);
     CREATE1D(sigma,size);
     CREATE1D(epsilon,size);
     CREATE1D(offset,size);
     arr_size=size;
     
-    CREATE1D(nrgy_strss,7);
 }
 /*--------------------------------------------
  destructor
@@ -48,14 +45,11 @@ ForceField_lj::~ForceField_lj()
 {
     if(arr_size)
     {
-        delete [] cut_sq;
-        delete [] cut_sk_sq;
         delete [] sigma;
         delete [] epsilon;
         delete [] offset;
     }
     
-    delete [] nrgy_strss;
 }
 /*--------------------------------------------
  destructor

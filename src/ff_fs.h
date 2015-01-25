@@ -24,9 +24,6 @@ namespace MAPP_NS {
         TYPE0* mat_k_2;
         TYPE0* mat_k_3;
         
-        
-        TYPE0* nrgy_strss;
-        
         /*--------------------------------------------*/
         TYPE0* drhoi_dr;
         TYPE0* drhoj_dr;

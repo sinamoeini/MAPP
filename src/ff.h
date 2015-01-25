@@ -11,7 +11,10 @@
 namespace MAPP_NS {
     class ForceField : protected InitPtrs{
     private:
+        int cut_alloc;
+        int ns_alloc;
     protected:
+        TYPE0* nrgy_strss;
     public:
         ForceField(MAPP *);
         virtual ~ForceField();

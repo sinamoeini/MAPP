@@ -28,6 +28,7 @@ namespace MAPP_NS {
         TYPE0* h;
         TYPE0* c0;
         TYPE0 beta;
+        TYPE0 correc_fac;
         // stuff for book keeping
         TYPE0* t;
         TYPE0** y;

@@ -27,8 +27,6 @@ ForceField_EAM_DMD(MAPP* mapp) : ForceField(mapp)
     
     
     
-    CREATE1D(nrgy_strss,7);
-    CREATE1D(cut_sk_sq,no_types*(no_types+1)/2);
     CREATE1D(c_0,no_types);
     CREATE1D(delta_e,no_types);
     
@@ -50,12 +48,10 @@ ForceField_EAM_DMD::~ForceField_EAM_DMD()
     
     if(no_types)
     {
-        delete [] cut_sk_sq;
         delete [] c_0;
         delete [] delta_e;
     }
     
-    delete [] nrgy_strss;
     
     if(allocated) clean_up();
     
@@ -171,7 +167,7 @@ force_calc(int st_clc,TYPE0* en_st)
             dx1=x[icomp+1]-x[jcomp+1];
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            if(rsq<cut_sq_mod)
+            if(rsq<cut_sq_mod_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
@@ -265,7 +261,7 @@ force_calc(int st_clc,TYPE0* en_st)
                         }
                         else if (alpha_max<=alpha)
                         {
-                            if(rsq<cut_sq)
+                            if(rsq<cut_sq_0)
                             {
                                 r=sqrt(rsq);
                                 p=r*dr_inv;
@@ -503,7 +499,7 @@ TYPE0 ForceField_EAM_DMD::energy_calc()
             dx1=x[icomp+1]-x[jcomp+1];
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            if(rsq<cut_sq_mod)
+            if(rsq<cut_sq_mod_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
@@ -587,7 +583,7 @@ TYPE0 ForceField_EAM_DMD::energy_calc()
                         else if (alpha_max<=alpha)
                         {
                             f_0=0.0;
-                            if(rsq<cut_sq)
+                            if(rsq<cut_sq_0)
                             {
                                 r=sqrt(rsq);
                                 p=r*dr_inv;
@@ -679,10 +675,10 @@ void ForceField_EAM_DMD::init()
     TYPE0 skin=atoms->skin;
     TYPE0 ph_cut=0.0;
     for (int i=0;i<no_types*(no_types+1)/2;i++)
-        cut_sk_sq[i]=cut_sq_mod+(skin)*(skin)
-        +2.0*sqrt(cut_sq_mod)*(skin);
+        cut_sk_sq[i]=cut_sq_mod_0+(skin)*(skin)
+        +2.0*sqrt(cut_sq_mod_0)*(skin);
     
-    ph_cut=sqrt(cut_sq_mod);
+    ph_cut=sqrt(cut_sq_mod_0);
     
     atoms->set_ph(ph_cut);
     
@@ -794,9 +790,9 @@ void ForceField_EAM_DMD::coef(int narg,char** arg)
     
     rc=(static_cast<TYPE0>(nr)-1.0)*dr;
     rho_max=(static_cast<TYPE0>(nrho)-1.0)*drho;
-    cut_sq=rc*rc;
+    cut_sq_0=rc*rc;
     mod_rc=rc+xi[no_i-1]/sqrt(alpha_min);
-    cut_sq_mod=mod_rc*mod_rc;
+    cut_sq_mod_0=mod_rc*mod_rc;
     
     
     

@@ -24,9 +24,6 @@ namespace MAPP_NS {
         TYPE0* mat_k_2;
         TYPE0* mat_k_3;
         
-        
-        TYPE0* nrgy_strss;
-        
         void read_file(char*);
         int read_line(FILE*,char*&);
         

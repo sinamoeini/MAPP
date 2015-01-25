@@ -28,8 +28,6 @@ ForceField_eam_dmd_c(MAPP* mapp) : ForceField(mapp)
     
     
     
-    CREATE1D(nrgy_strss,7);
-    CREATE1D(cut_sk_sq,no_types*(no_types+1)/2);
     CREATE1D(c_0,no_types);
     CREATE1D(delta_e,no_types);
     
@@ -48,15 +46,12 @@ ForceField_eam_dmd_c(MAPP* mapp) : ForceField(mapp)
  --------------------------------------------*/
 ForceField_eam_dmd_c::~ForceField_eam_dmd_c()
 {
-    
     if(no_types)
     {
-        delete [] cut_sk_sq;
         delete [] c_0;
         delete [] delta_e;
     }
     
-    delete [] nrgy_strss;
     
     if(allocated) clean_up();
     
@@ -172,7 +167,7 @@ force_calc(int st_clc,TYPE0* en_st)
             dx1=x[icomp+1]-x[jcomp+1];
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            if(rsq<cut_sq_mod)
+            if(rsq<cut_sq_mod_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
@@ -266,7 +261,7 @@ force_calc(int st_clc,TYPE0* en_st)
                         }
                         else if (alpha_max<=alpha)
                         {
-                            if(rsq<cut_sq)
+                            if(rsq<cut_sq_0)
                             {
                                 r=sqrt(rsq);
                                 p=r*dr_inv;
@@ -504,7 +499,7 @@ TYPE0 ForceField_eam_dmd_c::energy_calc()
             dx1=x[icomp+1]-x[jcomp+1];
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            if(rsq<cut_sq_mod)
+            if(rsq<cut_sq_mod_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
@@ -587,7 +582,7 @@ TYPE0 ForceField_eam_dmd_c::energy_calc()
                         else if (alpha_max<=alpha)
                         {
                             f_0=0.0;
-                            if(rsq<cut_sq)
+                            if(rsq<cut_sq_0)
                             {
                                 r=sqrt(rsq);
                                 p=r*dr_inv;
@@ -679,10 +674,10 @@ void ForceField_eam_dmd_c::init()
     TYPE0 skin=atoms->skin;
     TYPE0 ph_cut=0.0;
     for (int i=0;i<no_types*(no_types+1)/2;i++)
-        cut_sk_sq[i]=cut_sq_mod+(skin)*(skin)
-        +2.0*sqrt(cut_sq_mod)*(skin);
+        cut_sk_sq[i]=cut_sq_mod_0+(skin)*(skin)
+        +2.0*sqrt(cut_sq_mod_0)*(skin);
     
-    ph_cut=sqrt(cut_sq_mod);
+    ph_cut=sqrt(cut_sq_mod_0);
     
     atoms->set_ph(ph_cut);
     
@@ -777,10 +772,12 @@ void ForceField_eam_dmd_c::coef(int narg,char** arg)
     
     kb=8.617332478e-5;
     hbar=6.5821192815e-16;
-    
+
+   
     setup_delta_e(arg[6]);
-    
+
     clean_up();
+    
     if(strcmp(arg[7],"FS")==0)
     {
         eam_mode=FINNIS_FL;
@@ -820,9 +817,9 @@ void ForceField_eam_dmd_c::coef(int narg,char** arg)
     
     rc=(static_cast<TYPE0>(nr)-1.0)*dr;
     rho_max=(static_cast<TYPE0>(nrho)-1.0)*drho;
-    cut_sq=rc*rc;
+    cut_sq_0=rc*rc;
     mod_rc=rc+xi[no_i-1]/sqrt(alpha_min);
-    cut_sq_mod=mod_rc*mod_rc;
+    cut_sq_mod_0=mod_rc*mod_rc;
     
 }
 /*--------------------------------------------
@@ -1208,8 +1205,8 @@ void ForceField_eam_dmd_c::set_setfl(int no_files
     for(int i=0;i<tot_no_types;i++)
         type_ref[i]=atom_types->find_type_exist(arg[i+1]);
     
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
+    for(int i=0;i<narg;i++)
+        delete [] arg[i];
     if(narg)
         delete [] arg;
     
@@ -1395,16 +1392,18 @@ void ForceField_eam_dmd_c::set_fs(int no_files
         error->abort("invalid line in %s file: %s",file_names[0],line);
     
     int tot_no_types=narg-1;
-    
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
-    if(narg)
-        delete [] arg;
+
+
     
     int* type_ref;
     CREATE1D(type_ref,tot_no_types);
     for(int i=0;i<tot_no_types;i++)
         type_ref[i]=atom_types->find_type_exist(arg[i+1]);
+    
+    for(int i=0;i<narg;i++)
+        delete [] arg[i];
+    if(narg)
+        delete [] arg;
     
     int* tmp_type_ref;
     CREATE1D(tmp_type_ref,no_types);
@@ -2210,6 +2209,7 @@ void ForceField_eam_dmd_c::set_weight_abs(int n)
  --------------------------------------------*/
 void ForceField_eam_dmd_c::create_2nd_neigh_lst()
 {
+
     
     TYPE0 dx0,dx1,dx2,rsq;
     int iatm,jatm,icomp,jcomp;
@@ -2224,7 +2224,6 @@ void ForceField_eam_dmd_c::create_2nd_neigh_lst()
     int* tmp_neigh_list;
     int tmp_neigh_list_size=1024;
     CREATE1D(tmp_neigh_list,1024);
-    
     
     if(neigh_lst_sz_sz)
     {

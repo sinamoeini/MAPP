@@ -25,8 +25,6 @@ namespace MAPP_NS
         int nr,nrho;
         TYPE0 dr,drho,dr_inv,drho_inv,rho_max;
         
-
-        
         
         void set_setfl(int,char**);
         void set_funcfl(int,char**);
@@ -46,8 +44,7 @@ namespace MAPP_NS
         int** type2phi;
         
         int rho_n,f_n,type_n,x_n,dF_n;
-        TYPE0* nrgy_strss;
-        TYPE0 cut_sq;
+        TYPE0 cut_sq_0;
         
         /*--------------------------------------------*/
         TYPE0* drhoi_dr;

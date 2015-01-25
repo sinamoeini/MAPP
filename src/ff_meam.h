@@ -196,7 +196,6 @@ namespace MAPP_NS
         void compute_phi(TYPE0,int,int,TYPE0&);
         void compute_phi_dphi(TYPE0,int,int,TYPE0&,TYPE0&);
         
-        TYPE0* nrgy_strss;
         TYPE0 third,sixth;
         
     public:

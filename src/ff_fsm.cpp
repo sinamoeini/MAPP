@@ -53,19 +53,15 @@ ForceField_fsm(MAPP* mapp) : ForceField(mapp)
     GROW(mat_k_1,arr_size,size);
     GROW(mat_k_2,arr_size,size);
     GROW(mat_k_3,arr_size,size);
-    
-    GROW(cut_sq,arr_size,size);
-    GROW(cut_sk_sq,arr_size,size);
+
     
     
     for(int i=0;i<size;i++)
         cut_sq_phi[i]=cut_sq_rho[i]
-        =mat_k_1[i]=mat_k_2[i]=mat_k_3[i]
-        =cut_sq[i]=cut_sk_sq[i]=0.0;
+        =mat_k_1[i]=mat_k_2[i]=mat_k_3[i];
     
     arr_size=size;
     
-    CREATE1D(nrgy_strss,7);
 }
 /*--------------------------------------------
  destructor
@@ -92,11 +88,9 @@ ForceField_fsm::~ForceField_fsm()
         delete [] mat_k_2;
         delete [] mat_k_3;
         
-        delete [] cut_sq;
-        delete [] cut_sk_sq;
+
     }
     
-    delete [] nrgy_strss;
     
 }
 /*--------------------------------------------

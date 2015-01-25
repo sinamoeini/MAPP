@@ -22,9 +22,7 @@ ForceField_eam(MAPP* mapp) : ForceField(mapp)
     eam_mode=NOT_SET;
     max_pairs=0;
 
-    int no_types=atom_types->no_types;
-    CREATE1D(nrgy_strss,7);
-    CREATE1D(cut_sk_sq,no_types*(no_types+1)/2);
+
     
 }
 /*--------------------------------------------
@@ -32,10 +30,7 @@ ForceField_eam(MAPP* mapp) : ForceField(mapp)
  --------------------------------------------*/
 ForceField_eam::~ForceField_eam()
 {
-    delete [] nrgy_strss;
-    int no_types=atom_types->no_types;
-    if(no_types)
-        delete [] cut_sk_sq;
+
     
     if(allocated) clean_up();
 }
@@ -109,7 +104,7 @@ force_calc(int st_clc,TYPE0* en_st)
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             drhoi_dr[istart]=drhoj_dr[istart]=0.0;
-            if(rsq < cut_sq)
+            if(rsq < cut_sq_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
@@ -310,7 +305,7 @@ TYPE0 ForceField_eam::energy_calc()
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
-            if(rsq<cut_sq)
+            if(rsq<cut_sq_0)
             {
                 r=sqrt(rsq);
                 
@@ -364,10 +359,10 @@ void ForceField_eam::init()
     TYPE0 ph_cut=0.0;
     int no_types=atom_types->no_types;
     for (int i=0;i<no_types*(no_types+1)/2;i++)
-        cut_sk_sq[i]=cut_sq+(skin)*(skin)
-            +2*sqrt(cut_sq)*(skin);
+        cut_sk_sq[i]=cut_sq_0+(skin)*(skin)
+            +2*sqrt(cut_sq_0)*(skin);
     
-    ph_cut=sqrt(cut_sq);
+    ph_cut=sqrt(cut_sq_0);
     
     atoms->set_ph(ph_cut);
     
@@ -424,7 +419,7 @@ void ForceField_eam::coef(int narg,char** arg)
         "%s for ff eam file",arg[1]);
     }
     
-    cut_sq=static_cast<TYPE0>(nr*nr)*dr*dr;
+    cut_sq_0=static_cast<TYPE0>(nr*nr)*dr*dr;
     rho_max=static_cast<TYPE0>(nrho)*drho;
     
     set_arrays();
@@ -723,8 +718,8 @@ void ForceField_eam::set_setfl(int no_files
     for(int i=0;i<tot_no_types;i++)
         type_ref[i]=atom_types->find_type_exist(arg[i+1]);
 
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
+    for(int i=0;i<narg;i++)
+        delete [] arg[i];
     if(narg)
         delete [] arg;
    
@@ -915,8 +910,8 @@ void ForceField_eam::set_fs(int no_files
     for(int i=0;i<tot_no_types;i++)
         type_ref[i]=atom_types->find_type_exist(arg[i+1]);
     
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
+    for(int i=0;i<narg;i++)
+        delete [] arg[i];
     if(narg)
         delete [] arg;
     
