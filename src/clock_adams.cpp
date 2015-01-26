@@ -99,9 +99,7 @@ Clock_Adams::~Clock_Adams()
     delete [] beta;
     delete [] beta_mod;
     
-    
-    delete thermo;
-    
+        
     int natms=atoms->natms;
     for(int i=0;i<order-1;i++)
         if(natms)
@@ -144,20 +142,16 @@ void Clock_Adams::init()
     forcefield->create_2nd_neigh_lst();
     
     
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
-    forcefield->force_calc(1,energy_stress);
+
+    forcefield->force_calc(1,nrgy_strss);
     
-    thermo->update(fe_idx,energy_stress[0]);
-    thermo->update(stress_idx,6,&energy_stress[1]);
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
     
     if(write!=NULL)
         write->init();
     thermo->init();
-    
-    delete [] energy_stress;
     
     
     atoms->vectors[c_n].ret(c);
@@ -191,9 +185,6 @@ void Clock_Adams::fin()
 void Clock_Adams::run()
 {
     TYPE0 curr_err;
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
     
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
@@ -225,11 +216,11 @@ void Clock_Adams::run()
             write->write();
         thermo->thermo_print();
         
-        if(thermo->test_prev_step())
+        if(thermo->test_prev_step()|| istep+1==no_steps)
         {
-            forcefield->force_calc(1,energy_stress);
-            thermo->update(fe_idx,energy_stress[0]);
-            thermo->update(stress_idx,6,&energy_stress[1]);
+            forcefield->force_calc(1,nrgy_strss);
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,curr_err);
         }
         
@@ -244,8 +235,6 @@ void Clock_Adams::run()
         
         step_no++;
     }
-    
-    delete [] energy_stress;
 }
 /*--------------------------------------------
  init

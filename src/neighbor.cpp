@@ -133,6 +133,7 @@ void Neighbor::fin()
 }
 /*--------------------------------------------
  create the neighbopr list
+ s_or_x: 0 for x, 1 for s
  --------------------------------------------*/
 void Neighbor::create_list(int box_change,int s_or_x)
 {

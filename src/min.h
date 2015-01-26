@@ -16,6 +16,7 @@ namespace MAPP_NS {
     class Min : protected InitPtrs
     {
     private:
+        int ns_alloc;
     protected:
         VecLst* vecs_comm;
         LineSearch* line_search;
@@ -24,6 +25,8 @@ namespace MAPP_NS {
         int err;
         TYPE0 curr_energy;
         ThermoDynamics* thermo;
+        
+        TYPE0* nrgy_strss;
         
         int pe_idx;
         int stress_idx;

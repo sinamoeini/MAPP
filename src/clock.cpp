@@ -9,6 +9,7 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Clock::Clock(MAPP* mapp):InitPtrs(mapp)
 {
+    ns_alloc=0;
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before clock");
@@ -30,13 +31,22 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     delete [] args;
     
     cdof_n=atoms->find_exist("cdof");
+    
+    int dim=atoms->dimension;
+    if(dim)
+    {
+        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
+        ns_alloc=1;
+    }
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Clock::~Clock()
 {
-    
+    delete thermo;
+    if(ns_alloc)
+        delete [] nrgy_strss;
 }
 
 /*--------------------------------------------

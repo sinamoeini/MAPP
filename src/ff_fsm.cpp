@@ -46,7 +46,7 @@ ForceField_fsm(MAPP* mapp) : ForceField(mapp)
     int size=(no_types+2)*(no_types+1)/2;
     
     arr_size=0;
-    size=static_cast<int>((no_types+2)*(no_types+1)/2);
+    size=no_types*(no_types+1)/2;
     GROW(cut_sq_phi,arr_size,size);
     GROW(cut_sq_rho,arr_size,size);
     
@@ -103,6 +103,7 @@ void ForceField_fsm::coef(int narg,char** arg)
                      "for Finnis-Sinclair Force Field");
     
     read_file(arg[1]);
+    
 }
 /*--------------------------------------------
  initiate before a run
@@ -294,7 +295,7 @@ void ForceField_fsm::read_file(char* file_name)
                     
                     curs=COMP(type_ref[icmp],type_ref[jcmp]);
                     r_c_phi_chk[curs]=1;
-                    cut_sq_phi[curs]=tmp;
+                    cut_sq_phi[curs]=tmp*tmp;
                 }
             }
             else if(sscanf(line,"r_c_rho(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
@@ -311,7 +312,7 @@ void ForceField_fsm::read_file(char* file_name)
                     
                     curs=COMP(type_ref[icmp],type_ref[jcmp]);
                     r_c_rho_chk[curs]=1;
-                    cut_sq_rho[curs]=tmp;
+                    cut_sq_rho[curs]=tmp*tmp;
                 }
             }
             else
@@ -434,7 +435,6 @@ void ForceField_fsm::init()
 {
     TYPE0 skin=atoms->skin;
     TYPE0 ph_cut=0.0;
-    
     for (int i=0;i<arr_size;i++)
     {
         cut_sq[i]=MAX(cut_sq_phi[i],cut_sq_rho[i]);

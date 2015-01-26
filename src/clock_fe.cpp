@@ -91,9 +91,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
  destructor
  --------------------------------------------*/
 Clock_fe::~Clock_fe()
-{
-    delete thermo;
-    
+{    
     if(dof_lcl)
     {
         delete [] y_0;
@@ -140,22 +138,16 @@ void Clock_fe::init()
     
     
     
+    forcefield->force_calc(1,nrgy_strss);
     
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
-    forcefield->force_calc(1,energy_stress);
-    
-    thermo->update(fe_idx,energy_stress[0]);
-    thermo->update(stress_idx,6,&energy_stress[1]);
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
     
     
     if(write!=NULL)
         write->init();
     thermo->init();
-    
-    delete [] energy_stress;
     
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
@@ -184,9 +176,6 @@ void Clock_fe::fin()
 void Clock_fe::run()
 {
     TYPE0 curr_t=0.0;
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
     
     TYPE0 del_t,err_lcl,err_tot,tmp0,tmp1;
     TYPE0 tot_ratio,ratio;
@@ -274,13 +263,13 @@ void Clock_fe::run()
             write->write();
         thermo->thermo_print();
         
-        if(thermo->test_prev_step())
+        if(thermo->test_prev_step() || istep+1==no_steps)
         {
             thermo->start_force_time();
-            forcefield->force_calc(1,energy_stress);
+            forcefield->force_calc(1,nrgy_strss);
             thermo->stop_force_time();
-            thermo->update(fe_idx,energy_stress[0]);
-            thermo->update(stress_idx,6,&energy_stress[1]);
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,curr_t);
         }
         
@@ -312,15 +301,6 @@ void Clock_fe::run()
         istep++;
         step_no++;
     }
-    
-    thermo->start_force_time();
-    forcefield->force_calc(1,energy_stress);
-    thermo->stop_force_time();
-    thermo->update(fe_idx,energy_stress[0]);
-    thermo->update(stress_idx,6,&energy_stress[1]);
-    delete [] energy_stress;
-    
-    
     
 }
 

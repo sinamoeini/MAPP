@@ -31,7 +31,7 @@ ForceField_lj(MAPP* mapp) : ForceField(mapp)
     arr_size=shift=0;
     int no_types=atom_types->no_types;
     
-    int size=static_cast<int>((no_types+2)*(no_types+1)/2);
+    int size=no_types*(no_types+1)/2;
     CREATE1D(sigma,size);
     CREATE1D(epsilon,size);
     CREATE1D(offset,size);

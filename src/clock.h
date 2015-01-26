@@ -7,6 +7,7 @@ namespace MAPP_NS {
     class Clock : protected InitPtrs
     {
     private:
+        int ns_alloc;
     protected:
         VecLst* vecs_comm;
 
@@ -16,6 +17,7 @@ namespace MAPP_NS {
         int time_idx;
         int cdof_n;
         char* cdof;
+        TYPE0* nrgy_strss;
     public:
         Clock(MAPP *);
         virtual ~Clock();

@@ -13,6 +13,7 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Min::Min(MAPP* mapp):InitPtrs(mapp)
 {
+    ns_alloc=0;
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before min");
@@ -42,13 +43,22 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
     // default values 
     max_iter=10000;
     energy_tolerance=1.0e-8;
+    
+    int dim=atoms->dimension;
+    if(dim)
+    {
+        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
+        ns_alloc=1;
+    }
 }
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 Min::~Min()
 {
-    
+    delete thermo;
+    if(ns_alloc)
+        delete [] nrgy_strss;
 }
 /*--------------------------------------------
  error messages

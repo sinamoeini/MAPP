@@ -332,7 +332,7 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
  --------------------------------------------*/
 MD_nh::~MD_nh()
 {
-    delete thermo;
+    
     
     if(chk_stress)
     {
@@ -500,20 +500,16 @@ void MD_nh::init()
     zero_f();
     
     
-    
-    
-    TYPE0* enst;
-    CREATE1D(enst,7);
-    forcefield->force_calc(1,enst);
 
-    thermo->update(stress_idx,6,&enst[1]);
-    thermo->update(pe_idx,enst[0]);
+    forcefield->force_calc(1,nrgy_strss);
+
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(ke_idx,ke_cur);
     thermo->update(temp_idx,t_cur);
     if(chk_stress)
         for(int i=0;i<6;i++)
-            v_per_atm[i]=-enst[i+1];
-    delete [] enst;
+            v_per_atm[i]=-nrgy_strss[i+1];
     
 
     
@@ -573,8 +569,6 @@ void MD_nh::fin()
  --------------------------------------------*/
 void MD_nh::run(int no_stps)
 {
-    TYPE0* enst;
-    CREATE1D(enst,7);
 
     
     if(chk_stress)
@@ -595,17 +589,17 @@ void MD_nh::run(int no_stps)
             if(write!=NULL)
                 write->write();
             thermo->start_force_time();
-            forcefield->force_calc(1,enst);
+            forcefield->force_calc(1,nrgy_strss);
             thermo->stop_force_time();
             for (int j=0;j<6;j++)
-                v_per_atm[j]=-enst[1+j];
+                v_per_atm[j]=-nrgy_strss[1+j];
             
             if(thermo->test_prev_step()|| i==no_stps-1)
             {
                 for (int j=0;j<6;j++)
-                    enst[1+j]-=ke_curr[j];
-                thermo->update(stress_idx,6,&enst[1]);
-                thermo->update(pe_idx,enst[0]);
+                    nrgy_strss[1+j]-=ke_curr[j];
+                thermo->update(stress_idx,6,&nrgy_strss[1]);
+                thermo->update(pe_idx,nrgy_strss[0]);
                 thermo->update(ke_idx,ke_cur);
                 thermo->update(temp_idx,t_cur);
                 
@@ -641,12 +635,12 @@ void MD_nh::run(int no_stps)
             if(thermo->test_prev_step()|| i==no_stps-1)
             {
                 thermo->start_force_time();
-                forcefield->force_calc(1,&enst[0]);
+                forcefield->force_calc(1,&nrgy_strss[0]);
                 thermo->stop_force_time();
                 for (int j=0;j<6;j++)
-                    enst[1+j]-=ke_curr[j];
-                thermo->update(stress_idx,6,&enst[1]);
-                thermo->update(pe_idx,enst[0]);
+                    nrgy_strss[1+j]-=ke_curr[j];
+                thermo->update(stress_idx,6,&nrgy_strss[1]);
+                thermo->update(pe_idx,nrgy_strss[0]);
                 thermo->update(ke_idx,ke_cur);
                 thermo->update(temp_idx,t_cur);
                 
@@ -654,7 +648,7 @@ void MD_nh::run(int no_stps)
             else
             {
                 thermo->start_force_time();
-                forcefield->force_calc(0,&enst[0]);
+                forcefield->force_calc(0,&nrgy_strss[0]);
                 thermo->stop_force_time();
             }
 
@@ -664,8 +658,6 @@ void MD_nh::run(int no_stps)
         }
 
     }
-    
-    delete [] enst;
 }
 /*--------------------------------------------
  

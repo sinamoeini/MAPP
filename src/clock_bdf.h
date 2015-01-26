@@ -47,7 +47,7 @@ namespace MAPP_NS {
         
         TYPE0 solve(TYPE0,int);
         int interpolate(TYPE0,int);
-        void err_coef(TYPE0*,int);
+        //void err_coef(TYPE0*,int);
         void err_est(int);
         void hi_lo_err_est(TYPE0,int);
         TYPE0* lwr_alpha;

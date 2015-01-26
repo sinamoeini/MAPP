@@ -164,8 +164,6 @@ Clock_MBDF::Clock_MBDF(MAPP* mapp,int narg
 Clock_MBDF::~Clock_MBDF()
 {
     
-    delete thermo;
-    
     for(int i=0;i<max_order+2;i++)
         if(dof_lcl) delete [] y[i];
     
@@ -221,20 +219,17 @@ void Clock_MBDF::init()
     forcefield->create_2nd_neigh_lst();
     
     
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
-    forcefield->force_calc(1,energy_stress);
     
-    thermo->update(fe_idx,energy_stress[0]);
-    thermo->update(stress_idx,6,&energy_stress[1]);
+    forcefield->force_calc(1,nrgy_strss);
+    
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
     
     if(write!=NULL)
         write->init();
     thermo->init();
     
-    delete [] energy_stress;
     
     
     thermo->start_force_time();
@@ -351,9 +346,6 @@ int Clock_MBDF::interpolate(TYPE0 del_t,int ord)
  --------------------------------------------*/
 void Clock_MBDF::run()
 {
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
     
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
@@ -435,13 +427,13 @@ void Clock_MBDF::run()
             write->write();
         thermo->thermo_print();
         
-        if(thermo->test_prev_step())
+        if(thermo->test_prev_step() || istep+1==no_steps)
         {
             thermo->start_force_time();
-            forcefield->force_calc(1,energy_stress);
+            forcefield->force_calc(1,nrgy_strss);
             thermo->stop_force_time();
-            thermo->update(fe_idx,energy_stress[0]);
-            thermo->update(stress_idx,6,&energy_stress[1]);
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,t[0]);
         }
         
@@ -484,7 +476,6 @@ void Clock_MBDF::run()
     }
     
 
-    delete [] energy_stress;
 }
 /*--------------------------------------------
  init
@@ -523,7 +514,7 @@ TYPE0 Clock_MBDF::solve(TYPE0 del_t,int ord)
     MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
     for(int i=0;i<dof_lcl;i++)
         c[i]=y[0][i]+dy[i]*del_t*tot_ratio;
-
+    
     thermo->start_comm_time();
     atoms->update(c_n);
     thermo->stop_comm_time();

@@ -29,7 +29,6 @@ ForceField_fs(MAPP* mapp) : ForceField(mapp)
     if(mapp->mode!=MD_mode)
         error->abort("ff fs works only "
         "for md mode");
-    
     max_pairs=0;
     
     int no_types=atom_types->no_types;
@@ -47,7 +46,7 @@ ForceField_fs(MAPP* mapp) : ForceField(mapp)
     int size=static_cast<int>((no_types+2)*(no_types+1)/2);
     
     arr_size=0;
-    size=static_cast<int>((no_types+2)*(no_types+1)/2);
+    size=no_types*(no_types+1)/2;
     GROW(cut_phi,arr_size,size);
     GROW(cut_rho,arr_size,size);
     
@@ -476,7 +475,7 @@ void ForceField_fs::fin()
 void ForceField_fs::
 force_calc(int st_clc,TYPE0* en_st)
 {
-        if(max_pairs<neighbor->no_pairs)
+    if(max_pairs<neighbor->no_pairs)
     {
         if(max_pairs)
         {
@@ -487,6 +486,8 @@ force_calc(int st_clc,TYPE0* en_st)
         max_pairs=neighbor->no_pairs;
         CREATE1D(drhoi_dr,max_pairs);
         CREATE1D(drhoj_dr,max_pairs);
+        for(int i=0;i<max_pairs;i++)
+            drhoi_dr[i]=drhoj_dr[i]=0.0;
     }
 
     
@@ -686,13 +687,13 @@ force_calc(int st_clc,TYPE0* en_st)
 
         }
     }
-    
     if(st_clc)
     {
         for(int i=0;i<7;i++)
             en_st[i]=0.0;
         
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+       MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+       
     }
     else
     {

@@ -65,7 +65,7 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
  --------------------------------------------*/
 Min_cg::~Min_cg()
 {
-    delete thermo;
+    
     for(int i=0;i<dim;i++)
         delete [] H_dof[i];
     delete [] H_dof;
@@ -107,25 +107,45 @@ void Min_cg::init()
     }
 
     vecs_comm->add_update(0);
-    atoms->reset_comm(vecs_comm);
-
     
+    /*
+     reset to make sure that each processor
+     has the atoms that really belongs to
+     it.
+     */
+    atoms->reset_comm(vecs_comm);
+    /*
+     1. assign the cut_sk_sq (for neighbor list)
+     2. find the maximum cuttf off and 
+     atoms->set_ph(ph_cut);
+     2.0 set_ph(ph_cut) finds boundary of of domain
+     for phantom atoms (s)
+     */
     forcefield->init();
+    /*
+     communicate the phantom atoms for the 1st time
+     */
     atoms->ph_setup(1,vecs_comm);
+    /*
+     init neigh list for bins
+     */
     neighbor->init();
+    /*
+     make the neigh list of all atoms
+     */
     neighbor->create_list(0,1);
     atoms->store_0();
 
-    line_search=new LineSearch_BackTrack(mapp,vecs_comm);
-    line_search->h_n=h_n;
-    line_search->thermo=thermo;
-    
     
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
             if(H_dof[i][j])
                 chng_box=1;
     
+    line_search=new LineSearch_BackTrack(mapp,vecs_comm);
+    line_search->h_n=h_n;
+    line_search->thermo=thermo;
+    line_search->chng_box=chng_box;
     
     if(chng_box)
     {
@@ -140,10 +160,8 @@ void Min_cg::init()
         line_search->H_prev=H_prev;
         line_search->B_prev=B_prev;
     }
-    line_search->chng_box=chng_box;
+    
     TYPE0* f;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
     if(chng_box)
     {
         TYPE0** stress;
@@ -155,19 +173,19 @@ void Min_cg::init()
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
         
-        forcefield->force_calc(1,energy_stress);
+        forcefield->force_calc(1,nrgy_strss);
         
         rectify_f(f);
-        curr_energy=energy_stress[0];
-        thermo->update(pe_idx,energy_stress[0]);
-        thermo->update(stress_idx,6,&energy_stress[1]);
+        curr_energy=nrgy_strss[0];
+        thermo->update(pe_idx,nrgy_strss[0]);
+        thermo->update(stress_idx,6,&nrgy_strss[1]);
         
-        stress[0][0]=-energy_stress[1];
-        stress[1][1]=-energy_stress[2];
-        stress[2][2]=-energy_stress[3];
-        stress[1][2]=stress[2][1]=-energy_stress[4];
-        stress[0][2]=stress[2][0]=-energy_stress[5];
-        stress[0][1]=stress[1][0]=-energy_stress[6];
+        stress[0][0]=-nrgy_strss[1];
+        stress[1][1]=-nrgy_strss[2];
+        stress[2][2]=-nrgy_strss[3];
+        stress[1][2]=stress[2][1]=-nrgy_strss[4];
+        stress[0][2]=stress[2][0]=-nrgy_strss[5];
+        stress[0][1]=stress[1][0]=-nrgy_strss[6];
         
         for(int i=0;i<dim;i++)
         {
@@ -205,19 +223,18 @@ void Min_cg::init()
         atoms->vectors[f_n].ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
-        
-        forcefield->force_calc(1,energy_stress);
-        
+        forcefield->force_calc(1,nrgy_strss);
         rectify_f(f);
-        curr_energy=energy_stress[0];
-        thermo->update(pe_idx,energy_stress[0]);
-        thermo->update(stress_idx,6,&energy_stress[1]);
+        curr_energy=nrgy_strss[0];
+        thermo->update(pe_idx,nrgy_strss[0]);
+        thermo->update(stress_idx,6,&nrgy_strss[1]);
         
     }
+    
     if(write!=NULL)
         write->init();
     thermo->init();
-    delete [] energy_stress;
+    
 
 
 }
@@ -245,9 +262,7 @@ void Min_cg::run()
     TYPE0** H;
     TYPE0** B;
     err=LS_S;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);   
-    
+   
     if(chng_box)
     {
         H=atoms->H;
@@ -309,7 +324,7 @@ void Min_cg::run()
                 if(prev_energy-curr_energy<energy_tolerance)
                     err=MIN_F_TOLERANCE;
             if(err==LS_S)
-                if(istp==max_iter)
+                if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
             
             atoms->vectors[f_n].ret(f);
@@ -318,25 +333,25 @@ void Min_cg::run()
                 f[i]=0.0;
             
             thermo->start_force_time();
-            forcefield->force_calc(1,energy_stress);
+            forcefield->force_calc(1,nrgy_strss);
             thermo->stop_force_time();
-            
             rectify_f(f);
+            
             if(thermo->test_prev_step() || err)
             {
-                thermo->update(pe_idx,energy_stress[0]);
-                thermo->update(stress_idx,6,&energy_stress[1]);
+                thermo->update(pe_idx,nrgy_strss[0]);
+                thermo->update(stress_idx,6,&nrgy_strss[1]);
             }
             
             if(err)
                 continue;
             
-            stress[0][0]=energy_stress[1];
-            stress[1][1]=energy_stress[2];
-            stress[2][2]=energy_stress[3];
-            stress[1][2]=stress[2][1]=energy_stress[4];
-            stress[0][2]=stress[2][0]=energy_stress[5];
-            stress[0][1]=stress[1][0]=energy_stress[6];
+            stress[0][0]=nrgy_strss[1];
+            stress[1][1]=nrgy_strss[2];
+            stress[2][2]=nrgy_strss[3];
+            stress[1][2]=stress[2][1]=nrgy_strss[4];
+            stress[0][2]=stress[2][0]=nrgy_strss[5];
+            stress[0][1]=stress[1][0]=nrgy_strss[6];
             
             for(int i=0;i<dim;i++)
             {
@@ -490,10 +505,10 @@ void Min_cg::run()
             if(err==LS_S)
                 if(prev_energy-curr_energy<energy_tolerance)
                     err=MIN_F_TOLERANCE;
+             
             if(err==LS_S)
-                if(istp==max_iter)
+                if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
-            
             
             atoms->vectors[f_n].ret(f);
             atoms->vectors[f_prev_n].ret(f_0);
@@ -504,14 +519,14 @@ void Min_cg::run()
             
             if(thermo->test_prev_step() || err)
             {
+
                 thermo->start_force_time();
-                forcefield->force_calc(1,energy_stress);
+                forcefield->force_calc(1,nrgy_strss);
                 thermo->stop_force_time();
-                
                 rectify_f(f);
-                thermo->update(pe_idx,energy_stress[0]);
-                thermo->update(stress_idx,6,&energy_stress[1]);
-                curr_energy=energy_stress[0];
+                thermo->update(pe_idx,nrgy_strss[0]);
+                thermo->update(stress_idx,6,&nrgy_strss[1]);
+                curr_energy=nrgy_strss[0];
             }
             else
             {
@@ -523,8 +538,10 @@ void Min_cg::run()
             }
 
             if(err)
+            {
+                step_no++;
                 continue;
-            
+            }
             inner=0.0;
             for(int i=0;i<x_dim*atoms->natms;i++)
                 inner+=f[i]*f[i];
@@ -557,7 +574,6 @@ void Min_cg::run()
         }
     }
     
-    delete [] energy_stress;
    
 }
 /*--------------------------------------------

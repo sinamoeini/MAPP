@@ -380,7 +380,6 @@ void Atoms::ph_setup(int box_chng,class VecLst* list)
         for(int i=0;i<comm_need[idim];i++)
         {
             tmp_r=natms+natms_ph;
-            //s=(TYPE0*)vectors[0].ret_vec();
             vectors[0].ret(s);
             for(int iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
                 if(s[iatm*s_dim+idim]<=s_ph_lo[idim])

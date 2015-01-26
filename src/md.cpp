@@ -8,6 +8,8 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 MD::MD(MAPP* mapp):InitPtrs(mapp)
 {
+    ns_alloc=0;
+    
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before md");
@@ -29,6 +31,12 @@ MD::MD(MAPP* mapp):InitPtrs(mapp)
         delete [] args[i];
     delete [] args;
     
+    int dim=atoms->dimension;
+    if(dim)
+    {
+        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
+        ns_alloc=1;
+    }
 
 }
 /*--------------------------------------------
@@ -36,7 +44,9 @@ MD::MD(MAPP* mapp):InitPtrs(mapp)
  --------------------------------------------*/
 MD::~MD()
 {
-    
+    delete thermo;
+    if(ns_alloc)
+        delete [] nrgy_strss;
 }
 /*--------------------------------------------
  add time step

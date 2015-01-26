@@ -154,9 +154,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
  destructor
  --------------------------------------------*/
 Clock_cn::~Clock_cn()
-{
-    delete thermo;
-    
+{    
     if(dof_lcl)
     {
         for(int i=0;i<2;i++)
@@ -199,20 +197,17 @@ void Clock_cn::init()
     forcefield->create_2nd_neigh_lst();
     
     
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
-    forcefield->force_calc(1,energy_stress);
+
+    forcefield->force_calc(1,nrgy_strss);
     
-    thermo->update(fe_idx,energy_stress[0]);
-    thermo->update(stress_idx,6,&energy_stress[1]);
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
     
     if(write!=NULL)
         write->init();
     thermo->init();
-    
-    delete [] energy_stress;
+
     
     t[0]=0.0;
     thermo->start_force_time();
@@ -265,9 +260,6 @@ void Clock_cn::fin()
  --------------------------------------------*/
 void Clock_cn::run()
 {
-    int dim=atoms->dimension;
-    TYPE0* energy_stress;
-    CREATE1D(energy_stress,dim*(dim+1)/2+1);
     int chk;
     TYPE0 del_t,cost,err1,ratio,del_t_tmp;
     TYPE0* tmp_dy;
@@ -332,11 +324,11 @@ void Clock_cn::run()
             write->write();
         thermo->thermo_print();
         
-        if(thermo->test_prev_step())
+        if(thermo->test_prev_step() || istep+1==no_steps)
         {
-            forcefield->force_calc(1,energy_stress);
-            thermo->update(fe_idx,energy_stress[0]);
-            thermo->update(stress_idx,6,&energy_stress[1]);
+            forcefield->force_calc(1,nrgy_strss);
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,t[0]);
         }
         
@@ -358,7 +350,6 @@ void Clock_cn::run()
         
         step_no++;
     }
-    delete [] energy_stress;
 }
 /*--------------------------------------------
  init

@@ -239,7 +239,6 @@ void ThermoDynamics::stop_comm_time()
 void ThermoDynamics::fin()
 {
     run_time+=MPI_Wtime();
-
     if (step_no!=print_step-step_tally)
         val_print();
     tail_print();
