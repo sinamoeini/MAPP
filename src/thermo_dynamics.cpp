@@ -52,7 +52,8 @@ ThermoDynamics::ThermoDynamics(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
     if(atoms->dimension!=3)
-        error->abort("the thermodynamics works only with box dimension 3");
+        error->abort("the thermodynamics "
+        "works only with box dimension 3");
 
     no_quantities=narg;
     quantities=new ThermoQuantity[no_quantities];

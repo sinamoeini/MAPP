@@ -1,5 +1,5 @@
-#ifndef __MAPP__box_prop__
-#define __MAPP__box_prop__
+#ifndef __MAPP__atoms__
+#define __MAPP__atoms__
 // TYPE0 can be only float, double, or long double
 #define TYPE0 double
 #define MPI_TYPE0 MPI_DOUBLE
@@ -475,4 +475,4 @@ namespace MAPP_NS {
     };
 
 }
-#endif /* defined(__MAPP__box_prop__) */
+#endif

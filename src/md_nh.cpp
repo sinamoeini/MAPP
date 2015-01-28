@@ -9,7 +9,7 @@
 #include "ff.h"
 #include "neighbor.h"
 #include "error.h"
-#include "rand_engine.h"
+#include "random.h"
 #include "atoms.h"
 #include "atom_types.h"
 #include "thermo_dynamics.h"

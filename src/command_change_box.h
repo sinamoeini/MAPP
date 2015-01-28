@@ -1,18 +1,18 @@
 #ifdef Command_Style
-    CommandStyle(CommandChangeBox,change_box)
+    CommandStyle(Command_change_box,change_box)
 #else
 #ifndef __MAPP__command_change_box__
 #define __MAPP__command_change_box__
 #include <iostream>
 #include "init.h"
 namespace MAPP_NS {
-    class CommandChangeBox: protected InitPtrs
+    class Command_change_box: protected InitPtrs
     {
     private:
     protected:
     public:
-        CommandChangeBox(MAPP*,int,char**);
-        ~CommandChangeBox();
+        Command_change_box(MAPP*,int,char**);
+        ~Command_change_box();
         
     };
 }

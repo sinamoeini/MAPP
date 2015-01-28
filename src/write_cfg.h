@@ -1,5 +1,5 @@
 #ifdef Write_Style
-    WriteStyle(WriteCFG,cfg)
+    WriteStyle(Write_cfg,cfg)
 #else
 #ifndef __MAPP__write_cfg__
 #define __MAPP__write_cfg__
@@ -8,7 +8,7 @@
 #include "atoms.h"
 #include <iostream>
 namespace MAPP_NS {
-    class WriteCFG: public Write
+    class Write_cfg: public Write
     {
     private:
     protected:
@@ -24,8 +24,8 @@ namespace MAPP_NS {
         void write_file_dmd(int);
         void write_file_md(int);        
     public:
-        WriteCFG(MAPP *,int,char**);
-        ~WriteCFG();
+        Write_cfg(MAPP *,int,char**);
+        ~Write_cfg();
         void write_file(int);
     };
     

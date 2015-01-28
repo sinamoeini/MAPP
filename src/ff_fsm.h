@@ -3,7 +3,7 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #ifdef FF_Style
-FFStyle(ForceField_fsm,fsm)
+    FFStyle(ForceField_fsm,fsm)
 #else
 #ifndef __MAPP__ff_fsm__
 #define __MAPP__ff_fsm__

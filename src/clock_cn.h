@@ -18,16 +18,15 @@ namespace MAPP_NS {
         TYPE0 eq_ratio;
 
         TYPE0 beta;
-        TYPE0 err;
+        TYPE0 err,err_prefac;
         
-        VecLst* vecs_comm;
         
         TYPE0* t;
         
         TYPE0** dy;
         
         TYPE0* y_0;
-        TYPE0* y0;
+        TYPE0* y;
         TYPE0* dy0;
         TYPE0* a;
         TYPE0* g;
@@ -37,7 +36,7 @@ namespace MAPP_NS {
 
         TYPE0 solve(TYPE0);
         int interpolate(TYPE0);
-        
+        void ord_dt(TYPE0&);
         
     public:
         Clock_cn(MAPP *,int,char**);

@@ -3,15 +3,15 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #ifdef Read_Style
-ReadStyle(ReadCFG,cfg)
+ReadStyle(Read_cfg,cfg)
 #else
-#ifndef __MAPP__readCFG__
-#define __MAPP__readCFG__
+#ifndef __MAPP__read_cfg__
+#define __MAPP__read_cfg__
 #include <iostream>
 #include "atoms.h"
 #include "read.h"
 namespace MAPP_NS {
-    class ReadCFG : public Read{
+    class Read_cfg : public Read{
     private:
         FILE* cfgfile;
         
@@ -55,8 +55,8 @@ namespace MAPP_NS {
         
     protected:
     public:
-        ReadCFG(MAPP *,int,char**);
-        ~ReadCFG();
+        Read_cfg(MAPP *,int,char**);
+        ~Read_cfg();
     };
 }
 #endif

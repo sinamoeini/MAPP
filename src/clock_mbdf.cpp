@@ -7,8 +7,8 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_MBDF::Clock_MBDF(MAPP* mapp,int narg
-                   ,char** arg):Clock(mapp)
+Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
+,char** arg):Clock(mapp)
 {
     min_gamma=1.0e-30;
     gamma_red=0.8;
@@ -149,10 +149,10 @@ Clock_MBDF::Clock_MBDF(MAPP* mapp,int narg
     CREATE1D(c0,dof_lcl);
     CREATE1D(h,dof_lcl);
     
-    CREATE1D(t,max_order+2);
-    CREATE1D(mod_alpha,max_order+2);
-    CREATE1D(mod_d_alpha,max_order+2);
-    CREATE1D(y,max_order+2);
+    CREATE1D(t,max_order+1);
+    CREATE1D(alpha_y,max_order+1);
+    CREATE1D(dalpha_y,max_order+1);
+    CREATE1D(y,max_order+1);
     for(int i=0;i<max_order+2;i++)
         CREATE1D(y[i],dof_lcl);
     
@@ -161,17 +161,18 @@ Clock_MBDF::Clock_MBDF(MAPP* mapp,int narg
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_MBDF::~Clock_MBDF()
+Clock_mbdf::~Clock_mbdf()
 {
     
-    for(int i=0;i<max_order+2;i++)
+    for(int i=0;i<max_order+1;i++)
         if(dof_lcl) delete [] y[i];
     
     delete [] alph_err;
     delete [] y;
     delete [] t;
-    delete [] mod_alpha;
-    delete [] mod_d_alpha;
+    delete [] alpha_y;
+    delete [] dalpha_y;
+
     
     if(dof_lcl)
     {
@@ -187,7 +188,7 @@ Clock_MBDF::~Clock_MBDF()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_MBDF::init()
+void Clock_mbdf::init()
 {
     TYPE0* c;
     TYPE0* c_d;
@@ -263,7 +264,7 @@ void Clock_MBDF::init()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_MBDF::fin()
+void Clock_mbdf::fin()
 {
     
     if(write!=NULL)
@@ -281,40 +282,40 @@ void Clock_MBDF::fin()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-int Clock_MBDF::interpolate(TYPE0 del_t,int ord)
+int Clock_mbdf::interpolate(TYPE0 del_t,int q)
 {
-    
     TYPE0 tmp0,tmp1,tmp2;
     TYPE0 curr_t=t[0]+del_t;
-    TYPE0 tmp4=0.0;
     TYPE0 c0=0.0;
-    for(int i=0;i<ord+1;i++)
+    TYPE0 err_prefac0,err_prefac1;
+    
+    
+    for(int i=0;i<q+1;i++)
     {
         c0+=1.0/(curr_t-t[i]);
         
         tmp0=tmp1=1.0;
         tmp2=0.0;
-        for(int j=0;j<ord+1;j++)
+        for(int j=0;j<q+1;j++)
             if(i!=j)
                 tmp0*=(curr_t-t[j])/(t[i]-t[j]);
         
-        
-        mod_alpha[i]=tmp0;
-        mod_d_alpha[i]=tmp0;
-        
-        if(i!=0)
-            tmp4+=1.0/(static_cast<TYPE0>(i));
+        alpha_y[i]=tmp0;
+        dalpha_y[i]=tmp0;
+
     }
-    
-    beta=del_t/tmp4;
-    
-    
-    for(int i=0;i<ord+1;i++)
+
+    for(int i=0;i<q+1;i++)
     {
         tmp0=c0-1.0/(curr_t-t[i]);
-        mod_d_alpha[i]*=tmp0;
+        dalpha_y[i]*=tmp0;
     }
     
+    tmp0=0.0;
+    for(int i=0;i<q;i++)
+        tmp0+=1.0/static_cast<TYPE0>(i+1);
+    beta=del_t/tmp0;
+
     int idof=0;
     int ret_val=1;
     int tot_ret_val;
@@ -322,10 +323,10 @@ int Clock_MBDF::interpolate(TYPE0 del_t,int ord)
     {
         y_0[idof]=0.0;
         a[idof]=0.0;
-        for(int j=0;j<ord+1;j++)
+        for(int j=0;j<q+1;j++)
         {
-            a[idof]+=beta*mod_d_alpha[j]*y[j][idof];
-            y_0[idof]+=mod_alpha[j]*y[j][idof];
+            a[idof]+=beta*dalpha_y[j]*y[j][idof];
+            y_0[idof]+=alpha_y[j]*y[j][idof];
         }
         a[idof]-=y_0[idof];
         
@@ -338,13 +339,22 @@ int Clock_MBDF::interpolate(TYPE0 del_t,int ord)
     }
     MPI_Allreduce(&ret_val,&tot_ret_val,1,MPI_INT,MPI_MIN,world);
     
-    return tot_ret_val;
+    err_prefac0=(curr_t-t[0])/(curr_t-t[q]);
+    err_prefac1=err_prefac0;
+    for(int i=0;i<q;i++)
+    {
+        err_prefac1+=(curr_t-t[0])/(curr_t-t[i])
+        -1.0/static_cast<TYPE0>(i+1);
+    }
+    err_prefac=MAX(err_prefac0,fabs(err_prefac1));
     
+    return tot_ret_val;
+
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_MBDF::run()
+void Clock_mbdf::run()
 {
     
     TYPE0* c;
@@ -359,16 +369,17 @@ void Clock_MBDF::run()
     TYPE0 ratio;
     int ord=1;
     int chk;
-    int initial_phase=1;
-    int const_stps=0,ord_const_stps=0;
-    int del_ord;
+    int initial_phase;
+    int istep;
     
+    initial_phase=1;
+    const_stps=0;
     eq_ratio=1.0;
-    int istep=0;
+    istep=0;
+
     while (eq_ratio>=1.0 && istep <no_steps)
     {
         chk=interpolate(del_t,ord);
-        
         while(chk==-1)
         {
             if(initial_phase) initial_phase=0;
@@ -376,7 +387,7 @@ void Clock_MBDF::run()
             del_t=MAX(del_t,min_del_t);
             chk=interpolate(del_t,ord);
         }
-        
+
         cost=solve(del_t,ord);
         while(err>=1.0 || cost>=1.0)
         {
@@ -410,18 +421,22 @@ void Clock_MBDF::run()
         }
         
         
-        tmp_y=y[max_order+1];
-        for(int i=max_order+1;i>0;i--)
+        del_t_tmp=del_t;
+        ord_dt(del_t,ord,initial_phase);
+        
+        tmp_y=y[max_order];
+        for(int i=max_order;i>0;i--)
         {
             t[i]=t[i-1];
             y[i]=y[i-1];
         }
         
         y[0]=tmp_y;
-        t[0]+=del_t;
+        t[0]+=del_t_tmp;
         
         memcpy(y[0],c,dof_lcl*sizeof(TYPE0));
         memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
+        
         
         if(write!=NULL)
             write->write();
@@ -437,250 +452,17 @@ void Clock_MBDF::run()
             thermo->update(time_idx,t[0]);
         }
         
-        if(initial_phase)
-        {
-            del_t=MIN(del_t*2.0,max_del_t);
-            if(ord<max_order)
-                ord++;
-        }
-        else
-        {
-            del_ord=err_calc(ord,const_stps,del_t,err);
-            
-            ord+=del_ord;
-            
-            if(del_ord==0)
-                ord_const_stps++;
-            else
-                ord_const_stps=0;
-            
-            ratio=step_size(del_t,ord);
-            
-            if(del_ord==0)
-            {
-                if(ratio==1.0)
-                    const_stps++;
-                else
-                    const_stps=0;
-            }
-            else
-                const_stps=0;
-            
-            
-            del_t*=ratio;
-        }
         
         step_no++;
-
         istep++;
     }
-    
 
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-TYPE0 Clock_MBDF::solve(TYPE0 del_t,int ord)
-{
-    TYPE0* c;
-    atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
     
-    TYPE0 gamma,max_gamma=1.0;
-    TYPE0 inner,tmp,tmp1;
-    TYPE0 ratio;
-    TYPE0 g0_g0,g_g,g_g0,g_h;
-    TYPE0 curr_cost,ideal_cost,cost;
-    int chk;
-    
-    /*
-    memcpy(c,y_0,dof_lcl*sizeof(TYPE0));
-    thermo->start_comm_time();
-    atoms->update(c_n);
-    thermo->stop_comm_time();
-    */
-    
-    TYPE0 tot_ratio;
-    ratio=1.0;
-    for(int i=0;i<dof_lcl;i++)
-    {
-        tmp=dy[i]*del_t+y[0][i];
-        if(tmp>1.0)
-            ratio=MIN((1.0-y[0][i])/(tmp-y[0][i]),ratio);
-        else if(tmp<0.0)
-            ratio=MIN((y[0][i]-0.0)/(y[0][i]-tmp),ratio);
-    }
-    MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
-    for(int i=0;i<dof_lcl;i++)
-        c[i]=y[0][i]+dy[i]*del_t*tot_ratio;
-    
-    thermo->start_comm_time();
-    atoms->update(c_n);
-    thermo->stop_comm_time();
-    
-    thermo->start_force_time();
-    curr_cost=forcefield->g_calc(0,beta,a,g);
-    rectify(g);
-    thermo->stop_force_time();
-    
-    memcpy(h,g,dof_lcl*sizeof(TYPE0));
-    
-    inner=0.0;
-    for(int i=0;i<dof_lcl;i++)
-        inner+=g[i]*g[i];
-    g0_g0=0.0;
-    MPI_Allreduce(&inner,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
-    g_h=g0_g0;
-    
-    int iter=0;
-    
-    
-    while(curr_cost>m_tol*static_cast<TYPE0>(dof_tot)
-          && iter<max_iter && max_gamma>min_gamma)
-    {
-        
-        memcpy(g0,g,dof_lcl*sizeof(TYPE0));
-        memcpy(c0,c,dof_lcl*sizeof(TYPE0));
-        
-        gamma=1.0;
-        
-        for(int i=0;i<dof_lcl;i++)
-        {
-            tmp=c0[i]+h[i];
-            if(tmp>1.0)
-            {
-                gamma=MIN((1.0-c0[i])/(tmp-c0[i]),gamma);
-            }
-            else if(tmp<0.0)
-            {
-                gamma=MIN((c0[i]-0.0)/(c0[i]-tmp),gamma);
-            }
-        }
-        MPI_Allreduce(&gamma,&max_gamma,1,MPI_TYPE0,MPI_MIN,world);
-        
-        chk=1;
-        
-        cost=curr_cost;
-        while(chk && max_gamma>min_gamma)
-        {
-            for(int i=0;i<dof_lcl;i++)
-                c[i]=c0[i]+max_gamma*h[i];
-            
-            thermo->start_comm_time();
-            atoms->update(c_n);
-            thermo->stop_comm_time();
-            
-            thermo->start_force_time();
-            curr_cost=forcefield->g_calc(0,beta,a,g);
-            rectify(g);
-            thermo->stop_force_time();
-            
-            ideal_cost=cost-slope*max_gamma*g_h;
-            if(curr_cost<ideal_cost)
-                chk=0;
-            max_gamma*=gamma_red;
-            if(max_gamma<=min_gamma)
-            {
-                memcpy(c,c0,dof_lcl*sizeof(TYPE0));
-                
-                thermo->start_comm_time();
-                atoms->update(c_n);
-                thermo->stop_comm_time();
-                
-                thermo->start_force_time();
-                curr_cost=forcefield->g_calc(1,beta,a,g);
-                thermo->stop_force_time();
-            }
-        }
-        
-        if(chk==0)
-        {
-            inner=0.0;
-            for(int i=0;i<dof_lcl;i++)
-                inner+=g[i]*g0[i];
-            g_g0=0.0;
-            MPI_Allreduce(&inner,&g_g0,1,MPI_TYPE0,MPI_SUM,world);
-            
-            inner=0.0;
-            for(int i=0;i<dof_lcl;i++)
-                inner+=g[i]*g[i];
-            g_g=0.0;
-            MPI_Allreduce(&inner,&g_g,1,MPI_TYPE0,MPI_SUM,world);
-            
-            ratio=(g_g-g_g0)/g0_g0;
-            
-            g0_g0=g_g;
-            
-            inner=0.0;
-            for(int i=0;i<dof_lcl;i++)
-            {
-                h[i]*=ratio;
-                h[i]+=g[i];
-                inner+=h[i]*g[i];
-            }
-            g_h=0.0;
-            MPI_Allreduce(&inner,&g_h,1,MPI_TYPE0,MPI_SUM,world);
-            
-            if(g_h<0.0)
-            {
-                memcpy(h,g,dof_lcl*sizeof(TYPE0));
-                g_h=g_g;
-            }
-        }
-        
-        
-        iter++;
-    }
-    rectify(c_d);
-    
-    
-    TYPE0 tmp0,sum0,tot_sum0,norm;
-    sum0=0.0;
-    tmp1=0.0;
-    for(int i=0;i<dof_lcl;i++)
-    {
-        tmp1+=c_d[i]*c_d[i];
-        tmp0=y_0[i]-c[i];
-        sum0+=tmp0*tmp0;
-        
-    }
-    
-    MPI_Allreduce(&sum0,&tot_sum0,1,MPI_TYPE0,MPI_SUM,world);
-    norm=sqrt(tot_sum0/static_cast<TYPE0>(dof_tot));
-    MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
-    eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
-    
-    TYPE0 curr_t=t[0]+del_t;
-    TYPE0 alphak=del_t/(curr_t-t[ord-1]);
-    TYPE0 alpha0=0.0;
-    TYPE0 alphas=0.0;
-    for(int i=0;i<ord+1;i++)
-    {
-        alpha0+=1.0/(curr_t-t[i]);
-        if(i!=0)
-            alphas+=1.0/(static_cast<TYPE0>(i));
-    }
-    alpha0*=-del_t;
-    
-    err=MAX(alphak,fabs(alphak-alphas+alpha0))*norm/a_tol;
-    
-    return curr_cost/(m_tol*static_cast<TYPE0>(dof_tot));
-}
-/*--------------------------------------------
- factorial
- --------------------------------------------*/
-int Clock_MBDF::fac(int no)
-{
-    int ans=1;
-    for(int i=1;i<no+1;i++)
-        ans*=i;
-    return ans;
 }
 /*--------------------------------------------
  max step size
  --------------------------------------------*/
-TYPE0 Clock_MBDF::step_size(TYPE0 del_t,int ord)
+TYPE0 Clock_mbdf::step_size(TYPE0 del_t,int ord)
 {
     
     
@@ -740,14 +522,244 @@ TYPE0 Clock_MBDF::step_size(TYPE0 del_t,int ord)
     return ratio;
 }
 /*--------------------------------------------
+ init
+ --------------------------------------------*/
+
+TYPE0 Clock_mbdf::solve(TYPE0 del_t,int ord)
+{
+    TYPE0* c;
+    atoms->vectors[c_n].ret(c);
+    TYPE0* c_d;
+    atoms->vectors[c_d_n].ret(c_d);
+    
+    TYPE0 gamma,max_gamma=1.0;
+    TYPE0 inner,tmp0,tmp1;
+    TYPE0 err_lcl;
+    TYPE0 ratio;
+    TYPE0 g0_g0,g_g,g_g0,g_h;
+    TYPE0 curr_cost,ideal_cost,cost;
+    int chk;
+    
+    /*
+    memcpy(c,y_0,dof_lcl*sizeof(TYPE0));
+    thermo->start_comm_time();
+    atoms->update(c_n);
+    thermo->stop_comm_time();
+    */
+    
+    
+    TYPE0 tot_ratio;
+    ratio=1.0;
+    for(int i=0;i<dof_lcl;i++)
+    {
+        tmp0=dy[i]*del_t+y[0][i];
+        if(tmp0>1.0)
+            ratio=MIN((1.0-y[0][i])/(tmp0-y[0][i]),ratio);
+        else if(tmp0<0.0)
+            ratio=MIN((y[0][i]-0.0)/(y[0][i]-tmp0),ratio);
+    }
+    MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
+    for(int i=0;i<dof_lcl;i++)
+        c[i]=y[0][i]+dy[i]*del_t*tot_ratio;
+    thermo->start_comm_time();
+    atoms->update(c_n);
+    thermo->stop_comm_time();
+    
+    
+    
+    thermo->start_force_time();
+    curr_cost=forcefield->g_calc(0,beta,a,g);
+    rectify(g);
+    thermo->stop_force_time();
+    /*
+     TYPE0 sum_lcl;
+     TYPE0 sum_tot;
+     sum_lcl=0.0;
+     sum_tot=0.0;
+     for(int i=0;i<dof_lcl;i++)
+     sum_lcl+=g[i];
+     MPI_Allreduce(&sum_lcl,&sum_tot,1,MPI_TYPE0,MPI_SUM,world);
+     for(int i=0;i<dof_lcl;i++)
+     g[i]-=correc_fac*sum_tot;
+     rectify(g);
+     */
+    memcpy(h,g,dof_lcl*sizeof(TYPE0));
+    
+    inner=0.0;
+    for(int i=0;i<dof_lcl;i++)
+        inner+=g[i]*g[i];
+    g0_g0=0.0;
+    MPI_Allreduce(&inner,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
+    g_h=g0_g0;
+    
+    int iter=0;
+    
+    while(curr_cost>m_tol*static_cast<TYPE0>(dof_tot)
+          && iter<max_iter && max_gamma>min_gamma)
+    {
+        memcpy(g0,g,dof_lcl*sizeof(TYPE0));
+        memcpy(c0,c,dof_lcl*sizeof(TYPE0));
+        
+        gamma=0.99;
+        
+        for(int i=0;i<dof_lcl;i++)
+        {
+            tmp0=c0[i]+h[i];
+            
+            if(tmp0>1.0)
+            {
+                gamma=MIN((1.0-c0[i])/(tmp0-c0[i]),gamma);
+            }
+            else if(tmp0<0.0)
+            {
+                gamma=MIN((c0[i]-0.0)/(c0[i]-tmp0),gamma);
+            }
+        }
+        MPI_Allreduce(&gamma,&max_gamma,1,MPI_TYPE0,MPI_MIN,world);
+        
+        max_gamma*=0.9;
+        chk=1;
+        
+        cost=curr_cost;
+        
+        while(chk && max_gamma>min_gamma)
+        {
+            for(int i=0;i<dof_lcl;i++)
+                c[i]=c0[i]+max_gamma*h[i];
+            
+            thermo->start_comm_time();
+            atoms->update(c_n);
+            thermo->stop_comm_time();
+            
+            thermo->start_force_time();
+            curr_cost=forcefield->g_calc(0,beta,a,g);
+            rectify(g);
+            thermo->stop_force_time();
+            /*
+             sum_lcl=0.0;
+             sum_tot=0.0;
+             for(int i=0;i<dof_lcl;i++)
+             sum_lcl+=g[i];
+             MPI_Allreduce(&sum_lcl,&sum_tot,1,MPI_TYPE0,MPI_SUM,world);
+             for(int i=0;i<dof_lcl;i++)
+             g[i]-=correc_fac*sum_tot;
+             rectify(g);
+             */
+            ideal_cost=cost-slope*max_gamma*g_h;
+            if(curr_cost<ideal_cost)
+                chk=0;
+            max_gamma*=gamma_red;
+            if(max_gamma<=min_gamma)
+            {
+                memcpy(c,c0,dof_lcl*sizeof(TYPE0));
+                
+                thermo->start_comm_time();
+                atoms->update(c_n);
+                thermo->stop_comm_time();
+                
+                thermo->start_force_time();
+                curr_cost=forcefield->g_calc(1,beta,a,g);
+                thermo->stop_force_time();
+            }
+        }
+        
+        if(chk==0)
+        {
+            inner=0.0;
+            for(int i=0;i<dof_lcl;i++)
+                inner+=g[i]*g0[i];
+            g_g0=0.0;
+            MPI_Allreduce(&inner,&g_g0,1,MPI_TYPE0,MPI_SUM,world);
+            
+            inner=0.0;
+            for(int i=0;i<dof_lcl;i++)
+                inner+=g[i]*g[i];
+            g_g=0.0;
+            MPI_Allreduce(&inner,&g_g,1,MPI_TYPE0,MPI_SUM,world);
+            
+            ratio=(g_g-g_g0)/g0_g0;
+            
+            g0_g0=g_g;
+            
+            inner=0.0;
+            for(int i=0;i<dof_lcl;i++)
+            {
+                h[i]*=ratio;
+                h[i]+=g[i];
+                inner+=h[i]*g[i];
+            }
+            g_h=0.0;
+            MPI_Allreduce(&inner,&g_h,1,MPI_TYPE0,MPI_SUM,world);
+            
+            if(g_h<0.0)
+            {
+                memcpy(h,g,dof_lcl*sizeof(TYPE0));
+                g_h=g_g;
+            }
+        }
+        
+        iter++;
+    }
+    
+    rectify(c_d);
+    
+    
+    err_lcl=0.0;
+    tmp1=0.0;
+    for(int i=0;i<dof_lcl;i++)
+    {
+        tmp0=(y_0[i]-c[i]);
+        tmp1+=c_d[i]*c_d[i];
+        err_lcl+=tmp0*tmp0;
+    }
+    
+    err=0.0;
+    MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
+    err=sqrt(err/static_cast<TYPE0>(dof_tot))/a_tol;
+    err*=err_prefac;
+    
+    MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
+    eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
+    
+    
+    for(int i=0;i<dof_lcl;i++)
+        if(c[i]<0.0 || c[i]>1.0)
+            error->abort("c exceeded the domain");
+    
+    return curr_cost/(m_tol*static_cast<TYPE0>(dof_tot));
+}
+
+/*--------------------------------------------
+ factorial
+ --------------------------------------------*/
+TYPE0 Clock_mbdf::fac(int no)
+{
+    int ans=1;
+    for(int i=1;i<no+1;i++)
+        ans*=i;
+    return static_cast<TYPE0>(ans);
+}
+/*--------------------------------------------
  max step size
  --------------------------------------------*/
-int Clock_MBDF::err_calc(int q,int const_stps,TYPE0 del_t,TYPE0& error)
+void Clock_mbdf::ord_dt(TYPE0& del_t,int& q
+,int init_ph)
 {
+    if(init_ph)
+    {
+        del_t=MIN(del_t*2.0,max_del_t);
+        if(q<max_order)
+            q++;
+        return;
+    }
     
+    TYPE0 curr_t=t[0]+del_t;
     TYPE0 tmp0,tmp1;
     TYPE0 terkm2=0.0,terkm1=0.0,terk=0.0,terkp1=0.0;
-    int terkm2_flag,terkm1_flag,terk_flag,terkp1_flag;
+    TYPE0 tmp_err,ratio,del_t_tmp;
+    
+    int terkm2_flag,terkm1_flag,terk_flag,terkp1_flag
+    ,tmp_q=q;
     
     terk_flag=1;
     terkp1_flag=0;
@@ -768,12 +780,22 @@ int Clock_MBDF::err_calc(int q,int const_stps,TYPE0 del_t,TYPE0& error)
         tmp1=fac(q-1)*pow(del_t,q-1);
         for(int i=0;i<q;i++)
         {
-            tmp0=1.0;
-            for(int j=0;j<q;j++)
+            if(i!=0)
             {
-                if(i!=j)
-                    tmp0*=t[i]-t[j];
+                tmp0=t[i-1]-curr_t;
+                for(int j=0;j<q-1;j++)
+                {
+                    if(j!=i-1)
+                        tmp0*=t[i-1]-t[j];
+                }
             }
+            else
+            {
+                tmp0=1.0;
+                for(int j=0;j<q-1;j++)
+                    tmp0*=curr_t-t[j];
+            }
+            
             alph_err[i]=tmp1/tmp0;
         }
         terkm2=err_est(q);
@@ -783,12 +805,22 @@ int Clock_MBDF::err_calc(int q,int const_stps,TYPE0 del_t,TYPE0& error)
         tmp1=fac(q)*pow(del_t,q);
         for(int i=0;i<q+1;i++)
         {
-            tmp0=1.0;
-            for(int j=0;j<q+1;j++)
+            if(i!=0)
             {
-                if(i!=j)
-                    tmp0*=t[i]-t[j];
+                tmp0=t[i-1]-curr_t;
+                for(int j=0;j<q;j++)
+                {
+                    if(j!=i-1)
+                        tmp0*=t[i-1]-t[j];
+                }
             }
+            else
+            {
+                tmp0=1.0;
+                for(int j=0;j<q;j++)
+                    tmp0*=curr_t-t[j];
+            }
+            
             alph_err[i]=tmp1/tmp0;
         }
         terkm1=err_est(q+1);
@@ -798,12 +830,22 @@ int Clock_MBDF::err_calc(int q,int const_stps,TYPE0 del_t,TYPE0& error)
         tmp1=fac(q+1)*pow(del_t,q+1);
         for(int i=0;i<q+2;i++)
         {
-            tmp0=1.0;
-            for(int j=0;j<q+2;j++)
+            if(i!=0)
             {
-                if(i!=j)
-                    tmp0*=t[i]-t[j];
+                tmp0=t[i-1]-curr_t;
+                for(int j=0;j<q+1;j++)
+                {
+                    if(j!=i-1)
+                        tmp0*=t[i-1]-t[j];
+                }
             }
+            else
+            {
+                tmp0=1.0;
+                for(int j=0;j<q+1;j++)
+                    tmp0*=curr_t-t[j];
+            }
+            
             alph_err[i]=tmp1/tmp0;
         }
         terk=err_est(q+2);
@@ -813,93 +855,124 @@ int Clock_MBDF::err_calc(int q,int const_stps,TYPE0 del_t,TYPE0& error)
         tmp1=1.0;
         for(int i=0;i<q+3;i++)
         {
-            tmp0=1.0;
-            for(int j=0;j<q+3;j++)
+            if(i!=0)
             {
-                if(i!=j)
-                    tmp0*=t[i]-t[j];
+                tmp0=t[i-1]-curr_t;
+                for(int j=0;j<q+2;j++)
+                {
+                    if(j!=i-1)
+                        tmp0*=t[i-1]-t[j];
+                }
             }
+            else
+            {
+                tmp0=1.0;
+                for(int j=0;j<q+2;j++)
+                    tmp0*=curr_t-t[j];
+            }
+            
             alph_err[i]=tmp1/tmp0;
         }
         terkp1=err_est(q+3);
     }
     
     
-    //printf("terkm2 %e terkm1 %e terk %e \n",terkm2,terkm1,terk);
     
-    
-    
-    //lower order
-    //possible if q>1
-    int lower_flag=0;
-    int upper_flag=0;
-    
-    if(q>1)
+    if(q>2)
     {
-        if(q>2)
+        if(MAX(terkm1,terkm2)<=terk)
         {
-            if(MAX(terkm1,terkm2)<=terk)
-                lower_flag=1;
+            tmp_q=q-1;
+            tmp_err=terkm1;
         }
         else
         {
-            if(terkm1<=0.5*terk)
-                lower_flag=1;
-            
+            if(terkp1<terk && terkp1_flag)
+            {
+                tmp_q=q+1;
+                tmp_err=terkp1;
+            }
+            else
+                tmp_err=terk;
         }
     }
-    
-    if(terkp1_flag)
+    else if(q==2)
     {
-        if(q>2)
+        if(terkm1<=0.5*terk)
         {
-            if(terkp1<terk && terk<MAX(terkm1,terkm2))
-                upper_flag=1;
+            tmp_q=q-1;
+            tmp_err=terkm1;
         }
-        else if(1<q && q<3)
+        else if(terk<terkm1 && terkp1_flag)
         {
-            if(terkp1<terk && terk<terkm1)
-                upper_flag=1;
+            if(terkp1<terk)
+            {
+                tmp_q=q+1;
+                tmp_err=terkp1;
+            }
+            else
+                tmp_err=terk;
         }
         else
+            tmp_err=terk;
+    }
+    else
+    {
+        if(terkp1<0.5*terk && terkp1_flag)
         {
-            if(terkp1<0.5*terk)
-                upper_flag=1;
+            tmp_q=q+1;
+            tmp_err=terkp1;
         }
+        else
+            tmp_err=terk;
     }
     
-    if(upper_flag)
+    
+    ratio=pow(0.5/tmp_err,1.0/static_cast<TYPE0>(q+1));
+    
+    if(ratio>=2.0)
+        const_stps=0;
+    else if(ratio<=0.5)
     {
-        error=terkp1;
-        return 1;
+        ratio=0.5;
+        const_stps=0;
     }
-    if(lower_flag)
+    else
     {
-        error=terkm1;
-        return -1;
+        ratio=1.0;
+        if(tmp_q==q)
+            const_stps++;
     }
     
-    error=terk;
-    return 0;
-    
+    del_t_tmp=ratio*del_t;
+    if(del_t_tmp>max_del_t)
+        del_t=max_del_t;
+    else if (del_t_tmp<min_del_t)
+        del_t=min_del_t;
+    else
+        del_t=del_t_tmp;
+    q=tmp_q;
     
 }
 /*--------------------------------------------
  max step size
  --------------------------------------------*/
-TYPE0 Clock_MBDF::err_est(int q)
+TYPE0 Clock_mbdf::err_est(int q)
 {
+    TYPE0* c;
+    atoms->vectors[c_n].ret(c);
+    
     TYPE0 tmp0,err_lcl,err_tot;
     err_lcl=0.0;
     for(int i=0;i<dof_lcl;i++)
     {
-        tmp0=0.0;
-        for(int j=0;j<q;j++)
-            tmp0+=alph_err[j]*y[j][i];
+        tmp0=alph_err[0]*c[i];
+        for(int j=0;j<q-1;j++)
+            tmp0+=alph_err[j+1]*y[j][i];
         err_lcl+=tmp0*tmp0;
     }
     MPI_Allreduce(&err_lcl,&err_tot,1,MPI_TYPE0,MPI_SUM,world);
-    err_tot=sqrt(err_tot/(static_cast<TYPE0>(dof_tot)*a_tol));
+    err_tot=sqrt(err_tot/static_cast<TYPE0>(dof_tot))/a_tol;
     return err_tot;
 }
 

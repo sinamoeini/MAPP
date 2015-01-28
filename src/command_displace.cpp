@@ -6,7 +6,7 @@ using namespace std;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-CommandDisplace::CommandDisplace(MAPP* mapp
+Command_displace::Command_displace(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
     if((narg-1)%4!=0)
@@ -101,14 +101,14 @@ CommandDisplace::CommandDisplace(MAPP* mapp
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-CommandDisplace::~CommandDisplace()
+Command_displace::~Command_displace()
 {
     
 }
 /*--------------------------------------------
  move
  --------------------------------------------*/
-void CommandDisplace::move(int* list,
+void Command_displace::move(int* list,
 int no_atoms,TYPE0* disp)
 {
     for(int i=0;i<no_atoms;i++)

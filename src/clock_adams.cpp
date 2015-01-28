@@ -10,7 +10,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_Adams::Clock_Adams(MAPP* mapp,int narg
+Clock_adams::Clock_adams(MAPP* mapp,int narg
                      ,char** arg):Clock(mapp)
 {
     if(narg!=5)
@@ -93,7 +93,7 @@ Clock_Adams::Clock_Adams(MAPP* mapp,int narg
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_Adams::~Clock_Adams()
+Clock_adams::~Clock_adams()
 {
     delete [] t;
     delete [] beta;
@@ -122,7 +122,7 @@ Clock_Adams::~Clock_Adams()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_Adams::init()
+void Clock_adams::init()
 {
     TYPE0* c;
     
@@ -162,7 +162,7 @@ void Clock_Adams::init()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_Adams::fin()
+void Clock_adams::fin()
 {
     ave_err=ave_err/static_cast<TYPE0>(no_steps);
     
@@ -182,7 +182,7 @@ void Clock_Adams::fin()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_Adams::run()
+void Clock_adams::run()
 {
     TYPE0 curr_err;
     
@@ -239,7 +239,7 @@ void Clock_Adams::run()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-TYPE0 Clock_Adams::solve(TYPE0 bet)
+TYPE0 Clock_adams::solve(TYPE0 bet)
 {
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
@@ -373,7 +373,7 @@ TYPE0 Clock_Adams::solve(TYPE0 bet)
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_Adams::interpolate(TYPE0 del_t)
+void Clock_adams::interpolate(TYPE0 del_t)
 {
     TYPE0 tmp0=1.0,tmp1;
     

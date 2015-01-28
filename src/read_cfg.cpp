@@ -12,7 +12,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
+Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
 :Read(mapp)
 {
     
@@ -171,7 +171,7 @@ ReadCFG::ReadCFG(MAPP* mapp,int narg,char** args)
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ReadCFG::~ReadCFG()
+Read_cfg::~Read_cfg()
 {
     delete vec_list;
     delete [] line;
@@ -202,7 +202,7 @@ ReadCFG::~ReadCFG()
 /*--------------------------------------------
  reads the header of the cfg file
  --------------------------------------------*/
-void ReadCFG::read_header()
+void Read_cfg::read_header()
 {
     char* command;
     int narg = mapp->hash_remover(line,command);
@@ -337,7 +337,7 @@ void ReadCFG::read_header()
  for now we disregard eta;
  remeber to fix it later;
  --------------------------------------------*/
-void ReadCFG::set_box()
+void Read_cfg::set_box()
 {
     TYPE0** Ht;
     TYPE0* sq;
@@ -436,7 +436,7 @@ void ReadCFG::set_box()
 /*--------------------------------------------
  reads the atom section of the cfg file
  --------------------------------------------*/
-void ReadCFG::read_atom_md()
+void Read_cfg::read_atom_md()
 {
     char** arg;
     TYPE0 mass;
@@ -535,7 +535,7 @@ void ReadCFG::read_atom_md()
 /*--------------------------------------------
  reads the atom section of the cfg file
  --------------------------------------------*/
-void ReadCFG::read_atom_dmd()
+void Read_cfg::read_atom_dmd()
 {
     char** arg;
     TYPE0 mass;
@@ -603,7 +603,7 @@ void ReadCFG::read_atom_dmd()
 /*--------------------------------------------
  addatom_read_x
  --------------------------------------------*/
-void ReadCFG::add_atom_read_x(int t)
+void Read_cfg::add_atom_read_x(int t)
 {
     
     for(int i=0;i<3;i++)
@@ -651,7 +651,7 @@ void ReadCFG::add_atom_read_x(int t)
 /*--------------------------------------------
  addatom_read_x
  --------------------------------------------*/
-void ReadCFG::add_atom_read_x()
+void Read_cfg::add_atom_read_x()
 {
     for(int i=0;i<3;i++)
     {
@@ -685,7 +685,7 @@ void ReadCFG::add_atom_read_x()
  Computers Math. Applic. Vol. 18, No. 5,
  pp. 459-466, 1989
  --------------------------------------------*/
-void ReadCFG::M3sqroot(TYPE0** A,TYPE0** Asq)
+void Read_cfg::M3sqroot(TYPE0** A,TYPE0** Asq)
 {
     TYPE0 IA=0;
     for(int i=0;i<3;i++)

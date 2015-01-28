@@ -138,8 +138,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
     for(int i=0;i<2;i++)
         CREATE1D(dy[i],dof_lcl);
     
-    CREATE1D(y0,dof_lcl);
-    CREATE1D(dy0,dof_lcl);
+    CREATE1D(y,dof_lcl);
     CREATE1D(y_0,dof_lcl);
     CREATE1D(a,dof_lcl);
     CREATE1D(g,dof_lcl);
@@ -160,8 +159,7 @@ Clock_cn::~Clock_cn()
         for(int i=0;i<2;i++)
             delete [] dy[i];
         
-        delete [] y0;
-        delete [] dy0;
+        delete [] y;
         delete [] y_0;
         delete [] a;
         delete [] g0;
@@ -185,7 +183,17 @@ void Clock_cn::init()
     if(f_n<0)
         f_n=atoms->add<TYPE0>(0,atoms->vectors[0].dim,"f");
     
-    vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
+    if(cdof_n>-1)
+    {
+        int dof_n=atoms->find("dof");
+        vecs_comm=new VecLst(mapp,5,0,c_n,c_d_n,cdof_n,dof_n);
+        
+    }
+    else
+    {
+        vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
+    }
+    
     vecs_comm->add_update(0);
     atoms->reset_comm(vecs_comm);
     forcefield->init();
@@ -233,7 +241,7 @@ void Clock_cn::init()
     t[1]=-initial_del_t;
     memcpy(dy[0],c_d,dof_lcl*sizeof(TYPE0));
     memcpy(dy[1],c_d,dof_lcl*sizeof(TYPE0));
-    memcpy(y0,c,dof_lcl*sizeof(TYPE0));
+    memcpy(y,c,dof_lcl*sizeof(TYPE0));
     
 }
 /*--------------------------------------------
@@ -260,23 +268,28 @@ void Clock_cn::fin()
  --------------------------------------------*/
 void Clock_cn::run()
 {
-    int chk;
-    TYPE0 del_t,cost,err1,ratio,del_t_tmp;
-    TYPE0* tmp_dy;
-    TYPE0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
+    TYPE0* c_d;
+    atoms->vectors[c_d_n].ret(c_d);
+    TYPE0* tmp_dy;
+    TYPE0 del_t=initial_del_t,del_t_tmp,err1;
+    TYPE0 ratio=1.0,cost;
+
+
     del_t=initial_del_t;
+    int chk;
+    int istep;
     
-    for(int istep=0;istep<no_steps;istep++)
+    eq_ratio=1.0;
+    istep=0;
+    while (eq_ratio>=1.0 && istep <no_steps)
     {
         chk=interpolate(del_t);
         while(chk==-1)
         {
             del_t*=0.8;
             del_t=MAX(del_t,min_del_t);
-            //cout << del_t <<endl;
             chk=interpolate(del_t);
         }
         cost=solve(del_t);
@@ -285,11 +298,6 @@ void Clock_cn::run()
             
             err1=MAX(err,cost);
             ratio=pow(0.5/err1,1.0/3.0);
-            
-            if(ratio<0.5)
-                ratio=0.5;
-            else if(ratio>0.9)
-                ratio=0.9;
             
             del_t_tmp=del_t*ratio;
             if(del_t_tmp<min_del_t)
@@ -309,16 +317,6 @@ void Clock_cn::run()
             cost=solve(del_t);
         }
         
-        //printf("err %e\n",err);
-        
-        t[1]=t[0];
-        t[0]+=del_t;
-        tmp_dy=dy[1];
-        dy[1]=dy[0];
-        dy[0]=tmp_dy;
-        memcpy(dy[0],c_d,dof_lcl*sizeof(TYPE0));
-        memcpy(y0,c,dof_lcl*sizeof(TYPE0));
-        
         
         if(write!=NULL)
             write->write();
@@ -329,27 +327,43 @@ void Clock_cn::run()
             forcefield->force_calc(1,nrgy_strss);
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,t[0]);
+            thermo->update(time_idx,t[0]+del_t);
         }
         
+        del_t_tmp=del_t;
+        ord_dt(del_t);
         
+        t[1]=t[0];
+        t[0]+=del_t_tmp;
+        tmp_dy=dy[1];
+        dy[1]=dy[0];
+        dy[0]=tmp_dy;
+        memcpy(dy[0],c_d,dof_lcl*sizeof(TYPE0));
+        memcpy(y,c,dof_lcl*sizeof(TYPE0));
         
-        ratio=pow(0.5/err,1.0/3.0);
-        
-        if(ratio<0.5)
-            ratio=0.5;
-        else if(ratio>2.0)
-            ratio=2.0;
-        
-        del_t_tmp=del_t*ratio;
-        if(del_t_tmp<min_del_t)
-            del_t=min_del_t;
-        else
-            del_t=del_t_tmp;
-        
-        
+
         step_no++;
+        istep++;
     }
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void Clock_cn::ord_dt(TYPE0& del_t)
+{
+    TYPE0 ratio,del_t_tmp;
+    ratio=pow(0.5/err,1.0/3.0);
+    
+    if(ratio<0.5)
+        ratio=0.5;
+    else if(ratio>2.0)
+        ratio=2.0;
+    
+    del_t_tmp=del_t*ratio;
+    if(del_t_tmp<min_del_t)
+        del_t=min_del_t;
+    else
+        del_t=del_t_tmp;
 }
 /*--------------------------------------------
  init
@@ -365,8 +379,8 @@ int Clock_cn::interpolate(TYPE0 del_t)
     int idof=0;
     while(idof<dof_lcl && ret_val==1)
     {
-        y_0[idof]=y0[idof]+c0*dy[0][idof]+c1*dy[1][idof];
-        a[idof]=-y0[idof]-0.5*del_t*dy[0][idof];
+        y_0[idof]=y[idof]+c0*dy[0][idof]+c1*dy[1][idof];
+        a[idof]=-y[idof]-0.5*del_t*dy[0][idof];
         if(y_0[idof]<0.0 || y_0[idof]>1.0)
         {
             ret_val=-1;
@@ -376,7 +390,7 @@ int Clock_cn::interpolate(TYPE0 del_t)
     beta=del_t*0.5;
     
     MPI_Allreduce(&ret_val,&tot_ret_val,1,MPI_INT,MPI_MIN,world);
-    
+    err_prefac=(1.0/3.0)*(del_t/(del_t+t[0]-t[1]));
     return tot_ret_val;
     
 }
@@ -387,15 +401,15 @@ TYPE0 Clock_cn::solve(TYPE0 del_t)
 {
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
-    
-    TYPE0 gamma,max_gamma=1.0;
-    TYPE0 inner,tmp;
-    TYPE0 ratio;
-    TYPE0 g0_g0,g_g,g_g0,g_h;
-    TYPE0 curr_cost,ideal_cost,cost;
     TYPE0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     
+    TYPE0 gamma,max_gamma=1.0;
+    TYPE0 inner,tmp0,tmp1;
+    TYPE0 err_lcl;
+    TYPE0 ratio;
+    TYPE0 g0_g0,g_g,g_g0,g_h;
+    TYPE0 curr_cost,ideal_cost,cost;
     int chk;
 
     
@@ -427,15 +441,15 @@ TYPE0 Clock_cn::solve(TYPE0 del_t)
         
         for(int i=0;i<dof_lcl;i++)
         {
-            tmp=c0[i]+h[i];
+            tmp0=c0[i]+h[i];
             
-            if(tmp>1.0)
+            if(tmp0>1.0)
             {
-                gamma=MIN((1.0-c0[i])/(tmp-c0[i]),gamma);
+                gamma=MIN((1.0-c0[i])/(tmp0-c0[i]),gamma);
             }
-            else if(tmp<0.0)
+            else if(tmp0<0.0)
             {
-                gamma=MIN((c0[i]-0.0)/(c0[i]-tmp),gamma);
+                gamma=MIN((c0[i]-0.0)/(c0[i]-tmp0),gamma);
             }
         }
         MPI_Allreduce(&gamma,&max_gamma,1,MPI_TYPE0,MPI_MIN,world);
@@ -515,21 +529,25 @@ TYPE0 Clock_cn::solve(TYPE0 del_t)
         iter++;
     }
     
-    
     rectify(c_d);
 
     
-    TYPE0 err_lcl=0.0;
-    TYPE0 tmp0;
-    err=0.0;
+    err_lcl=0.0;
+    tmp1=0.0;
     for(int i=0;i<dof_lcl;i++)
     {
         tmp0=(y_0[i]-c[i]);
+        tmp1+=c_d[i]*c_d[i];
         err_lcl+=tmp0*tmp0;
     }
-    
+
+    err=0.0;
     MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
-    err=(1.0/3.0)*(del_t/(del_t+t[0]-t[1]))*sqrt(err/static_cast<TYPE0>(dof_tot))/a_tol;
+    err=sqrt(err/static_cast<TYPE0>(dof_tot))/a_tol;
+    err*=err_prefac;
+    
+    MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
+    eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
     
     return curr_cost/(m_tol*static_cast<TYPE0>(dof_tot));
 }

@@ -6,7 +6,7 @@ using namespace std;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-CommandFix::CommandFix(MAPP* mapp
+Command_fix::Command_fix(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
     if(mapp->mode==MD_mode)
@@ -17,14 +17,14 @@ CommandFix::CommandFix(MAPP* mapp
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-CommandFix::~CommandFix()
+Command_fix::~Command_fix()
 {
     
 }
 /*--------------------------------------------
  md
  --------------------------------------------*/
-void CommandFix::md(int narg,char** args)
+void Command_fix::md(int narg,char** args)
 {
     int dof_n,iarg;
     int x_dim=atoms->vectors[0].dim;
@@ -141,7 +141,7 @@ void CommandFix::md(int narg,char** args)
 /*--------------------------------------------
  dmd
  --------------------------------------------*/
-void CommandFix::dmd(int narg,char** args)
+void Command_fix::dmd(int narg,char** args)
 {
     int dof_n,cdof_n,iarg;
     int x_dim=atoms->vectors[0].dim;

@@ -7,8 +7,8 @@ enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ForceField_EAM_DMD::
-ForceField_EAM_DMD(MAPP* mapp) : ForceField(mapp)
+ForceField_eam_dmd::
+ForceField_eam_dmd(MAPP* mapp) : ForceField(mapp)
 {
     if(mapp->mode!=DMD_mode)
         error->abort("this forcefield works only with dmd mode");
@@ -43,7 +43,7 @@ ForceField_EAM_DMD(MAPP* mapp) : ForceField(mapp)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-ForceField_EAM_DMD::~ForceField_EAM_DMD()
+ForceField_eam_dmd::~ForceField_eam_dmd()
 {
     
     if(no_types)
@@ -86,7 +86,7 @@ ForceField_EAM_DMD::~ForceField_EAM_DMD()
 /*--------------------------------------------
  force calculation
  --------------------------------------------*/
-void ForceField_EAM_DMD::
+void ForceField_eam_dmd::
 force_calc(int st_clc,TYPE0* en_st)
 {
     TYPE0* x;
@@ -452,7 +452,7 @@ force_calc(int st_clc,TYPE0* en_st)
 /*--------------------------------------------
  energy calculation
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD::energy_calc()
+TYPE0 ForceField_eam_dmd::energy_calc()
 {
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
@@ -670,7 +670,7 @@ TYPE0 ForceField_EAM_DMD::energy_calc()
 /*--------------------------------------------
  init before running
  --------------------------------------------*/
-void ForceField_EAM_DMD::init()
+void ForceField_eam_dmd::init()
 {
     TYPE0 skin=atoms->skin;
     TYPE0 ph_cut=0.0;
@@ -701,7 +701,7 @@ void ForceField_EAM_DMD::init()
 /*--------------------------------------------
  fin after running
  --------------------------------------------*/
-void ForceField_EAM_DMD::fin()
+void ForceField_eam_dmd::fin()
 {
     atoms->del(crd_n);
     atoms->del(v_n);
@@ -733,7 +733,7 @@ void ForceField_EAM_DMD::fin()
  mass conversion from amu to eVs^2/A^2:
  1.0364269184093291236e-28
  --------------------------------------------*/
-void ForceField_EAM_DMD::coef(int narg,char** arg)
+void ForceField_eam_dmd::coef(int narg,char** arg)
 {
     TYPE0 kb,T,hbar;
     if (narg<9)
@@ -800,7 +800,7 @@ void ForceField_EAM_DMD::coef(int narg,char** arg)
 /*--------------------------------------------
  read from file and assign DeltaE
  --------------------------------------------*/
-void ForceField_EAM_DMD::setup_delta_e(char* file)
+void ForceField_eam_dmd::setup_delta_e(char* file)
 {
     FILE* fp=NULL;
     char* line;
@@ -871,7 +871,7 @@ void ForceField_EAM_DMD::setup_delta_e(char* file)
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_EAM_DMD::set_funcfl(int no_files
+void ForceField_eam_dmd::set_funcfl(int no_files
                                    ,char** file_names)
 {
     if(no_files!=no_types)
@@ -1112,7 +1112,7 @@ void ForceField_EAM_DMD::set_funcfl(int no_files
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_EAM_DMD::set_setfl(int no_files
+void ForceField_eam_dmd::set_setfl(int no_files
                                   ,char** file_names)
 {
     if(no_files!=1)
@@ -1321,7 +1321,7 @@ void ForceField_EAM_DMD::set_setfl(int no_files
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_EAM_DMD::set_fs(int no_files
+void ForceField_eam_dmd::set_fs(int no_files
                                ,char** file_names)
 {
     if(no_files!=1)
@@ -1551,7 +1551,7 @@ void ForceField_EAM_DMD::set_fs(int no_files
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-int ForceField_EAM_DMD::line_read(FILE* file
+int ForceField_eam_dmd::line_read(FILE* file
                                  ,char*& line)
 {
     int lenght;
@@ -1576,7 +1576,7 @@ int ForceField_EAM_DMD::line_read(FILE* file
 /*--------------------------------------------
  clean up the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD::clean_up()
+void ForceField_eam_dmd::clean_up()
 {
     if(allocated==0)
         return;
@@ -1653,7 +1653,7 @@ void ForceField_EAM_DMD::clean_up()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD::allocate()
+void ForceField_eam_dmd::allocate()
 {
     
     CREATE2D(type2phi,no_types,no_types);
@@ -1728,7 +1728,7 @@ void ForceField_EAM_DMD::allocate()
 /*--------------------------------------------
  set the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD::set_arrays()
+void ForceField_eam_dmd::set_arrays()
 {
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
     {
@@ -1759,7 +1759,7 @@ void ForceField_EAM_DMD::set_arrays()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD::interpolate(int n,TYPE0 delta
+void ForceField_eam_dmd::interpolate(int n,TYPE0 delta
                                     ,TYPE0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
@@ -1793,7 +1793,7 @@ void ForceField_EAM_DMD::interpolate(int n,TYPE0 delta
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_EAM_DMD::interpolate_m(int n,TYPE0 delta
+void ForceField_eam_dmd::interpolate_m(int n,TYPE0 delta
                                       ,TYPE0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
@@ -1840,7 +1840,7 @@ void ForceField_EAM_DMD::interpolate_m(int n,TYPE0 delta
  Gaussian-Hermite quadrature weights and
  abscissas for 1 to 14 points
  --------------------------------------------*/
-void ForceField_EAM_DMD::set_weight_abs(int n)
+void ForceField_eam_dmd::set_weight_abs(int n)
 {
     
     if(n<1 || n>14)
@@ -2137,7 +2137,7 @@ void ForceField_EAM_DMD::set_weight_abs(int n)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_EAM_DMD::create_2nd_neigh_lst()
+void ForceField_eam_dmd::create_2nd_neigh_lst()
 {
     
     TYPE0 dx0,dx1,dx2,rsq;
@@ -2219,7 +2219,7 @@ void ForceField_EAM_DMD::create_2nd_neigh_lst()
  this fucntion should be symmetric wrt fi &
  fj
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD::
+TYPE0 ForceField_eam_dmd::
 mat(TYPE0 fi,TYPE0 fj,int itype)
 {
     if(fi>fj)
@@ -2230,7 +2230,7 @@ mat(TYPE0 fi,TYPE0 fj,int itype)
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD::
+TYPE0 ForceField_eam_dmd::
 dmat(TYPE0 fi,TYPE0 fj,int itype)
 {
     
@@ -2242,7 +2242,7 @@ dmat(TYPE0 fi,TYPE0 fj,int itype)
 /*--------------------------------------------
  return M_{ij}^{\alpha}
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD::calc_ent(TYPE0 x)
+TYPE0 ForceField_eam_dmd::calc_ent(TYPE0 x)
 {
     if(x<1.0e-8 || 0.99999999<x)
         return 0.0;
@@ -2253,7 +2253,7 @@ TYPE0 ForceField_EAM_DMD::calc_ent(TYPE0 x)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_EAM_DMD::c_d_calc()
+void ForceField_eam_dmd::c_d_calc()
 {
     TYPE0* x;
     atoms->vectors[x_n].ret(x);
@@ -2408,7 +2408,7 @@ void ForceField_EAM_DMD::c_d_calc()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-TYPE0 ForceField_EAM_DMD::g_calc(int chk,TYPE0 alpha,
+TYPE0 ForceField_eam_dmd::g_calc(int chk,TYPE0 alpha,
 TYPE0* a,TYPE0* g)
 {
     TYPE0* x;

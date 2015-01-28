@@ -1,5 +1,5 @@
 #ifdef Command_Style
-    CommandStyle(CommandFix,fix)
+    CommandStyle(Command_fix,fix)
 #else
 #ifndef __MAPP__command_fix__
 #define __MAPP__command_fix__
@@ -8,15 +8,15 @@
 #include "init.h"
 #include "atoms.h"
 namespace MAPP_NS {
-    class CommandFix: protected InitPtrs
+    class Command_fix: protected InitPtrs
     {
     private:
     protected:
         void md(int,char**);
         void dmd(int,char**);
     public:
-        CommandFix(MAPP*,int,char**);
-        ~CommandFix();
+        Command_fix(MAPP*,int,char**);
+        ~Command_fix();
     };
 }
 

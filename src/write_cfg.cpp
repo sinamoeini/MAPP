@@ -9,7 +9,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-WriteCFG::WriteCFG(MAPP* mapp,int narg
+Write_cfg::Write_cfg(MAPP* mapp,int narg
 ,char** arg) : Write(mapp)
 {
     sorting=0;
@@ -105,7 +105,7 @@ WriteCFG::WriteCFG(MAPP* mapp,int narg
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-WriteCFG::~WriteCFG()
+Write_cfg::~Write_cfg()
 {
     delete [] file_name;
     
@@ -116,7 +116,7 @@ WriteCFG::~WriteCFG()
 /*--------------------------------------------
  write file
  --------------------------------------------*/
-void WriteCFG::write_file(int stp)
+void Write_cfg::write_file(int stp)
 {
     if(mapp->mode==MD_mode)
         write_file_md(stp);
@@ -126,7 +126,7 @@ void WriteCFG::write_file(int stp)
 /*--------------------------------------------
  write file
  --------------------------------------------*/
-void WriteCFG::write_file_md(int stp)
+void Write_cfg::write_file_md(int stp)
 {
     
     atoms->x2s_no_correction(atoms->natms);
@@ -259,7 +259,7 @@ void WriteCFG::write_file_md(int stp)
 /*--------------------------------------------
  write file
  --------------------------------------------*/
-void WriteCFG::write_file_dmd(int stp)
+void Write_cfg::write_file_dmd(int stp)
 {
     
     atoms->x2s_no_correction(atoms->natms);

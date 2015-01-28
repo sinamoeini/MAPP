@@ -61,8 +61,6 @@ namespace MAPP_NS {
         TYPE0* x_ave;
         TYPE0* x_ave_tot;
         
-        VecLst* vecs_comm;
-        
         int omega_denom;
         int x_dim,x_d_dim,f_dim,dof_dim;
     protected:

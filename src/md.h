@@ -20,6 +20,7 @@ namespace MAPP_NS {
         int temp_idx;
         int stress_idx;
         TYPE0* nrgy_strss;
+        VecLst* vecs_comm;
     public:
         
         MD(MAPP *);

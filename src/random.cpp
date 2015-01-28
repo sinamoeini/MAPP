@@ -2,7 +2,7 @@
  Created by Sina on 07/30/13.
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
-#include "rand_engine.h"
+#include "random.h"
 #include "error.h"
 #include <cmath>
 #define RNG_M 2147483647

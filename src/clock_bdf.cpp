@@ -157,7 +157,6 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
     
     CREATE1D(alpha_y,max_order);
     CREATE1D(dalpha_y,max_order);
-    CREATE1D(coef,max_order);
     CREATE1D(lwr_alpha,max_order);
     
     
@@ -177,7 +176,6 @@ Clock_bdf::~Clock_bdf()
         delete [] t;
         delete [] alpha_y;
         delete [] dalpha_y;
-        delete [] coef;
         delete [] lwr_alpha;
     }
     
@@ -205,27 +203,17 @@ void Clock_bdf::init()
     if(f_n<0)
         f_n=atoms->add<TYPE0>(0,atoms->vectors[0].dim,"f");
     
-    int dof_tot_r=dof_tot;
     if(cdof_n>-1)
     {
         int dof_n=atoms->find("dof");
         vecs_comm=new VecLst(mapp,5,0,c_n,c_d_n,cdof_n,dof_n);
-        
-        char* cdof;
-        atoms->vectors[cdof_n].ret(cdof);
-        int fixed_lcl=0;
-        int fixed_tot=0;
-        for(int i=0;i<dof_lcl;i++)
-            if(cdof[i]==1)fixed_lcl++;
-        MPI_Allreduce(&fixed_lcl,&fixed_tot,1,MPI_INT,MPI_SUM,world);
-        dof_tot_r-=fixed_tot;
         
     }
     else
     {
         vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
     }
-    correc_fac=1.0/static_cast<TYPE0>(dof_tot_r);
+
     
     vecs_comm->add_update(0);
     atoms->reset_comm(vecs_comm);
@@ -298,40 +286,39 @@ void Clock_bdf::fin()
  --------------------------------------------*/
 int Clock_bdf::interpolate(TYPE0 del_t,int q)
 {
-    TYPE0 tmp0,tmp1,c0,c1,c2,c3,c4,t_new;
-    t_new=t[0]+del_t;
-    c0=1.0;
-    c1=0.0;
-    c2=0.0;
-    c4=1.0;
+    TYPE0 tmp0,tmp1,k0,k1,k2,k3,k4,curr_t;
+    curr_t=t[0]+del_t;
+    
+    k0=k3=1.0;
+    k1=k2=0.0;
+    k4=2.0/(curr_t-t[0]);
     for(int i=1;i<q;i++)
     {
-        c4*=1.0/(t[0]-t[i]);
-        tmp0=(t_new-t[0])/(t[i]-t[0]);
+        k3*=1.0/(t[0]-t[i]);
+        tmp0=(curr_t-t[0])/(t[i]-t[0]);
         tmp1=tmp0*tmp0;
         for(int j=1;j<q;j++)
         {
             if(i!=j)
-                tmp1*=(t_new-t[j])/(t[i]-t[j]);
+                tmp1*=(curr_t-t[j])/(t[i]-t[j]);
         }
         alpha_y[i]=tmp1;
         
-        c0*=(t_new-t[i])/(t[0]-t[i]);
-        c1+=1.0/(t[0]-t[i]);
-        c2+=1.0/(t_new-t[i]);
+        k0*=(curr_t-t[i])/(t[0]-t[i]);
+        k1+=1.0/(t[0]-t[i]);
+        k2+=1.0/(curr_t-t[i]);
     }
     
-    alpha_y[0]=(1.0-(t_new-t[0])*c1)*c0;
-    alpha_dy_0=c0*(t_new-t[0]);
-    
-    c3=2.0/(t_new-t[0]);
+    alpha_y[0]=k0*(1.0-(curr_t-t[0])*k1);
+    alpha_dy_0=k0*(curr_t-t[0]);
     
     
-    dalpha_dy_0=alpha_dy_0*(c2+0.5*c3);
-    dalpha_y[0]=c0*(c2-c1+(t_new-t[0])*c1*c2);
+    //fore derivatives
+    dalpha_dy_0=k0*(1.0+(curr_t-t[0])*k2);
+    dalpha_y[0]=k0*(k2-k1-(curr_t-t[0])*k1*k2);
     
     for(int i=1;i<q;i++)
-        dalpha_y[i]=alpha_y[i]*(c2+c3-1.0/(t_new-t[i]));
+        dalpha_y[i]=alpha_y[i]*(k4+k2-1.0/(curr_t-t[i]));
     
     
     
@@ -361,120 +348,179 @@ int Clock_bdf::interpolate(TYPE0 del_t,int q)
             ret_val=-1;
         }
         
-        
         idof++;
     }
     
     MPI_Allreduce(&ret_val,&tot_ret_val,1,MPI_INT,MPI_MIN,world);
-    
+    err_prefac=fabs(-1.0/((curr_t-t[0])*(k2+0.5*k4)*(1.0+k0)));
     return tot_ret_val;
 }
 
 /*--------------------------------------------
- lower order error estimate
+ find the new del_t and order
  --------------------------------------------*/
-void Clock_bdf::hi_lo_err_est(TYPE0 del_t,int q)
+void Clock_bdf::ord_dt(TYPE0& del_t,int& q
+,int istep)
 {
     
     TYPE0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
-    
     TYPE0 curr_t=t[0]+del_t;
-    
-    
-    TYPE0 c0=0.0,c1=1.0,tmp0;
     TYPE0 lo_err_lcl,hi_err_lcl;
+    TYPE0 tmp0;
+    TYPE0 Q_n=1.0;
+    TYPE0 hi_prefac=0.0,lo_prefac=0.0;
+    TYPE0 c5,c6,c7,c8,c9,c10;
+    
+    TYPE0 lo_ratio,hi_ratio,ratio,del_t_tmp;
+    TYPE0 hi_err=0.0,lo_err=0.0;
+    int lo_ord_avail=0,hi_ord_avail=0;
     
     
-    TYPE0 a_0,a_1,l1_q;
-    TYPE0 hi_a_0,hi_a_1,hi_l1_q,Q_n=1.0,hi_err_pre_fac=1.0;
-    TYPE0 lo_l1_q,lo_err_pre_fac;
+    if(istep!=0 && q<max_order)
+        hi_ord_avail=1;
+    if(q>1)
+        lo_ord_avail=1;
     
-    a_0=a_1=1.0;
-    l1_q=0.0;
-    
-    for(int i=0;i<q;i++)
-    {
-        l1_q+=1.0/(curr_t-t[i]);
-        a_0*=curr_t-t[i];
-        if(i!=0)
-            a_1*=(curr_t-t[i])/(t[0]-t[i]);
-    }
     
     if(hi_ord_avail)
     {
-        hi_a_0=hi_a_1=1.0;
-        for(int i=0;i<q;i++)
+        c5=c6=1.0;
+        c7=(curr_t-t[0])/(t[0]-t[1]);
+        c8=1.0/(curr_t-t[0])+1.0/(curr_t-t[q]);
+        
+        for(int i=1;i<q;i++)
         {
-            hi_a_0*=t[0]-t[i+1];
-            if(i!=0)
-            {
-                hi_a_1*=(t[0]-t[i+1])/(t[1]-t[i+1]);
-            }
+            c5*=(curr_t-t[i])/(curr_t-t[0]);
+            c6*=(t[0]-t[i+1])/(t[0]-t[1]);
+            c7*=(curr_t-t[i])/(t[0]-t[i+1]);
+            c8+=1.0/(curr_t-t[i]);
         }
-        Q_n=(a_0/hi_a_0)*(1.0+a_1)/(1.0+hi_a_1)*(del_t/(t[0]-t[1]));
-        hi_l1_q=l1_q+1.0/(curr_t-t[q]);
-        hi_err_pre_fac=-(curr_t-t[q])/static_cast<TYPE0>(q+2);
-        hi_err_pre_fac*=1.0/(hi_l1_q*(1.0+a_1)*del_t*del_t);
+        c5++;
+        c6++;
+        Q_n=(curr_t-t[0])*c7*c5/(c6*(t[0]-t[1]));
+        hi_prefac=-(curr_t-t[q])/((curr_t-t[0])
+        *(curr_t-t[0])*c8*c5*static_cast<TYPE0>(q+2));
+        
+        
+        hi_err_lcl=0.0;
+        for(int i=0;i<dof_lcl;i++)
+        {
+            tmp0=((c[i]-y_0[i])-Q_n*e_n[i]);
+            hi_err_lcl+=tmp0*tmp0;
+        }
+        hi_err=0.0;
+        MPI_Allreduce(&hi_err_lcl,&hi_err,1
+        ,MPI_TYPE0,MPI_SUM,world);
+        hi_err=fabs(hi_prefac)*
+        sqrt(hi_err/static_cast<TYPE0>(dof_tot))/a_tol;
+        
     }
     
     if(lo_ord_avail)
     {
-        lo_l1_q=l1_q-1.0/(curr_t-t[q-1]);
-        lo_err_pre_fac=-del_t*a_0/(curr_t-t[q-1]);
-        c0=0.0;
-        c1=1.0;
+        c9=0.0;
+        c10=1.0;
+        for(int i=0;i<q-1;i++)
+        {
+            c9+=1.0/(curr_t-t[i]);
+            c10=curr_t-t[i];
+        }
+        lo_prefac=c10/c9;
+        
         for(int i=0;i<q-1;i++)
         {
             tmp0=1.0/(curr_t-t[i]);
-            c0+=tmp0;
-            c1*=tmp0;
-            lwr_alpha[i]=tmp0*tmp0;
+            lwr_alpha[i]=tmp0*tmp0*lo_prefac;
             
             for(int j=0;j<q-1;j++)
                 if(i!=j)
                     lwr_alpha[i]*=1.0/(t[i]-t[j]);
-            
-            lwr_alpha[i]*=lo_err_pre_fac;
         }
-        lwr_alpha_dy=c1*lo_err_pre_fac;
-        lwr_alpha_y=-c0*c1*lo_err_pre_fac;
-    }
-    
-    lo_err_lcl=hi_err_lcl=0.0;
-    for(int i=0;i<dof_lcl;i++)
-    {
+        lwr_alpha_dy=1.0/c9;
+        lwr_alpha_y=-1.0;
         
-        if(hi_ord_avail)
+        lo_err_lcl=0.0;
+        for(int i=0;i<dof_lcl;i++)
         {
-            tmp0=(c[i]-y_0[i])-Q_n*e_n[i];
-            tmp0*=hi_err_pre_fac;
-            hi_err_lcl+=tmp0*tmp0;
-        }
         
-        if(lo_ord_avail)
-        {
             tmp0=lwr_alpha_y*c[i];
             tmp0+=lwr_alpha_dy*c_d[i];
             for(int j=0;j<q-1;j++)
                 tmp0+=lwr_alpha[j]*y[j][i];
             
-            tmp0*=c1/c0;
             lo_err_lcl+=tmp0*tmp0;
         }
         
-        e_n[i]=c[i]-y_0[i];
+        lo_err=0.0;
+        MPI_Allreduce(&lo_err_lcl,&lo_err,1,MPI_TYPE0,MPI_SUM,world);
+        lo_err=sqrt(lo_err/static_cast<TYPE0>(dof_tot))/a_tol;
         
     }
     
-    lo_err=hi_err=0.0;
-    MPI_Allreduce(&lo_err_lcl,&lo_err,1,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(&hi_err_lcl,&hi_err,1,MPI_TYPE0,MPI_SUM,world);
+    for(int i=0;i<dof_lcl;i++)
+        e_n[i]=c[i]-y_0[i];
+
+
     
-    lo_err=sqrt(lo_err/(static_cast<TYPE0>(dof_tot)*a_tol));
-    hi_err=sqrt(hi_err/(static_cast<TYPE0>(dof_tot)*a_tol));
+    if(hi_ord_avail && lo_ord_avail)
+    {
+        lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(q));
+        hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(q+2));
+        ratio=pow(0.5/err,1.0/static_cast<TYPE0>(q+1));
+        
+        if(hi_ratio>lo_ratio && hi_ratio>ratio)
+        {
+            q++;
+            ratio=hi_ratio;
+        }
+        else if(lo_ratio>hi_ratio && lo_ratio>ratio)
+        {
+            q--;
+            ratio=lo_ratio;
+        }
+        
+    }
+    else if(hi_ord_avail==1&& lo_ord_avail==0)
+    {
+        hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(q+2));
+        ratio=pow(0.5/err,1.0/static_cast<TYPE0>(q+1));
+        
+        if(hi_ratio>ratio)
+        {
+            q++;
+            ratio=hi_ratio;
+        }
+    }
+    else if(hi_ord_avail==0 && lo_ord_avail==1)
+    {
+        lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(q));
+        ratio=pow(0.5/err,1.0/static_cast<TYPE0>(q+1));
+        if(lo_ratio>ratio)
+        {
+            q--;
+            ratio=lo_ratio;
+        }
+    }
+    else
+        ratio=pow(0.5/err,1.0/static_cast<TYPE0>(q+1));
+    
+    if(ratio>=2.0)
+        ratio=2.0;
+    else if(ratio<=0.5)
+        ratio=0.5;
+    else
+        ratio=1.0;
+    
+    del_t_tmp=ratio*del_t;
+    if(del_t_tmp>max_del_t)
+        del_t=max_del_t;
+    else if (del_t_tmp<min_del_t)
+        del_t=min_del_t;
+    else
+        del_t=del_t_tmp;
     
 }
 /*--------------------------------------------
@@ -490,17 +536,15 @@ void Clock_bdf::run()
     TYPE0* tmp_y;
     
     TYPE0 del_t=initial_del_t,del_t_tmp,err1;
-    TYPE0 ratio=1.0,cost,lo_ratio=1.0,hi_ratio=1.0;
+    TYPE0 ratio=1.0,cost;
     int ord=1;
     int chk;
-    int const_stp=0;
+    int istep;
     
     eq_ratio=1.0;
-    
-    int istep=0;
+    istep=0;
     while (eq_ratio>=1.0 && istep <no_steps)
     {
-        
         chk=interpolate(del_t,ord);
         while(chk==-1)
         {
@@ -510,18 +554,11 @@ void Clock_bdf::run()
             chk=interpolate(del_t,ord);
         }
         cost=solve(del_t,ord);
-        //cost=0.0;
         while(err>=1.0 || cost>=1.0)
         {
-            
             err1=MAX(err,cost);
             ratio=pow(0.5/err1,1.0/static_cast<TYPE0>(ord+1));
-            
-            if(ratio<0.5)
-                ratio=0.5;
-            else if(ratio>0.9)
-                ratio=0.9;
-            
+
             del_t_tmp=del_t*ratio;
             if(del_t_tmp<min_del_t)
                 del_t=min_del_t;
@@ -538,8 +575,8 @@ void Clock_bdf::run()
             }
             
             cost=solve(del_t,ord);
-            //cost=0.0;
         }
+
         if(write!=NULL)
             write->write();
         thermo->thermo_print();
@@ -554,88 +591,10 @@ void Clock_bdf::run()
             thermo->update(time_idx,t[0]+del_t);
         }
         
+        del_t_tmp=del_t;
+
+        ord_dt(del_t,ord,istep);
         
-        if(ord!=1 && const_stp>ord+1)
-            lo_ord_avail=1;
-        else
-            lo_ord_avail=0;
-        
-        if(ord<max_order && istep!=0)
-            hi_ord_avail=1;
-        else
-            hi_ord_avail=0;
-        
-        hi_lo_err_est(del_t,ord);
-        
-        if(hi_ord_avail && lo_ord_avail)
-        {
-            lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(ord));
-            hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(ord+2));
-            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-            
-            if(hi_ratio>lo_ratio && hi_ratio>ratio)
-            {
-                ord++;
-                ratio=hi_ratio;
-            }
-            else if(lo_ratio>hi_ratio && lo_ratio>ratio)
-            {
-                ord--;
-                ratio=lo_ratio;
-            }
-            
-        }
-        else if(hi_ord_avail==1&& lo_ord_avail==0)
-        {
-            hi_ratio=pow(0.5/hi_err,1.0/static_cast<TYPE0>(ord+2));
-            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-            
-            if(hi_ratio>ratio)
-            {
-                ord++;
-                ratio=hi_ratio;
-            }
-        }
-        else if(hi_ord_avail==0 && lo_ord_avail==1)
-        {
-            lo_ratio=pow(0.5/lo_err,1.0/static_cast<TYPE0>(ord));
-            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-            if(lo_ratio>ratio)
-            {
-                ord--;
-                ratio=lo_ratio;
-            }
-        }
-        else
-            ratio=pow(0.5/err,1.0/static_cast<TYPE0>(ord+1));
-        
-        
-        
-        
-        if(ratio>=2.0)
-        {
-            ratio=2.0;
-            const_stp=0;
-        }
-        else if(ratio<=0.5)
-        {
-            ratio=0.5;
-            const_stp=0;
-        }
-        else
-        {
-            ratio=1.0;
-            const_stp++;
-        }
-        
-        
-        del_t_tmp=ratio*del_t;
-        if(del_t_tmp>max_del_t)
-            del_t=max_del_t;
-        else if (del_t_tmp<min_del_t)
-            del_t=min_del_t;
-        else
-            del_t=del_t_tmp;
         
         tmp_y=y[max_order-1];
         for(int i=max_order-1;i>0;i--)
@@ -645,8 +604,7 @@ void Clock_bdf::run()
         }
         
         y[0]=tmp_y;
-        t[0]+=del_t;
-        //forcefield->c_d_calc();
+        t[0]+=del_t_tmp;
         memcpy(y[0],c,dof_lcl*sizeof(TYPE0));
         memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
         
@@ -668,14 +626,12 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     atoms->vectors[c_d_n].ret(c_d);
     
     TYPE0 gamma,max_gamma=1.0;
-    TYPE0 inner,tmp,tmp1;
+    TYPE0 inner,tmp0,tmp1;
+    TYPE0 err_lcl;
     TYPE0 ratio;
     TYPE0 g0_g0,g_g,g_g0,g_h;
     TYPE0 curr_cost,ideal_cost,cost;
-    //TYPE0 sum_lcl;
-    //TYPE0 sum_tot;
     int chk;
-    
     
     
     memcpy(c,y_0,dof_lcl*sizeof(TYPE0));
@@ -709,6 +665,8 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     rectify(g);
     thermo->stop_force_time();
     /*
+    TYPE0 sum_lcl;
+    TYPE0 sum_tot;
     sum_lcl=0.0;
     sum_tot=0.0;
     for(int i=0;i<dof_lcl;i++)
@@ -728,7 +686,6 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
     g_h=g0_g0;
     
     int iter=0;
-    //printf("1st cost: %e \n",curr_cost);
     
     while(curr_cost>m_tol*static_cast<TYPE0>(dof_tot)
           && iter<max_iter && max_gamma>min_gamma)
@@ -740,15 +697,15 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
         
         for(int i=0;i<dof_lcl;i++)
         {
-            tmp=c0[i]+h[i];
+            tmp0=c0[i]+h[i];
             
-            if(tmp>1.0)
+            if(tmp0>1.0)
             {
-                gamma=MIN((1.0-c0[i])/(tmp-c0[i]),gamma);
+                gamma=MIN((1.0-c0[i])/(tmp0-c0[i]),gamma);
             }
-            else if(tmp<0.0)
+            else if(tmp0<0.0)
             {
-                gamma=MIN((c0[i]-0.0)/(c0[i]-tmp),gamma);
+                gamma=MIN((c0[i]-0.0)/(c0[i]-tmp0),gamma);
             }
         }
         MPI_Allreduce(&gamma,&max_gamma,1,MPI_TYPE0,MPI_MIN,world);
@@ -757,12 +714,6 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
         chk=1;
         
         cost=curr_cost;
-        /*
-        TYPE0 sum=0.0;
-        for(int i=0;i<dof_lcl;i++)
-            sum+=c_d[i];
-        printf("sum %lf \n",sum);
-          */  
             
         while(chk && max_gamma>min_gamma)
         {
@@ -840,33 +791,13 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
             }
         }
         
-        
         iter++;
     }
     
     rectify(c_d);
-    //printf("2nd cost: %e \n\n",curr_cost);
     
-    TYPE0 a_0,a_1,curr_t,l1_q,err_pre_fac,tmp0,err_lcl;
-    a_0=a_1=1.0;
-    l1_q=0.0;
-    
-    for(int i=0;i<q;i++)
-    {
-        l1_q+=1.0/(curr_t-t[i]);
-        a_0*=curr_t-t[i];
-        if(i!=0)
-        {
-            a_1*=(curr_t-t[i])/(t[0]-t[i]);
-        }
-        
-        
-    }
-    
-    err_pre_fac=-1.0/(l1_q*(1.0+a_1));
-    
+
     err_lcl=0.0;
-    err=0.0;
     tmp1=0.0;
     for(int i=0;i<dof_lcl;i++)
     {
@@ -875,48 +806,19 @@ TYPE0 Clock_bdf::solve(TYPE0 del_t,int q)
         err_lcl+=tmp0*tmp0;
     }
     
+    err=0.0;
     MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
+    err=sqrt(err/static_cast<TYPE0>(dof_tot))/a_tol;
+    err*=err_prefac;
+    
     MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
     eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
     
-    err=sqrt(err/(static_cast<TYPE0>(dof_tot)*a_tol));
-    err*=fabs(err_pre_fac);
-    //printf("errro %lf %lf \n",err,err_pre_fac);
     
     for(int i=0;i<dof_lcl;i++)
         if(c[i]<0.0 || c[i]>1.0)
             error->abort("c exceeded the domain");
     
-    
     return curr_cost/(m_tol*static_cast<TYPE0>(dof_tot));
     
 }
-/*--------------------------------------------
- for error
- --------------------------------------------*/
-/*
-void Clock_bdf::err_coef(TYPE0* coef,int q)
-{
-    
-    TYPE0 c0=1.0,tmp0;
-    coef[0]=0.0;
-    for(int i=1;i<q;i++)
-    {
-        coef[i]=0.0;
-        coef[0]+=1.0/(t[0]-t[i]);
-        c0*=t[0]-t[i];
-    }
-    
-    for(int i=1;i<q;i++)
-    {
-        tmp0=1.0;
-        for(int j=0;j<q;j++)
-        {
-            if(i!=j)
-                tmp0*=t[i]-t[j];
-        }
-        coef[i]=c0/(tmp0*(t[0]-t[i]));
-    }
-    
-}
-*/

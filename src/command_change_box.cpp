@@ -6,7 +6,7 @@ using namespace std;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-CommandChangeBox::CommandChangeBox(MAPP* mapp
+Command_change_box::Command_change_box(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
     
@@ -120,7 +120,7 @@ CommandChangeBox::CommandChangeBox(MAPP* mapp
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-CommandChangeBox::~CommandChangeBox()
+Command_change_box::~Command_change_box()
 {
     
 }
