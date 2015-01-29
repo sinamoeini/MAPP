@@ -21,9 +21,11 @@ namespace MAPP_NS {
         TYPE0 min_del_t;
         TYPE0 max_del_t;
         TYPE0 eq_ratio;
-        TYPE0* y_0;
-        TYPE0* dy_0;
-        TYPE0* dy_1;
+        TYPE0* y;
+        TYPE0* dy;
+        void ord_dt(TYPE0&);
+        void solve(TYPE0&);
+        TYPE0 err;
         
     public:
         Clock_fe(MAPP *,int,char**);

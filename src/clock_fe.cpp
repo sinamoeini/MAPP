@@ -9,7 +9,7 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Clock_fe::Clock_fe(MAPP* mapp,int narg
-    ,char** arg):Clock(mapp)
+                   ,char** arg):Clock(mapp)
 {
     e_tol=0.0;
     a_tol=1.0e-6;
@@ -29,7 +29,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
         int iarg=3;
         while(iarg<narg)
         {
-
+            
             if(strcmp(arg[iarg],"a_tol")==0)
             {
                 iarg++;
@@ -59,7 +59,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
         }
     }
     
-
+    
     if(a_tol<=0.0)
         error->abort("a_tol in clock fe should be greater than 0.0");
     if(e_tol<0.0)
@@ -72,7 +72,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
         error->abort("max_del_t in clock fe should be greater than min_del_t");
     
     
-   
+    
     
     c_n=atoms->find("c");
     c_d_n=atoms->find("c_d");
@@ -81,9 +81,8 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
     dof_lcl=atoms->natms*c_dim;
     MPI_Allreduce(&dof_lcl,&dof_tot,1,MPI_INT,MPI_SUM,world);
     
-    CREATE1D(y_0,dof_lcl);
-    CREATE1D(dy_0,dof_lcl);
-    CREATE1D(dy_1,dof_lcl);
+    CREATE1D(y,dof_lcl);
+    CREATE1D(dy,dof_lcl);
     
     
 }
@@ -91,12 +90,11 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
  destructor
  --------------------------------------------*/
 Clock_fe::~Clock_fe()
-{    
+{
     if(dof_lcl)
     {
-        delete [] y_0;
-        delete [] dy_0;
-        delete [] dy_1;
+        delete [] y;
+        delete [] dy;
     }
     
 }
@@ -116,7 +114,7 @@ void Clock_fe::init()
     {
         int dof_n=atoms->find("dof");
         vecs_comm=new VecLst(mapp,5,0,c_n,c_d_n,cdof_n,dof_n);
-
+        
     }
     else
     {
@@ -151,7 +149,18 @@ void Clock_fe::init()
     
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
-    memcpy(y_0,c,dof_lcl*sizeof(TYPE0));
+    TYPE0* c_d;
+    atoms->vectors[c_d_n].ret(c_d);
+    
+    
+    
+    thermo->start_force_time();
+    forcefield->c_d_calc();
+    rectify(c_d);
+    thermo->stop_force_time();
+    
+    memcpy(y,c,dof_lcl*sizeof(TYPE0));
+    memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
     
 }
 /*--------------------------------------------
@@ -177,8 +186,7 @@ void Clock_fe::run()
 {
     TYPE0 curr_t=0.0;
     
-    TYPE0 del_t,err_lcl,err_tot,tmp0,tmp1;
-    TYPE0 tot_ratio,ratio;
+    TYPE0 del_t;
     
     TYPE0* c;
     atoms->vectors[c_n].ret(c);
@@ -190,75 +198,11 @@ void Clock_fe::run()
     
     while (eq_ratio>=1.0 && istep <no_steps)
     {
-        thermo->start_force_time();
-        forcefield->c_d_calc();
-        rectify(c_d);
-        thermo->stop_force_time();
+        solve(del_t);
         
-        memcpy(y_0,c,dof_lcl*sizeof(TYPE0));
-        memcpy(dy_0,c_d,dof_lcl*sizeof(TYPE0));
-        
-        ratio=1.0;
-        for(int i=0;i<dof_lcl;i++)
-        {
-            tmp0=y_0[i]+dy_0[i]*del_t;
-            if(tmp0>1.0)
-                ratio=MIN((1.0-y_0[i])/(tmp0-y_0[i]),ratio);
-            else if(tmp0<0.0)
-                ratio=MIN((y_0[i]-0.0)/(y_0[i]-tmp0),ratio);
-        }
-        
-        MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
-        del_t*=ratio;
-        
-        err_tot=1.0;
-        while (err_tot>=1.0)
-        {
-            for(int i=0;i<dof_lcl;i++)
-                c[i]+=0.5*del_t*c_d[i];
-            
-            thermo->start_comm_time();
-            atoms->update(c_n);
-            thermo->stop_comm_time();
-            
-            thermo->start_force_time();
-            forcefield->c_d_calc();
-            rectify(c_d);
-            thermo->stop_force_time();
-            
-            memcpy(dy_1,c_d,dof_lcl*sizeof(TYPE0));
-            err_lcl=0.0;
-            for(int i=0;i<dof_lcl;i++)
-            {
-                tmp0=dy_1[i]-dy_0[i];
-                err_lcl+=tmp0*tmp0;
-            }
-            err_tot=0.0;
-            MPI_Allreduce(&err_lcl,&err_tot,1,MPI_TYPE0,MPI_SUM,world);
-            err_tot=0.5*del_t*sqrt(err_tot/static_cast<TYPE0>(dof_tot))/a_tol;
-            
-            
-            if(del_t==min_del_t && err_tot>=1.0)
-                err_tot=0.0;
-            
-            if(err_tot>=1.0)
-            {
-                del_t*=0.9/err_tot;
-                if (ratio<=0.5)
-                    ratio=0.5;
-                del_t*=ratio;
-                del_t=MAX(del_t,min_del_t);
-            }
-        }
-        
-        for(int i=0;i<dof_lcl;i++)
-            c[i]=y_0[i]+del_t*dy_0[i];
-        
-        thermo->start_comm_time();
-        atoms->update(c_n);
-        thermo->stop_comm_time();
         
         curr_t+=del_t;
+        
         if(write!=NULL)
             write->write();
         thermo->thermo_print();
@@ -273,34 +217,119 @@ void Clock_fe::run()
             thermo->update(time_idx,curr_t);
         }
         
-        //cout<< err_tot <<endl;
         
-        
-        ratio=0.9/err_tot;
-        
-        if(ratio>=2.0)
-            ratio=2.0;
-        else if (ratio<=0.5)
-            ratio=0.5;
-        
-        del_t*=ratio;
-        del_t=MAX(del_t,min_del_t);
-        del_t=MIN(del_t,max_del_t);
+        ord_dt(del_t);
 
         
+        thermo->start_force_time();
+        forcefield->c_d_calc();
+        rectify(c_d);
+        thermo->stop_force_time();
         
-        tmp1=0.0;
-        for(int i=0;i<dof_lcl;i++)
-        {
-            tmp1+=dy_0[i]*dy_0[i];
-        }
-        
-        MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
-        eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
+        memcpy(y,c,dof_lcl*sizeof(TYPE0));
+        memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
         
         istep++;
         step_no++;
     }
     
+}
+
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void Clock_fe::solve(TYPE0& del_t)
+{
+    
+    TYPE0* c;
+    atoms->vectors[c_n].ret(c);
+    TYPE0* c_d;
+    atoms->vectors[c_d_n].ret(c_d);
+    
+    TYPE0 ratio,tot_ratio,tmp0,tmp1,err_lcl;
+    ratio=1.0;
+    for(int i=0;i<dof_lcl;i++)
+    {
+        tmp0=y[i]+dy[i]*del_t;
+        if(tmp0>1.0)
+            ratio=MIN((1.0-y[i])/(tmp0-y[i]),ratio);
+        else if(tmp0<0.0)
+            ratio=MIN((y[i]-0.0)/(y[i]-tmp0),ratio);
+    }
+    
+    MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
+    del_t*=ratio;
+    
+    err=1.0;
+    while (err>=1.0)
+    {
+        for(int i=0;i<dof_lcl;i++)
+            c[i]=y[i]+0.5*del_t*dy[i];
+        
+        thermo->start_comm_time();
+        atoms->update(c_n);
+        thermo->stop_comm_time();
+        
+        thermo->start_force_time();
+        forcefield->c_d_calc();
+        rectify(c_d);
+        thermo->stop_force_time();
+        
+        err_lcl=0.0;
+        for(int i=0;i<dof_lcl;i++)
+        {
+            tmp0=c_d[i]-dy[i];
+            err_lcl+=tmp0*tmp0;
+        }
+        err=0.0;
+        MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
+        err=0.5*del_t*sqrt(err/static_cast<TYPE0>(dof_tot))/a_tol;
+        
+        
+        if(del_t==min_del_t && err>=1.0)
+            err=0.0;
+        
+        if(err>=1.0)
+        {
+            del_t*=0.9/err;
+            if (ratio<=0.5)
+                ratio=0.5;
+            del_t*=ratio;
+            del_t=MAX(del_t,min_del_t);
+        }
+    }
+
+    tmp1=0.0;
+    for(int i=0;i<dof_lcl;i++)
+    {
+        tmp1+=c_d[i]*c_d[i];
+        c[i]=y[i]+del_t*dy[i];
+    }
+
+    thermo->start_comm_time();
+    atoms->update(c_n);
+    thermo->stop_comm_time();
+    
+    MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
+    eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
+ 
+
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void Clock_fe::ord_dt(TYPE0& del_t)
+{
+    TYPE0 ratio;
+    ratio=0.9/err;
+    
+    if(ratio>=2.0)
+        ratio=2.0;
+    else if (ratio<=0.5)
+        ratio=0.5;
+    
+    del_t*=ratio;
+    del_t=MAX(del_t,min_del_t);
+    del_t=MIN(del_t,max_del_t);
 }
 

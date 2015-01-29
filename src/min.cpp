@@ -69,27 +69,27 @@ void Min::errors()
     if(err==LS_F_DOWNHILL)
     {
         if(atoms->my_p_no==0)
-            printf("line search failed: not downhill direction\n\n");
+            fprintf(output,"line search failed: not downhill direction\n\n");
     }
     else if(err==LS_F_GRAD0)
     {
         if(atoms->my_p_no==0)
-            printf("line search failed: gradient is zero\n\n");
+            fprintf(output,"line search failed: gradient is zero\n\n");
     }
     else if(err==LS_F_ALPHAMIN)
     {
         if(atoms->my_p_no==0)
-            printf("line search failed: reached minimum alpha\n\n");
+            fprintf(output,"line search failed: reached minimum alpha\n\n");
     }
     else if (err==MIN_F_MAX_ITER)
     {
         if(atoms->my_p_no==0)
-            printf("minimization finished: maximum iteration reached\n\n");
+            fprintf(output,"minimization finished: maximum iteration reached\n\n");
     }
     else if (err==MIN_F_TOLERANCE)
     {
         if(atoms->my_p_no==0)
-            printf("minimization finished: energy tolerance reached\n\n");
+            fprintf(output,"minimization finished: energy tolerance reached\n\n");
     }
     
 }

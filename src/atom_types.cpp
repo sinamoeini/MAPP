@@ -56,8 +56,7 @@ int AtomTypes::add_type(TYPE0 m,char* name)
     
     no_types++;
     return (no_types-1);
-    
-    
+
    
 }
 /*--------------------------------------------

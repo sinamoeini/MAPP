@@ -20,19 +20,19 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
     int iarg=2;
     while(iarg<narg)
     {
-        if(!strcmp(arg[iarg],"max_iteration"))
+        if(!strcmp(arg[iarg],"max_iter"))
         {
             iarg++;
             if(iarg==narg)
-                error->abort("maximum iteration not defined");
+                error->abort("max_iter not defined");
             max_iter=atoi(arg[iarg]);
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"energy_tol"))
+        else if(!strcmp(arg[iarg],"e_tol"))
         {
             iarg++;
             if(iarg==narg)
-                error->abort("energy tolerance not defined");
+                error->abort("e_tol not defined");
             energy_tolerance=atof(arg[iarg]);
             iarg++;
         }

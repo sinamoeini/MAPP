@@ -51,6 +51,10 @@ void ThermoQuantity::mod(int lngth)
 ThermoDynamics::ThermoDynamics(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
+    mod_lngth=15;
+    step_name_lngth=12;
+    
+    
     if(atoms->dimension!=3)
         error->abort("the thermodynamics "
         "works only with box dimension 3");
@@ -62,13 +66,12 @@ ThermoDynamics::ThermoDynamics(MAPP* mapp
     for(int i=0;i<no_quantities;i++)
         quantities[i].init(args[i]);
     
-    mod_lngth=15;
     for(int i=0;i<no_quantities;i++)
     {
         quantities[i].mod(mod_lngth);
     }
 
-    step_name_lngth=12;
+
     CREATE1D(step_name,step_name_lngth+1);
     int no=step_name_lngth-strlen("Step")+1;
     int tmp_lngth=static_cast<int>(strlen("Step"));
@@ -77,14 +80,29 @@ ThermoDynamics::ThermoDynamics(MAPP* mapp
     for(int i=0;i<tmp_lngth;i++)
         step_name[i+left_no]="Step"[i];
     step_name[step_name_lngth]='\0';
-
+    
+    
+    CREATE1D(qform0,mod_lngth);
+    CREATE1D(qform1,mod_lngth);
+    CREATE1D(sform,mod_lngth);
+    sprintf(qform0," %%.%de ",mod_lngth-8);
+    sprintf(qform1,"%%.%de ",mod_lngth-8);
+    sprintf(sform," %%0%dd ",step_name_lngth-2);
+    
+    
+    
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 ThermoDynamics::~ThermoDynamics()
 {
-    
+
+    delete [] sform;
+    delete [] qform1;
+    delete [] qform0;
+    delete [] step_name;
+    delete [] quantities;
 }
 /*--------------------------------------------
  print output
@@ -140,15 +158,15 @@ void ThermoDynamics::val_print()
     {
         fprintf(output,"|");
         
-        fprintf(output," %010d ",step_no);
+        fprintf(output,sform,step_no);
         
         for(int i=0;i<no_quantities;i++)
         {
             fprintf(output,"|");
             if(quantities[i].value>=0)
-                fprintf(output," %.7e ",quantities[i].value);
+                fprintf(output,qform0,quantities[i].value);
             else
-                fprintf(output,"%.7e ",quantities[i].value);
+                fprintf(output,qform1,quantities[i].value);
             
         }
         fprintf(output,"|\n");

@@ -49,6 +49,9 @@ namespace MAPP_NS {
         TYPE0 run_time;
         TYPE0 force_time;
         TYPE0 comm_time;
+        char* qform0;
+        char* qform1;
+        char* sform;
     public:
         ThermoDynamics(MAPP*,int,char**);
         ~ThermoDynamics(); 
