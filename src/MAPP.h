@@ -8,6 +8,9 @@
 #include <iostream>
 #include <mpi.h>
 #include <stdio.h>
+// TYPE0 can be only float, double, or long double
+#define TYPE0 double
+#define MPI_TYPE0 MPI_DOUBLE
 
 namespace MAPP_NS {
     enum {MD_mode,DMD_mode};

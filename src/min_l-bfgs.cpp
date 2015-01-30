@@ -42,7 +42,7 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
         {
             iarg++;
             if(iarg==narg)
-                error->abort("max_iter not defined");
+                error->abort("max_iter in min l-bfgs should at least have 1 arguement");
             max_iter=atoi(arg[iarg]);
             iarg++;
         }
@@ -50,7 +50,7 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
         {
             iarg++;
             if(iarg==narg)
-                error->abort("e_tol not defined");
+                error->abort("e_tol in min l-bfgs should at least have 1 arguement");
             energy_tolerance=atof(arg[iarg]);
             iarg++;
         }
@@ -58,16 +58,16 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
         {
             iarg++;
             if(iarg==narg)
-                error->abort("wrong command");
+                error->abort("m in min l-bfgs should at least have 1 arguement");
             m_it=atoi(arg[iarg]);
             iarg++;
         }
         else if(sscanf(arg[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
         {
             if(icmp<0 || icmp>=dim)
-                error->abort("wrong command");
+                error->abort("wrong component in min l-bfgs for H[%i][%i]",icmp,jcmp);
             if(jcmp<0 || jcmp>=dim)
-                error->abort("wrong command");
+                error->abort("wrong component in min l-bfgs for H[%i][%i]",icmp,jcmp);
             
             if(icmp<=jcmp)
                 H_dof[jcmp][icmp]=1;
@@ -76,13 +76,13 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
             iarg++;
         }
         else
-            error->abort("wrong command %s",arg[iarg]);
+            error->abort("unknown keyword for min l-bfgs: %s",arg[iarg]);
     }
     
     if(max_iter<=0)
-        error->abort("maximum iteration cannot be equal or less than zero");
+        error->abort("max_iter in min l-bfgs should be greater than 0");
     if(energy_tolerance<=0.0)
-        error->abort("energy tolerance cannot be equal or less than zero");
+        error->abort("e_tol in min l-bfgs should be greater than 0.0");
 
 }
 /*--------------------------------------------

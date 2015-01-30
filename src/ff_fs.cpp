@@ -285,9 +285,9 @@ void ForceField_fs::read_file(char* file_name)
             else if(sscanf(line,"r_c_phi(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
             {
                 if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in ff %s for r_c_phi(%d,%d)",file_name,icmp,jcmp);
+                    error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
                 if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in ff %s for r_c_phi(%d,%d)",file_name,icmp,jcmp);
+                    error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
                 if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
                 {
                     if(tmp<=0.0)

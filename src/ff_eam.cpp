@@ -483,7 +483,7 @@ void ForceField_eam::set_funcfl(int no_files
         if(mass!=atom_types->mass[ityp])
             error->abort("mass of element %s in %s file (%lf) does not match "
             "the mass that is already assigned to the element (%lf), make "
-            "sure that you are chosing the right sequence of ff eam files are "
+            "sure that the right sequence of ff eam files are "
             "used",atom_types->atom_names[ityp],file_names[ityp],mass
             ,atom_types->mass[ityp]);
         

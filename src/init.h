@@ -9,7 +9,6 @@
 #include <mpi.h>
 #include <stdio.h>
 #include "MAPP.h"
-
 namespace MAPP_NS{
     class InitPtrs{
     private:

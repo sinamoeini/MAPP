@@ -397,9 +397,9 @@ void ForceField_lj::read_file(char* file_name)
             if(sscanf(line,"r_c(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
             {
                 if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in ff lj file for r_c(%i,%i)",icmp,jcmp);
+                    error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
                 if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in ff lj file for r_c(%i,%i)",icmp,jcmp);
+                    error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
                 
                 if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
                 {
@@ -416,9 +416,9 @@ void ForceField_lj::read_file(char* file_name)
             else if(sscanf(line,"epsilon(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
             {
                 if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in ff lj file for epsilon(%i,%i)",icmp,jcmp);
+                    error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
                 if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in ff lj file for epsilon(%i,%i)",icmp,jcmp);
+                    error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
                 if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
                 {
                     if(tmp<=0.0)
@@ -432,9 +432,9 @@ void ForceField_lj::read_file(char* file_name)
             else if(sscanf(line,"sigma(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
             {
                 if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in ff lj file for sigma(%i,%i)",icmp,jcmp);
+                    error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
                 if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in ff lj file for sigma(%i,%i)",icmp,jcmp);
+                    error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
                 if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
                 {
                     if(tmp<=0.0)

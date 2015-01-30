@@ -21,11 +21,17 @@ namespace MAPP_NS {
         TYPE0* ke_curr;
         TYPE0 t_freq,*tau_freq,tau_freq_m;
         TYPE0 dt2,dt4,dt8;
-        int no_dof;
+        TYPE0 no_dof;
         int chk_stress;
         int chk_create_vel,seed;
         TYPE0** M1;
         TYPE0** M2;
+        TYPE0** H0;
+        TYPE0** H0_inv;
+        
+        TYPE0* tmp_fac;
+        TYPE0* tmp_ke_curr;
+        TYPE0* tmp_x;
         
         int* chk_tau;
         TYPE0* tau_tar;

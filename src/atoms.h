@@ -1,8 +1,6 @@
 #ifndef __MAPP__atoms__
 #define __MAPP__atoms__
-// TYPE0 can be only float, double, or long double
-#define TYPE0 double
-#define MPI_TYPE0 MPI_DOUBLE
+
 //swap list growth size
 #define SWAPGROWTH 10
 

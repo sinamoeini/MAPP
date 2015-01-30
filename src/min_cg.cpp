@@ -24,7 +24,7 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
         {
             iarg++;
             if(iarg==narg)
-                error->abort("max_iter not defined");
+                error->abort("max_iter in min cg should at least have 1 arguement");
             max_iter=atoi(arg[iarg]);
             iarg++;
         }
@@ -32,16 +32,16 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
         {
             iarg++;
             if(iarg==narg)
-                error->abort("e_tol not defined");
+                error->abort("e_tol in min cg should at least have 1 arguement");
             energy_tolerance=atof(arg[iarg]);
             iarg++;
         }
         else if(sscanf(arg[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
         {
             if(icmp<0 || icmp>=atoms->dimension)
-                error->abort("wrong command %s",arg[iarg]);
+                error->abort("wrong component in min cg for H[%i][%i]",icmp,jcmp);
             if(jcmp<0 || jcmp>=atoms->dimension)
-                error->abort("wrong command %s",arg[iarg]);
+                error->abort("wrong component in min cg for H[%i][%i]",icmp,jcmp);
             
             if(icmp<=jcmp)
                 H_dof[jcmp][icmp]=1;
@@ -50,13 +50,13 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
             iarg++;
         }
         else
-            error->abort("wrong command %s",arg[iarg]);
+            error->abort("unknown keyword for min cg: %s",arg[iarg]);
     }
     
     if(max_iter<=0)
-        error->abort("maximum iteration cannot be equal or less than zero");
+        error->abort("max_iter in min cg should be greater than 0");
     if(energy_tolerance<=0.0)
-        error->abort("energy tolerance cannot be equal or less than zero");
+         error->abort("e_tol in min cg should be greater than 0.0");
     
     
 }

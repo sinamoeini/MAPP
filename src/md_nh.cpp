@@ -14,22 +14,17 @@
 #include "atom_types.h"
 #include "thermo_dynamics.h"
 #include "write.h"
-#define TAU 1
-#define XYZ 2
-#define YZ 3
-#define ZX 4
-#define XY 5
 using namespace MAPP_NS;
+enum {NONE,TAU,XYZ,YZ,ZX,XY};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
 : MD(mapp)
 {
-    if(forcefield==NULL)
-        error->abort("force field is not initiated");
+
     if(atoms->dimension!=3)
-        error->abort("to use md, dimension of the box should be 3");
+        error->abort("dimension of the box should be 3 for md nh");
     
     
     //the defaults
@@ -43,7 +38,7 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
     int iarg=2;
     if(!strcmp(arg[iarg],"nvt"))
     {
-        chk_stress=0;
+        chk_stress=NONE;
         iarg++;
     }
     else if(!strcmp(arg[iarg],"ntaut"))
@@ -84,11 +79,10 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
             iarg++;
         }
         else
-            error->abort("wrong run command"
-                " coupling style: %s",arg[iarg]);
+            error->abort("unknown coupling style for npt in md nh: %s",arg[iarg]);
         
     }
-    else error->abort("wrong run command style %s",arg[iarg]);
+    else error->abort("unknown ensemble for md nh: %s",arg[iarg]);
   
     
 
@@ -97,8 +91,6 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
 
     if(chk_stress)
     {
-        CREATE2D(M1,3,3);
-        CREATE2D(M2,3,3);
         CREATE1D(chk_tau,6);
         for(int i=0;i<6;i++)
             chk_tau[i]=0;
@@ -121,27 +113,32 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
         if(!strcmp(arg[iarg],"temp")&&((iarg+2)<=narg))
         {
             iarg++;
+            if(narg-iarg<2)
+                error->abort("temp in md nh should at least have 2 arguements");
+                
             t_tar=atof(arg[iarg]);
             if(t_tar<=0)
-                error->abort("temperature cannot be equal or less than zero");
+                error->abort("temp in md nh should be greater than 0.0");
             iarg++;
             if(atof(arg[iarg])<=0)
-                error->abort("temperature period cannot be equal or less than zero");
+                error->abort("temp frequency (arguement 2 after temp) in md nh should be greater than 0.0");
             t_freq=1.0/atof(arg[iarg]);
             iarg++;
         }
         else if(!strcmp(arg[iarg],"stress")&&((iarg+7)<=narg))
         {
-            if(chk_stress!=TAU)
-                error->abort("wrong command");
             iarg++;
+            if(chk_stress!=TAU)
+                error->abort("stress in md nh is only valid for ntaut ensemble");
+            if(narg-iarg<12)
+                error->abort("stress in md nh should at least have 12 arguements");
             for (int i=0;i<6;i++)
             {
                 tau_tar[i]=-atof(arg[iarg]);
                 iarg++;
                 
                 if (atof(arg[iarg])<=0)
-                    error->abort("tau period cannot be or smaller than zero");
+                    error->abort("stress frequency (arguement %d after stress) in md nh should be greater than 0.0",(i+1)*2);
                 tau_freq[i]=1.0/atof(arg[iarg]);
 
                 chk_tau[i]=1;
@@ -150,16 +147,18 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
         }
         else if(!strcmp(arg[iarg],"ave")&&((iarg+2)<=narg))
         {
-            if(chk_stress<=TAU)
-                error->abort("wrong command");
             iarg++;
+            if(chk_stress<=TAU)
+                error->abort("ave in md nh is only valid for npt ensemble");
+            if(narg-iarg<12)
+                error->abort("ave in md nh should at least have 2 arguements");
             if(chk_stress==XYZ)
             {
                 tau_tar[0]=tau_tar[1]=tau_tar[2]=-atof(arg[iarg]);
                 chk_tau[0]=chk_tau[1]=chk_tau[2]=1;
                 iarg++;
                 if (atof(arg[iarg])<=0)
-                    error->abort("tau period cannot be or smaller than zero");
+                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
                 tau_freq[0]=tau_freq[1]=tau_freq[2]=1.0/atof(arg[iarg]);
                 iarg++;
             }
@@ -169,7 +168,7 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
                 chk_tau[1]=chk_tau[2]=1;
                 iarg++;
                 if (atof(arg[iarg])<=0)
-                    error->abort("tau period cannot be or smaller than zero");
+                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
                 tau_freq[1]=tau_freq[2]=1.0/atof(arg[iarg]);
                 iarg++;
             }
@@ -179,7 +178,7 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
                 chk_tau[0]=chk_tau[2]=1;
                 iarg++;
                 if (atof(arg[iarg])<=0)
-                    error->abort("tau period cannot be or smaller than zero");
+                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
                 tau_freq[0]=tau_freq[2]=1.0/atof(arg[iarg]);
                 iarg++;
             }
@@ -189,30 +188,28 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
                 chk_tau[0]=chk_tau[1]=1;
                 iarg++;
                 if (atof(arg[iarg])<=0)
-                    error->abort("tau period cannot be or smaller than zero");
+                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
                 tau_freq[0]=tau_freq[1]=1.0/atof(arg[iarg]);
                 iarg++;
             }
-            else
-                error->abort("wrong ave style in run command");
                 
         }
-        else if(!strcmp(arg[iarg],"eta_iteration")&&((iarg+2)<=narg))
+        else if(!strcmp(arg[iarg],"eta_iter")&&((iarg+2)<=narg))
         {
             iarg++;
             no_it_eta=atoi(arg[iarg]);
             if (no_it_eta<1)
-                error->abort("no_it_eta cannot be smaller than 1");
+                error->abort("eta_iter in md nh should be greater than 0");
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"peta_iteration")&&((iarg+2)<=narg))
+        else if(!strcmp(arg[iarg],"peta_iter")&&((iarg+2)<=narg))
         {
-            if(chk_stress==0)
-                error->abort("wrong command");
+            if(chk_stress==NONE)
+                error->abort("peta_iter in md nh is valid for npt ntaut ensemble");
             iarg++;
             no_it_peta=atoi(arg[iarg]);
             if (no_it_peta<1)
-                error->abort("no_it_peta cannot be smaller than 1");
+                error->abort("peta_iter in md nh should be greater than 0");
             iarg++;
         }
         else if(!strcmp(arg[iarg],"eta_chains")&&((iarg+2)<=narg))
@@ -220,17 +217,17 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
             iarg++;
             no_ch_eta=atoi(arg[iarg]);
             if (no_ch_eta<3)
-                error->abort("no_ch_eta cannot be smaller than 3");
+                error->abort("eta_chains in md nh should be greater than 2");
             iarg++;
         }
         else if(!strcmp(arg[iarg],"peta_chains")&&((iarg+2)<=narg))
         {
-            if(chk_stress==0)
-                error->abort("wrong command");
+            if(chk_stress==NONE)
+                error->abort("peta_chains in md nh is valid for npt ntaut ensemble");
             iarg++;
             no_ch_peta=atoi(arg[iarg]);
             if (no_ch_peta<3)
-                error->abort("no_ch_peta cannot be smaller than 3");
+                error->abort("peta_chains in md nh should be greater than 2");
             iarg++;
         }
         else if(!strcmp(arg[iarg],"create_vel")&&((iarg+2)<=narg))
@@ -240,13 +237,13 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
             seed=atoi(arg[iarg]);
             iarg++;
         }
-        else error->abort("wrong command: %s",arg[iarg]);
+        else error->abort("unknown keyword for md nh: %s",arg[iarg]);
     }
     
     // check wether all the relavant quantities are assigned or not
     // check wether the temperature is set
     if(t_tar==0)
-        error->abort("temperature is not set yet");
+        error->abort("temp was not set by md nh");
     // check wether the stresses are set
     if(chk_stress)
     {
@@ -288,11 +285,14 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
                     temp*=1-chk_tau[i];
             
         }
-        else
-            error->abort("wrong stress style");
         
         if(temp==0)
-            error->abort("not all the stresses are set");
+        {
+            if(chk_stress==TAU)
+                error->abort("stress was not set by md nh");
+            else
+                error->abort("ave was not set by md nh");
+        }
     }
         
     // allocate the Nose Hoover chains stuff
@@ -304,6 +304,13 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
         CREATE1D(peta_m,no_ch_peta);
         for(int i=0;i<no_ch_peta;i++)
             peta_d[i]=0.0;
+        CREATE1D(tmp_x,3);
+        CREATE1D(tmp_fac,3);
+        CREATE1D(tmp_ke_curr,6);
+        CREATE2D(H0,3,3);
+        CREATE2D(H0_inv,3,3);
+        CREATE2D(M1,3,3);
+        CREATE2D(M2,3,3);
     }
     
     CREATE1D(eta_d,no_ch_eta);
@@ -340,10 +347,17 @@ MD_nh::~MD_nh()
         {
             delete [] M1[i];
             delete [] M2[i];
+            delete [] H0[i];
+            delete [] H0_inv[i];
         }
+        delete [] tmp_x;
         delete [] M1;
         delete [] M2;
+        delete [] H0;
+        delete [] H0_inv;
         delete [] ke_curr;
+        delete [] tmp_ke_curr;
+        delete [] tmp_fac;
         delete [] chk_tau;
         delete [] v_per_atm;
         delete [] tau_tar;
@@ -373,11 +387,11 @@ MD_nh::~MD_nh()
 void MD_nh::init()
 {
     if(boltz==0.0)
-        error->abort("boltzmann constant is not set");
+        error->abort("boltzmann should be set after md nh and before run");
     if(dt==0.0)
-        error->abort("time step is not set");
+        error->abort("time_step should be set after md nh and before run");
     
-    no_dof=atoms->tot_natms*3-3;
+    no_dof=static_cast<TYPE0>(atoms->tot_natms*3-3);
     ke_tar=t_tar*boltz*no_dof;
     dt2=0.5*dt;
     dt4=0.25*dt;
@@ -389,14 +403,16 @@ void MD_nh::init()
     x_d_n=atoms->find_exist("x_d");
     if(x_d_n<0)
     {
-        x_d_n=atoms->add<TYPE0>(0, 3,"x_d");
+        x_d_n=atoms->add<TYPE0>(0,3,"x_d");
         if(chk_create_vel==0)
-            error->abort("since no velocity exists you should include create_vel command");
+            error->abort("kinetic energy of the system should be "
+            "greater than 0.0 for md nh, please assign velocities "
+            "or use create_vel keyword");
     }
     
     f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<TYPE0>(0, 3,"f");
+        f_n=atoms->add<TYPE0>(0,3,"f");
     
     /*
      0. set the atomic vectors communication
@@ -450,7 +466,7 @@ void MD_nh::init()
         MPI_Allreduce(&tmp_1,&tmp_all_1,1,MPI_INT,MPI_SUM,world);
         MPI_Allreduce(&tmp_2,&tmp_all_2,1,MPI_INT,MPI_SUM,world);
 
-        no_dof-=tmp_all_0+tmp_all_1+tmp_all_2;
+        no_dof-=static_cast<TYPE0>(tmp_all_0+tmp_all_1+tmp_all_2);
         
         if(chk_stress)
             omega_denom-=chk_tau[0]*tmp_all_0
@@ -458,6 +474,10 @@ void MD_nh::init()
         
        
     }
+    
+    if(no_dof==0.0)
+        error->abort("degrees of freedom shoud be greater than 0 for md nh");
+    
     
         
     vecs_comm->add_update(x_n);
@@ -669,8 +689,6 @@ void MD_nh::update_H(TYPE0 dlt)
     dlt4=0.25*dlt;
     dlt8=0.125*dlt;
     
-    TYPE0 H0[3][3];
-    TYPE0 H0_inv[3][3];
     
     M3EQV(atoms->H,H0);
     
@@ -795,7 +813,6 @@ void MD_nh::update_x(TYPE0 dlt)
     if (chk_stress)
     {
         update_H(0.5*dlt);
-        TYPE0 xt[3];
         for(int i=0;i<natms;i++)
         {
             icomp=x_dim*i;
@@ -805,40 +822,40 @@ void MD_nh::update_x(TYPE0 dlt)
             x_ave[1]-=x[icomp+1];
             x_ave[2]-=x[icomp+2];
             
-            xt[0]=x[icomp]*M1[0][0]
+            tmp_x[0]=x[icomp]*M1[0][0]
             +x[icomp+1]*M1[1][0]
             +x[icomp+2]*M1[2][0];
-            xt[1]=x[icomp+1]*M1[1][1]
+            tmp_x[1]=x[icomp+1]*M1[1][1]
             +x[icomp+2]*M1[2][1];
-            xt[2]=x[icomp+2]*M1[2][2];
+            tmp_x[2]=x[icomp+2]*M1[2][2];
             
-            xt[0]+=x_d[iicomp]*dlt;
-            xt[1]+=x_d[iicomp+1]*dlt;
-            xt[2]+=x_d[iicomp+2]*dlt;
+            tmp_x[0]+=x_d[iicomp]*dlt;
+            tmp_x[1]+=x_d[iicomp+1]*dlt;
+            tmp_x[2]+=x_d[iicomp+2]*dlt;
             
             if(dof_n==-1)
             {
-                x[icomp]=xt[0]*M2[0][0]
-                +xt[1]*M2[1][0]
-                +xt[2]*M2[2][0];
-                x[icomp+1]=xt[1]*M2[1][1]
-                +xt[2]*M2[2][1];
-                x[icomp+2]=xt[2]*M2[2][2];
+                x[icomp]=tmp_x[0]*M2[0][0]
+                +tmp_x[1]*M2[1][0]
+                +tmp_x[2]*M2[2][0];
+                x[icomp+1]=tmp_x[1]*M2[1][1]
+                +tmp_x[2]*M2[2][1];
+                x[icomp+2]=tmp_x[2]*M2[2][2];
             }
             else
             {
                 iiicomp=dof_dim*i;
                 if(dof[iiicomp]==0)
-                    x[icomp]=xt[0]*M2[0][0]
-                    +xt[1]*M2[1][0]
-                    +xt[2]*M2[2][0];
+                    x[icomp]=tmp_x[0]*M2[0][0]
+                    +tmp_x[1]*M2[1][0]
+                    +tmp_x[2]*M2[2][0];
                 
                 if(dof[iiicomp+1]==0)
-                    x[icomp+1]=xt[1]*M2[1][1]
-                    +xt[2]*M2[2][1];
+                    x[icomp+1]=tmp_x[1]*M2[1][1]
+                    +tmp_x[2]*M2[2][1];
                 
                 if(dof[iiicomp+2]==0)
-                    x[icomp+2]=xt[2]*M2[2][2];
+                    x[icomp+2]=tmp_x[2]*M2[2][2];
                     
             }
             
@@ -897,11 +914,10 @@ void MD_nh::update_x_d(TYPE0 dlt)
     
     TYPE0* mass=atom_types->mass;
     int natms=atoms->natms;
-    TYPE0 temp[6];
     int icomp,iicomp,iiicomp;
     
     for(int i=0;i<6;i++)
-        temp[i]=0.0;
+        tmp_ke_curr[i]=0.0;
     
     for(int i=0;i<natms;i++)
     {
@@ -924,18 +940,18 @@ void MD_nh::update_x_d(TYPE0 dlt)
             
         }
         
-        temp[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
-        temp[1]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+1];
-        temp[2]+=mass[type[i]]*x_d[icomp+2]*x_d[icomp+2];
-        temp[3]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+2];
-        temp[4]+=mass[type[i]]*x_d[icomp]*x_d[icomp+2];
-        temp[5]+=mass[type[i]]*x_d[icomp]*x_d[icomp+1];
+        tmp_ke_curr[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
+        tmp_ke_curr[1]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+1];
+        tmp_ke_curr[2]+=mass[type[i]]*x_d[icomp+2]*x_d[icomp+2];
+        tmp_ke_curr[3]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+2];
+        tmp_ke_curr[4]+=mass[type[i]]*x_d[icomp]*x_d[icomp+2];
+        tmp_ke_curr[5]+=mass[type[i]]*x_d[icomp]*x_d[icomp+1];
 
     }
     
     for(int i=0;i<6;i++)
         ke_curr[i]=0.0;
-    MPI_Allreduce(temp,ke_curr,6,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(tmp_ke_curr,ke_curr,6,MPI_TYPE0,MPI_SUM,world);
     ke_cur=(ke_curr[0]+ke_curr[1]+ke_curr[2]);
 
     t_cur=ke_cur/(boltz*no_dof);
@@ -1075,12 +1091,7 @@ void MD_nh::update_NH_tau(TYPE0 dlt)
         }
     }
     
-    /*
-    for(int i=0;i<no_ch_peta;i++)
-    {
-        printf("%i %lf %lf %lf \n",i,peta_m[i],peta_d[i],peta_dd[i]);
-    }
-     */
+
 }
 /*--------------------------------------------
  
@@ -1098,8 +1109,8 @@ void MD_nh::update_omega_d(TYPE0 dlt)
     for (int i=0;i<6;i++)
         if (chk_tau[i])
             omega_d[i]=((v_per_atm[i]+ke_curr[i]
-                        -tau_tar[i])
-                        -MTK_1)*dlt/omega_m[i];
+            -tau_tar[i])
+            -MTK_1)*dlt/omega_m[i];
     
     MTK_2=0.0;
     for (int i=0;i<3;i++)
@@ -1114,8 +1125,6 @@ void MD_nh::update_omega_d(TYPE0 dlt)
  --------------------------------------------*/
 void MD_nh::update_x_d_xpnd(TYPE0 dlt)
 {
-    TYPE0 fac[3];
-    TYPE0 temp[6];
     
     char* dof=NULL;
     if(dof_n!=-1)
@@ -1131,26 +1140,26 @@ void MD_nh::update_x_d_xpnd(TYPE0 dlt)
     int natms=atoms->natms;
     int icomp,iicomp;
     
-    fac[0]=exp(0.5*dlt*(omega_d[0]+MTK_2));
-    fac[1]=exp(0.5*dlt*(omega_d[1]+MTK_2));
-    fac[2]=exp(0.5*dlt*(omega_d[2]+MTK_2));
+    tmp_fac[0]=exp(0.5*dlt*(omega_d[0]+MTK_2));
+    tmp_fac[1]=exp(0.5*dlt*(omega_d[1]+MTK_2));
+    tmp_fac[2]=exp(0.5*dlt*(omega_d[2]+MTK_2));
     
     for(int i=0;i<6;i++)
-        temp[i]=0.0;
+        tmp_ke_curr[i]=0.0;
     for (int i=0;i<natms;i++)
     {
         icomp=x_d_dim*i;
-        x_d[icomp]*=fac[0];
-        x_d[icomp+1]*=fac[1];
-        x_d[icomp+2]*=fac[2];
+        x_d[icomp]*=tmp_fac[0];
+        x_d[icomp+1]*=tmp_fac[1];
+        x_d[icomp+2]*=tmp_fac[2];
         
         x_d[icomp]-=dlt*(x_d[icomp+1]*omega_d[5]
                        +x_d[icomp+2]*omega_d[4]);
         x_d[icomp+1]-=dlt*x_d[icomp+2]*omega_d[3];
         
-        x_d[icomp]*=fac[0];
-        x_d[icomp+1]*=fac[1];
-        x_d[icomp+2]*=fac[2];
+        x_d[icomp]*=tmp_fac[0];
+        x_d[icomp+1]*=tmp_fac[1];
+        x_d[icomp+2]*=tmp_fac[2];
         
         if(dof_n!=-1)
         {
@@ -1160,20 +1169,19 @@ void MD_nh::update_x_d_xpnd(TYPE0 dlt)
             if(dof[iicomp+2]==1) x_d[icomp+2]=0.0;
         }
         
-        temp[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
-        temp[1]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+1];
-        temp[2]+=mass[type[i]]*x_d[icomp+2]*x_d[icomp+2];
-        temp[3]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+2];
-        temp[4]+=mass[type[i]]*x_d[icomp]*x_d[icomp+2];
-        temp[5]+=mass[type[i]]*x_d[icomp]*x_d[icomp+1];
+        tmp_ke_curr[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
+        tmp_ke_curr[1]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+1];
+        tmp_ke_curr[2]+=mass[type[i]]*x_d[icomp+2]*x_d[icomp+2];
+        tmp_ke_curr[3]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+2];
+        tmp_ke_curr[4]+=mass[type[i]]*x_d[icomp]*x_d[icomp+2];
+        tmp_ke_curr[5]+=mass[type[i]]*x_d[icomp]*x_d[icomp+1];
     }
     
     for(int i=0;i<6;i++)
         ke_curr[i]=0.0;
-    MPI_Allreduce(temp,ke_curr,6,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(tmp_ke_curr,ke_curr,6,MPI_TYPE0,MPI_SUM,world);
     ke_cur=(ke_curr[0]+ke_curr[1]+ke_curr[2]);
     t_cur=ke_cur/(boltz*no_dof);
-    //cout <<"t_cur " <<omega_d[0]+MTK_2 <<endl;
 }
 /*--------------------------------------------
  zero acceleration
@@ -1270,7 +1278,8 @@ void MD_nh::init_vel(TYPE0 temperature)
     
     int natms=atoms->natms;
     int icomp;
-    TYPE0 temp[6];
+    TYPE0* temp;
+    CREATE1D(temp,6);
     
     for(int i=0;i<6;i++)
         temp[i]=0.0;
@@ -1294,10 +1303,10 @@ void MD_nh::init_vel(TYPE0 temperature)
     ke_cur=(ke_curr[0]+ke_curr[1]+ke_curr[2]);
     t_cur=ke_cur/(boltz*no_dof);
     
-    if(ke_cur==0)
-        error->abort("initial velocities are zero "
-            "you should either use create_vel option "
-            "or create the velocities in data file");
+    if(ke_cur==0.0)
+        error->abort("kinetic energy of the system should be "
+        "greater than 0.0 for md nh, please assign velocities "
+        "or use create_vel keyword");
     
     TYPE0 ke_des=(boltz*no_dof)*temperature;
     TYPE0 factor=sqrt(ke_des/ke_cur);
@@ -1312,9 +1321,8 @@ void MD_nh::init_vel(TYPE0 temperature)
     
     ke_cur*=facsq;
     t_cur*=facsq;
+    delete [] temp;
 }
-
-
 /*--------------------------------------------
  create initial velocity
  --------------------------------------------*/

@@ -18,7 +18,7 @@ namespace MAPP_NS {
     public:
         ForceField(MAPP *);
         virtual ~ForceField();
-        virtual void force_calc(int,double*){};
+        virtual void force_calc(int,TYPE0*){};
         virtual TYPE0 energy_calc()=0;
         virtual void init(){};
         virtual void fin(){};
