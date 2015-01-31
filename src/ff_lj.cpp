@@ -64,12 +64,12 @@ void ForceField_lj::coef(int narg,char** arg)
     int ityp=atom_types->find_type(arg[1]);
     int jtyp=atom_types->find_type(arg[2]);
     int curs=COMP(ityp,jtyp);
-    TYPE0 skin=atoms->skin;
+    type0 skin=atoms->skin;
     
     
-    TYPE0 eps=epsilon[curs]=atof(arg[3]);
-    TYPE0 sig=sigma[curs]=atof(arg[4]);
-    TYPE0 cut=atof(arg[5]);
+    type0 eps=epsilon[curs]=atof(arg[3]);
+    type0 sig=sigma[curs]=atof(arg[4]);
+    type0 cut=atof(arg[5]);
 
     if (eps<0.0)
     {
@@ -88,9 +88,9 @@ void ForceField_lj::coef(int narg,char** arg)
     cut_sk_sq[curs]=(cut+skin)*(cut+skin);
     if(shift)
     {
-        TYPE0 sig2=sig*sig/(cut*cut);
-        TYPE0 sig6=sig2*sig2*sig2;
-        TYPE0 sig12=sig6*sig6;
+        type0 sig2=sig*sig/(cut*cut);
+        type0 sig6=sig2*sig2*sig2;
+        type0 sig12=sig6*sig6;
         
         offset[curs]=-4.0*eps*(sig12-sig6);
     }
@@ -106,8 +106,8 @@ void ForceField_lj::coef(int narg,char** arg)
  --------------------------------------------*/
 void ForceField_lj::init()
 {
-    TYPE0 skin=atoms->skin;
-    TYPE0 ph_cut=0.0;
+    type0 skin=atoms->skin;
+    type0 ph_cut=0.0;
     
     for (int i=0;i<arr_size;i++)
     {
@@ -137,12 +137,12 @@ void ForceField_lj::fin()
  force and energy calculation
  --------------------------------------------*/
 void ForceField_lj::
-force_calc(int st_clc,TYPE0* en_st)
+force_calc(int st_clc,type0* en_st)
 {
 
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
     int* type;
     atoms->vectors[type_n].ret(type);
@@ -150,8 +150,8 @@ force_calc(int st_clc,TYPE0* en_st)
     int natms=atoms->natms;
     int iatm,jatm;
     int itype,jtype,curs,icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq,sig,eps,csq;
-    TYPE0 sig2,sig6,sig12,ft;
+    type0 dx0,dx1,dx2,rsq,sig,eps,csq;
+    type0 sig2,sig6,sig12,ft;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -247,10 +247,10 @@ force_calc(int st_clc,TYPE0* en_st)
  minimization/linesearch methods that do not
  use derivatives of energy
  --------------------------------------------*/
-TYPE0 ForceField_lj::energy_calc()
+type0 ForceField_lj::energy_calc()
 {
 
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
     int* type;
     atoms->vectors[type_n].ret(type);
@@ -259,14 +259,14 @@ TYPE0 ForceField_lj::energy_calc()
     int iatm,jatm;
     
     int itype,jtype,curs,icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq,csq;
-    TYPE0 eps,sig,sig2,sig6,sig12;
+    type0 dx0,dx1,dx2,rsq,csq;
+    type0 eps,sig,sig2,sig6,sig12;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    TYPE0 en=0.0;
-    TYPE0 en_tot=0.0;
+    type0 en=0.0;
+    type0 en_tot=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -389,7 +389,7 @@ void ForceField_lj::read_file(char* file_name)
     
     //lngth=read_line(fp,line);
     int icmp,jcmp,curs;
-    TYPE0 tmp;
+    type0 tmp;
     while(lngth!=-1)
     {
         if(lngth>1)
@@ -409,7 +409,7 @@ void ForceField_lj::read_file(char* file_name)
                         "file should be greater than 0.0",icmp,jcmp,file_name);
                     r_c_chk[curs]=1;
                     cut_sq[curs]=tmp*tmp;
-                    TYPE0 skin=atoms->skin;
+                    type0 skin=atoms->skin;
                     cut_sk_sq[curs]=(tmp+skin)*(tmp+skin);
                 }
             }

@@ -11,7 +11,7 @@ Command_change_box::Command_change_box(MAPP* mapp
 {
     
     int dim=atoms->dimension;
-    TYPE0** A;
+    type0** A;
     CREATE2D(A,dim,dim);
     
     int iarg=1;
@@ -70,7 +70,7 @@ Command_change_box::Command_change_box(MAPP* mapp
     {
         for(int i=0;i<dim;i++)
             A[i][i]+=1.0;
-        TYPE0** C;
+        type0** C;
         CREATE2D(C,dim,dim);
         
         for(int i=0;i<dim;i++)

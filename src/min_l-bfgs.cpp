@@ -111,24 +111,24 @@ void Min_lbfgs::init()
 
     f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<TYPE0>(0,x_dim,"f");
+        f_n=atoms->add<type0>(0,x_dim,"f");
     
     for (int i=0;i<m_it;i++)
     {
         CREATE1D(vec_name,20);
         sprintf(vec_name,"s_%d",i);
-        s_list[i]=atoms->add<TYPE0>(0,x_dim,vec_name);
+        s_list[i]=atoms->add<type0>(0,x_dim,vec_name);
         delete [] vec_name;
         
         CREATE1D(vec_name,20);
         sprintf(vec_name,"y_%d",i);
-        y_list[i]=atoms->add<TYPE0>(0,x_dim,vec_name);
+        y_list[i]=atoms->add<type0>(0,x_dim,vec_name);
         delete [] vec_name;
     }
     
-    x_prev_n=atoms->add<TYPE0>(0,x_dim,"x_prev");
-    f_prev_n=atoms->add<TYPE0>(0,x_dim,"f_prev");
-    h_n=atoms->add<TYPE0>(0,x_dim,"h");
+    x_prev_n=atoms->add<type0>(0,x_dim,"x_prev");
+    f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
+    h_n=atoms->add<type0>(0,x_dim,"h");
     
     dof_n=atoms->find_exist("dof");
     id_n=atoms->find("id");
@@ -220,14 +220,14 @@ void Min_lbfgs::init()
     }
     line_search->chng_box=chng_box;
     
-    TYPE0* f;
+    type0* f;
 
     if(chng_box)
     {
-        TYPE0** stress;
+        type0** stress;
         CREATE2D(stress,dim,dim);
-        TYPE0** H=atoms->H;
-        TYPE0** B=atoms->B;
+        type0** H=atoms->H;
+        type0** B=atoms->B;
         
         atoms->vectors[f_n].ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
@@ -300,22 +300,22 @@ void Min_lbfgs::init()
  --------------------------------------------*/
 void Min_lbfgs::run()
 {
-    TYPE0* f;
-    TYPE0* x;
-    TYPE0* x_0;
-    TYPE0* f_0;
-    TYPE0* h;
-    TYPE0* tmp_vec0;
-    TYPE0* tmp_vec1;
-    TYPE0** H;
-    TYPE0** B;
-    TYPE0 inner;
-    TYPE0 tot_inner;
-    TYPE0 prev_energy;
-    TYPE0 inner_tmp;
-    TYPE0 tot_inner_tmp;
-    TYPE0 ratio=1.0;
-    TYPE0 alpha_m;
+    type0* f;
+    type0* x;
+    type0* x_0;
+    type0* f_0;
+    type0* h;
+    type0* tmp_vec0;
+    type0* tmp_vec1;
+    type0** H;
+    type0** B;
+    type0 inner;
+    type0 tot_inner;
+    type0 prev_energy;
+    type0 inner_tmp;
+    type0 tot_inner_tmp;
+    type0 ratio=1.0;
+    type0 alpha_m;
     int s_list_tmp,y_list_tmp,s_y_list_tmp;
     int k_it=0;
     int size;
@@ -327,7 +327,7 @@ void Min_lbfgs::run()
 
         H=atoms->H;
         B=atoms->B;
-        TYPE0** stress;
+        type0** stress;
         CREATE2D(stress,dim,dim);
         while(err==LS_S)
         {
@@ -336,7 +336,7 @@ void Min_lbfgs::run()
             atoms->vectors[f_n].ret(f);
             atoms->vectors[x_prev_n].ret(x_0);
             atoms->vectors[f_prev_n].ret(f_0);
-            size=atoms->natms*x_dim*sizeof(TYPE0);
+            size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(h,f,size);
             memcpy(x_0,x,size);
@@ -619,7 +619,7 @@ void Min_lbfgs::run()
             atoms->vectors[f_n].ret(f);
             atoms->vectors[x_prev_n].ret(x_0);
             atoms->vectors[f_prev_n].ret(f_0);
-            size=atoms->natms*x_dim*sizeof(TYPE0);
+            size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(h,f,size);
             memcpy(x_0,x,size);

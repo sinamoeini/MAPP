@@ -20,9 +20,9 @@ namespace MAPP_NS {
         
         int no_types;
         char** atom_names;
-        TYPE0* mass;
+        type0* mass;
         
-        int add_type(TYPE0,char*);
+        int add_type(type0,char*);
         int find_type(char*);
         int find_type_exist(char*);
     };

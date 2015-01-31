@@ -261,31 +261,31 @@ namespace MAPP_NS {
         
         /* begining of box properties */
         // H matrix
-        TYPE0** H;
+        type0** H;
         // Hinv matrix
-        TYPE0** B;
+        type0** B;
         // lower bond of the local box
-        TYPE0* s_lo;
-        TYPE0* s_ph_lo;
+        type0* s_lo;
+        type0* s_ph_lo;
         // higher bond of the local box
-        TYPE0* s_hi;
-        TYPE0* s_ph_hi;
+        type0* s_hi;
+        type0* s_ph_hi;
 
-        TYPE0 skin;
-        TYPE0 tot_cut_ph;
-        TYPE0* cut_ph_s;
+        type0 skin;
+        type0 tot_cut_ph;
+        type0* cut_ph_s;
         
         /* end of box box properties */
         Atoms(MAPP*,MPI_Comm);
         ~Atoms();
         void chng_dim(int);
-        void set_ph(TYPE0);
+        void set_ph(type0);
         void set_ph(int);
         void store_0();
         void update_0(int,int,class VecLst*);
         
         // high level griding
-        void hard_auto_grid_proc(TYPE0 f);
+        void hard_auto_grid_proc(type0 f);
         void fac(int,int,int,int*&);
         void comb(int*,int);
         void comb_rec(int,int,int,int,int*&,int*&,int*,int,int);
@@ -293,11 +293,11 @@ namespace MAPP_NS {
         int** fac_list;
         int fac_list_size;
         
-        TYPE0 energy_all;
+        type0 energy_all;
         
-        TYPE0** areas;
-        TYPE0* vols;
-        TYPE0 inter_n_efficency;
+        type0** areas;
+        type0* vols;
+        type0 inter_n_efficency;
         
         int* res_perm;
         int* res_grid;
@@ -344,8 +344,8 @@ namespace MAPP_NS {
         void update(class VecLst*);
         void update(int*,int,int);
         void update(int);
-        void invert(TYPE0**,TYPE0**,int);
-        void invert_lower_triangle(TYPE0**,TYPE0**,int);
+        void invert(type0**,type0**,int);
+        void invert_lower_triangle(type0**,type0**,int);
         void add_skin(int,char**);
         /*-------------------------------*/
         AVec* vectors;
@@ -368,9 +368,9 @@ namespace MAPP_NS {
             
             if(no_vecs==0)
             {
-                if (strcmp(typeid(TYPE).name(),typeid(TYPE0).name())!=0)
+                if (strcmp(typeid(TYPE).name(),typeid(type0).name())!=0)
                     error->abort("zeroth atomic vector shoud be of type %s"
-                           ,typeid(TYPE0).name());
+                           ,typeid(type0).name());
                 if (p!=1)
                     error->abort("zeroth atomic vector shoud be phantom");
                 if(d<dimension)

@@ -276,7 +276,7 @@ int ThermoDynamics::test_prev_step()
  update stress values
  --------------------------------------------*/
 void ThermoDynamics::update(int qstrt,int qlngth
-,TYPE0* values)
+,type0* values)
 {
     for(int i=0;i<qlngth;i++)
         quantities[i+qstrt].value=values[i];
@@ -285,7 +285,7 @@ void ThermoDynamics::update(int qstrt,int qlngth
 /*--------------------------------------------
  update PE
  --------------------------------------------*/
-void ThermoDynamics::update(int qindx,TYPE0 value)
+void ThermoDynamics::update(int qindx,type0 value)
 {
     quantities[qindx].value=value;
 }

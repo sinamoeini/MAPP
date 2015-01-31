@@ -79,16 +79,16 @@ void Min_cg::init()
     x_dim=atoms->vectors[0].dim;
     f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<TYPE0>(0,x_dim,"f");
+        f_n=atoms->add<type0>(0,x_dim,"f");
     
     if(mapp->mode==DMD_mode)
         c_type_n=atoms->find("c");
     else
         c_type_n=atoms->find("type");
     
-    x_prev_n=atoms->add<TYPE0>(0,x_dim,"x_prev");
-    f_prev_n=atoms->add<TYPE0>(0,x_dim,"f_prev");
-    h_n=atoms->add<TYPE0>(0,x_dim,"h");
+    x_prev_n=atoms->add<type0>(0,x_dim,"x_prev");
+    f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
+    h_n=atoms->add<type0>(0,x_dim,"h");
 
     id_n=atoms->find("id");
     
@@ -161,13 +161,13 @@ void Min_cg::init()
         line_search->B_prev=B_prev;
     }
     
-    TYPE0* f;
+    type0* f;
     if(chng_box)
     {
-        TYPE0** stress;
+        type0** stress;
         CREATE2D(stress,dim,dim);
-        TYPE0** H=atoms->H;
-        TYPE0** B=atoms->B;
+        type0** H=atoms->H;
+        type0** B=atoms->B;
         
         atoms->vectors[f_n].ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
@@ -244,35 +244,35 @@ void Min_cg::init()
 void Min_cg::run()
 {
     
-    TYPE0* x;
-    TYPE0* f;
-    TYPE0* x_0;
-    TYPE0* f_0;
-    TYPE0* h;
-    TYPE0 prev_energy;
-    TYPE0 alpha;
+    type0* x;
+    type0* f;
+    type0* x_0;
+    type0* f_0;
+    type0* h;
+    type0 prev_energy;
+    type0 alpha;
     int size;
     int istp=0;
-    TYPE0 f0_f0;
-    TYPE0 f_f;
-    TYPE0 f_h;
-    TYPE0 f_f0;
-    TYPE0 ratio;
-    TYPE0 inner;
-    TYPE0** H;
-    TYPE0** B;
+    type0 f0_f0;
+    type0 f_f;
+    type0 f_h;
+    type0 f_f0;
+    type0 ratio;
+    type0 inner;
+    type0** H;
+    type0** B;
     err=LS_S;
    
     if(chng_box)
     {
         H=atoms->H;
         B=atoms->B;
-        TYPE0** stress;
+        type0** stress;
         CREATE2D(stress,dim,dim);
         
         atoms->vectors[f_n].ret(f);
         atoms->vectors[h_n].ret(h);
-        memcpy(h,f,x_dim*atoms->natms*sizeof(TYPE0));
+        memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
                 h_H[i][j]=f_H[i][j];
@@ -300,7 +300,7 @@ void Min_cg::run()
             atoms->vectors[f_n].ret(f);
             atoms->vectors[x_prev_n].ret(x_0);
             atoms->vectors[f_prev_n].ret(f_0);
-            size=atoms->natms*x_dim*sizeof(TYPE0);
+            size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(x_0,x,size);
             memcpy(f_0,f,size);
@@ -467,7 +467,7 @@ void Min_cg::run()
         
         atoms->vectors[h_n].ret(h);
         atoms->vectors[f_n].ret(f);
-        memcpy(h,f,x_dim*atoms->natms*sizeof(TYPE0));
+        memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
         
         atoms->vectors[f_n].ret(f);
         inner=0.0;
@@ -489,7 +489,7 @@ void Min_cg::run()
             atoms->vectors[f_n].ret(f);
             atoms->vectors[x_prev_n].ret(x_0);
             atoms->vectors[f_prev_n].ret(f_0);
-            size=atoms->natms*x_dim*sizeof(TYPE0);
+            size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(x_0,x,size);
             memcpy(f_0,f,size);

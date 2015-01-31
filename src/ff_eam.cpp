@@ -38,7 +38,7 @@ ForceField_eam::~ForceField_eam()
  force calculation
  --------------------------------------------*/
 void ForceField_eam::
-force_calc(int st_clc,TYPE0* en_st)
+force_calc(int st_clc,type0* en_st)
 {
     if(max_pairs<neighbor->no_pairs)
     {
@@ -53,14 +53,14 @@ force_calc(int st_clc,TYPE0* en_st)
         CREATE1D(drhoj_dr,max_pairs);
     }
     
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
     /*
-    TYPE0* dF;
+    type0* dF;
     atoms->vectors[dF_n].ret(dF);
      */
     int* type;
@@ -69,12 +69,12 @@ force_calc(int st_clc,TYPE0* en_st)
     int iatm,jatm;
     
     int itype,jtype,icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq,z2p,z2;
-    TYPE0 r,p,r_inv,fpair,tmp0,tmp1;
-    TYPE0 drho_i_dr,drho_j_dr,dphi_dr;
-    TYPE0 rho_i,rho_j,phi;
+    type0 dx0,dx1,dx2,rsq,z2p,z2;
+    type0 r,p,r_inv,fpair,tmp0,tmp1;
+    type0 drho_i_dr,drho_j_dr,dphi_dr;
+    type0 rho_i,rho_j,phi;
     int m,istart;
-    TYPE0* coef;
+    type0* coef;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -261,13 +261,13 @@ force_calc(int st_clc,TYPE0* en_st)
 /*--------------------------------------------
  energy calculation
  --------------------------------------------*/
-TYPE0 ForceField_eam::energy_calc()
+type0 ForceField_eam::energy_calc()
 {
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
     int* type;
     atoms->vectors[type_n].ret(type);
@@ -275,16 +275,16 @@ TYPE0 ForceField_eam::energy_calc()
     int iatm,jatm;
     
     int itype,jtype,icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq;
-    TYPE0 r,p,phi,tmp0;
+    type0 dx0,dx1,dx2,rsq;
+    type0 r,p,phi,tmp0;
     int m;
-    TYPE0* coef;
+    type0* coef;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    TYPE0 en=0.0;
-    TYPE0 en_tot=0.0;
+    type0 en=0.0;
+    type0 en_tot=0.0;
     
     int natms=atoms->natms;
     
@@ -355,8 +355,8 @@ TYPE0 ForceField_eam::energy_calc()
  --------------------------------------------*/
 void ForceField_eam::init()
 {
-    TYPE0 skin=atoms->skin;
-    TYPE0 ph_cut=0.0;
+    type0 skin=atoms->skin;
+    type0 ph_cut=0.0;
     int no_types=atom_types->no_types;
     for (int i=0;i<no_types*(no_types+1)/2;i++)
         cut_sk_sq[i]=cut_sq_0+(skin)*(skin)
@@ -372,7 +372,7 @@ void ForceField_eam::init()
     
     neighbor->pair_wise=1;
     
-    rho_n=atoms->add<TYPE0>(1,1,"rho");
+    rho_n=atoms->add<type0>(1,1,"rho");
 }
 /*--------------------------------------------
  fin after running
@@ -419,8 +419,8 @@ void ForceField_eam::coef(int narg,char** arg)
         "%s for ff eam file",arg[1]);
     }
     
-    cut_sq_0=static_cast<TYPE0>(nr*nr)*dr*dr;
-    rho_max=static_cast<TYPE0>(nrho)*drho;
+    cut_sq_0=static_cast<type0>(nr*nr)*dr*dr;
+    rho_max=static_cast<type0>(nrho)*drho;
     
     set_arrays();
 
@@ -436,8 +436,8 @@ void ForceField_eam::set_funcfl(int no_files
         " ff eam files should be equal to the number"
         " of atom types present in the system");
     
-    TYPE0* drs;
-    TYPE0* drhos;
+    type0* drs;
+    type0* drhos;
     int* nrs;
     int* nrhos;
     CREATE1D(drs,no_types);
@@ -445,20 +445,20 @@ void ForceField_eam::set_funcfl(int no_files
     CREATE1D(nrs,no_types);
     CREATE1D(nrhos,no_types);
     
-    TYPE0** tmp_F;
-    TYPE0** tmp_rho;
-    TYPE0** tmp_zi;
+    type0** tmp_F;
+    type0** tmp_rho;
+    type0** tmp_zi;
     CREATE1D(tmp_F,no_types);
     CREATE1D(tmp_rho,no_types);
     CREATE1D(tmp_zi,no_types);
-    TYPE0* tmp;
+    type0* tmp;
     
     FILE* fp=NULL;
     char* line;
     CREATE1D(line,MAXCHAR);
     int narg;
     char** arg;
-    TYPE0 mass;
+    type0 mass;
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
@@ -557,9 +557,9 @@ void ForceField_eam::set_funcfl(int no_files
         CREATE1D(tmp_rho[ityp],nrs[ityp]);
         
 
-        memcpy(tmp_F[ityp],&tmp[0],nrhos[ityp]*sizeof(TYPE0));
-        memcpy(tmp_zi[ityp],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(TYPE0));
-        memcpy(tmp_rho[ityp],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(TYPE0));
+        memcpy(tmp_F[ityp],&tmp[0],nrhos[ityp]*sizeof(type0));
+        memcpy(tmp_zi[ityp],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(type0));
+        memcpy(tmp_rho[ityp],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(type0));
         
         delete [] tmp;
         
@@ -567,15 +567,15 @@ void ForceField_eam::set_funcfl(int no_files
     delete [] line;
     
     
-    TYPE0 maxr=0.0;
-    TYPE0 maxrho=0.0;
-    TYPE0 maxdr=0.0;
-    TYPE0 maxdrho=0.0;
+    type0 maxr=0.0;
+    type0 maxrho=0.0;
+    type0 maxdr=0.0;
+    type0 maxdrho=0.0;
     
     for(int i=0;i<no_types;i++)
     {
-        maxr=MAX(maxr,static_cast<TYPE0>(nrs[i]-1)*drs[i]);
-        maxrho=MAX(maxrho,static_cast<TYPE0>(nrhos[i]-1)*drhos[i]);
+        maxr=MAX(maxr,static_cast<type0>(nrs[i]-1)*drs[i]);
+        maxrho=MAX(maxrho,static_cast<type0>(nrhos[i]-1)*drhos[i]);
         maxdr=MAX(maxdr,drs[i]);
         maxdrho=MAX(maxdrho,drhos[i]);
     }
@@ -588,14 +588,14 @@ void ForceField_eam::set_funcfl(int no_files
     drho_inv=1.0/drho;
     allocate();
     
-    TYPE0 r,p,tmp0,tmp1;
+    type0 r,p,tmp0,tmp1;
     int k;
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
         for(int i=0;i<nrho;i++)
         {
-            r=static_cast<TYPE0>(i)*drho;
+            r=static_cast<type0>(i)*drho;
             p=r/drhos[ityp];
             k=static_cast<int> (p);
             k=MIN(k,nrhos[ityp]-2);
@@ -612,7 +612,7 @@ void ForceField_eam::set_funcfl(int no_files
     {
         for(int i=0;i<nr;i++)
         {
-            r=static_cast<TYPE0>(i)*dr;
+            r=static_cast<type0>(i)*dr;
             p=r/drs[ityp];
             k=static_cast<int> (p);
             k=MIN(k,nrs[ityp]-2);
@@ -631,7 +631,7 @@ void ForceField_eam::set_funcfl(int no_files
             for(int i=0;i<nr;i++)
             {
                 
-                r=static_cast<TYPE0>(i)*dr;
+                r=static_cast<type0>(i)*dr;
                 
                 p=r/drs[ityp];
                 k=static_cast<int> (p);
@@ -777,7 +777,7 @@ void ForceField_eam::set_setfl(int no_files
     int ipos=0;
     int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)*nr/2;
     
-    TYPE0* tmp;
+    type0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
@@ -969,7 +969,7 @@ void ForceField_eam::set_fs(int no_files
     int ipos=0;
     int tot=tot_no_types*nrho+tot_no_types*tot_no_types*nr
     +tot_no_types*(tot_no_types+1)*nr/2;
-    TYPE0* tmp;
+    type0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
@@ -1285,8 +1285,8 @@ void ForceField_eam::set_arrays()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam::interpolate(int n,TYPE0 delta
-,TYPE0** spline)
+void ForceField_eam::interpolate(int n,type0 delta
+,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1318,12 +1318,12 @@ void ForceField_eam::interpolate(int n,TYPE0 delta
 /*--------------------------------------------
  interpolate for a single array
  --------------------------------------------*/
-TYPE0 ForceField_eam::interpolate(TYPE0* arr
-,int n,TYPE0 p,int k)
+type0 ForceField_eam::interpolate(type0* arr
+,int n,type0 p,int k)
 {
     
     // k_min=0 k_max=n-1
-    TYPE0 coef0,coef1,coef2,coef3,tmp;
+    type0 coef0,coef1,coef2,coef3,tmp;
     
     coef0=arr[k];
     

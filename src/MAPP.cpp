@@ -381,7 +381,7 @@ void MAPP::md_style(int narg,char** args)
         error->abort("wrong command: %s",args[0]);
     
     int nh_xist=0;
-    TYPE0 t_step = 0.0,boltz=0.0;
+    type0 t_step = 0.0,boltz=0.0;
     if(md!=NULL)
     {
         nh_xist=1;

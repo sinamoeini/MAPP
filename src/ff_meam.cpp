@@ -298,10 +298,10 @@ ForceField_meam::~ForceField_meam()
 /*--------------------------------------------
  G_gam
  --------------------------------------------*/
-void ForceField_meam::G_gam(TYPE0 Gamma,int ibar
-,TYPE0 gsmooth_factor_0,TYPE0& G)
+void ForceField_meam::G_gam(type0 Gamma,int ibar
+,type0 gsmooth_factor_0,type0& G)
 {
-    TYPE0 gsmooth_switchpoint;
+    type0 gsmooth_switchpoint;
     if(ibar==0||ibar==4)
     {
         gsmooth_switchpoint=-gsmooth_factor_0/(gsmooth_factor_0+1.0);
@@ -339,10 +339,10 @@ void ForceField_meam::G_gam(TYPE0 Gamma,int ibar
 /*--------------------------------------------
  dG_gam
  --------------------------------------------*/
-void ForceField_meam::dG_gam(TYPE0 Gamma,int ibar
-,TYPE0 gsmooth_factor,TYPE0& G,TYPE0& dG)
+void ForceField_meam::dG_gam(type0 Gamma,int ibar
+,type0 gsmooth_factor,type0& G,type0& dG)
 {
-    TYPE0 gsmooth_switchpoint;
+    type0 gsmooth_switchpoint;
     if(ibar==0||ibar==4)
     {
         gsmooth_switchpoint=-gsmooth_factor/(gsmooth_factor+1.0);
@@ -388,7 +388,7 @@ void ForceField_meam::dG_gam(TYPE0 Gamma,int ibar
 /*--------------------------------------------
  fcut
  --------------------------------------------*/
-void ForceField_meam::fcut(TYPE0 xi,TYPE0& fc)
+void ForceField_meam::fcut(type0 xi,type0& fc)
 {
     if(xi>=1.0)
     {
@@ -400,7 +400,7 @@ void ForceField_meam::fcut(TYPE0 xi,TYPE0& fc)
     }
     else
     {
-        TYPE0 a=1.0-xi;
+        type0 a=1.0-xi;
         a*=a;
         a*=a;
         a=1.0-a;
@@ -410,8 +410,8 @@ void ForceField_meam::fcut(TYPE0 xi,TYPE0& fc)
 /*--------------------------------------------
  dfcut
  --------------------------------------------*/
-void ForceField_meam::dfcut(TYPE0 xi,TYPE0& fc
-,TYPE0& dfc)
+void ForceField_meam::dfcut(type0 xi,type0& fc
+,type0& dfc)
 {
     if(xi>1.0)
     {
@@ -425,9 +425,9 @@ void ForceField_meam::dfcut(TYPE0 xi,TYPE0& fc
     }
     else
     {
-        TYPE0 a=1.0-xi;
-        TYPE0 a3=a*a*a;
-        TYPE0 a4=a*a*a*a;
+        type0 a=1.0-xi;
+        type0 a3=a*a*a;
+        type0 a4=a*a*a*a;
         fc=(1.0-a4)*(1.0-a4);
         dfc=8*(1.0-a4)*a3;
     }
@@ -435,27 +435,27 @@ void ForceField_meam::dfcut(TYPE0 xi,TYPE0& fc
 /*--------------------------------------------
  dCfunc
  --------------------------------------------*/
-void ForceField_meam::dCfunc(TYPE0 rij2
-,TYPE0 rjk2,TYPE0 rki2,TYPE0& dCikj)
+void ForceField_meam::dCfunc(type0 rij2
+,type0 rjk2,type0 rki2,type0& dCikj)
 {
-    TYPE0 rij4=rij2*rij2;
-    TYPE0 a=rki2-rjk2;
-    TYPE0 b=rki2+rjk2;
-    TYPE0 denom=rij4-a*a;
+    type0 rij4=rij2*rij2;
+    type0 a=rki2-rjk2;
+    type0 b=rki2+rjk2;
+    type0 denom=rij4-a*a;
     denom *= denom;
     dCikj=-4.0*(-2.0*rij2*a*a +rij4*b+a*a*b)/denom;
 }
 /*--------------------------------------------
  dCfunc2
  --------------------------------------------*/
-void ForceField_meam::dCfunc2(TYPE0 rij2
-,TYPE0 rjk2,TYPE0 rki2,TYPE0& dCikj1,TYPE0& dCikj2)
+void ForceField_meam::dCfunc2(type0 rij2
+,type0 rjk2,type0 rki2,type0& dCikj1,type0& dCikj2)
 {
-    TYPE0 rij4=rij2*rij2;
-    TYPE0 rjk4=rjk2*rjk2;
-    TYPE0 rki4=rki2*rki2;
-    TYPE0 a=rki2-rjk2;
-    TYPE0 denom=rij4-a*a;
+    type0 rij4=rij2*rij2;
+    type0 rjk4=rjk2*rjk2;
+    type0 rki4=rki2*rki2;
+    type0 a=rki2-rjk2;
+    type0 denom=rij4-a*a;
     denom *= denom;
     
     dCikj1=4.0*rij2*(rij4+rki4
@@ -471,7 +471,7 @@ void ForceField_meam::dCfunc2(TYPE0 rij2
  checked
  --------------------------------------------*/
 void ForceField_meam::
-get_shpfcn(TYPE0* s,int latt)
+get_shpfcn(type0* s,int latt)
 {
     if(latt==FCC ||
        latt==BCC ||
@@ -506,7 +506,7 @@ get_shpfcn(TYPE0* s,int latt)
 /*--------------------------------------------
  Zij
  --------------------------------------------*/
-void ForceField_meam::get_Zij(TYPE0& Zij,int latt)
+void ForceField_meam::get_Zij(type0& Zij,int latt)
 {
     if(latt==FCC)
         Zij=12.0;
@@ -531,8 +531,8 @@ void ForceField_meam::get_Zij(TYPE0& Zij,int latt)
 /*--------------------------------------------
  Zij
  --------------------------------------------*/
-void ForceField_meam::get_Zij2(TYPE0& Zij2,TYPE0& a,
-TYPE0& S,int latt,TYPE0 cmin,TYPE0 cmax)
+void ForceField_meam::get_Zij2(type0& Zij2,type0& a,
+type0& S,int latt,type0 cmin,type0 cmax)
 {
     int num;
     if(latt==FCC)
@@ -587,9 +587,9 @@ TYPE0& S,int latt,TYPE0 cmin,TYPE0 cmax)
     else
     {}
     
-    TYPE0 C=4.0/(a*a)-1.0;
-    TYPE0 x=(C-cmin)/(cmax-cmin);
-    TYPE0 sijk;
+    type0 C=4.0/(a*a)-1.0;
+    type0 x=(C-cmin)/(cmax-cmin);
+    type0 sijk;
     fcut(x,sijk);
     S=pow(sijk,num);
     
@@ -597,12 +597,12 @@ TYPE0& S,int latt,TYPE0 cmin,TYPE0 cmax)
 /*--------------------------------------------
  zbl
  --------------------------------------------*/
-TYPE0 ForceField_meam::zbl(TYPE0 r,TYPE0 z1
-,TYPE0 z2)
+type0 ForceField_meam::zbl(type0 r,type0 z1
+,type0 z2)
 {
-    TYPE0 a=0.4685/(pow(z1,0.23)+pow(z2,0.23));
-    TYPE0 zbl=0.0;
-    TYPE0 x=r/a;
+    type0 a=0.4685/(pow(z1,0.23)+pow(z2,0.23));
+    type0 zbl=0.0;
+    type0 x=r/a;
     
     zbl=0.028171*exp(-0.20162*x)
     +0.28022*exp(-0.40290*x)
@@ -615,11 +615,11 @@ TYPE0 ForceField_meam::zbl(TYPE0 r,TYPE0 z1
 /*--------------------------------------------
  Rose energy function
  --------------------------------------------*/
-TYPE0 ForceField_meam::erose(TYPE0 r,TYPE0 re,
-TYPE0 alpha,TYPE0 Ec,TYPE0 repuls,TYPE0 attrac,
+type0 ForceField_meam::erose(type0 r,type0 re,
+type0 alpha,type0 Ec,type0 repuls,type0 attrac,
 int form)
 {
-    TYPE0 a3,astar,erose=0.0;
+    type0 a3,astar,erose=0.0;
     
     if(r>0.0)
     {
@@ -650,8 +650,8 @@ int form)
  --------------------------------------------*/
 void ForceField_meam::init()
 {
-    TYPE0 skin=atoms->skin;
-    TYPE0 ph_cut=0.0;
+    type0 skin=atoms->skin;
+    type0 ph_cut=0.0;
     int no_types=atom_types->no_types;
     int tot_types=no_types*(no_types+1)/2;
     
@@ -671,8 +671,8 @@ void ForceField_meam::init()
 
     neighbor->pair_wise=0;
     
-    rho_vec_n=atoms->add<TYPE0>(0,1,"rho");
-    rho_n=atoms->add<TYPE0>(1,rho_dim,"rho_vec");
+    rho_vec_n=atoms->add<type0>(0,1,"rho");
+    rho_n=atoms->add<type0>(1,rho_dim,"rho_vec");
 }
 /*--------------------------------------------
  fin
@@ -694,7 +694,7 @@ void ForceField_meam::fin()
  run
  --------------------------------------------*/
 void ForceField_meam::force_calc
-(int st_clc,TYPE0* en_st)
+(int st_clc,type0* en_st)
 {
     nrgy_strss[0]=0.0;
     if (st_clc)
@@ -708,56 +708,56 @@ void ForceField_meam::force_calc
     
     int jatm,katm;
     
-    TYPE0 xij,xjk,xki,yij,yjk,yki,zij,zjk,zki;
-    TYPE0 rij2,rjk2,rki2;
-    TYPE0 rij,rij3;
-    TYPE0 drhoa0i,drhoa0j,drhoa1i,drhoa1j,drhoa2i,drhoa2j,drhoa3i,drhoa3j,recip;
-    TYPE0 arg1i1,arg1j1,arg1i2,arg1j2,arg1i3,arg1j3,arg3i3,arg3j3,arg;
+    type0 xij,xjk,xki,yij,yjk,yki,zij,zjk,zki;
+    type0 rij2,rjk2,rki2;
+    type0 rij,rij3;
+    type0 drhoa0i,drhoa0j,drhoa1i,drhoa1j,drhoa2i,drhoa2j,drhoa3i,drhoa3j,recip;
+    type0 arg1i1,arg1j1,arg1i2,arg1j2,arg1i3,arg1j3,arg3i3,arg3j3,arg;
     int nv2_comp,nv3_comp;
-    TYPE0 drho0dr1,drho0dr2,a1,a2,a3,a3a,drho1dr1,drho1dr2,drho2dr1,drho2dr2,drho3dr1,drho3dr2;
-    TYPE0 drho0ds1,drho0ds2,drho1ds1,drho1ds2,drho2ds1,drho2ds2,drho3ds1,drho3ds2;
-    TYPE0 dt1ds1,dt1ds2,dt2ds1,dt2ds2,dt3ds1,dt3ds2;
-    TYPE0 dsij1,dsij2,dcikj1,dcikj2,dfc,force1,force2;
-    TYPE0 drhods1=0.0,drhods2=0.0;
-    TYPE0 re_meam_inv_i,re_meam_inv_j;
-    TYPE0 dUdrij,dUdsij,phi,phip,force,forcem;
+    type0 drho0dr1,drho0dr2,a1,a2,a3,a3a,drho1dr1,drho1dr2,drho2dr1,drho2dr2,drho3dr1,drho3dr2;
+    type0 drho0ds1,drho0ds2,drho1ds1,drho1ds2,drho2ds1,drho2ds2,drho3ds1,drho3ds2;
+    type0 dt1ds1,dt1ds2,dt2ds1,dt2ds2,dt3ds1,dt3ds2;
+    type0 dsij1,dsij2,dcikj1,dcikj2,dfc,force1,force2;
+    type0 drhods1=0.0,drhods2=0.0;
+    type0 re_meam_inv_i,re_meam_inv_j;
+    type0 dUdrij,dUdsij,phi,phip,force,forcem;
     
     int icomp,jcomp,kcomp,itype,jtype,ktype;
-    TYPE0 coef1,coef2;
+    type0 coef1,coef2;
     int icomp_rho,jcomp_rho;
     
     
-    TYPE0 fcij,dfcij,sij,dsij;
-    TYPE0 rnorm,rbound,x_ki,x_jk,a;
-    TYPE0 cikj,sikj=0.0,cmax,cmin,dfikj,dcikj;
-    TYPE0 ai,aj,ro0i,ro0j,rhoa0i,rhoa0j,rhoa1i,rhoa1j
+    type0 fcij,dfcij,sij,dsij;
+    type0 rnorm,rbound,x_ki,x_jk,a;
+    type0 cikj,sikj=0.0,cmax,cmin,dfikj,dcikj;
+    type0 ai,aj,ro0i,ro0j,rhoa0i,rhoa0j,rhoa1i,rhoa1j
     ,rhoa2i,rhoa2j,rhoa3i,rhoa3j;
-    TYPE0 Z;
-    TYPE0 G,dG,Gbar,dGbar=0.0,gam,rho_bkgd,rhob,denom,B;
+    type0 Z;
+    type0 G,dG,Gbar,dGbar=0.0,gam,rho_bkgd,rhob,denom,B;
     int iArho1_comp,jArho1_comp,iArho2_comp
     ,jArho2_comp,iArho3_comp,jArho3_comp
     ,iArhob3_comp,jArhob3_comp;
-    TYPE0 A1i,A2i,A3i,A1j,A2j,A3j,B1i,B1j;
-    TYPE0 drhodr1,drhodr2;
+    type0 A1i,A2i,A3i,A1j,A2j,A3j,B1i,B1j;
+    type0 drhodr1,drhodr2;
     
-    TYPE0 t1i,t2i,t3i,t1j,t2j,t3j;
-    TYPE0 a1i,a2i,a3i,a1j,a2j,a3j,dt1dr1,dt1dr2,dt2dr1,dt2dr2,dt3dr1,dt3dr2;
+    type0 t1i,t2i,t3i,t1j,t2j,t3j;
+    type0 a1i,a2i,a3i,a1j,a2j,a3j,dt1dr1,dt1dr2,dt2dr1,dt2dr2,dt3dr1,dt3dr2;
     
 
     int* type;
     atoms->vectors[type_n].ret(type);
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
-    TYPE0* rho_vec;
+    type0* rho_vec;
     atoms->vectors[rho_vec_n].ret(rho_vec);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
     
     int kn,kk,curs;
-    TYPE0 pp;
-    TYPE0* coef;
+    type0 pp;
+    type0* coef;
 
     
     int istart=0;
@@ -765,7 +765,7 @@ void ForceField_meam::force_calc
     
     
 
-    TYPE0 a4,rij4,b;
+    type0 a4,rij4,b;
     
     for(int iatm=0;iatm<atoms->natms;iatm++)
     {
@@ -1208,7 +1208,7 @@ void ForceField_meam::force_calc
                         pp=rij*dr_inv;
                         kk=static_cast<int>(pp);
                         kk=MIN(kk,nr-2);
-                        pp-=static_cast<TYPE0>(kk);
+                        pp-=static_cast<type0>(kk);
                         pp=MIN(pp,1.0);
                         coef=phirar[curs][kk];
                         phi=((coef[3]*pp+coef[2])*pp+coef[1])*pp+coef[0];
@@ -1771,46 +1771,46 @@ void ForceField_meam::force_calc
  minimization/linesearch methods that do not
  use derivatives of energy
  --------------------------------------------*/
-TYPE0 ForceField_meam::energy_calc()
+type0 ForceField_meam::energy_calc()
 {
 
-    TYPE0 en=0.0;
-    TYPE0 en_tot=0.0;
+    type0 en=0.0;
+    type0 en_tot=0.0;
     
     int* my_list;
     int my_list_size;
     
     int jatm,katm;
     
-    TYPE0 xij,xjk,xki,yij,yjk,yki,zij,zjk,zki;
-    TYPE0 rij2,rjk2,rki2;
-    TYPE0 rij;
+    type0 xij,xjk,xki,yij,yjk,yki,zij,zjk,zki;
+    type0 rij2,rjk2,rki2;
+    type0 rij;
     
     int icomp,jcomp,kcomp,itype,jtype,ktype;
-    TYPE0 coef1,coef2;
+    type0 coef1,coef2;
     int icomp_rho,jcomp_rho;
     
     
-    TYPE0 fcij,dfcij,sij,dsij;
-    TYPE0 rnorm,rbound,x_ki,x_jk,a;
-    TYPE0 cikj,sikj=0.0,cmax,cmin,dfikj,dcikj;
-    TYPE0 ai,aj,ro0i,ro0j,rhoa0i,rhoa0j,rhoa1i,rhoa1j
+    type0 fcij,dfcij,sij,dsij;
+    type0 rnorm,rbound,x_ki,x_jk,a;
+    type0 cikj,sikj=0.0,cmax,cmin,dfikj,dcikj;
+    type0 ai,aj,ro0i,ro0j,rhoa0i,rhoa0j,rhoa1i,rhoa1j
     ,rhoa2i,rhoa2j,rhoa3i,rhoa3j;
-    TYPE0 Z;
-    TYPE0 G,dG,Gbar,dGbar=0.0,gam,rho_bkgd,rhob,denom,B;
+    type0 Z;
+    type0 G,dG,Gbar,dGbar=0.0,gam,rho_bkgd,rhob,denom,B;
     int iArho1_comp,jArho1_comp,iArho2_comp
     ,jArho2_comp,iArho3_comp,jArho3_comp
     ,iArhob3_comp,jArhob3_comp;
-    TYPE0 A1i,A2i,A3i,A1j,A2j,A3j,B1i,B1j;
+    type0 A1i,A2i,A3i,A1j,A2j,A3j,B1i,B1j;
     
     
     int* type;
     atoms->vectors[type_n].ret(type);
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
-    TYPE0* rho_vec;
+    type0* rho_vec;
     atoms->vectors[rho_vec_n].ret(rho_vec);
     
     
@@ -1819,10 +1819,10 @@ TYPE0 ForceField_meam::energy_calc()
     for(int i=0;i<(atoms->natms+atoms->natms_ph)*rho_dim;i++)
         rho[i]=0.0;
     
-    TYPE0 phi;
+    type0 phi;
     int kn,kk,curs;
-    TYPE0 pp;
-    TYPE0* coef;
+    type0 pp;
+    type0* coef;
 
     for(int iatm=0;iatm<atoms->natms;iatm++)
     {
@@ -1938,7 +1938,7 @@ TYPE0 ForceField_meam::energy_calc()
                     pp=rij*dr_inv;
                     kk=static_cast<int>(pp);
                     kk=MIN(kk,nr-2);
-                    pp-=static_cast<TYPE0>(kk);
+                    pp-=static_cast<type0>(kk);
                     pp=MIN(pp,1.0);
                     coef=phirar[curs][kk];
                     phi=((coef[3]*pp+coef[2])*pp+coef[1])*pp+coef[0];
@@ -2227,11 +2227,11 @@ void ForceField_meam::coef(int narg,char** args)
     
     int no_types=atom_types->no_types;
     for(int itype=0;itype<no_types;itype++)
-        t1_meam[itype]+=static_cast<TYPE0>(augt1)*0.6*t3_meam[itype];
+        t1_meam[itype]+=static_cast<type0>(augt1)*0.6*t3_meam[itype];
     
     alloy_params();
     compute_reference_density();
-    dr=1.1*rc_meam/static_cast<TYPE0>(nr);
+    dr=1.1*rc_meam/static_cast<type0>(nr);
     dr_inv=1.0/dr;
     compute_pair_meam();
     
@@ -2242,9 +2242,9 @@ void ForceField_meam::coef(int narg,char** args)
  --------------------------------------------*/
 void ForceField_meam::reset()
 {
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
-    TYPE0* rho_vec;
+    type0* rho_vec;
     atoms->vectors[rho_vec_n].ret(rho_vec);
     
     for(int i=0;i<atoms->natms;i++)
@@ -2943,10 +2943,10 @@ void ForceField_meam::compute_pair_meam()
 
     int no_types=atom_types->no_types;
     int curs;
-    TYPE0 Z1,Z2,r,rarat,C,s111,s112,s221,S11,S22;
-    TYPE0 phiaa=0.0,phibb=0.0,arat,scrn,scrn2;
+    type0 Z1,Z2,r,rarat,C,s111,s112,s221,S11,S22;
+    type0 phiaa=0.0,phibb=0.0,arat,scrn,scrn2;
     int nmax=10;
-    TYPE0 tmp0,tmp1,tmp2,tmp3,astar,phizbl,frac;
+    type0 tmp0,tmp1,tmp2,tmp3,astar,phizbl,frac;
     
     for(int itype=0;itype<no_types;itype++)
     {
@@ -2956,7 +2956,7 @@ void ForceField_meam::compute_pair_meam()
 
             for(int in=0;in<nr;in++)
             {
-                r=static_cast<TYPE0>(in)*dr;
+                r=static_cast<type0>(in)*dr;
                 phirar[curs][in][0]=phi_meam(r,itype,jtype);
                 //cout<<in<<" "<<phirar[curs][in][0] <<endl;
                 if(nn2_meam[itype][jtype]==1)
@@ -3052,12 +3052,12 @@ void ForceField_meam::compute_pair_meam()
                     
                     if(astar<=-3.0)
                     {
-                        phirar[curs][in][0]=zbl(r,static_cast<TYPE0>(ielt_meam[itype]),static_cast<TYPE0>(ielt_meam[jtype]));
+                        phirar[curs][in][0]=zbl(r,static_cast<type0>(ielt_meam[itype]),static_cast<type0>(ielt_meam[jtype]));
                     }
                     else if(astar>-3.0 && astar<-1.0)
                     {
                         fcut(1.0+0.5*(astar+1.0),frac);
-                        phizbl=zbl(r,static_cast<TYPE0>(ielt_meam[itype]),static_cast<TYPE0>(ielt_meam[jtype]));
+                        phizbl=zbl(r,static_cast<type0>(ielt_meam[itype]),static_cast<type0>(ielt_meam[jtype]));
                         phirar[curs][in][0]=frac*phirar[curs][in][0]+(1.0-frac)*phizbl;
                     }
                 }
@@ -3099,27 +3099,27 @@ void ForceField_meam::compute_pair_meam()
 /*--------------------------------------------
  checked
  --------------------------------------------*/
-void ForceField_meam::get_sijk(TYPE0 C,int i,
-int j,int k,TYPE0& sijk)
+void ForceField_meam::get_sijk(type0 C,int i,
+int j,int k,type0& sijk)
 {
-    TYPE0 x;
+    type0 x;
     x=(C-c_min[i][j][k])/(c_max[i][j][k]-c_min[i][j][k]);
     fcut(x,sijk);
 }
 /*--------------------------------------------
  checked
  --------------------------------------------*/
-void ForceField_meam::get_dens_ref(TYPE0 r,
-int a,int b,TYPE0& rho01,TYPE0& rho11,
-TYPE0& rho21,TYPE0& rho31,TYPE0& rho02,
-TYPE0& rho12,TYPE0& rho22,TYPE0& rho32)
+void ForceField_meam::get_dens_ref(type0 r,
+int a,int b,type0& rho01,type0& rho11,
+type0& rho21,type0& rho31,type0& rho02,
+type0& rho12,type0& rho22,type0& rho32)
 {
-    TYPE0* s;
+    type0* s;
     CREATE1D(s,3);
-    TYPE0 a1=r/re_meam[a][a]-1.0;
-    TYPE0 a2=r/re_meam[b][b]-1.0;
+    type0 a1=r/re_meam[a][a]-1.0;
+    type0 a2=r/re_meam[b][b]-1.0;
     
-    TYPE0 rhoa01,rhoa11,rhoa21,rhoa31,
+    type0 rhoa01,rhoa11,rhoa21,rhoa31,
     rhoa02,rhoa12,rhoa22,rhoa32;
     
     rhoa01=rho0_meam[a]*exp(-beta0_meam[a]*a1);
@@ -3139,8 +3139,8 @@ TYPE0& rho12,TYPE0& rho22,TYPE0& rho32)
     rho12=0.0;
     rho22=0.0;
     rho32=0.0;
-    TYPE0 Zij1nn,Zij2nn;
-    TYPE0 denom;
+    type0 Zij1nn,Zij2nn;
+    type0 denom;
     get_Zij(Zij1nn,lat);
     
     
@@ -3225,7 +3225,7 @@ TYPE0& rho12,TYPE0& rho22,TYPE0& rho32)
 
     
     
-    TYPE0 arat,scrn,rhoa01nn,rhoa02nn,C,s111,s112,s221,S11,S22;
+    type0 arat,scrn,rhoa01nn,rhoa02nn,C,s111,s112,s221,S11,S22;
     if(nn2_meam[a][b]==1)
     {
         get_Zij2(Zij2nn,arat,scrn,lat,c_min[a][a][b],c_max[a][a][b]);
@@ -3257,10 +3257,10 @@ TYPE0& rho12,TYPE0& rho22,TYPE0& rho32)
 /*--------------------------------------------
  checked
  --------------------------------------------*/
-void ForceField_meam::get_tavref(TYPE0& t11av,
-TYPE0& t21av,TYPE0& t31av,TYPE0& t12av,
-TYPE0& t22av,TYPE0& t32av,TYPE0 t11,TYPE0 t21,
-TYPE0 t31,TYPE0 t12,TYPE0 t22,TYPE0 t32,TYPE0 r
+void ForceField_meam::get_tavref(type0& t11av,
+type0& t21av,type0& t31av,type0& t12av,
+type0& t22av,type0& t32av,type0 t11,type0 t21,
+type0 t31,type0 t12,type0 t22,type0 t32,type0 r
 ,int a,int b,int latt)
 {
     if(ialloy==2)
@@ -3292,7 +3292,7 @@ TYPE0 t31,TYPE0 t12,TYPE0 t22,TYPE0 t32,TYPE0 r
         }
         else
         {
-            TYPE0 a1,a2,rhoa01,rhoa02,rho01;
+            type0 a1,a2,rhoa01,rhoa02,rho01;
             a1=r/re_meam[a][a]-1.0;
             a2=r/re_meam[b][b]-1.0;
             rhoa01=rho0_meam[a]*exp(-beta0_meam[a]*a1);
@@ -3315,15 +3315,15 @@ TYPE0 t31,TYPE0 t12,TYPE0 t22,TYPE0 t32,TYPE0 r
 /*--------------------------------------------
  checked
  --------------------------------------------*/
-TYPE0 ForceField_meam::phi_meam(TYPE0 r,int a
+type0 ForceField_meam::phi_meam(type0 r,int a
 ,int b)
 {
-    TYPE0 phi_m;
-    TYPE0 Z12,rho01,rho11,rho21,rho31
+    type0 phi_m;
+    type0 Z12,rho01,rho11,rho21,rho31
     ,rho02,rho12,rho22,rho32;
-    TYPE0 t11av,t21av,t31av,t12av,t22av,t32av;
-    TYPE0 scalfac,arat,scrn,Z1nn,Z2nn;
-    TYPE0 rhobar1,rhobar2,Z1,Z2,G1,Gam1,G2,Gam2
+    type0 t11av,t21av,t31av,t12av,t22av,t32av;
+    type0 scalfac,arat,scrn,Z1nn,Z2nn;
+    type0 rhobar1,rhobar2,Z1,Z2,G1,Gam1,G2,Gam2
     ,rho0_1=0.0,rho0_2=0.0,rho_bkgd1,rho_bkgd2,Eu;
     
     get_Zij(Z12,lattice[a][b]);
@@ -3401,7 +3401,7 @@ TYPE0 ForceField_meam::phi_meam(TYPE0 r,int a
             }
             else
             {
-                TYPE0* s1;
+                type0* s1;
                 CREATE1D(s1,3);
                 get_shpfcn(s1,lattice[a][a]);
                 Gam1=(s1[0]*t11av+s1[1]*t21av+s1[2]*t31av)/(Z1*Z1);
@@ -3415,7 +3415,7 @@ TYPE0 ForceField_meam::phi_meam(TYPE0 r,int a
             }
             else
             {
-                TYPE0* s2;
+                type0* s2;
                 CREATE1D(s2,3);
                 get_shpfcn(s2,lattice[b][b]);
                 Gam2=(s2[0]*t12av+s2[1]*t22av+s2[2]*t32av)/(Z2*Z2);
@@ -3456,7 +3456,7 @@ TYPE0 ForceField_meam::phi_meam(TYPE0 r,int a
         
     }
     
-    TYPE0 F1,F2,phiaa=0.0,phibb=0.0;
+    type0 F1,F2,phiaa=0.0,phibb=0.0;
     
     if(rhobar1==0.0)
         F1=0.0;
@@ -3505,10 +3505,10 @@ TYPE0 ForceField_meam::phi_meam(TYPE0 r,int a
         int nmax=10;
         if(scrn>0.0)
         {
-            TYPE0 tmp0=1.0;
-            TYPE0 tmp1=r;
-            TYPE0 tmp2=-Z2nn*scrn/Z1nn;
-            TYPE0 tmp3=arat;
+            type0 tmp0=1.0;
+            type0 tmp1=r;
+            type0 tmp2=-Z2nn*scrn/Z1nn;
+            type0 tmp3=arat;
             for(int i=0;i<nmax;i++)
             {
                 tmp0*=tmp2;
@@ -3533,8 +3533,8 @@ TYPE0 ForceField_meam::phi_meam(TYPE0 r,int a
 void ForceField_meam::compute_reference_density()
 {
     int no_types=atom_types->no_types;
-    TYPE0 Z,Gbar,gam,rho0,Z2,arat,scrn,rho0_2nn;
-    TYPE0* s;
+    type0 Z,Gbar,gam,rho0,Z2,arat,scrn,rho0_2nn;
+    type0* s;
     CREATE1D(s,3);
     
     for(int itype=0;itype<no_types;itype++)
@@ -3569,14 +3569,14 @@ void ForceField_meam::compute_reference_density()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceField_meam::compute_phi(TYPE0 r
-,int itype,int jtype,TYPE0& phi)
+void ForceField_meam::compute_phi(type0 r
+,int itype,int jtype,type0& phi)
 {
     int kk,curs=COMP(itype,jtype);
-    TYPE0 pp=r*dr_inv;
+    type0 pp=r*dr_inv;
     kk=static_cast<int>(pp);
     kk=MIN(kk,nr-2);
-    pp-=static_cast<TYPE0>(kk);
+    pp-=static_cast<type0>(kk);
     pp=MIN(pp,1.0);
     
     phi=((phirar[curs][kk][3]*pp+phirar[curs][kk][2])*pp
@@ -3585,14 +3585,14 @@ void ForceField_meam::compute_phi(TYPE0 r
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceField_meam::compute_phi_dphi(TYPE0 r
-,int itype,int jtype,TYPE0& phi,TYPE0& dphi)
+void ForceField_meam::compute_phi_dphi(type0 r
+,int itype,int jtype,type0& phi,type0& dphi)
 {
     int kk,curs=COMP(itype,jtype);
-    TYPE0 pp=r*dr_inv;
+    type0 pp=r*dr_inv;
     kk=static_cast<int>(pp);
     kk=MIN(kk,nr-2);
-    pp-=static_cast<TYPE0>(kk);
+    pp-=static_cast<type0>(kk);
     pp=MIN(pp,1.0);
     
     phi=((phirar[curs][kk][3]*pp+phirar[curs][kk][2])*pp

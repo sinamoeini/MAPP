@@ -167,9 +167,9 @@ void Neighbor::create_list(int box_change,int s_or_x)
     
     
     //int* type=(int*)atoms->vectors[type_no].ret_vec();
-    //TYPE0* x=(TYPE0*)atoms->vectors[0].ret_vec();
+    //type0* x=(type0*)atoms->vectors[0].ret_vec();
     
-    TYPE0* x;
+    type0* x;
     atoms->vectors[0].ret(x);
     int* type=NULL;
     if(mapp->mode==MD_mode)
@@ -177,11 +177,11 @@ void Neighbor::create_list(int box_change,int s_or_x)
     int x_dim=atoms->vectors[0].dim;
 
     int dim=atoms->dimension;
-    TYPE0 cut_sq,rsq;
+    type0 cut_sq,rsq;
     int icomp,jcomp;
     int ibin,jbin;
     int iatm,jatm;
-    TYPE0* cut_sk_sq=forcefield->cut_sk_sq;
+    type0* cut_sk_sq=forcefield->cut_sk_sq;
     
     int* tmp_neigh_list;
     int tmp_neigh_list_size=1024;
@@ -296,9 +296,9 @@ void Neighbor::create_list(int box_change,int s_or_x)
  --------------------------------------------*/
 void Neighbor::create_bin_list()
 {
-    TYPE0* cut_ph_s=atoms->cut_ph_s;
-    TYPE0* s_lo=atoms->s_lo;
-    TYPE0* s_hi=atoms->s_hi;
+    type0* cut_ph_s=atoms->cut_ph_s;
+    type0* s_lo=atoms->s_lo;
+    type0* s_hi=atoms->s_hi;
     int dim=atoms->dimension;
     if(tot_bin)
     {
@@ -412,8 +412,8 @@ void Neighbor::bin_atoms()
     next_atm_size=tot_natms;
     
     
-    //TYPE0* x=(TYPE0*)atoms->vectors[0].ret_vec();
-    TYPE0* x;
+    //type0* x=(type0*)atoms->vectors[0].ret_vec();
+    type0* x;
     atoms->vectors[0].ret(x);
     
     int x_dim=atoms->vectors[0].dim;
@@ -437,9 +437,9 @@ void Neighbor::bin_atoms()
 /*--------------------------------------------
  x 2 bin no
  --------------------------------------------*/
-int Neighbor::x2bin(TYPE0* x)
+int Neighbor::x2bin(type0* x)
 {
-    TYPE0** B=atoms->B;
+    type0** B=atoms->B;
     
     int dim=atoms->dimension;
     for(int j=0;j<dim;j++)
@@ -449,8 +449,8 @@ int Neighbor::x2bin(TYPE0* x)
             s_tmp[j]+=B[k][j]*x[k];
     }
     
-    TYPE0* cut_ph_s=atoms->cut_ph_s;
-    TYPE0* s_lo=atoms->s_lo;
+    type0* cut_ph_s=atoms->cut_ph_s;
+    type0* s_lo=atoms->s_lo;
     
     int no=0;
     for(int i=0;i<dim;i++)
@@ -487,8 +487,8 @@ void Neighbor::bin_atoms_s()
     atm_bin_size=atoms->natms;
     
     int bin;
-    //TYPE0* s=(TYPE0*)atoms->vectors[0].ret_vec();
-    TYPE0* s;
+    //type0* s=(type0*)atoms->vectors[0].ret_vec();
+    type0* s;
     atoms->vectors[0].ret(s);
 
     int s_dim=atoms->vectors[0].dim;
@@ -505,12 +505,12 @@ void Neighbor::bin_atoms_s()
 /*--------------------------------------------
  s 2 bin no
  --------------------------------------------*/
-int Neighbor::s2bin(TYPE0* s)
+int Neighbor::s2bin(type0* s)
 {
     int dim=atoms->dimension;
     
-    TYPE0* cut_ph_s=atoms->cut_ph_s;
-    TYPE0* s_lo=atoms->s_lo;
+    type0* cut_ph_s=atoms->cut_ph_s;
+    type0* s_lo=atoms->s_lo;
     
     int no=0;
     for(int i=0;i<dim;i++)

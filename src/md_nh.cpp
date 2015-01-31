@@ -128,71 +128,71 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
         else if(!strcmp(arg[iarg],"stress")&&((iarg+7)<=narg))
         {
             iarg++;
-            if(chk_stress!=TAU)
-                error->abort("stress in md nh is only valid for ntaut ensemble");
-            if(narg-iarg<12)
-                error->abort("stress in md nh should at least have 12 arguements");
-            for (int i=0;i<6;i++)
+            if(chk_stress==NONE)
+                error->abort("stress in md nh is valid for ntaut or npt ensemble");
+            if(chk_stress==TAU)
             {
-                tau_tar[i]=-atof(arg[iarg]);
-                iarg++;
-                
-                if (atof(arg[iarg])<=0)
-                    error->abort("stress frequency (arguement %d after stress) in md nh should be greater than 0.0",(i+1)*2);
-                tau_freq[i]=1.0/atof(arg[iarg]);
+                if(narg-iarg<12)
+                    error->abort("stress in md nh should at least have 12 arguements");
+                for (int i=0;i<6;i++)
+                {
+                    tau_tar[i]=-atof(arg[iarg]);
+                    iarg++;
+                    
+                    if (atof(arg[iarg])<=0)
+                        error->abort("stress frequency (arguement %d after stress) in md nh should be greater than 0.0",(i+1)*2);
+                    tau_freq[i]=1.0/atof(arg[iarg]);
+                    
+                    chk_tau[i]=1;
+                    iarg++;
+                }
+            }
+            else
+            {
+                if(narg-iarg<2)
+                    error->abort("stress in md nh should at least have 2 arguements");
+                if(chk_stress==XYZ)
+                {
+                    tau_tar[0]=tau_tar[1]=tau_tar[2]=-atof(arg[iarg]);
+                    chk_tau[0]=chk_tau[1]=chk_tau[2]=1;
+                    iarg++;
+                    if (atof(arg[iarg])<=0)
+                        error->abort("stress frequency (arguement 2 after ave) in md nh should be greater than 0.0");
+                    tau_freq[0]=tau_freq[1]=tau_freq[2]=1.0/atof(arg[iarg]);
+                    iarg++;
+                }
+                else if(chk_stress==YZ)
+                {
+                    tau_tar[1]=tau_tar[2]=-atof(arg[iarg]);
+                    chk_tau[1]=chk_tau[2]=1;
+                    iarg++;
+                    if (atof(arg[iarg])<=0)
+                        error->abort("stress frequency (arguement 2 after stress) in md nh should be greater than 0.0");
+                    tau_freq[1]=tau_freq[2]=1.0/atof(arg[iarg]);
+                    iarg++;
+                }
+                else if(chk_stress==ZX)
+                {
+                    tau_tar[0]=tau_tar[2]=-atof(arg[iarg]);
+                    chk_tau[0]=chk_tau[2]=1;
+                    iarg++;
+                    if (atof(arg[iarg])<=0)
+                        error->abort("stress frequency (arguement 2 after stress) in md nh should be greater than 0.0");
+                    tau_freq[0]=tau_freq[2]=1.0/atof(arg[iarg]);
+                    iarg++;
+                }
+                else if(chk_stress==XY)
+                {
+                    tau_tar[0]=tau_tar[1]=-atof(arg[iarg]);
+                    chk_tau[0]=chk_tau[1]=1;
+                    iarg++;
+                    if (atof(arg[iarg])<=0)
+                        error->abort("stress frequency (arguement 2 after stress) in md nh should be greater than 0.0");
+                    tau_freq[0]=tau_freq[1]=1.0/atof(arg[iarg]);
+                    iarg++;
+                }
+            }
 
-                chk_tau[i]=1;
-                iarg++;
-            }
-        }
-        else if(!strcmp(arg[iarg],"ave")&&((iarg+2)<=narg))
-        {
-            iarg++;
-            if(chk_stress<=TAU)
-                error->abort("ave in md nh is only valid for npt ensemble");
-            if(narg-iarg<12)
-                error->abort("ave in md nh should at least have 2 arguements");
-            if(chk_stress==XYZ)
-            {
-                tau_tar[0]=tau_tar[1]=tau_tar[2]=-atof(arg[iarg]);
-                chk_tau[0]=chk_tau[1]=chk_tau[2]=1;
-                iarg++;
-                if (atof(arg[iarg])<=0)
-                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[0]=tau_freq[1]=tau_freq[2]=1.0/atof(arg[iarg]);
-                iarg++;
-            }
-            else if(chk_stress==YZ)
-            {
-                tau_tar[1]=tau_tar[2]=-atof(arg[iarg]);
-                chk_tau[1]=chk_tau[2]=1;
-                iarg++;
-                if (atof(arg[iarg])<=0)
-                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[1]=tau_freq[2]=1.0/atof(arg[iarg]);
-                iarg++;
-            }
-            else if(chk_stress==ZX)
-            {
-                tau_tar[0]=tau_tar[2]=-atof(arg[iarg]);
-                chk_tau[0]=chk_tau[2]=1;
-                iarg++;
-                if (atof(arg[iarg])<=0)
-                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[0]=tau_freq[2]=1.0/atof(arg[iarg]);
-                iarg++;
-            }
-            else if(chk_stress==XY)
-            {
-                tau_tar[0]=tau_tar[1]=-atof(arg[iarg]);
-                chk_tau[0]=chk_tau[1]=1;
-                iarg++;
-                if (atof(arg[iarg])<=0)
-                    error->abort("ave frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[0]=tau_freq[1]=1.0/atof(arg[iarg]);
-                iarg++;
-            }
-                
         }
         else if(!strcmp(arg[iarg],"eta_iter")&&((iarg+2)<=narg))
         {
@@ -391,7 +391,7 @@ void MD_nh::init()
     if(dt==0.0)
         error->abort("time_step should be set after md nh and before run");
     
-    no_dof=static_cast<TYPE0>(atoms->tot_natms*3-3);
+    no_dof=static_cast<type0>(atoms->tot_natms*3-3);
     ke_tar=t_tar*boltz*no_dof;
     dt2=0.5*dt;
     dt4=0.25*dt;
@@ -403,7 +403,7 @@ void MD_nh::init()
     x_d_n=atoms->find_exist("x_d");
     if(x_d_n<0)
     {
-        x_d_n=atoms->add<TYPE0>(0,3,"x_d");
+        x_d_n=atoms->add<type0>(0,3,"x_d");
         if(chk_create_vel==0)
             error->abort("kinetic energy of the system should be "
             "greater than 0.0 for md nh, please assign velocities "
@@ -412,7 +412,7 @@ void MD_nh::init()
     
     f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<TYPE0>(0,3,"f");
+        f_n=atoms->add<type0>(0,3,"f");
     
     /*
      0. set the atomic vectors communication
@@ -466,7 +466,7 @@ void MD_nh::init()
         MPI_Allreduce(&tmp_1,&tmp_all_1,1,MPI_INT,MPI_SUM,world);
         MPI_Allreduce(&tmp_2,&tmp_all_2,1,MPI_INT,MPI_SUM,world);
 
-        no_dof-=static_cast<TYPE0>(tmp_all_0+tmp_all_1+tmp_all_2);
+        no_dof-=static_cast<type0>(tmp_all_0+tmp_all_1+tmp_all_2);
         
         if(chk_stress)
             omega_denom-=chk_tau[0]*tmp_all_0
@@ -682,9 +682,9 @@ void MD_nh::run(int no_stps)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_nh::update_H(TYPE0 dlt)
+void MD_nh::update_H(type0 dlt)
 {
-    TYPE0 dlt2,dlt4,dlt8,exfac;
+    type0 dlt2,dlt4,dlt8,exfac;
     dlt2=0.5*dlt;
     dlt4=0.25*dlt;
     dlt8=0.125*dlt;
@@ -793,12 +793,12 @@ void MD_nh::update_H(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_nh::update_x(TYPE0 dlt)
+void MD_nh::update_x(type0 dlt)
 {
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
     
-    TYPE0* x_d;
+    type0* x_d;
     atoms->vectors[x_d_n].ret(x_d);
     
     char* dof=NULL;
@@ -897,22 +897,22 @@ void MD_nh::update_x(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_nh::update_x_d(TYPE0 dlt)
+void MD_nh::update_x_d(type0 dlt)
 {
     
     char* dof=NULL;
     if(dof_n!=-1)
         atoms->vectors[dof_n].ret(dof);
     
-    TYPE0* x_d;
+    type0* x_d;
     atoms->vectors[x_d_n].ret(x_d);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
     int* type;
     atoms->vectors[type_n].ret(type);
     
     
-    TYPE0* mass=atom_types->mass;
+    type0* mass=atom_types->mass;
     int natms=atoms->natms;
     int icomp,iicomp,iiicomp;
     
@@ -960,9 +960,9 @@ void MD_nh::update_x_d(TYPE0 dlt)
 /*--------------------------------------------
  Nosé–Hoover thermostat chains 
  --------------------------------------------*/
-void MD_nh::update_NH_T(TYPE0 dlt)
+void MD_nh::update_NH_T(type0 dlt)
 {
-    TYPE0 dltm,dltm2,dltm4,exfac,velfac;
+    type0 dltm,dltm2,dltm4,exfac,velfac;
     int natoms=atoms->natms;
 
     
@@ -1018,9 +1018,9 @@ void MD_nh::update_NH_T(TYPE0 dlt)
     }
     
     
-    //TYPE0* x_d=(TYPE0*)atoms->vectors[x_d_n].ret_vec();
+    //type0* x_d=(type0*)atoms->vectors[x_d_n].ret_vec();
     //cout << "vel fac "<< velfac << endl;
-    TYPE0* x_d;
+    type0* x_d;
     atoms->vectors[x_d_n].ret(x_d);
     for (int i=0;i<natoms;i++)
         for (int j=0;j<3;j++)
@@ -1030,9 +1030,9 @@ void MD_nh::update_NH_T(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_nh::update_NH_tau(TYPE0 dlt)
+void MD_nh::update_NH_tau(type0 dlt)
 {
-    TYPE0 dltm,dltm2,dltm4,exfac,kec;
+    type0 dltm,dltm2,dltm4,exfac,kec;
     int dof=0;
     
     for (int i=0;i<6;i++)
@@ -1096,19 +1096,19 @@ void MD_nh::update_NH_tau(TYPE0 dlt)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_nh::update_omega_d(TYPE0 dlt)
+void MD_nh::update_omega_d(type0 dlt)
 {
-    //TYPE0** H=atoms->H;
+    //type0** H=atoms->H;
     MTK_1=0.0;
     for(int i=0;i<3;i++)
         if (chk_tau[i])
             MTK_1+=ke_curr[i];
-    MTK_1/=static_cast<TYPE0>(omega_denom);
+    MTK_1/=static_cast<type0>(omega_denom);
     
     couple();
     for (int i=0;i<6;i++)
         if (chk_tau[i])
-            omega_d[i]=((v_per_atm[i]+ke_curr[i]
+            omega_d[i]+=((v_per_atm[i]+ke_curr[i]
             -tau_tar[i])
             -MTK_1)*dlt/omega_m[i];
     
@@ -1117,13 +1117,13 @@ void MD_nh::update_omega_d(TYPE0 dlt)
         if (chk_tau[i])
             MTK_2+=omega_d[i];
 
-    MTK_2/=static_cast<TYPE0>(omega_denom);
+    MTK_2/=static_cast<type0>(omega_denom);
     
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MD_nh::update_x_d_xpnd(TYPE0 dlt)
+void MD_nh::update_x_d_xpnd(type0 dlt)
 {
     
     char* dof=NULL;
@@ -1131,11 +1131,11 @@ void MD_nh::update_x_d_xpnd(TYPE0 dlt)
         atoms->vectors[dof_n].ret(dof);
     
     
-    TYPE0* x_d;
+    type0* x_d;
     atoms->vectors[x_d_n].ret(x_d);
     int* type;
     atoms->vectors[type_n].ret(type);
-    TYPE0* mass=atom_types->mass;
+    type0* mass=atom_types->mass;
     
     int natms=atoms->natms;
     int icomp,iicomp;
@@ -1188,7 +1188,7 @@ void MD_nh::update_x_d_xpnd(TYPE0 dlt)
  --------------------------------------------*/
 void MD_nh::zero_f()
 {
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
     for(int i=0;i<atoms->natms*f_dim;i++)
         f[i]=0.0;
@@ -1196,21 +1196,21 @@ void MD_nh::zero_f()
 /*--------------------------------------------
  create initial velocity 
  --------------------------------------------*/
-void MD_nh::create_vel(int seed,TYPE0 temperature)
+void MD_nh::create_vel(int seed,type0 temperature)
 {
     char* dof=NULL;
     if(dof_n!=-1)
         atoms->vectors[dof_n].ret(dof);
     
-    TYPE0* x_d;
+    type0* x_d;
     atoms->vectors[atoms->find("x_d")].ret(x_d);
     int* type;
     atoms->vectors[atoms->find("type")].ret(type);
-    TYPE0* mass=atom_types->mass;
+    type0* mass=atom_types->mass;
     
     int natms=atoms->natms;
     int icomp,iicomp;
-    TYPE0* temp;
+    type0* temp;
     CREATE1D(temp,6);
     for(int i=0;i<6;i++)
         temp[i]=0.0;
@@ -1249,9 +1249,9 @@ void MD_nh::create_vel(int seed,TYPE0 temperature)
     t_cur=ke_cur/(boltz*no_dof);
     
     
-    TYPE0 ke_des=(boltz*no_dof)*temperature;
-    TYPE0 factor=sqrt(ke_des/ke_cur);
-    TYPE0 facsq=ke_des/ke_cur;
+    type0 ke_des=(boltz*no_dof)*temperature;
+    type0 factor=sqrt(ke_des/ke_cur);
+    type0 facsq=ke_des/ke_cur;
     for(int i=0;i<natms;i++)
         for(int j=0;j<3;j++)
             x_d[i*x_d_dim+j]*=factor;
@@ -1267,18 +1267,18 @@ void MD_nh::create_vel(int seed,TYPE0 temperature)
 /*--------------------------------------------
  create initial velocity
  --------------------------------------------*/
-void MD_nh::init_vel(TYPE0 temperature)
+void MD_nh::init_vel(type0 temperature)
 {
 
-    TYPE0* x_d;
+    type0* x_d;
     atoms->vectors[atoms->find("x_d")].ret(x_d);
     int* type;
     atoms->vectors[atoms->find("type")].ret(type);
-    TYPE0* mass=atom_types->mass;
+    type0* mass=atom_types->mass;
     
     int natms=atoms->natms;
     int icomp;
-    TYPE0* temp;
+    type0* temp;
     CREATE1D(temp,6);
     
     for(int i=0;i<6;i++)
@@ -1308,9 +1308,10 @@ void MD_nh::init_vel(TYPE0 temperature)
         "greater than 0.0 for md nh, please assign velocities "
         "or use create_vel keyword");
     
-    TYPE0 ke_des=(boltz*no_dof)*temperature;
-    TYPE0 factor=sqrt(ke_des/ke_cur);
-    TYPE0 facsq=factor*factor;
+    /*
+    type0 ke_des=(boltz*no_dof)*temperature;
+    type0 factor=sqrt(ke_des/ke_cur);
+    type0 facsq=factor*factor;
     
     for(int i=0;i<natms;i++)
         for(int j=0;j<3;j++)
@@ -1321,6 +1322,7 @@ void MD_nh::init_vel(TYPE0 temperature)
     
     ke_cur*=facsq;
     t_cur*=facsq;
+    */
     delete [] temp;
 }
 /*--------------------------------------------
@@ -1328,7 +1330,7 @@ void MD_nh::init_vel(TYPE0 temperature)
  --------------------------------------------*/
 void MD_nh::couple()
 {
-    TYPE0 tmp;
+    type0 tmp;
     if(chk_stress==XYZ)
     {
         tmp=v_per_atm[0]+v_per_atm[1]+v_per_atm[2];

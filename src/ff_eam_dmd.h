@@ -15,9 +15,9 @@ namespace MAPP_NS
     private:
         int no_types;
     protected:
-        TYPE0*** F_arr;
-        TYPE0*** phi_r_arr;
-        TYPE0*** rho_arr;
+        type0*** F_arr;
+        type0*** phi_r_arr;
+        type0*** rho_arr;
         
         void set_setfl(int,char**);
         void set_funcfl(int,char**);
@@ -27,69 +27,69 @@ namespace MAPP_NS
         
         int eam_mode;
         int nr,nrho;
-        TYPE0 dr,drho,dr_inv,drho_inv,rho_max;
+        type0 dr,drho,dr_inv,drho_inv,rho_max;
         
         void allocate();
         int allocated;
         void clean_up();
         
         void set_arrays();
-        void interpolate(int,TYPE0,TYPE0**);
-        void interpolate_m(int,TYPE0,TYPE0**);
+        void interpolate(int,type0,type0**);
+        void interpolate_m(int,type0,type0**);
         
         int** type2rho;
         int** type2phi;
         
         int f_n,type_n,x_n,c_n,E_n,dE_n,ddE_n,
         n_n,s_n,crd_n,t_n,v_n,c_d_n;
-        TYPE0 cut_sq_0;
-        TYPE0 cut_sq_mod_0;
-        TYPE0 rc,mod_rc,kbT,beta;
-        TYPE0* c_0;
-        TYPE0* delta_e;
+        type0 cut_sq_0;
+        type0 cut_sq_mod_0;
+        type0 rc,mod_rc,kbT,beta;
+        type0* c_0;
+        type0* delta_e;
         
         /*--------------------------------------------*/
-        TYPE0* rho;
-        TYPE0* drho_dr;
-        TYPE0* drho_dalpha;
-        TYPE0* phi;
-        TYPE0* dphi_dr;
-        TYPE0* dphi_dalpha;
+        type0* rho;
+        type0* drho_dr;
+        type0* drho_dalpha;
+        type0* phi;
+        type0* dphi_dr;
+        type0* dphi_dalpha;
         int max_pairs;
         /*--------------------------------------------*/
         
         
-        TYPE0* xi;
-        TYPE0* wi_0;
-        TYPE0* wi_1;
-        TYPE0* wi_2;
-        TYPE0 alpha_min,alpha_max;
+        type0* xi;
+        type0* wi_0;
+        type0* wi_1;
+        type0* wi_2;
+        type0 alpha_min,alpha_max;
         int no_i;
         void set_weight_abs(int);
-        void rho_calc(TYPE0,TYPE0,int,int);
-        void phi_calc(TYPE0,TYPE0,int,int);
+        void rho_calc(type0,type0,int,int);
+        void phi_calc(type0,type0,int,int);
         /*--------------------------------------------*/
-        TYPE0 r_crd,rsq_crd;
+        type0 r_crd,rsq_crd;
         int** neigh_lst;
         int* neigh_lst_sz;
         int neigh_lst_sz_sz;
         /*--------------------------------------------*/
         
-        TYPE0 mat(TYPE0,TYPE0,int);
-        TYPE0 dmat(TYPE0,TYPE0,int);
-        TYPE0 calc_ent(TYPE0);
+        type0 mat(type0,type0,int);
+        type0 dmat(type0,type0,int);
+        type0 calc_ent(type0);
         
     public:
         ForceField_eam_dmd(MAPP *);
         ~ForceField_eam_dmd();
-        void force_calc(int,TYPE0*);
-        TYPE0 energy_calc();
+        void force_calc(int,type0*);
+        type0 energy_calc();
         void init();
         void fin();
         void coef(int,char**);
         
         void create_2nd_neigh_lst();
-        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*);
+        type0 g_calc(int,type0,type0*,type0*);
         void c_d_calc();
     };
     

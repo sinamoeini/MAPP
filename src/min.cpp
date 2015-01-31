@@ -96,7 +96,7 @@ void Min::errors()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Min::rectify_f(TYPE0* f)
+void Min::rectify_f(type0* f)
 {
     if(dof_n==-1)
         return;

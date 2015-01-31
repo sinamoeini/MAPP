@@ -8,8 +8,8 @@
 #include <iostream>
 #include <mpi.h>
 #include <stdio.h>
-// TYPE0 can be only float, double, or long double
-#define TYPE0 double
+// type0 can be only float, double, or long double
+typedef double type0;
 #define MPI_TYPE0 MPI_DOUBLE
 
 namespace MAPP_NS {

@@ -14,9 +14,9 @@ namespace MAPP_NS {
     private:
         int x_n,f_n,type_n;
         int arr_size;
-        TYPE0* sigma;
-        TYPE0* epsilon;
-        TYPE0* offset;
+        type0* sigma;
+        type0* epsilon;
+        type0* offset;
         void read_file(char*);
         int read_line(FILE*,char*&);
         
@@ -24,15 +24,15 @@ namespace MAPP_NS {
     public:
         ForceField_lj(MAPP *);
         ~ForceField_lj();
-        void force_calc(int,TYPE0*);
-        TYPE0 energy_calc();
+        void force_calc(int,type0*);
+        type0 energy_calc();
         void init();
         void fin();
         void coef(int,char**);
         int shift;
         
         void create_2nd_neigh_lst(){};
-        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
+        type0 g_calc(int,type0,type0*,type0*){return 0.0;};
         void c_d_calc(){};
     };
 }

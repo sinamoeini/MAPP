@@ -17,7 +17,7 @@ namespace MAPP_NS {
         int time_idx;
         int cdof_n;
         char* cdof;
-        TYPE0* nrgy_strss;
+        type0* nrgy_strss;
     public:
         Clock(MAPP *);
         virtual ~Clock();
@@ -25,7 +25,7 @@ namespace MAPP_NS {
         virtual void run()=0;
         virtual void init()=0;
         virtual void fin()=0;
-        void rectify(TYPE0*);
+        void rectify(type0*);
         
     };
     

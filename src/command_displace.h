@@ -11,7 +11,7 @@ namespace MAPP_NS {
     class Command_displace: protected InitPtrs
     {
     private:
-        void move(int*,int,TYPE0*);
+        void move(int*,int,type0*);
         int id_n;
     protected:
     public:

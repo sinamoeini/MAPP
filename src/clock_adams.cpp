@@ -124,11 +124,11 @@ Clock_adams::~Clock_adams()
  --------------------------------------------*/
 void Clock_adams::init()
 {
-    TYPE0* c;
+    type0* c;
     
     int f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<TYPE0>(0,atoms->vectors[0].dim,"f");
+        f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
     
     vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
     vecs_comm->add_update(0);
@@ -164,7 +164,7 @@ void Clock_adams::init()
  --------------------------------------------*/
 void Clock_adams::fin()
 {
-    ave_err=ave_err/static_cast<TYPE0>(no_steps);
+    ave_err=ave_err/static_cast<type0>(no_steps);
     
     if(write!=NULL)
         write->fin();
@@ -184,14 +184,14 @@ void Clock_adams::fin()
  --------------------------------------------*/
 void Clock_adams::run()
 {
-    TYPE0 curr_err;
+    type0 curr_err;
     
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     
-    TYPE0* tmp_y;
+    type0* tmp_y;
     
     for(int istep=0;istep<no_steps;istep++)
     {
@@ -230,7 +230,7 @@ void Clock_adams::run()
             for(int i=order-2;i>0;i--)
                 y[i]=y[i-1];
             y[0]=tmp_y;
-            memcpy(y[0],c_d,tot_dim*sizeof(TYPE0));
+            memcpy(y[0],c_d,tot_dim*sizeof(type0));
         }
         
         step_no++;
@@ -239,25 +239,25 @@ void Clock_adams::run()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-TYPE0 Clock_adams::solve(TYPE0 bet)
+type0 Clock_adams::solve(type0 bet)
 {
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     
-    TYPE0 gamma,max_gamma=1.0,min_gamma;
-    TYPE0 inner,tmp;
-    TYPE0 ratio;
-    TYPE0 g0_g0,g_g,g_g0,g_h;
-    TYPE0 curr_cost,ideal_cost,cost;
+    type0 gamma,max_gamma=1.0,min_gamma;
+    type0 inner,tmp;
+    type0 ratio;
+    type0 g0_g0,g_g,g_g0,g_h;
+    type0 curr_cost,ideal_cost,cost;
     
     min_gamma=1.0e-16;
     int chk;
     
     curr_cost=forcefield->g_calc(0,delta_t*bet,a,g);
     
-    TYPE0 tot_ratio;
+    type0 tot_ratio;
     
     forcefield->c_d_calc();
     ratio=1.0;
@@ -275,7 +275,7 @@ TYPE0 Clock_adams::solve(TYPE0 bet)
         c[i]+=c_d[i]*delta_t*tot_ratio;
     atoms->update(c_n);
     
-    memcpy(h,g,tot_dim*sizeof(TYPE0));
+    memcpy(h,g,tot_dim*sizeof(type0));
     
     inner=0.0;
     for(int i=0;i<tot_dim;i++)
@@ -288,8 +288,8 @@ TYPE0 Clock_adams::solve(TYPE0 bet)
     
     while(curr_cost>1.0e-8 && iter<MAX_ITER && max_gamma>min_gamma)
     {
-        memcpy(g0,g,tot_dim*sizeof(TYPE0));
-        memcpy(c0,c,tot_dim*sizeof(TYPE0));
+        memcpy(g0,g,tot_dim*sizeof(type0));
+        memcpy(c0,c,tot_dim*sizeof(type0));
         
         gamma=1.0;
         
@@ -324,7 +324,7 @@ TYPE0 Clock_adams::solve(TYPE0 bet)
             max_gamma*=gamma_red;
             if(max_gamma<=0.0)
             {
-                memcpy(c,c0,tot_dim*sizeof(TYPE0));
+                memcpy(c,c0,tot_dim*sizeof(type0));
                 atoms->update(c_n);
             }
         }
@@ -360,7 +360,7 @@ TYPE0 Clock_adams::solve(TYPE0 bet)
         
         if(g_h<0.0)
         {
-            memcpy(h,g,tot_dim*sizeof(TYPE0));
+            memcpy(h,g,tot_dim*sizeof(type0));
             g_h=g_g;
         }
         iter++;
@@ -373,9 +373,9 @@ TYPE0 Clock_adams::solve(TYPE0 bet)
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_adams::interpolate(TYPE0 del_t)
+void Clock_adams::interpolate(type0 del_t)
 {
-    TYPE0 tmp0=1.0,tmp1;
+    type0 tmp0=1.0,tmp1;
     
     for(int i=2;i<order;i++)
     {

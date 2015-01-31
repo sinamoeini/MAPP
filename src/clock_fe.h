@@ -11,21 +11,21 @@ namespace MAPP_NS {
     {
     private:
     protected:
-        TYPE0 delta_t;
+        type0 delta_t;
         VecLst* vecs_comm;
         int dof_tot,dof_lcl;
         int c_n,c_d_n;
         int no_steps;
         
-        TYPE0 a_tol,e_tol;
-        TYPE0 min_del_t;
-        TYPE0 max_del_t;
-        TYPE0 eq_ratio;
-        TYPE0* y;
-        TYPE0* dy;
-        void ord_dt(TYPE0&);
-        void solve(TYPE0&);
-        TYPE0 err;
+        type0 a_tol,e_tol;
+        type0 min_del_t;
+        type0 max_del_t;
+        type0 eq_ratio;
+        type0* y;
+        type0* dy;
+        void ord_dt(type0&);
+        void solve(type0&);
+        type0 err;
         
     public:
         Clock_fe(MAPP *,int,char**);

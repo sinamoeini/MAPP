@@ -12,30 +12,30 @@ namespace MAPP_NS {
     private:
     protected:
         int order;
-        TYPE0* beta;
-        TYPE0 ave_err;
+        type0* beta;
+        type0 ave_err;
         
-        TYPE0 delta_t;
+        type0 delta_t;
         VecLst* vecs_comm;
         
         
-        TYPE0** y;
-        TYPE0* a;
-        TYPE0* g;
-        TYPE0* c0;
-        TYPE0* g0;
-        TYPE0* h;
+        type0** y;
+        type0* a;
+        type0* g;
+        type0* c0;
+        type0* g0;
+        type0* h;
         int c_n,c_d_n;
         int tot_dim;
-        TYPE0 solve(TYPE0);
+        type0 solve(type0);
         void line_search();
-        TYPE0 gamma_red,slope;
+        type0 gamma_red,slope;
         int no_steps;
         
-        TYPE0* t;
-        TYPE0* beta_mod;
-        TYPE0 tot_time;
-        void interpolate(TYPE0);
+        type0* t;
+        type0* beta_mod;
+        type0 tot_time;
+        void interpolate(type0);
         
         
     public:

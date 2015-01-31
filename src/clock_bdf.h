@@ -13,10 +13,10 @@ namespace MAPP_NS {
     protected:
         // inputs by user
         int max_iter,no_steps,max_order;
-        TYPE0 min_gamma,gamma_red,slope;
-        TYPE0 m_tol,a_tol,e_tol;
-        TYPE0 min_del_t,max_del_t,initial_del_t;
-        TYPE0 eq_ratio;
+        type0 min_gamma,gamma_red,slope;
+        type0 m_tol,a_tol,e_tol;
+        type0 min_del_t,max_del_t,initial_del_t;
+        type0 eq_ratio;
         
         // the atomic vectors indices
         int c_n,c_d_n;
@@ -24,39 +24,39 @@ namespace MAPP_NS {
         int dof_tot,dof_lcl;
         
         //predictor for c
-        TYPE0* y_0;
+        type0* y_0;
 
         
         // stuff for solution
-        TYPE0* a;
-        TYPE0* g0;
-        TYPE0* g;
-        TYPE0* h;
-        TYPE0* c0;
-        TYPE0 beta;
+        type0* a;
+        type0* g0;
+        type0* g;
+        type0* h;
+        type0* c0;
+        type0 beta;
         
         // stuff for book keeping
-        TYPE0* t;
-        TYPE0** y;
-        TYPE0* dy;
+        type0* t;
+        type0** y;
+        type0* dy;
         
         // stuff for coefficients
-        TYPE0 alpha_dy_0;
-        TYPE0* alpha_y;
-        TYPE0 dalpha_dy_0;
-        TYPE0* dalpha_y;
+        type0 alpha_dy_0;
+        type0* alpha_y;
+        type0 dalpha_dy_0;
+        type0* dalpha_y;
         
         
         //stuff for error calculation
-        TYPE0 err,err_prefac;
-        TYPE0 lwr_alpha_dy,lwr_alpha_y;
-        TYPE0* lwr_alpha;
-        TYPE0* e_n;
+        type0 err,err_prefac;
+        type0 lwr_alpha_dy,lwr_alpha_y;
+        type0* lwr_alpha;
+        type0* e_n;
         
         
-        TYPE0 solve(TYPE0,int);
-        int interpolate(TYPE0,int);
-        void ord_dt(TYPE0&,int&,int);
+        type0 solve(type0,int);
+        int interpolate(type0,int);
+        void ord_dt(type0&,int&,int);
 
         
     public:

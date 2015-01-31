@@ -354,9 +354,9 @@ void Write_cfg::write_file_dmd(int stp)
             }
             
             
-            TYPE0* c;
+            type0* c;
             atoms->vectors[c_n].ret_dump(c);
-            TYPE0 tmp;
+            type0 tmp;
             for(int i=0;i<tot_natms;i++)
             {
                 tmp=1.0-c[sort[i]];
@@ -409,8 +409,8 @@ void Write_cfg::write_file_dmd(int stp)
                 fprintf(fp,"\n");
             }
             
-            TYPE0* c;
-            TYPE0 tmp;
+            type0* c;
+            type0 tmp;
             atoms->vectors[c_n].ret_dump(c);
             for(int i=0;i<tot_natms;i++)
             {

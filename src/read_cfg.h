@@ -15,17 +15,17 @@ namespace MAPP_NS {
     private:
         FILE* cfgfile;
         
-        TYPE0** H0;
-        TYPE0** eta;
-        TYPE0** eta_sq;
-        TYPE0** trns;
-        TYPE0** H_x;
-        TYPE0** H_x_d;
+        type0** H0;
+        type0** eta;
+        type0** eta_sq;
+        type0** trns;
+        type0** H_x;
+        type0** H_x_d;
         
         char* line;
         
-        TYPE0 basic_length;
-        TYPE0 R;
+        type0 basic_length;
+        type0 R;
         int entry_count;
         int ext_cfg;
         int header_cmplt;
@@ -36,7 +36,7 @@ namespace MAPP_NS {
         void read_header();
         void read_atom_md();
         void read_atom_dmd();
-        void M3sqroot(TYPE0**,TYPE0**);
+        void M3sqroot(type0**,type0**);
         void set_box();
         void add_atom_read_x(int);
         void add_atom_read_x();
@@ -49,7 +49,7 @@ namespace MAPP_NS {
         char* ch_buff;
         VecLst* vec_list;
         
-        TYPE0* tmp_buff;
+        type0* tmp_buff;
         int tmp_buff_size;
         char* file_name;
         

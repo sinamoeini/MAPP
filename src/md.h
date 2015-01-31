@@ -19,7 +19,7 @@ namespace MAPP_NS {
         int ke_idx;
         int temp_idx;
         int stress_idx;
-        TYPE0* nrgy_strss;
+        type0* nrgy_strss;
         VecLst* vecs_comm;
     public:
         
@@ -32,7 +32,7 @@ namespace MAPP_NS {
         void add_dt(int,char**);
         void add_boltzmann(int,char**);
         void run(int,char**);
-        TYPE0 dt,boltz;
+        type0 dt,boltz;
     };
 }
 

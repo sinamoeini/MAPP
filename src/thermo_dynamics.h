@@ -28,7 +28,7 @@ namespace MAPP_NS {
         int hdr_name_lngth;
         char* mod_hdr_name;
         int mod_hdr_name_lngth;
-        TYPE0 value;
+        type0 value;
     };
     
     
@@ -46,9 +46,9 @@ namespace MAPP_NS {
         int mod_lngth;
         ThermoQuantity* quantities;
         int no_quantities;
-        TYPE0 run_time;
-        TYPE0 force_time;
-        TYPE0 comm_time;
+        type0 run_time;
+        type0 force_time;
+        type0 comm_time;
         char* qform0;
         char* qform1;
         char* sform;
@@ -61,8 +61,8 @@ namespace MAPP_NS {
         void start_comm_time();
         void stop_comm_time();
         
-        void update(int,TYPE0);
-        void update(int,int,TYPE0*);
+        void update(int,type0);
+        void update(int,int,type0*);
         
         
         void init();

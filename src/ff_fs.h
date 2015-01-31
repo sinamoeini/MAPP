@@ -14,19 +14,19 @@ namespace MAPP_NS {
         int x_n,f_n,type_n,rho_n;
         int arr_size;
         
-        TYPE0** mat_t_1;
-        TYPE0** mat_t_2;
-        TYPE0* mat_A;
+        type0** mat_t_1;
+        type0** mat_t_2;
+        type0* mat_A;
         
-        TYPE0* cut_phi;
-        TYPE0* cut_rho;
-        TYPE0* mat_k_1;
-        TYPE0* mat_k_2;
-        TYPE0* mat_k_3;
+        type0* cut_phi;
+        type0* cut_rho;
+        type0* mat_k_1;
+        type0* mat_k_2;
+        type0* mat_k_3;
         
         /*--------------------------------------------*/
-        TYPE0* drhoi_dr;
-        TYPE0* drhoj_dr;
+        type0* drhoi_dr;
+        type0* drhoj_dr;
         int max_pairs;
         /*--------------------------------------------*/
         
@@ -38,16 +38,16 @@ namespace MAPP_NS {
     public:
         ForceField_fs(MAPP *);
         ~ForceField_fs();
-        void force_calc(int,TYPE0*);
-        void force_calc0(int,TYPE0*);
-        TYPE0 energy_calc();
+        void force_calc(int,type0*);
+        void force_calc0(int,type0*);
+        type0 energy_calc();
         void init();
         void fin();
         void coef(int,char**);
         int shift;
 
         void create_2nd_neigh_lst(){};
-        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
+        type0 g_calc(int,type0,type0*,type0*){return 0.0;};
         void c_d_calc(){};
     };
 }

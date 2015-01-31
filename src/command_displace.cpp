@@ -21,13 +21,13 @@ Command_displace::Command_displace(MAPP* mapp
     
     FILE* fp=NULL;
     int* list;
-    TYPE0* disp;
+    type0* disp;
     CREATE1D(disp,dim);
     
     id_n=atoms->find("id");
     
     
-    TYPE0** B=atoms->B;
+    type0** B=atoms->B;
     
     
     for(int i=0;i<no_traj;i++)
@@ -109,15 +109,15 @@ Command_displace::~Command_displace()
  move
  --------------------------------------------*/
 void Command_displace::move(int* list,
-int no_atoms,TYPE0* disp)
+int no_atoms,type0* disp)
 {
     for(int i=0;i<no_atoms;i++)
         if(list[i]<0 || list[i]>atoms->tot_natms-1)
             error->abort("invalid atom id %d",list[i]);
-    TYPE0 tmp_s;
+    type0 tmp_s;
     int* id;
     atoms->vectors[id_n].ret(id);
-    TYPE0* s;
+    type0* s;
     atoms->vectors[0].ret(s);
     int x_dim=atoms->vectors[0].dim;
     int dim=atoms->dimension;

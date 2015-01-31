@@ -52,7 +52,7 @@ Clock::~Clock()
 /*--------------------------------------------
  rectify
  --------------------------------------------*/
-void Clock::rectify(TYPE0* f)
+void Clock::rectify(type0* f)
 {
     if(cdof_n==-1)
         return;

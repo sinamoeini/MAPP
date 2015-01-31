@@ -32,7 +32,7 @@ AtomTypes::~AtomTypes()
 /*--------------------------------------------
  add a type
  --------------------------------------------*/
-int AtomTypes::add_type(TYPE0 m,char* name)
+int AtomTypes::add_type(type0 m,char* name)
 {
     
     

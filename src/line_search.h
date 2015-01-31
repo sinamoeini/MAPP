@@ -17,25 +17,25 @@ namespace MAPP_NS {
         int x_dim;
         int dof_n;
         
-        TYPE0 inner_f_h();
-        TYPE0 inner_f_h_s();
+        type0 inner_f_h();
+        type0 inner_f_h_s();
         void normalize_h();
         void normalize_h_s();
-        TYPE0 energy(TYPE0);
+        type0 energy(type0);
         VecLst* vecs_comm;
-        TYPE0 d_max;
-        TYPE0 s_max;
-        TYPE0** N;
+        type0 d_max;
+        type0 s_max;
+        type0** N;
     public:
-        TYPE0** H_prev;
-        TYPE0** B_prev;
-        TYPE0** h_H;
-        TYPE0** f_H;
+        type0** H_prev;
+        type0** B_prev;
+        type0** h_H;
+        type0** f_H;
         int chng_box;
         ThermoDynamics* thermo;
         LineSearch(MAPP *,VecLst*);
         virtual ~LineSearch()=0;
-        virtual int line_min(TYPE0&,TYPE0&)=0;
+        virtual int line_min(type0&,type0&)=0;
         int h_n;
     };
     
@@ -43,12 +43,12 @@ namespace MAPP_NS {
     {
     private:
     protected:
-        TYPE0 c,rho,alpha_max,alpha_min;
+        type0 c,rho,alpha_max,alpha_min;
     public:
         LineSearch_BackTrack(MAPP *,VecLst*);
         ~LineSearch_BackTrack();
-        int line_min(TYPE0&,TYPE0&);
-        int line_min_s(TYPE0&,TYPE0&);
+        int line_min(type0&,type0&);
+        int line_min_s(type0&,type0&);
     };
 
 }

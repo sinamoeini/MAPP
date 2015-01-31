@@ -105,7 +105,7 @@ void Clock_fe::init()
 {
     int f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<TYPE0>(0,atoms->vectors[0].dim,"f");
+        f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
     
     c_n=atoms->find_exist("c");
     c_d_n=atoms->find("c_d");
@@ -147,9 +147,9 @@ void Clock_fe::init()
         write->init();
     thermo->init();
     
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     
     
@@ -159,8 +159,8 @@ void Clock_fe::init()
     rectify(c_d);
     thermo->stop_force_time();
     
-    memcpy(y,c,dof_lcl*sizeof(TYPE0));
-    memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
+    memcpy(y,c,dof_lcl*sizeof(type0));
+    memcpy(dy,c_d,dof_lcl*sizeof(type0));
     
 }
 /*--------------------------------------------
@@ -184,13 +184,13 @@ void Clock_fe::fin()
  --------------------------------------------*/
 void Clock_fe::run()
 {
-    TYPE0 curr_t=0.0;
+    type0 curr_t=0.0;
     
-    TYPE0 del_t;
+    type0 del_t;
     
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     del_t=min_del_t;
     eq_ratio=1.0;
@@ -226,8 +226,8 @@ void Clock_fe::run()
         rectify(c_d);
         thermo->stop_force_time();
         
-        memcpy(y,c,dof_lcl*sizeof(TYPE0));
-        memcpy(dy,c_d,dof_lcl*sizeof(TYPE0));
+        memcpy(y,c,dof_lcl*sizeof(type0));
+        memcpy(dy,c_d,dof_lcl*sizeof(type0));
         
         istep++;
         step_no++;
@@ -238,15 +238,15 @@ void Clock_fe::run()
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::solve(TYPE0& del_t)
+void Clock_fe::solve(type0& del_t)
 {
     
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
     
-    TYPE0 ratio,tot_ratio,tmp0,tmp1,err_lcl;
+    type0 ratio,tot_ratio,tmp0,tmp1,err_lcl;
     ratio=1.0;
     for(int i=0;i<dof_lcl;i++)
     {
@@ -283,7 +283,7 @@ void Clock_fe::solve(TYPE0& del_t)
         }
         err=0.0;
         MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
-        err=0.5*del_t*sqrt(err/static_cast<TYPE0>(dof_tot))/a_tol;
+        err=0.5*del_t*sqrt(err/static_cast<type0>(dof_tot))/a_tol;
         
         
         if(del_t==min_del_t && err>=1.0)
@@ -311,16 +311,16 @@ void Clock_fe::solve(TYPE0& del_t)
     thermo->stop_comm_time();
     
     MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
-    eq_ratio=sqrt(eq_ratio/static_cast<TYPE0>(dof_tot))/e_tol;
+    eq_ratio=sqrt(eq_ratio/static_cast<type0>(dof_tot))/e_tol;
  
 
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::ord_dt(TYPE0& del_t)
+void Clock_fe::ord_dt(type0& del_t)
 {
-    TYPE0 ratio;
+    type0 ratio;
     ratio=0.9/err;
     
     if(ratio>=2.0)

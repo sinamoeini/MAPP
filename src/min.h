@@ -23,10 +23,10 @@ namespace MAPP_NS {
         int chng_box;
         int dim;
         int err;
-        TYPE0 curr_energy;
+        type0 curr_energy;
         ThermoDynamics* thermo;
         
-        TYPE0* nrgy_strss;
+        type0* nrgy_strss;
         
         int pe_idx;
         int stress_idx;
@@ -41,9 +41,9 @@ namespace MAPP_NS {
         virtual void run()=0;
         virtual void init()=0;
         virtual void fin()=0;
-        void rectify_f(TYPE0*);
+        void rectify_f(type0*);
         int max_iter;
-        TYPE0 energy_tolerance;
+        type0 energy_tolerance;
         int** H_dof;
 
     };

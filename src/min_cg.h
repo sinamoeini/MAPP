@@ -17,11 +17,11 @@ namespace MAPP_NS {
         int h_n;
         
         
-        TYPE0** H_prev;
-        TYPE0** B_prev;
-        TYPE0** f_H_prev;
-        TYPE0** f_H;
-        TYPE0** h_H;
+        type0** H_prev;
+        type0** B_prev;
+        type0** f_H_prev;
+        type0** f_H;
+        type0** h_H;
     public:
         Min_cg(MAPP *,int,char**);
         ~Min_cg();

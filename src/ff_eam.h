@@ -15,15 +15,15 @@ namespace MAPP_NS
     private:
         int no_types;
     protected:
-        TYPE0*** F_arr;
-        TYPE0*** phi_r_arr;
-        TYPE0*** rho_arr;
+        type0*** F_arr;
+        type0*** phi_r_arr;
+        type0*** rho_arr;
         
 
         
         int eam_mode;
         int nr,nrho;
-        TYPE0 dr,drho,dr_inv,drho_inv,rho_max;
+        type0 dr,drho,dr_inv,drho_inv,rho_max;
         
         
         void set_setfl(int,char**);
@@ -36,33 +36,33 @@ namespace MAPP_NS
         void clean_up();
         
         void set_arrays();
-        void interpolate(int,TYPE0,TYPE0**);
-        TYPE0 interpolate(TYPE0*,int,TYPE0,int);
+        void interpolate(int,type0,type0**);
+        type0 interpolate(type0*,int,type0,int);
         
         
         int** type2rho;
         int** type2phi;
         
         int rho_n,f_n,type_n,x_n,dF_n;
-        TYPE0 cut_sq_0;
+        type0 cut_sq_0;
         
         /*--------------------------------------------*/
-        TYPE0* drhoi_dr;
-        TYPE0* drhoj_dr;
+        type0* drhoi_dr;
+        type0* drhoj_dr;
         int max_pairs;
         /*--------------------------------------------*/
         
     public:
         ForceField_eam(MAPP *);
         ~ForceField_eam();
-        void force_calc(int,TYPE0*);
-        TYPE0 energy_calc();
+        void force_calc(int,type0*);
+        type0 energy_calc();
         void init();
         void fin();
         void coef(int,char**);
 
         void create_2nd_neigh_lst(){};
-        TYPE0 g_calc(int,TYPE0,TYPE0*,TYPE0*){return 0.0;};
+        type0 g_calc(int,type0,type0*,type0*){return 0.0;};
         void c_d_calc(){};
     };
     

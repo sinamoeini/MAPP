@@ -290,10 +290,10 @@ void Atoms::chng_dim(int dim)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Atoms::set_ph(TYPE0 cut)
+void Atoms::set_ph(type0 cut)
 {
     tot_cut_ph=cut+skin;
-    TYPE0 tmp;
+    type0 tmp;
     for (int i=0;i<dimension;i++)
     {
         tmp=0.0;
@@ -328,7 +328,7 @@ void Atoms::set_ph(int box_change)
     if(box_change==0)
         return;
     
-    TYPE0 tmp;
+    type0 tmp;
     for (int i=0;i<dimension;i++)
     {
         tmp=0.0;
@@ -366,7 +366,7 @@ void Atoms::ph_setup(int box_chng,class VecLst* list)
     ph_lst->reset();
     int lo_r_dir,hi_r_dir,lo_r_dim,hi_r_dim,tmp_r;
     
-    TYPE0* s;
+    type0* s;
     int s_dim=vectors[0].dim;
     int iswap=0;
     
@@ -397,7 +397,7 @@ void Atoms::ph_setup(int box_chng,class VecLst* list)
         for(int i=0;i<comm_need[idim];i++)
         {
             tmp_r=natms+natms_ph;
-            //s=(TYPE0*)vectors[0].ret_vec();
+            //s=(type0*)vectors[0].ret_vec();
             vectors[0].ret(s);
             for(int iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
                 if(s_ph_hi[idim]<=s[iatm*s_dim+idim])
@@ -492,8 +492,8 @@ int* atm_list,int atm_list_size,class VecLst* list)
         {
             int last_atm_no=natms+natms_ph;
             int strt_atm_no=last_atm_no-no_new_atms;
-            //TYPE0* s=(TYPE0*)vectors[0].ret_vec();
-            TYPE0* s;
+            //type0* s=(type0*)vectors[0].ret_vec();
+            type0* s;
             vectors[0].ret(s);
             int s_dim=vectors[0].dim;
             if(dir==0)
@@ -524,8 +524,8 @@ int* atm_list,int atm_list_size,class VecLst* list)
     
         
         //correction due to periodic boundary conditions
-        //TYPE0* s=(TYPE0*)vectors[0].ret_vec();
-        TYPE0* s;
+        //type0* s=(type0*)vectors[0].ret_vec();
+        type0* s;
         vectors[0].ret(s);
         int s_dim=vectors[0].dim;
         
@@ -558,7 +558,7 @@ void Atoms::reset_comm(int idim,class VecLst* list)
         return;
     int icomp;
 
-    TYPE0* s;
+    type0* s;
     vectors[0].ret(s);
     int s_dim=vectors[0].dim;
     
@@ -600,7 +600,7 @@ void Atoms::reset_comm(int idim,class VecLst* list)
     MPI_Status status;
     
     int no_atms;
-    int d_size=sizeof(TYPE0);
+    int d_size=sizeof(type0);
     
     int max_snd_buff_0_size;
     MPI_Allreduce(&snd_buff_0_size,&max_snd_buff_0_size,1,
@@ -638,7 +638,7 @@ void Atoms::reset_comm(int idim,class VecLst* list)
             
             for(int i=0;i<no_atms;i++)
             {
-                TYPE0 s_i;
+                type0 s_i;
                 memcpy(&s_i,&rcv_buff[i*list->byte_size+idim*d_size],d_size);
                 if(s_i<s_lo[idim])
                 {
@@ -693,7 +693,7 @@ void Atoms::reset_comm(int idim,class VecLst* list)
             no_atms=rcv_buff_size/list->byte_size;
             for(int i=0;i<no_atms;i++)
             {
-                TYPE0 s_i;
+                type0 s_i;
                 memcpy(&s_i,&rcv_buff[i*list->byte_size+idim*d_size],d_size);
                 if(s_hi[idim]<=s_i)
                 {
@@ -731,8 +731,8 @@ void Atoms::xchng_comm(int idim,class VecLst* list)
     if(tot_p_grid[idim]==1)
         return;
     int icomp;
-    //TYPE0* s=(TYPE0*)vectors[0].ret_vec();
-    TYPE0* s;
+    //type0* s=(type0*)vectors[0].ret_vec();
+    type0* s;
     vectors[0].ret(s);
     int s_dim=vectors[0].dim;
     
@@ -805,7 +805,7 @@ void Atoms::xchng_comm(int idim,class VecLst* list)
         
         unpack(rcv_buff,0,no_atms,list);
         
-        //s=(TYPE0*)vectors[0].ret_vec();
+        //s=(type0*)vectors[0].ret_vec();
         vectors[0].ret(s);
         icomp=(natms-no_atms)*s_dim+idim;
         for(int i=0;i<no_atms;i++)
@@ -847,7 +847,7 @@ void Atoms::xchng_comm(int idim,class VecLst* list)
         
         unpack(rcv_buff,0,no_atms,list);
         
-        //s=(TYPE0*)vectors[0].ret_vec();
+        //s=(type0*)vectors[0].ret_vec();
         vectors[0].ret(s);
         icomp=(natms-no_atms)*s_dim+idim;
         for(int i=0;i<no_atms;i++)
@@ -928,8 +928,8 @@ void Atoms::update(class VecLst* list)
                             {
                                 int last_atm_no=natms+natms_ph;
                                 int strt_atm_no=last_atm_no-no_new_atms;
-                                //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                                TYPE0* x;
+                                //type0* x=(type0*)vectors[0].ret_vec();
+                                type0* x;
                                 vectors[0].ret(x);
                                 int x_dim=vectors[0].dim;
                                 
@@ -963,8 +963,8 @@ void Atoms::update(class VecLst* list)
                         if(list->ph_vec_list[0]==0)
                         {
                             //correction due to periodic boundary conditions
-                            //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                            TYPE0* x;
+                            //type0* x=(type0*)vectors[0].ret_vec();
+                            type0* x;
                             vectors[0].ret(x);
                             int x_dim=vectors[0].dim;
                             
@@ -1066,8 +1066,8 @@ void Atoms::update(class VecLst* list)
                             {
                                 int last_atm_no=natms+natms_ph;
                                 int strt_atm_no=last_atm_no-no_new_atms;
-                                //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                                TYPE0* x;
+                                //type0* x=(type0*)vectors[0].ret_vec();
+                                type0* x;
                                 vectors[0].ret(x);
                                 int x_dim=vectors[0].dim;
                                 
@@ -1101,8 +1101,8 @@ void Atoms::update(class VecLst* list)
                         if(list->ph_vec_list[0]==0)
                         {
                             //correction due to periodic boundary conditions
-                            //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                            TYPE0* x;
+                            //type0* x=(type0*)vectors[0].ret_vec();
+                            type0* x;
                             vectors[0].ret(x);
                             int x_dim=vectors[0].dim;
                             
@@ -1202,8 +1202,8 @@ void Atoms::update(int* vec_list,int no_vecs,int vec_byte_size)
                             {
                                 int last_atm_no=natms+natms_ph;
                                 int strt_atm_no=last_atm_no-no_new_atms;
-                                //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                                TYPE0* x;
+                                //type0* x=(type0*)vectors[0].ret_vec();
+                                type0* x;
                                 vectors[0].ret(x);
                                 int x_dim=vectors[0].dim;
                                 
@@ -1237,8 +1237,8 @@ void Atoms::update(int* vec_list,int no_vecs,int vec_byte_size)
                         if(vec_list[0]==0)
                         {
                             //correction due to periodic boundary conditions
-                            //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                            TYPE0* x;
+                            //type0* x=(type0*)vectors[0].ret_vec();
+                            type0* x;
                             vectors[0].ret(x);
                             int x_dim=vectors[0].dim;
                             
@@ -1340,8 +1340,8 @@ void Atoms::update(int* vec_list,int no_vecs,int vec_byte_size)
                             {
                                 int last_atm_no=natms+natms_ph;
                                 int strt_atm_no=last_atm_no-no_new_atms;
-                                //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                                TYPE0* x;
+                                //type0* x=(type0*)vectors[0].ret_vec();
+                                type0* x;
                                 vectors[0].ret(x);
                                 int x_dim=vectors[0].dim;
                                 
@@ -1375,8 +1375,8 @@ void Atoms::update(int* vec_list,int no_vecs,int vec_byte_size)
                         if(vec_list[0]==0)
                         {
                             //correction due to periodic boundary conditions
-                            //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-                            TYPE0* x;
+                            //type0* x=(type0*)vectors[0].ret_vec();
+                            type0* x;
                             vectors[0].ret(x);
                             int x_dim=vectors[0].dim;
                             
@@ -1793,9 +1793,9 @@ void Atoms::x_unpack(char*& buff,int* vec_list
  --------------------------------------------*/
 void Atoms::store_0()
 {
-    TYPE0* x;
+    type0* x;
     vectors[0].ret(x);
-    TYPE0* x_0;
+    type0* x_0;
     vectors[1].ret(x_0);
     
     int x_dim=vectors[0].dim;
@@ -1824,23 +1824,23 @@ void Atoms::update_0(int box_change,int neigh_chk
 ,class VecLst* list)
 {
     
-    //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-    TYPE0* x;
+    //type0* x=(type0*)vectors[0].ret_vec();
+    type0* x;
     vectors[0].ret(x);
-    //TYPE0* x_0=(TYPE0*)vectors[1].ret_vec();
-    TYPE0* x_0;
+    //type0* x_0=(type0*)vectors[1].ret_vec();
+    type0* x_0;
     vectors[1].ret(x_0);
     
     int x_dim=vectors[0].dim;
     int x_0_dim=vectors[1].dim;
 
 
-    TYPE0 dx;
-    TYPE0 sq_dx;
+    type0 dx;
+    type0 sq_dx;
     
     int iatm=0;
     int check=0;
-    TYPE0 sq_skin=skin*skin;
+    type0 sq_skin=skin*skin;
     
     int x_comp=0;
     int x_0_comp=0;
@@ -1911,8 +1911,8 @@ void Atoms::update_0(int box_change,int neigh_chk
  --------------------------------------------*/
 void Atoms::x2s(int no)
 {
-    //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-    TYPE0* x;
+    //type0* x=(type0*)vectors[0].ret_vec();
+    type0* x;
     vectors[0].ret(x);
     int x_dim=vectors[0].dim;
     int icomp=0;
@@ -1943,8 +1943,8 @@ void Atoms::x2s(int no)
  --------------------------------------------*/
 void Atoms::x2s_no_correction(int no)
 {
-    //TYPE0* x=(TYPE0*)vectors[0].ret_vec();
-    TYPE0* x;
+    //type0* x=(type0*)vectors[0].ret_vec();
+    type0* x;
     vectors[0].ret(x);
     int x_dim=vectors[0].dim;
     int icomp=0;
@@ -1966,8 +1966,8 @@ void Atoms::x2s_no_correction(int no)
  --------------------------------------------*/
 void Atoms::s2x(int no)
 {
-    //TYPE0* s=(TYPE0*)vectors[0].ret_vec();
-    TYPE0* s;
+    //type0* s=(type0*)vectors[0].ret_vec();
+    type0* s;
     vectors[0].ret(s);
     int s_dim=vectors[0].dim;
     int icomp=0;
@@ -2061,7 +2061,7 @@ void Atoms::grow(int ph,int no_atms
 /*--------------------------------------------
  autogrid the domain
  --------------------------------------------*/
-void Atoms::hard_auto_grid_proc(TYPE0 f)
+void Atoms::hard_auto_grid_proc(type0 f)
 {
     
     if(f<=0 || f>1)
@@ -2111,11 +2111,11 @@ void Atoms::hard_auto_grid_proc(TYPE0 f)
         vols[ifac]=1.0;
         for(int i=0;i<dimension;i++)
         {
-            vols[ifac]*=H[i][i]/static_cast<TYPE0>(fac_list[ifac][i]);
+            vols[ifac]*=H[i][i]/static_cast<type0>(fac_list[ifac][i]);
             areas[ifac][i]=1.0;
             for(int j=0;j<dimension;j++)
                 if(i!=j)
-                    areas[ifac][i]*=H[j][j]/static_cast<TYPE0>(fac_list[ifac][j]);
+                    areas[ifac][i]*=H[j][j]/static_cast<type0>(fac_list[ifac][j]);
         }
         
         for(int i=0;i<dimension;i++)
@@ -2284,12 +2284,12 @@ void Atoms::hard_auto_grid_proc(TYPE0 f)
     for(int i=0;i<dimension;i++)
     {
         s_lo[i]=
-        static_cast<TYPE0>(my_loc[i])
-        /static_cast<TYPE0>(tot_p_grid[i]);
+        static_cast<type0>(my_loc[i])
+        /static_cast<type0>(tot_p_grid[i]);
         
         s_hi[i]=
-        (static_cast<TYPE0>(my_loc[i])+1.0)
-        /static_cast<TYPE0>(tot_p_grid[i]);
+        (static_cast<type0>(my_loc[i])+1.0)
+        /static_cast<type0>(tot_p_grid[i]);
     }
     
     if(my_p_no==0)
@@ -2314,8 +2314,8 @@ void Atoms::auto_grid_proc()
         if(p_per_n[i]!=p_per_n[0])
             eq_p_per_n=0;
 
-    TYPE0 vol;
-    TYPE0* area;
+    type0 vol;
+    type0* area;
     CREATE1D(area,dimension);
     int prin_dimension=0;
     
@@ -2329,7 +2329,7 @@ void Atoms::auto_grid_proc()
                     area[i]*=H[j][j];
         }
         
-        TYPE0 min_area=-1.0;
+        type0 min_area=-1.0;
         for(int i=0;i<dimension;i++)
             if(min_area<0.0 || area[i]<min_area)
             {
@@ -2345,8 +2345,8 @@ void Atoms::auto_grid_proc()
     fac_list_size=0;
     fac(tot_p,dimension,0,list);
     
-    TYPE0 ratio=-1.0;
-    TYPE0 tmp_ratio;
+    type0 ratio=-1.0;
+    type0 tmp_ratio;
 
     if(eq_p_per_n && tot_n>1)
     {
@@ -2357,11 +2357,11 @@ void Atoms::auto_grid_proc()
                 vol=1.0;
                 for(int i=0;i<dimension;i++)
                 {
-                    vol*=H[i][i]/static_cast<TYPE0>(fac_list[ifac][i]);
+                    vol*=H[i][i]/static_cast<type0>(fac_list[ifac][i]);
                     area[i]=1.0;
                     for(int j=0;j<dimension;j++)
                         if(i!=j)
-                            area[i]*=H[j][j]/static_cast<TYPE0>(fac_list[ifac][j]);
+                            area[i]*=H[j][j]/static_cast<type0>(fac_list[ifac][j]);
                 }
                 
                 tmp_ratio=0.0;
@@ -2547,11 +2547,11 @@ void Atoms::auto_grid_proc()
             vol=1.0;
             for(int i=0;i<dimension;i++)
             {
-                vol*=H[i][i]/static_cast<TYPE0>(fac_list[ifac][i]);
+                vol*=H[i][i]/static_cast<type0>(fac_list[ifac][i]);
                 area[i]=1.0;
                 for(int j=0;j<dimension;j++)
                     if(i!=j)
-                        area[i]*=H[j][j]/static_cast<TYPE0>(fac_list[ifac][j]);
+                        area[i]*=H[j][j]/static_cast<type0>(fac_list[ifac][j]);
             }
                 
             tmp_ratio=0.0;
@@ -2592,12 +2592,12 @@ void Atoms::auto_grid_proc()
     for(int i=0;i<dimension;i++)
     {
         s_lo[i]=
-        static_cast<TYPE0>(my_loc[i])
-        /static_cast<TYPE0>(tot_p_grid[i]);
+        static_cast<type0>(my_loc[i])
+        /static_cast<type0>(tot_p_grid[i]);
         
         s_hi[i]=
-        (static_cast<TYPE0>(my_loc[i])+1.0)
-        /static_cast<TYPE0>(tot_p_grid[i]);
+        (static_cast<type0>(my_loc[i])+1.0)
+        /static_cast<type0>(tot_p_grid[i]);
     }
     if(my_p_no==0)
     {
@@ -2671,12 +2671,12 @@ void Atoms::man_grid_proc(int narg,char** args)
     for(int i=0;i<dimension;i++)
     {
         s_lo[i]=
-        static_cast<TYPE0>(my_loc[i])
-        /static_cast<TYPE0>(tot_p_grid[i]);
+        static_cast<type0>(my_loc[i])
+        /static_cast<type0>(tot_p_grid[i]);
         
         s_hi[i]=
-        (static_cast<TYPE0>(my_loc[i])+1.0)
-        /static_cast<TYPE0>(tot_p_grid[i]);
+        (static_cast<type0>(my_loc[i])+1.0)
+        /static_cast<type0>(tot_p_grid[i]);
     }
     
     if(no_vecs)
@@ -2809,25 +2809,25 @@ void Atoms::comb_rec(int no,int tot,int pos
             
             for(int ifac=0;ifac<fac_list_size;ifac++)
             {
-                TYPE0 energy=0.0;
+                type0 energy=0.0;
                 
                 energy=0.0;
                 for(int i=0;i<dimension;i++)
                 {
                     if(tmp[my_p_no]-tmp[prv_p[ifac][i]])
-                        energy+=static_cast<TYPE0>(areas[ifac][i])/inter_n_efficency;
+                        energy+=static_cast<type0>(areas[ifac][i])/inter_n_efficency;
                     else
-                        energy+=static_cast<TYPE0>(areas[ifac][i]);
+                        energy+=static_cast<type0>(areas[ifac][i]);
                     
                     if(tmp[my_p_no]-tmp[nxt_p[ifac][i]])
-                        energy+=static_cast<TYPE0>(areas[ifac][i])/inter_n_efficency;
+                        energy+=static_cast<type0>(areas[ifac][i])/inter_n_efficency;
                     else
-                        energy+=static_cast<TYPE0>(areas[ifac][i]);
+                        energy+=static_cast<type0>(areas[ifac][i]);
                     
                 }
                 energy=energy/vols[ifac];
                 
-                TYPE0 energy_tot=0.0;
+                type0 energy_tot=0.0;
                 MPI_Allreduce(&energy,&energy_tot,1,MPI_TYPE0,MPI_SUM,comm_world);
                 
                 if(energy_tot<energy_all||energy_all<0.0)
@@ -2903,25 +2903,25 @@ void Atoms::prime_factorize(int no,int*& primes,int*& pow)
  inversion funtion to calculate B whenever H
  is changed
  --------------------------------------------*/
-void Atoms::invert(TYPE0** A,TYPE0** Ainv,int dim)
+void Atoms::invert(type0** A,type0** Ainv,int dim)
 {
     if(dim==0)
         return;
     
-    TYPE0** ATA;
+    type0** ATA;
     CREATE2D(ATA,dim,dim);
-    TYPE0* c;
+    type0* c;
     CREATE1D(c,dim);
-    TYPE0* x;
+    type0* x;
     CREATE1D(x,dim);
-    TYPE0* g;
+    type0* g;
     CREATE1D(g,dim);
-    TYPE0* g0;
+    type0* g0;
     CREATE1D(g0,dim);
-    TYPE0* h;
+    type0* h;
     CREATE1D(h,dim);
-    TYPE0 a0,a1,alpha;
-    TYPE0 g0g0,gg,gg0,ratio;
+    type0 a0,a1,alpha;
+    type0 g0g0,gg,gg0,ratio;
     
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
@@ -3035,7 +3035,7 @@ void Atoms::invert(TYPE0** A,TYPE0** Ainv,int dim)
  inversion funtion to calculate B whenever H
  is changed
  --------------------------------------------*/
-void Atoms::invert_lower_triangle(TYPE0** A,TYPE0** Ainv,int dim)
+void Atoms::invert_lower_triangle(type0** A,type0** Ainv,int dim)
 {
     invert(A,Ainv,dim);
     for(int i=0;i<dim;i++)
@@ -3050,7 +3050,7 @@ void Atoms::add_skin(int narg,char** args)
 {
     if(narg!=2)
         error->abort("wrong number of inputs for skin command");
-    TYPE0 s=atof(args[1]);
+    type0 s=atof(args[1]);
     if(s<=0.0)
         error->abort("skin cannot be equal or less than zero");
     skin=s;

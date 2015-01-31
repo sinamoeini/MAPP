@@ -80,7 +80,7 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
  
     if(mapp->mode==MD_mode)
     {
-        x_n=atoms->add<TYPE0>(1, 3,"x");
+        x_n=atoms->add<type0>(1, 3,"x");
         id_n=atoms->add<int>(0, 1,"id");
         type_n=atoms->add<int>(1, 1,"type");
         /*
@@ -90,7 +90,7 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
         */
         if(vel_chk)
         {
-            x_d_n=atoms->add<TYPE0>(0, 3,"x_d");
+            x_d_n=atoms->add<type0>(0, 3,"x_d");
             vec_list=new VecLst(mapp,4,x_n,x_d_n,type_n,id_n);
             
             ch_id=atoms->vectors[x_n].byte_size;
@@ -118,9 +118,9 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
         dmd_no_types=(entry_count-3)/2;
         
         
-        x_n=atoms->add<TYPE0>(1,3+dmd_no_types,"x");
+        x_n=atoms->add<type0>(1,3+dmd_no_types,"x");
         id_n=atoms->add<int>(0, 1,"id");
-        c_n=atoms->add<TYPE0>(1,dmd_no_types,"c");
+        c_n=atoms->add<type0>(1,dmd_no_types,"c");
         vec_list=new VecLst(mapp,3,x_n,id_n,c_n);
         
         ch_id=atoms->vectors[x_n].byte_size;
@@ -206,7 +206,7 @@ void Read_cfg::read_header()
 {
     char* command;
     int narg = mapp->hash_remover(line,command);
-    TYPE0 tmp;
+    type0 tmp;
     int icmp,jcmp,tmpno;
     char* strtmp1;
     char* strtmp2;
@@ -339,13 +339,13 @@ void Read_cfg::read_header()
  --------------------------------------------*/
 void Read_cfg::set_box()
 {
-    TYPE0** Ht;
-    TYPE0* sq;
-    TYPE0* b;
+    type0** Ht;
+    type0* sq;
+    type0* b;
     CREATE2D(Ht,3,3);
     CREATE1D(sq,3);
     CREATE1D(b,3);
-    TYPE0 babs;
+    type0 babs;
     
     for (int i=0;i<3;i++)
         for (int j=0;j<3;j++)
@@ -385,7 +385,7 @@ void Read_cfg::set_box()
     
     if (M3DET(H_x)==0.0)
         error->abort("determinant of H in %s file is 0.0",file_name);
-    TYPE0 det;
+    type0 det;
     
     for (int i=0;i<3;i++)
     {
@@ -439,7 +439,7 @@ void Read_cfg::set_box()
 void Read_cfg::read_atom_md()
 {
     char** arg;
-    TYPE0 mass;
+    type0 mass;
     int narg=mapp->parse_line(line,arg);
     
     if(atoms->my_p_no==0)
@@ -465,7 +465,7 @@ void Read_cfg::read_atom_md()
     {
         if(narg==1)
         {
-            mass=static_cast<TYPE0>(atof(arg[0]));
+            mass=static_cast<type0>(atof(arg[0]));
             if(atoms->my_p_no==0)
                 fgets(line,MAXCHAR,cfgfile);
             MPI_Bcast(line,MAXCHAR,MPI_CHAR,0,world);
@@ -486,9 +486,9 @@ void Read_cfg::read_atom_md()
                     tmp_buff[i]=0.0;
                 
                 for (int i=0;i<3;i++)
-                    tmp_buff[i]=static_cast<TYPE0>(atof(arg[i]));
+                    tmp_buff[i]=static_cast<type0>(atof(arg[i]));
                 for (int i=3;i<6;i++)
-                    tmp_buff[i]=static_cast<TYPE0>(atof(arg[i]))*R;
+                    tmp_buff[i]=static_cast<type0>(atof(arg[i]))*R;
                 add_atom_read_x(last_type);
             }
             else
@@ -497,7 +497,7 @@ void Read_cfg::read_atom_md()
                     tmp_buff[i]=0.0;
                 
                 for (int i=0;i<3;i++)
-                    tmp_buff[i]=static_cast<TYPE0>(atof(arg[i]));
+                    tmp_buff[i]=static_cast<type0>(atof(arg[i]));
                 add_atom_read_x(last_type);
             }
             
@@ -509,16 +509,16 @@ void Read_cfg::read_atom_md()
     {
         if(narg==8)
         {
-            mass=static_cast<TYPE0>(atof(arg[0]));
+            mass=static_cast<type0>(atof(arg[0]));
             last_type=
             atom_types->add_type(mass,arg[1]);
             if(mass<=0.0)
                 error->abort("mass of %s %s file (%lf) should be greater than 0.0",arg[1],file_name,line,mass);
  
             for (int i=0;i<3;i++)
-                tmp_buff[i]=static_cast<TYPE0>(atof(arg[i+2]));
+                tmp_buff[i]=static_cast<type0>(atof(arg[i+2]));
             for (int i=3;i<6;i++)
-                tmp_buff[i]=static_cast<TYPE0>(atof(arg[i+2]))*R;
+                tmp_buff[i]=static_cast<type0>(atof(arg[i+2]))*R;
             add_atom_read_x(last_type);
 
         }
@@ -538,7 +538,7 @@ void Read_cfg::read_atom_md()
 void Read_cfg::read_atom_dmd()
 {
     char** arg;
-    TYPE0 mass;
+    type0 mass;
     int narg=mapp->parse_line(line,arg);
     
     if(atoms->my_p_no==0)
@@ -562,7 +562,7 @@ void Read_cfg::read_atom_dmd()
 
     if(narg==1)
     {
-        mass=static_cast<TYPE0>(atof(arg[0]));
+        mass=static_cast<type0>(atof(arg[0]));
         if(atoms->my_p_no==0)
             fgets(line,MAXCHAR,cfgfile);
         MPI_Bcast(line,MAXCHAR,MPI_CHAR,0,world);
@@ -579,7 +579,7 @@ void Read_cfg::read_atom_dmd()
     else if(narg==entry_count)
     {
         for (int i=0;i<entry_count;i++)
-            tmp_buff[i]=static_cast<TYPE0>(atof(arg[i]));
+            tmp_buff[i]=static_cast<type0>(atof(arg[i]));
         for(int i=3;i<3+dmd_no_types;i++)
             if(tmp_buff[i]<=0.0)
                 error->abort("values of alpha vector in %s file should be greater than 0.0",file_name);
@@ -616,7 +616,7 @@ void Read_cfg::add_atom_read_x(int t)
     
     if(vel_chk)
     {
-        TYPE0* x_d;
+        type0* x_d;
         CREATE1D(x_d,3);
         
         V3ZERO(x_d);
@@ -638,12 +638,12 @@ void Read_cfg::add_atom_read_x(int t)
             return;
         }
     
-    memcpy(ch_buff,tmp_buff,3*sizeof(TYPE0));
+    memcpy(ch_buff,tmp_buff,3*sizeof(type0));
     memcpy(&ch_buff[ch_type],&t,sizeof(int));
     memcpy(&ch_buff[ch_id],&curr_id,sizeof(int));
     
     if(vel_chk)
-        memcpy(&ch_buff[ch_x_d],&tmp_buff[3],3*sizeof(TYPE0));
+        memcpy(&ch_buff[ch_x_d],&tmp_buff[3],3*sizeof(type0));
     
     atoms->unpack(ch_buff,0,1,vec_list);
     curr_id++;
@@ -669,10 +669,10 @@ void Read_cfg::add_atom_read_x()
             return;
         }
     
-    memcpy(ch_buff,tmp_buff,(3+dmd_no_types)*sizeof(TYPE0));
+    memcpy(ch_buff,tmp_buff,(3+dmd_no_types)*sizeof(type0));
     memcpy(&ch_buff[ch_id],&curr_id,sizeof(int));
     memcpy(&ch_buff[ch_c],&tmp_buff[3+dmd_no_types]
-    ,dmd_no_types*sizeof(TYPE0));
+    ,dmd_no_types*sizeof(type0));
     
     atoms->unpack(ch_buff,0,1,vec_list);
     curr_id++;
@@ -685,20 +685,20 @@ void Read_cfg::add_atom_read_x()
  Computers Math. Applic. Vol. 18, No. 5,
  pp. 459-466, 1989
  --------------------------------------------*/
-void Read_cfg::M3sqroot(TYPE0** A,TYPE0** Asq)
+void Read_cfg::M3sqroot(type0** A,type0** Asq)
 {
-    TYPE0 IA=0;
+    type0 IA=0;
     for(int i=0;i<3;i++)
         IA+=A[i][i];
-    TYPE0 IIA=0;
+    type0 IIA=0;
     for(int i=0;i<3;i++)
         for(int j=0;j<3;j++)
             IIA-=A[i][j]*A[j][i];
     
     IIA+=IA*IA;
     IIA*=0.5;
-    TYPE0 IIIA=M3DET(A);
-    TYPE0 k=IA*IA-3*IIA;
+    type0 IIIA=M3DET(A);
+    type0 k=IA*IA-3*IIA;
     if(k<0.0)
         error->abort("eta in %s should be positive definite",file_name);
     if(k<TOLERANCE)
@@ -711,23 +711,23 @@ void Read_cfg::M3sqroot(TYPE0** A,TYPE0** Asq)
         return;
     }
     
-    TYPE0 l=IA*(IA*IA -4.5*IIA)+13.5*IIIA;
+    type0 l=IA*(IA*IA -4.5*IIA)+13.5*IIIA;
     
-    TYPE0 temp=l/(k*sqrt(k));
+    type0 temp=l/(k*sqrt(k));
     if(temp>1.0||temp<-1.0)
         error->abort("eta in %s should be positive definite",file_name);
     
-    TYPE0 phi=acos(temp);
-    TYPE0 lambda=sqrt((1.0/3.0)*(IA+2*sqrt(k)*cos(phi/3.0)));
+    type0 phi=acos(temp);
+    type0 lambda=sqrt((1.0/3.0)*(IA+2*sqrt(k)*cos(phi/3.0)));
     
-    TYPE0 IIIAsq=sqrt(IIIA);
-    TYPE0 y=-lambda*lambda+IA+2*IIIAsq/lambda;
+    type0 IIIAsq=sqrt(IIIA);
+    type0 y=-lambda*lambda+IA+2*IIIAsq/lambda;
     if(y<0.0)
         error->abort("eta in %s should be positive definite",file_name);
-    TYPE0 IAsq=lambda+sqrt(y);
-    TYPE0 IIAsq=0.5*(IAsq*IAsq-IA);
+    type0 IAsq=lambda+sqrt(y);
+    type0 IIAsq=0.5*(IAsq*IAsq-IA);
     
-    TYPE0 coef0=IAsq*IIAsq-IIIAsq;
+    type0 coef0=IAsq*IIAsq-IIIAsq;
     if(coef0==0)
         error->abort("eta in %s should be positive definite",file_name);
     coef0=1.0/coef0;
@@ -739,12 +739,12 @@ void Read_cfg::M3sqroot(TYPE0** A,TYPE0** Asq)
             for(int k=0;k<3;k++)
                 Asq[i][j]-=coef0*A[i][k]*A[k][j];
     
-    TYPE0 coef1=coef0*(IAsq*IAsq-IIAsq);
+    type0 coef1=coef0*(IAsq*IAsq-IIAsq);
     for(int i=0;i<3;i++)
         for(int j=0;j<3;j++)
             Asq[i][j]+=coef1*A[i][j];
     
-    TYPE0 coef2=coef0*IAsq*IIIAsq;
+    type0 coef2=coef0*IAsq*IIIAsq;
     for(int i=0;i<3;i++)
         Asq[i][i]+=coef2;
     

@@ -37,7 +37,7 @@ ForceField_eam_dmd_c(MAPP* mapp) : ForceField(mapp)
     {
         int tmp0=atoms->find("c");
         tmp0=atoms->vectors[tmp0].dim;
-        c_d_n=atoms->add<TYPE0>(0,tmp0,"c_d");
+        c_d_n=atoms->add<type0>(0,tmp0,"c_d");
     }
     
 }
@@ -87,33 +87,33 @@ ForceField_eam_dmd_c::~ForceField_eam_dmd_c()
  force calculation
  --------------------------------------------*/
 void ForceField_eam_dmd_c::
-force_calc(int st_clc,TYPE0* en_st)
+force_calc(int st_clc,type0* en_st)
 {
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
-    TYPE0* E;
+    type0* E;
     atoms->vectors[E_n].ret(E);
-    TYPE0* dE;
+    type0* dE;
     atoms->vectors[dE_n].ret(dE);
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
     
     int iatm,jatm;
     
     int icomp,jcomp,phi_start,rho_start;
-    TYPE0 dx0,dx1,dx2,rsq,z2p,z2;
-    TYPE0 alpha;
-    TYPE0 r=0.0,r_inv=0.0;
+    type0 dx0,dx1,dx2,rsq,z2p,z2;
+    type0 alpha;
+    type0 r=0.0,r_inv=0.0;
     int m;
-    TYPE0* coef;
-    TYPE0 alpha_sq,inv_alph_sq,tmp0,tmp1,tmp2;
-    TYPE0 upper,lower;
-    TYPE0 fpair,apair;
+    type0* coef;
+    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,tmp2;
+    type0 upper,lower;
+    type0 fpair,apair;
     
-    TYPE0 p,p2,p3,p4;
-    TYPE0 f_0,f_1,f_2,g_0,g_1,g_2;
+    type0 p,p2,p3,p4;
+    type0 f_0,f_1,f_2,g_0,g_1,g_2;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -452,27 +452,27 @@ force_calc(int st_clc,TYPE0* en_st)
 /*--------------------------------------------
  energy calculation
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::energy_calc()
+type0 ForceField_eam_dmd_c::energy_calc()
 {
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
-    TYPE0* E;
+    type0* E;
     atoms->vectors[E_n].ret(E);
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
     
     int iatm,jatm;
     
     int icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq,z2;
-    TYPE0 alpha;
-    TYPE0 r,r_inv=0.0;
+    type0 dx0,dx1,dx2,rsq,z2;
+    type0 alpha;
+    type0 r,r_inv=0.0;
     int m;
-    TYPE0* coef;
-    TYPE0 alpha_sq,inv_alph_sq,tmp0,tmp1,tmp2;
-    TYPE0 upper,lower;
+    type0* coef;
+    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,tmp2;
+    type0 upper,lower;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -480,12 +480,12 @@ TYPE0 ForceField_eam_dmd_c::energy_calc()
     
     int natms=atoms->natms;
     for(int i=0;i<natms*no_types;i++) E[i]=0.0;
-    TYPE0 en=0.0;
-    TYPE0 en_tot=0.0;
+    type0 en=0.0;
+    type0 en_tot=0.0;
     
     
-    TYPE0 f_0,g_0;
-    TYPE0 p,p2,p3,p4;
+    type0 f_0,g_0;
+    type0 p,p2,p3,p4;
     
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -671,8 +671,8 @@ TYPE0 ForceField_eam_dmd_c::energy_calc()
  --------------------------------------------*/
 void ForceField_eam_dmd_c::init()
 {
-    TYPE0 skin=atoms->skin;
-    TYPE0 ph_cut=0.0;
+    type0 skin=atoms->skin;
+    type0 ph_cut=0.0;
     for (int i=0;i<no_types*(no_types+1)/2;i++)
         cut_sk_sq[i]=cut_sq_mod_0+(skin)*(skin)
         +2.0*sqrt(cut_sq_mod_0)*(skin);
@@ -687,14 +687,14 @@ void ForceField_eam_dmd_c::init()
     
     neighbor->pair_wise=1;
     
-    E_n=atoms->add<TYPE0>(1,no_types,"E");
-    dE_n=atoms->add<TYPE0>(1,no_types,"dE");
-    ddE_n=atoms->add<TYPE0>(1,no_types,"ddE");
-    n_n=atoms->add<TYPE0>(1,no_types,"n");
-    s_n=atoms->add<TYPE0>(1,no_types,"s");
-    t_n=atoms->add<TYPE0>(1,2*no_types,"t");
-    v_n=atoms->add<TYPE0>(1,2*no_types,"v");
-    crd_n=atoms->add<TYPE0>(1,no_types,"crd");
+    E_n=atoms->add<type0>(1,no_types,"E");
+    dE_n=atoms->add<type0>(1,no_types,"dE");
+    ddE_n=atoms->add<type0>(1,no_types,"ddE");
+    n_n=atoms->add<type0>(1,no_types,"n");
+    s_n=atoms->add<type0>(1,no_types,"s");
+    t_n=atoms->add<type0>(1,2*no_types,"t");
+    v_n=atoms->add<type0>(1,2*no_types,"v");
+    crd_n=atoms->add<type0>(1,no_types,"crd");
     
 }
 /*--------------------------------------------
@@ -734,7 +734,7 @@ void ForceField_eam_dmd_c::fin()
  --------------------------------------------*/
 void ForceField_eam_dmd_c::coef(int narg,char** arg)
 {
-    TYPE0 kb,T,hbar;
+    type0 kb,T,hbar;
     if (narg<9)
         error->abort("ff_coef for ff eam_dmd "
         "should at least have 8 arguments");
@@ -798,8 +798,8 @@ void ForceField_eam_dmd_c::coef(int narg,char** arg)
                      "for eam Force Field");
     set_arrays();
     
-    TYPE0 mass;
-    TYPE0 deb_l;
+    type0 mass;
+    type0 deb_l;
     
     for(int i=0;i<no_types;i++)
     {
@@ -815,8 +815,8 @@ void ForceField_eam_dmd_c::coef(int narg,char** arg)
     if(alpha_min==0.0)
         error->abort("minimum alpha cannot be zero");
     
-    rc=(static_cast<TYPE0>(nr)-1.0)*dr;
-    rho_max=(static_cast<TYPE0>(nrho)-1.0)*drho;
+    rc=(static_cast<type0>(nr)-1.0)*dr;
+    rho_max=(static_cast<type0>(nrho)-1.0)*drho;
     cut_sq_0=rc*rc;
     mod_rc=rc+xi[no_i-1]/sqrt(alpha_min);
     cut_sq_mod_0=mod_rc*mod_rc;
@@ -923,8 +923,8 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
         " ff eam_dmd files should be equal to the number"
         " of atom types present in the system");
     
-    TYPE0* drs;
-    TYPE0* drhos;
+    type0* drs;
+    type0* drhos;
     int* nrs;
     int* nrhos;
     CREATE1D(drs,no_types);
@@ -932,20 +932,20 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
     CREATE1D(nrs,no_types);
     CREATE1D(nrhos,no_types);
     
-    TYPE0** tmp_F;
-    TYPE0** tmp_rho;
-    TYPE0** tmp_zi;
+    type0** tmp_F;
+    type0** tmp_rho;
+    type0** tmp_zi;
     CREATE1D(tmp_F,no_types);
     CREATE1D(tmp_rho,no_types);
     CREATE1D(tmp_zi,no_types);
-    TYPE0* tmp;
+    type0* tmp;
     
     FILE* fp=NULL;
     char* line;
     CREATE1D(line,MAXCHAR);
     int narg;
     char** arg;
-    TYPE0 mass;
+    type0 mass;
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
@@ -1044,9 +1044,9 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
         CREATE1D(tmp_rho[ityp],nrs[ityp]);
         
         
-        memcpy(tmp_F[ityp],&tmp[0],nrhos[ityp]*sizeof(TYPE0));
-        memcpy(tmp_zi[ityp],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(TYPE0));
-        memcpy(tmp_rho[ityp],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(TYPE0));
+        memcpy(tmp_F[ityp],&tmp[0],nrhos[ityp]*sizeof(type0));
+        memcpy(tmp_zi[ityp],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(type0));
+        memcpy(tmp_rho[ityp],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(type0));
         
         delete [] tmp;
         
@@ -1054,15 +1054,15 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
     delete [] line;
     
     
-    TYPE0 maxr=0.0;
-    TYPE0 maxrho=0.0;
-    TYPE0 maxdr=0.0;
-    TYPE0 maxdrho=0.0;
+    type0 maxr=0.0;
+    type0 maxrho=0.0;
+    type0 maxdr=0.0;
+    type0 maxdrho=0.0;
     
     for(int i=0;i<no_types;i++)
     {
-        maxr=MAX(maxr,static_cast<TYPE0>(nrs[i]-1)*drs[i]);
-        maxrho=MAX(maxrho,static_cast<TYPE0>(nrhos[i]-1)*drhos[i]);
+        maxr=MAX(maxr,static_cast<type0>(nrs[i]-1)*drs[i]);
+        maxrho=MAX(maxrho,static_cast<type0>(nrhos[i]-1)*drhos[i]);
         maxdr=MAX(maxdr,drs[i]);
         maxdrho=MAX(maxdrho,drhos[i]);
     }
@@ -1075,14 +1075,14 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
     drho_inv=1.0/drho;
     allocate();
     
-    TYPE0 r,p,tmp0,tmp1;
+    type0 r,p,tmp0,tmp1;
     int k;
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
         for(int i=0;i<nrho;i++)
         {
-            r=static_cast<TYPE0>(i)*drho;
+            r=static_cast<type0>(i)*drho;
             p=r/drhos[ityp];
             k=static_cast<int> (p);
             k=MIN(k,nrhos[ityp]-2);
@@ -1099,7 +1099,7 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
     {
         for(int i=0;i<nr;i++)
         {
-            r=static_cast<TYPE0>(i)*dr;
+            r=static_cast<type0>(i)*dr;
             p=r/drs[ityp];
             k=static_cast<int> (p);
             k=MIN(k,nrs[ityp]-2);
@@ -1118,7 +1118,7 @@ void ForceField_eam_dmd_c::set_funcfl(int no_files
             for(int i=0;i<nr;i++)
             {
                 
-                r=static_cast<TYPE0>(i)*dr;
+                r=static_cast<type0>(i)*dr;
                 
                 p=r/drs[ityp];
                 k=static_cast<int> (p);
@@ -1265,7 +1265,7 @@ void ForceField_eam_dmd_c::set_setfl(int no_files
     int ipos=0;
     int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)*nr/2;
     
-    TYPE0* tmp;
+    type0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
@@ -1459,7 +1459,7 @@ void ForceField_eam_dmd_c::set_fs(int no_files
     int ipos=0;
     int tot=tot_no_types*nrho+tot_no_types*tot_no_types*nr
     +tot_no_types*(tot_no_types+1)*nr/2;
-    TYPE0* tmp;
+    type0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
@@ -1774,7 +1774,7 @@ void ForceField_eam_dmd_c::set_arrays()
  allocate the arrays
  --------------------------------------------*/
 void ForceField_eam_dmd_c::interpolate(int n
-,TYPE0 delta,TYPE0** spline)
+,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1806,12 +1806,12 @@ void ForceField_eam_dmd_c::interpolate(int n
 /*--------------------------------------------
  interpolate for a single array
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::interpolate(TYPE0* arr
-,int n,TYPE0 p,int k)
+type0 ForceField_eam_dmd_c::interpolate(type0* arr
+,int n,type0 p,int k)
 {
     
     // k_min=0 k_max=n-1
-    TYPE0 coef0,coef1,coef2,coef3,tmp;
+    type0 coef0,coef1,coef2,coef3,tmp;
     
     coef0=arr[k];
     
@@ -1862,7 +1862,7 @@ TYPE0 ForceField_eam_dmd_c::interpolate(TYPE0* arr
  allocate the arrays
  --------------------------------------------*/
 void ForceField_eam_dmd_c::interpolate_m(int n
-,TYPE0 delta,TYPE0** spline)
+,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -2211,13 +2211,13 @@ void ForceField_eam_dmd_c::create_2nd_neigh_lst()
 {
 
     
-    TYPE0 dx0,dx1,dx2,rsq;
+    type0 dx0,dx1,dx2,rsq;
     int iatm,jatm,icomp,jcomp;
     int natms=atoms->natms;
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
 
     
@@ -2282,8 +2282,8 @@ void ForceField_eam_dmd_c::create_2nd_neigh_lst()
  this fucntion should be symmetric wrt fi &
  fj
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::
-mat(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
+type0 ForceField_eam_dmd_c::
+mat(type0 fi,type0 crdi,type0 fj,type0 crdj
     ,int itype)
 {
     if(fi>fj)
@@ -2294,8 +2294,8 @@ mat(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::
-dmat0(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
+type0 ForceField_eam_dmd_c::
+dmat0(type0 fi,type0 crdi,type0 fj,type0 crdj
      ,int itype)
 {
     
@@ -2308,8 +2308,8 @@ dmat0(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::
-dmat1(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
+type0 ForceField_eam_dmd_c::
+dmat1(type0 fi,type0 crdi,type0 fj,type0 crdj
 ,int itype)
 {
     
@@ -2318,7 +2318,7 @@ dmat1(TYPE0 fi,TYPE0 crdi,TYPE0 fj,TYPE0 crdj
 /*--------------------------------------------
  return M_{ij}^{\alpha}
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::calc_ent(TYPE0 x)
+type0 ForceField_eam_dmd_c::calc_ent(type0 x)
 {
     if(x<1.0e-8 || 0.99999999<x)
         return 0.0;
@@ -2332,24 +2332,24 @@ TYPE0 ForceField_eam_dmd_c::calc_ent(TYPE0 x)
 void ForceField_eam_dmd_c::c_d_calc()
 {
     
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* E;
+    type0* E;
     atoms->vectors[E_n].ret(E);
-    TYPE0* dE;
+    type0* dE;
     atoms->vectors[dE_n].ret(dE);
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
-    TYPE0* n;
+    type0* n;
     atoms->vectors[n_n].ret(n);
-    TYPE0* crd;
+    type0* crd;
     atoms->vectors[crd_n].ret(crd);
     
-    TYPE0 fi,fj,exp_fi,exp_fj;
-    TYPE0 p,p2,p3,p4,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji;
-    TYPE0* coef;
+    type0 fi,fj,exp_fi,exp_fj;
+    type0 p,p2,p3,p4,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji;
+    type0* coef;
     int m;
     int iatm,jatm;
     int icomp,jcomp,phi_start,rho_start;
@@ -2496,36 +2496,36 @@ void ForceField_eam_dmd_c::c_d_calc()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-TYPE0 ForceField_eam_dmd_c::g_calc(int chk
-,TYPE0 alpha,TYPE0* a,TYPE0* g)
+type0 ForceField_eam_dmd_c::g_calc(int chk
+,type0 alpha,type0* a,type0* g)
 {
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* E;
+    type0* E;
     atoms->vectors[E_n].ret(E);
-    TYPE0* dE;
+    type0* dE;
     atoms->vectors[dE_n].ret(dE);
-    TYPE0* c;
+    type0* c;
     atoms->vectors[c_n].ret(c);
-    TYPE0* c_d;
+    type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
-    TYPE0* n;
+    type0* n;
     atoms->vectors[n_n].ret(n);
-    TYPE0* s;
+    type0* s;
     atoms->vectors[s_n].ret(s);
-    TYPE0* t;
+    type0* t;
     atoms->vectors[t_n].ret(t);
-    TYPE0* v;
+    type0* v;
     atoms->vectors[v_n].ret(v);
-    TYPE0* crd;
+    type0* crd;
     atoms->vectors[crd_n].ret(crd);
     
-    TYPE0 inner,ans;
-    TYPE0 fi,fj,exp_fi,exp_fj;
-    TYPE0 p,p2,p3,p4,tmp0,tmp1,s_ij;
-    TYPE0 w_ij,w_ji,l_ij;
-    TYPE0 crdi,crdj;
-    TYPE0* coef;
+    type0 inner,ans;
+    type0 fi,fj,exp_fi,exp_fj;
+    type0 p,p2,p3,p4,tmp0,tmp1,s_ij;
+    type0 w_ij,w_ji,l_ij;
+    type0 crdi,crdj;
+    type0* coef;
     int m;
     int iatm,jatm;
     int icomp,jcomp,phi_start,rho_start;

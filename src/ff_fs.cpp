@@ -206,7 +206,7 @@ void ForceField_fs::read_file(char* file_name)
     
     //lngth=read_line(fp,line);
     int icmp,jcmp,curs;
-    TYPE0 tmp;
+    type0 tmp;
     while(lngth!=-1)
     {
         if(lngth>1)
@@ -433,8 +433,8 @@ int ForceField_fs::read_line(FILE* file,char*& line)
  --------------------------------------------*/
 void ForceField_fs::init()
 {
-    TYPE0 skin=atoms->skin;
-    TYPE0 ph_cut=0.0;
+    type0 skin=atoms->skin;
+    type0 ph_cut=0.0;
     
     for (int i=0;i<arr_size;i++)
     {
@@ -453,7 +453,7 @@ void ForceField_fs::init()
 
     neighbor->pair_wise=1;
     
-    rho_n=atoms->add<TYPE0>(1,1,"rho");
+    rho_n=atoms->add<type0>(1,1,"rho");
 }
 /*--------------------------------------------
  after a run
@@ -473,7 +473,7 @@ void ForceField_fs::fin()
  force and energy calculation
  --------------------------------------------*/
 void ForceField_fs::
-force_calc(int st_clc,TYPE0* en_st)
+force_calc(int st_clc,type0* en_st)
 {
     if(max_pairs<neighbor->no_pairs)
     {
@@ -491,11 +491,11 @@ force_calc(int st_clc,TYPE0* en_st)
     }
 
     
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* f;
+    type0* f;
     atoms->vectors[f_n].ret(f);
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
     int* type;
     atoms->vectors[type_n].ret(type);
@@ -503,8 +503,8 @@ force_calc(int st_clc,TYPE0* en_st)
     int iatm,jatm;
     
     int itype,jtype,curs,icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq;
-    TYPE0 dr_rho,dr_phi,r,rho_coef,phi_coef,r_inv,rho_sqd;
+    type0 dx0,dx1,dx2,rsq;
+    type0 dr_rho,dr_phi,r,rho_coef,phi_coef,r_inv,rho_sqd;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -707,11 +707,11 @@ force_calc(int st_clc,TYPE0* en_st)
  minimization/linesearch methods that do not
  use derivatives of energy
  --------------------------------------------*/
-TYPE0 ForceField_fs::energy_calc()
+type0 ForceField_fs::energy_calc()
 {
-    TYPE0* x;
+    type0* x;
     atoms->vectors[x_n].ret(x);
-    TYPE0* rho;
+    type0* rho;
     atoms->vectors[rho_n].ret(rho);
     int* type;
     atoms->vectors[type_n].ret(type);
@@ -720,8 +720,8 @@ TYPE0 ForceField_fs::energy_calc()
     int iatm,jatm;
     
     int itype,jtype,curs,icomp,jcomp;
-    TYPE0 dx0,dx1,dx2,rsq,csq;
-    TYPE0 dr_rho,dr_phi,r;
+    type0 dx0,dx1,dx2,rsq,csq;
+    type0 dr_rho,dr_phi,r;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -729,8 +729,8 @@ TYPE0 ForceField_fs::energy_calc()
     for(int i=0;i<natms;i++)
         rho[i]=0.0;
     
-    TYPE0 en=0.0;
-    TYPE0 en_tot=0.0;
+    type0 en=0.0;
+    type0 en_tot=0.0;
     for(iatm=0;iatm<natms;iatm++)
     {
         itype=type[iatm];

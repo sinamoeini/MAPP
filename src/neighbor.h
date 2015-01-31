@@ -13,9 +13,9 @@ namespace MAPP_NS {
     class Neighbor : protected InitPtrs{
     private:
     protected:
-        TYPE0* s_tmp;
+        type0* s_tmp;
         int* bin_denom_list;
-        TYPE0* bin_size;
+        type0* bin_size;
         
         int* tot_bin_grid;
         int tot_bin;
@@ -27,8 +27,8 @@ namespace MAPP_NS {
         
         void bin_atoms();
         void bin_atoms_s();
-        int x2bin(TYPE0*);
-        int s2bin(TYPE0*);
+        int x2bin(type0*);
+        int s2bin(type0*);
         
         int* first_atom_bin;
         int first_atom_bin_size;

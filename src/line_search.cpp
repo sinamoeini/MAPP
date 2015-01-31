@@ -29,14 +29,14 @@ LineSearch::~LineSearch()
 /*--------------------------------------------
  inner product of f and h
  --------------------------------------------*/
-TYPE0 LineSearch::inner_f_h()
+type0 LineSearch::inner_f_h()
 {
-    TYPE0* f;
-    TYPE0* h;
+    type0* f;
+    type0* h;
     atoms->vectors[f_n].ret(f);
     atoms->vectors[h_n].ret(h);
-    TYPE0 inner=0.0;
-    TYPE0 inner_tot=0.0;
+    type0 inner=0.0;
+    type0 inner_tot=0.0;
     for(int i=0;i<x_dim*atoms->natms;i++)
         inner+=f[i]*h[i];
     
@@ -47,14 +47,14 @@ TYPE0 LineSearch::inner_f_h()
 /*--------------------------------------------
  inner product of f and h
  --------------------------------------------*/
-TYPE0 LineSearch::inner_f_h_s()
+type0 LineSearch::inner_f_h_s()
 {
-    TYPE0* f;
-    TYPE0* h;
+    type0* f;
+    type0* h;
     atoms->vectors[f_n].ret(f);
     atoms->vectors[h_n].ret(h);
-    TYPE0 inner=0.0;
-    TYPE0 inner_tot=0.0;
+    type0 inner=0.0;
+    type0 inner_tot=0.0;
     for(int i=0;i<x_dim*atoms->natms;i++)
         inner+=f[i]*h[i];
     
@@ -71,10 +71,10 @@ TYPE0 LineSearch::inner_f_h_s()
  --------------------------------------------*/
 void LineSearch::normalize_h()
 {
-    TYPE0* h;
+    type0* h;
     atoms->vectors[h_n].ret(h);
-    TYPE0 inner=0.0;
-    TYPE0 inner_tot=0.0;
+    type0 inner=0.0;
+    type0 inner_tot=0.0;
     for(int i=0;i<x_dim*atoms->natms;i++)
         inner+=h[i]*h[i];
     MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
@@ -89,10 +89,10 @@ void LineSearch::normalize_h()
  --------------------------------------------*/
 void LineSearch::normalize_h_s()
 {
-    TYPE0* h;
+    type0* h;
     atoms->vectors[h_n].ret(h);
-    TYPE0 inner=0.0;
-    TYPE0 inner_tot=0.0;
+    type0 inner=0.0;
+    type0 inner_tot=0.0;
     for(int i=0;i<x_dim*atoms->natms;i++)
         inner+=h[i]*h[i];
     MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
@@ -112,12 +112,12 @@ void LineSearch::normalize_h_s()
 /*--------------------------------------------
  inner product of f and h
  --------------------------------------------*/
-TYPE0 LineSearch::energy(TYPE0 alpha)
+type0 LineSearch::energy(type0 alpha)
 {
-    TYPE0 energy;
-    TYPE0* x;
-    TYPE0* x_prev;
-    TYPE0* h;
+    type0 energy;
+    type0* x;
+    type0* x_prev;
+    type0* h;
     char* dof=NULL;
     
     atoms->vectors[x_n].ret(x);
@@ -128,7 +128,7 @@ TYPE0 LineSearch::energy(TYPE0 alpha)
 
     if(chng_box)
     {
-        TYPE0** H=atoms->H;
+        type0** H=atoms->H;
         
         for(int i=0;i<dim;i++)
         {
@@ -220,17 +220,17 @@ LineSearch_BackTrack::~LineSearch_BackTrack()
 /*--------------------------------------------
  minimize line
  --------------------------------------------*/
-int LineSearch_BackTrack::line_min(TYPE0& nrgy,TYPE0& alph)
+int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
 {
-    TYPE0 inner;
-    TYPE0 alpha_m;
-    TYPE0 max_h;
-    TYPE0 max_h_tot;
-    TYPE0 min_h;
-    TYPE0 min_h_tot=0;
-    TYPE0 current_energy,ideal_energy;
-    TYPE0* h;
-    TYPE0* x;
+    type0 inner;
+    type0 alpha_m;
+    type0 max_h;
+    type0 max_h_tot;
+    type0 min_h;
+    type0 min_h_tot=0;
+    type0 current_energy,ideal_energy;
+    type0* h;
+    type0* x;
     
     if(mapp->mode==DMD_mode)
     {
