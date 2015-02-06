@@ -1,31 +1,29 @@
 #ifdef FF_Style
-FFStyle(ForceField_eam_dmd_c,eam_dmd_c)
+    FFStyle(ForceField_eam_dmd_hg_1,eam_dmd_hg_1)
 #else
-
-#ifndef __MAPP__ff_eam_dmd_c__
-#define __MAPP__ff_eam_dmd_c__
-
+#ifndef __MAPP__ff_eam_dmd_hg_1__
+#define __MAPP__ff_eam_dmd_hg_1__
 #include <stdio.h>
 #include <iostream>
 #include "ff.h"
 #include "atoms.h"
 namespace MAPP_NS
 {
-    class ForceField_eam_dmd_c : public ForceField
+    class ForceField_eam_dmd_hg_1 : public ForceField
     {
     private:
         int no_types;
     protected:
         type0*** F_arr;
         type0*** phi_r_arr;
-        type0*** rho_arr;
+        type0*** rho_r_arr;
         
-
+        
         
         int eam_mode;
         int nr,nrho;
         type0 dr,drho,dr_inv,drho_inv,rho_max;
-
+        
         void set_setfl(int,char**);
         void set_funcfl(int,char**);
         void set_fs(int,char**);
@@ -43,6 +41,11 @@ namespace MAPP_NS
         
         int** type2rho;
         int** type2phi;
+        int** type2rho_pair_ij;
+        int** type2rho_pair_ji;
+        int** type2phi_pair_ij;
+        int** type2phi_pair_ji;
+        int stride;
         
         int f_n,type_n,x_n,c_n,E_n,dE_n,ddE_n,
         n_n,s_n,crd_n,t_n,v_n,c_d_n,m_n;
@@ -53,12 +56,11 @@ namespace MAPP_NS
         type0* delta_e;
         
         /*--------------------------------------------*/
-        type0* rho;
-        type0* drho_dr;
-        type0* drho_dalpha;
-        type0* phi;
-        type0* dphi_dr;
-        type0* dphi_dalpha;
+        
+        type0* rho_phi;
+        type0* drho_phi_dr;
+        type0* drho_phi_dalpha;
+        
         int max_pairs;
         /*--------------------------------------------*/
         
@@ -85,8 +87,8 @@ namespace MAPP_NS
         type0 calc_ent(type0);
         
     public:
-        ForceField_eam_dmd_c(MAPP *);
-        ~ForceField_eam_dmd_c();
+        ForceField_eam_dmd_hg_1(MAPP *);
+        ~ForceField_eam_dmd_hg_1();
         void force_calc(int,type0*);
         type0 energy_calc();
         void init();

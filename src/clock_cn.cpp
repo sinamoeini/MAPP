@@ -12,7 +12,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
 {
 
 
-    min_gamma=1.0e-10;
+    min_gamma=0.0;
     gamma_red=0.8;
     slope=0.4;
     max_iter=50;

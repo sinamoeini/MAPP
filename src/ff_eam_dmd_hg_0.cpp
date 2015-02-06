@@ -1,4 +1,4 @@
-#include "ff_eam_dmd.h"
+#include "ff_eam_dmd_hg_0.h"
 #include "neighbor.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
@@ -7,11 +7,12 @@ enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ForceField_eam_dmd::
-ForceField_eam_dmd(MAPP* mapp) : ForceField(mapp)
+ForceField_eam_dmd_hg_0::
+ForceField_eam_dmd_hg_0(MAPP* mapp) : ForceField(mapp)
 {
     if(mapp->mode!=DMD_mode)
-        error->abort("this forcefield works only with dmd mode");
+        error->abort("ff eam_dmd works only "
+                     "for dmd mode");
     
     no_i=0;
     allocated=0;
@@ -43,9 +44,8 @@ ForceField_eam_dmd(MAPP* mapp) : ForceField(mapp)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-ForceField_eam_dmd::~ForceField_eam_dmd()
+ForceField_eam_dmd_hg_0::~ForceField_eam_dmd_hg_0()
 {
-    
     if(no_types)
     {
         delete [] c_0;
@@ -65,12 +65,9 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
     
     if(max_pairs)
     {
-        delete [] rho;
-        delete [] drho_dr;
-        delete [] drho_dalpha;
-        delete [] phi;
-        delete [] dphi_dr;
-        delete [] dphi_dalpha;
+        delete [] rho_phi;
+        delete [] drho_phi_dr;
+        delete [] drho_phi_dalpha;
     }
     
     if(neigh_lst_sz_sz)
@@ -86,7 +83,7 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
 /*--------------------------------------------
  force calculation
  --------------------------------------------*/
-void ForceField_eam_dmd::
+void ForceField_eam_dmd_hg_0::
 force_calc(int st_clc,type0* en_st)
 {
     type0* x;
@@ -102,18 +99,22 @@ force_calc(int st_clc,type0* en_st)
     
     int iatm,jatm;
     
-    int icomp,jcomp,phi_start,rho_start;
+    int icomp,jcomp,istart;
     type0 dx0,dx1,dx2,rsq,z2p,z2;
     type0 alpha;
     type0 r=0.0,r_inv=0.0;
     int m;
     type0* coef;
-    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,tmp2;
+    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,rtmp;
     type0 upper,lower;
     type0 fpair,apair;
     
     type0 p,p2,p3,p4;
-    type0 f_0,f_1,f_2,g_0,g_1,g_2;
+    type0 phi_it_jt_0,phi_it_jt_1,phi_it_jt_2;
+    type0 rho_it_jt_0,rho_it_jt_1,rho_it_jt_2;
+    type0 rho_jt_it_0,rho_jt_it_1,rho_jt_it_2;
+    
+    
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -122,28 +123,18 @@ force_calc(int st_clc,type0* en_st)
     {
         if(max_pairs)
         {
-            delete [] rho;
-            delete [] drho_dr;
-            delete [] drho_dalpha;
-            delete [] phi;
-            delete [] dphi_dr;
-            delete [] dphi_dalpha;
+            delete [] rho_phi;
+            delete [] drho_phi_dr;
+            delete [] drho_phi_dalpha;
         }
         max_pairs=neighbor->no_pairs;
-        int no_0=max_pairs*no_types*no_types;
-        int no_1=max_pairs*no_types*(no_types+1)/2;
-        CREATE1D(rho,no_0);
-        CREATE1D(drho_dr,no_0);
-        CREATE1D(drho_dalpha,no_0);
+        int no_0=max_pairs*stride;
+        CREATE1D(rho_phi,no_0);
+        CREATE1D(drho_phi_dr,no_0);
+        CREATE1D(drho_phi_dalpha,no_0);
         for(int i=0;i<no_0;i++)
-            rho[i]=drho_dr[i]=drho_dalpha[i]=0.0;
-        CREATE1D(phi,no_1);
-        CREATE1D(dphi_dr,no_1);
-        CREATE1D(dphi_dalpha,no_1);
-        for(int i=0;i<no_1;i++)
-            phi[i]=dphi_dr[i]=dphi_dalpha[i]=0.0;
+            rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
     }
-    
     
     nrgy_strss[0]=0.0;
     if (st_clc)
@@ -152,10 +143,8 @@ force_calc(int st_clc,type0* en_st)
     
     int natms=atoms->natms;
     for(int i=0;i<natms*no_types;i++) E[i]=0.0;
-    for(int i=0;i<natms*(3+no_types);i++) f[i]=0.0;
     
-    phi_start=0;
-    rho_start=0;
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=(3+no_types)*iatm;
@@ -187,75 +176,101 @@ force_calc(int st_clc,type0* en_st)
                             
                             if(lower<xi[no_i-1])
                             {
-                                f_0=f_1=f_2=g_0=g_1=g_2=0.0;
+                                phi_it_jt_0=phi_it_jt_1=phi_it_jt_2=0.0;
+                                rho_it_jt_0=rho_it_jt_1=rho_it_jt_2=0.0;
+                                rho_jt_it_0=rho_jt_it_1=rho_jt_it_2=0.0;
+                                
                                 for(int i=0;i<no_i;i++)
                                 {
                                     if(xi[i]>lower && xi[i]<upper)
                                     {
-                                        tmp0=r-xi[i]*inv_alph_sq;
+                                        rtmp=r-xi[i]*inv_alph_sq;
                                         
-                                        p=fabs(tmp0)*dr_inv;
+                                        p=fabs(rtmp)*dr_inv;
                                         m=static_cast<int>(p);
                                         m=MIN(m,nr-2);
-                                        
                                         p-=m;
                                         p=MIN(p,1.0);
                                         p2=p*p;
                                         p3=p2*p;
-                                        p4=p3*p;
                                         
-                                        coef=rho_arr[type2rho[itype][jtype]][m];
-                                        tmp2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                        tmp2*=tmp0;
-                                        g_0+=wi_0[i]*tmp2;
-                                        g_1+=wi_1[i]*tmp2;
-                                        g_2+=wi_2[i]*tmp2;
+                                        coef=rho_r_arr[type2rho[itype][jtype]][m];
+                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                        if(rtmp<0.0)
+                                            tmp0*=-1.0;
                                         
-                                        if(itype>=jtype)
+                                        rho_it_jt_0+=wi_0[i]*tmp0;
+                                        rho_it_jt_1+=wi_0[i]*tmp1;
+                                        rho_it_jt_2+=wi_1[i]*tmp1;
+                                        
+                                        if(itype!=jtype)
                                         {
-                                            coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                            tmp1=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                            if(tmp0<0.0)
-                                                tmp1*=-1.0;
-                                            f_0+=wi_0[i]*tmp1;
-                                            f_1+=wi_1[i]*tmp1;
-                                            f_2+=wi_2[i]*tmp1;
+                                            coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                            tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                            tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                            if(rtmp<0.0)
+                                                tmp0*=-1.0;
                                         }
+                                        
+                                        rho_jt_it_0+=wi_0[i]*tmp0;
+                                        rho_jt_it_1+=wi_0[i]*tmp1;
+                                        rho_jt_it_2+=wi_1[i]*tmp1;
+                                        
+                                        
+                                        coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                        if(rtmp<0.0)
+                                            tmp0*=-1.0;
+                                        
+                                        phi_it_jt_0+=wi_0[i]*tmp0;
+                                        phi_it_jt_1+=wi_0[i]*tmp1;
+                                        phi_it_jt_2+=wi_1[i]*tmp1;
                                     }
                                 }
                                 
                                 
-                                if(itype>=jtype)
-                                {
-                                    f_0*=PI_IN_SQ*r_inv;
-                                    f_1*=PI_IN_SQ*r_inv;
-                                    f_2*=PI_IN_SQ*r_inv;
-                                    phi[phi_start+type2phi[itype][jtype]]=f_0;
-                                    dphi_dr[phi_start+type2phi[itype][jtype]]=-f_0*r_inv-2.0*alpha_sq*f_1;
-                                    dphi_dalpha[phi_start+type2phi[itype][jtype]]=(0.5*f_0-f_2)/alpha;
-                                }
+                                rho_it_jt_0*=PI_IN_SQ*r_inv;
+                                rho_it_jt_1*=PI_IN_SQ*r_inv;
+                                rho_it_jt_1-=rho_it_jt_0*r_inv;
+                                rho_it_jt_2*=0.5*PI_IN_SQ*r_inv*inv_alph_sq/alpha;
                                 
-                                g_0*=PI_IN_SQ*r_inv;
-                                g_1*=PI_IN_SQ*r_inv;
-                                g_2*=PI_IN_SQ*r_inv;
-                                rho[rho_start+type2rho[itype][jtype]]=g_0;
-                                drho_dr[rho_start+type2rho[itype][jtype]]=-g_0*r_inv-2.0*alpha_sq*g_1;
-                                drho_dalpha[rho_start+type2rho[itype][jtype]]=(0.5*g_0-g_2)/alpha;
+                                rho_jt_it_0*=PI_IN_SQ*r_inv;
+                                rho_jt_it_1*=PI_IN_SQ*r_inv;
+                                rho_jt_it_1-=rho_jt_it_0*r_inv;
+                                rho_jt_it_2*=0.5*PI_IN_SQ*r_inv*inv_alph_sq/alpha;
                                 
-                                E[iatm*no_types+itype]+=g_0*c[jatm*no_types+jtype];
+                                phi_it_jt_0*=PI_IN_SQ*r_inv;
+                                phi_it_jt_1*=PI_IN_SQ*r_inv;
+                                phi_it_jt_1-=phi_it_jt_0*r_inv;
+                                phi_it_jt_2*=0.5*PI_IN_SQ*r_inv*inv_alph_sq/alpha;
+                                
+                                
+                                rho_phi[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_0;
+                                rho_phi[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_0;
+                                rho_phi[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_0;
+                                
+                                drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_1;
+                                drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_1;
+                                drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_1;
+                                
+                                drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_2;
+                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_2;
+                                drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_2;
+                                
+                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
                                 
                                 if (jatm<natms)
                                 {
-                                    E[jatm*no_types+jtype]+=g_0*c[iatm*no_types+itype];
-                                    if(itype>=jtype)
-                                        nrgy_strss[0]+=0.5*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                            +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
+                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                    nrgy_strss[0]+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
                                 else
                                 {
-                                    if(itype>=jtype)
-                                        nrgy_strss[0]+=0.25*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                             +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
+                                    nrgy_strss[0]+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
                             }
                         }
@@ -271,42 +286,55 @@ force_calc(int st_clc,type0* en_st)
                                 p=MIN(p,1.0);
                                 p2=p*p;
                                 p3=p2*p;
-                                p4=p3*p;
                                 
-                                if(itype>=jtype)
-                                {
-                                    coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                    z2p=coef[6]*p2+coef[5]*p+coef[4];
-                                    z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                    phi[phi_start+type2phi[itype][jtype]]=z2*r_inv;
-                                    dphi_dalpha[phi_start+type2phi[itype][jtype]]=0.0;
-                                    dphi_dr[phi_start+type2phi[itype][jtype]]=(z2p-z2*r_inv)*r_inv;
-                                }
+                                coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                z2p=coef[6]*p2+coef[5]*p+coef[4];
+                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                phi_it_jt_0=z2*r_inv;
+                                phi_it_jt_1=(z2p-z2*r_inv)*r_inv;
                                 
-                                coef=rho_arr[type2rho[itype][jtype]][m];
-                                rho[rho_start+type2rho[itype][jtype]]=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                drho_dalpha[rho_start+type2rho[itype][jtype]]=0.0;
-                                drho_dr[rho_start+type2rho[itype][jtype]]=coef[6]*p2+coef[5]*p+coef[4];
+                                coef=rho_r_arr[type2rho[itype][jtype]][m];
+                                z2p=coef[6]*p2+coef[5]*p+coef[4];
+                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                rho_it_jt_0=z2*r_inv;
+                                rho_it_jt_1=(z2p-z2*r_inv)*r_inv;
                                 
-                                E[iatm*no_types+itype]+=rho[rho_start+type2rho[itype][jtype]]*c[jatm*no_types+jtype];
+                                coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                z2p=coef[6]*p2+coef[5]*p+coef[4];
+                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                rho_jt_it_0=z2*r_inv;
+                                rho_jt_it_1=(z2p-z2*r_inv)*r_inv;
+                                
+                                
+                                
+                                rho_phi[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_0;
+                                rho_phi[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_0;
+                                rho_phi[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_0;
+                                
+                                drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_1;
+                                drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_1;
+                                drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_1;
+                                
+                                drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]=0.0;
+                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]=0.0;
+                                drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]]=0.0;
+                                
+                                
+                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
                                 
                                 if (jatm<natms)
                                 {
-                                    E[jatm*no_types+jtype]+=rho[rho_start+type2rho[itype][jtype]]*c[iatm*no_types+itype];
-                                    if(itype>=jtype)
-                                    {
-                                        nrgy_strss[0]+=0.5*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                            +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*phi[phi_start+type2phi[itype][jtype]];
-                                    }
+                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                    nrgy_strss[0]+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
                                 else
                                 {
-                                    if(itype>=jtype)
-                                    {
-                                        nrgy_strss[0]+=0.25*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                             +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*phi[phi_start+type2phi[itype][jtype]];
-                                    }
+                                    nrgy_strss[0]+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
+                                
+                                
                             }
                         }
                     }
@@ -315,8 +343,8 @@ force_calc(int st_clc,type0* en_st)
             }
             
             
-            phi_start+=no_types*(no_types+1)/2;
-            rho_start+=no_types*no_types;
+            
+            istart+=stride;
         }
         
         
@@ -334,6 +362,7 @@ force_calc(int st_clc,type0* en_st)
             
             tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
             tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
+            
             
             if(E[iatm*no_types+itype]>rho_max)
                 tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
@@ -355,8 +384,7 @@ force_calc(int st_clc,type0* en_st)
     
     atoms->update(dE_n);
     
-    phi_start=0;
-    rho_start=0;
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=(3+no_types)*iatm;
@@ -374,17 +402,19 @@ force_calc(int st_clc,type0* en_st)
             {
                 for(int jtype=0;jtype<no_types; jtype++)
                 {
-                    fpair=-(drho_dr[rho_start+type2rho[jtype][itype]]*dE[iatm*no_types+itype]
-                            +drho_dr[rho_start+type2rho[itype][jtype]]*dE[jatm*no_types+jtype]
-                            +dphi_dr[phi_start+type2phi[itype][jtype]])
-                    *(c[iatm*no_types+itype]*c[jatm*no_types+jtype])*r_inv;
                     
-                    apair=-(drho_dalpha[rho_start+type2rho[jtype][itype]]*dE[iatm*no_types+itype]
-                            +drho_dalpha[rho_start+type2rho[itype][jtype]]*dE[jatm*no_types+jtype]
-                            +dphi_dalpha[phi_start+type2phi[itype][jtype]])
-                    *c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
-                    ((x[icomp+3+itype]+x[jcomp+3+jtype])
-                     *(x[icomp+3+itype]+x[jcomp+3+jtype]));
+                    
+                    fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                            +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
+                            +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*r_inv;
+                    
+                    apair=-(
+                            drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                            +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
+                            +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
+                    ((x[icomp+3+itype]+x[jcomp+3+jtype])*(x[icomp+3+itype]+x[jcomp+3+jtype]));
+                    
+                    
                     
                     
                     if(apair!=0.0 || fpair!=0.0)
@@ -428,11 +458,9 @@ force_calc(int st_clc,type0* en_st)
                     }
                     
                 }
+                
             }
-            
-            
-            phi_start+=no_types*(no_types+1)/2;
-            rho_start+=no_types*no_types;
+            istart+=stride;
         }
     }
     
@@ -452,12 +480,12 @@ force_calc(int st_clc,type0* en_st)
 /*--------------------------------------------
  energy calculation
  --------------------------------------------*/
-type0 ForceField_eam_dmd::energy_calc()
+type0 ForceField_eam_dmd_hg_0::energy_calc()
 {
+    type0 en=0.0,en_tot;
+    
     type0* x;
     atoms->vectors[x_n].ret(x);
-    type0* f;
-    atoms->vectors[f_n].ret(f);
     type0* E;
     atoms->vectors[E_n].ret(E);
     type0* c;
@@ -468,29 +496,28 @@ type0 ForceField_eam_dmd::energy_calc()
     int icomp,jcomp;
     type0 dx0,dx1,dx2,rsq,z2;
     type0 alpha;
-    type0 r,r_inv=0.0;
+    type0 r=0.0,r_inv=0.0;
     int m;
     type0* coef;
-    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,tmp2;
+    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,rtmp;
     type0 upper,lower;
+    
+    type0 p,p2,p3,p4;
+    type0 phi_it_jt_0;
+    type0 rho_it_jt_0;
+    type0 rho_jt_it_0;
+    
+    
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    
     int natms=atoms->natms;
     for(int i=0;i<natms*no_types;i++) E[i]=0.0;
-    type0 en=0.0;
-    type0 en_tot=0.0;
-    
-    
-    type0 f_0,g_0;
-    type0 p,p2,p3,p4;
     
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=(3+no_types)*iatm;
-        
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
@@ -506,7 +533,7 @@ type0 ForceField_eam_dmd::energy_calc()
                 
                 for(int itype=0;itype<no_types; itype++)
                 {
-                    for(int jtype=itype;jtype<no_types; jtype++)
+                    for(int jtype=0;jtype<no_types; jtype++)
                     {
                         alpha=(x[icomp+3+itype]*x[jcomp+3+jtype])/(x[icomp+3+itype]+x[jcomp+3+jtype]);
                         
@@ -517,72 +544,89 @@ type0 ForceField_eam_dmd::energy_calc()
                             upper=(r+rc)*alpha_sq;
                             lower=(r-rc)*alpha_sq;
                             
-                            f_0=g_0=0.0;
                             if(lower<xi[no_i-1])
                             {
+                                phi_it_jt_0=0.0;
+                                rho_it_jt_0=0.0;
+                                rho_jt_it_0=0.0;
                                 
                                 for(int i=0;i<no_i;i++)
                                 {
                                     if(xi[i]>lower && xi[i]<upper)
                                     {
-                                        tmp0=r-xi[i]*inv_alph_sq;
+                                        rtmp=r-xi[i]*inv_alph_sq;
                                         
-                                        p=fabs(tmp0)*dr_inv;
+                                        p=fabs(rtmp)*dr_inv;
                                         m=static_cast<int>(p);
                                         m=MIN(m,nr-2);
-                                        
                                         p-=m;
                                         p=MIN(p,1.0);
                                         p2=p*p;
                                         p3=p2*p;
-                                        p4=p3*p;
                                         
-                                        if(itype>=jtype)
+                                        coef=rho_r_arr[type2rho[itype][jtype]][m];
+                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                        if(rtmp<0.0)
+                                            tmp0*=-1.0;
+                                        
+                                        rho_it_jt_0+=wi_0[i]*tmp0;
+                                        
+                                        
+                                        if(itype!=jtype)
                                         {
-                                            coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                            tmp1=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                            if(tmp0<0.0)
-                                                tmp1*=-1.0;
-                                            f_0+=wi_0[i]*tmp1;
+                                            coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                            tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                            tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                            if(rtmp<0.0)
+                                                tmp0*=-1.0;
                                         }
-                                        coef=rho_arr[type2rho[itype][jtype]][m];
-                                        tmp2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                        tmp2*=tmp0;
-                                        g_0+=wi_0[i]*tmp2;
+                                        
+                                        rho_jt_it_0+=wi_0[i]*tmp0;
+                                        
+                                        
+                                        
+                                        coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                        if(rtmp<0.0)
+                                            tmp0*=-1.0;
+                                        
+                                        phi_it_jt_0+=wi_0[i]*tmp0;
+                                        
                                     }
                                 }
-                                if(itype>=jtype)
-                                    f_0*=PI_IN_SQ*r_inv;
                                 
-                                g_0*=PI_IN_SQ*r_inv;
                                 
-                                E[iatm*no_types+itype]+=g_0*c[jatm*no_types+jtype];
+                                rho_it_jt_0*=PI_IN_SQ*r_inv;
+                                
+                                
+                                rho_jt_it_0*=PI_IN_SQ*r_inv;
+                                
+                                
+                                phi_it_jt_0*=PI_IN_SQ*r_inv;
+                                
+                                
+                                
+                                
+                                
+                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
                                 
                                 if (jatm<natms)
                                 {
-                                    E[jatm*no_types+jtype]+=g_0*c[iatm*no_types+itype];
-                                    if(itype>=jtype)
-                                    {
-                                        en+=0.5*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                 +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
-                                    }
+                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                    en+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
                                 else
                                 {
-                                    if(itype>=jtype)
-                                    {
-                                        en+=0.25*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                  +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
-                                    }
+                                    en+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
                                     
                                 }
-                                
                             }
-                            
                         }
                         else if (alpha_max<=alpha)
                         {
-                            f_0=0.0;
                             if(rsq<cut_sq_0)
                             {
                                 r=sqrt(rsq);
@@ -593,43 +637,46 @@ type0 ForceField_eam_dmd::energy_calc()
                                 p=MIN(p,1.0);
                                 p2=p*p;
                                 p3=p2*p;
-                                p4=p3*p;
+                                
+                                coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                phi_it_jt_0=z2*r_inv;
+                                
+                                coef=rho_r_arr[type2rho[itype][jtype]][m];
+                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                rho_it_jt_0=z2*r_inv;
+                                
+                                coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                rho_jt_it_0=z2*r_inv;
                                 
                                 
-                                if(itype>=jtype)
-                                {
-                                    coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                    z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                    f_0=z2*r_inv;
-                                }
                                 
-                                coef=rho_arr[type2rho[itype][jtype]][m];
-                                g_0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
                                 
-                                E[iatm*no_types+itype]+=g_0*c[jatm*no_types+jtype];
+                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
                                 
                                 if (jatm<natms)
                                 {
-                                    E[jatm*no_types+jtype]+=g_0*c[iatm*no_types+itype];
-                                    if(itype>=jtype)
-                                    {
-                                        en+=0.5*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                 +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
-                                    }
+                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                    en+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
                                 else
                                 {
-                                    if(itype>=jtype)
-                                    {
-                                        en+=0.25*(c[jatm*no_types+jtype]*c[iatm*no_types+itype]
-                                                  +c[jatm*no_types+itype]*c[iatm*no_types+jtype])*f_0;
-                                    }
+                                    en+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    
                                 }
+                                
+                                
                             }
                         }
                     }
+                    
                 }
             }
+            
+            
+            
         }
         
         
@@ -648,20 +695,22 @@ type0 ForceField_eam_dmd::energy_calc()
             tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
             tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
             
+            
             if(E[iatm*no_types+itype]>rho_max)
                 tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
             
             E[iatm*no_types+itype]=tmp0;
             
             en+=c[iatm*no_types+itype]*E[iatm*no_types+itype];
+            
             en+=kbT*calc_ent(c[iatm*no_types+itype]);
+            
             en+=1.5*kbT*c[iatm*no_types+itype]*log(x[icomp+3+itype])
             +c[iatm*no_types+itype]*c_0[itype];
+            
         }
         
     }
-    
-    
     
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     
@@ -670,7 +719,7 @@ type0 ForceField_eam_dmd::energy_calc()
 /*--------------------------------------------
  init before running
  --------------------------------------------*/
-void ForceField_eam_dmd::init()
+void ForceField_eam_dmd_hg_0::init()
 {
     type0 skin=atoms->skin;
     type0 ph_cut=0.0;
@@ -693,15 +742,15 @@ void ForceField_eam_dmd::init()
     ddE_n=atoms->add<type0>(1,no_types,"ddE");
     n_n=atoms->add<type0>(1,no_types,"n");
     s_n=atoms->add<type0>(1,no_types,"s");
-    t_n=atoms->add<type0>(1,no_types,"t");
-    v_n=atoms->add<type0>(1,no_types,"v");
-    crd_n=atoms->add<int>(1,1,"crd");
+    t_n=atoms->add<type0>(1,2*no_types,"t");
+    v_n=atoms->add<type0>(1,2*no_types,"v");
+    crd_n=atoms->add<type0>(1,no_types,"crd");
     
 }
 /*--------------------------------------------
  fin after running
  --------------------------------------------*/
-void ForceField_eam_dmd::fin()
+void ForceField_eam_dmd_hg_0::fin()
 {
     atoms->del(crd_n);
     atoms->del(v_n);
@@ -714,12 +763,9 @@ void ForceField_eam_dmd::fin()
     
     if(max_pairs)
     {
-        delete [] rho;
-        delete [] drho_dr;
-        delete [] drho_dalpha;
-        delete [] phi;
-        delete [] dphi_dr;
-        delete [] dphi_dalpha;
+        delete [] rho_phi;
+        delete [] drho_phi_dr;
+        delete [] drho_phi_dalpha;
         max_pairs=0;
     }
     
@@ -733,24 +779,52 @@ void ForceField_eam_dmd::fin()
  mass conversion from amu to eVs^2/A^2:
  1.0364269184093291236e-28
  --------------------------------------------*/
-void ForceField_eam_dmd::coef(int narg,char** arg)
+void ForceField_eam_dmd_hg_0::coef(int narg,char** arg)
 {
     type0 kb,T,hbar;
     if (narg<9)
-        error->abort("wrong coeff command "
-                     "for eam Force Field");
+        error->abort("ff_coef for ff eam_dmd "
+                     "should at least have 8 arguments");
+    
+    
     rsq_crd=atof(arg[1]);
+    if(rsq_crd<=0.0)
+        error->abort("coordination cutoff for ff eam_dmd "
+                     "should be greater than 0.0");
+    
     rsq_crd*=rsq_crd;
+    
     set_weight_abs(atoi(arg[2]));
+    
     alpha_min=atof(arg[3]);
+    if(alpha_min<=0.0)
+        error->abort("minimum alpha for ff eam_dmd "
+                     "should be greater than 0.0");
+    
     alpha_max=atof(arg[4]);
+    if(alpha_max<=0.0)
+        error->abort("maximum alpha for ff eam_dmd "
+                     "should be greater than 0.0");
+    
+    if(alpha_max<=alpha_min)
+        error->abort("maximum alpha should be less "
+                     "than minimum alpha for ff eam_dmd");
+    
+    
     T=atof(arg[5]);
+    if(T<=0.0)
+        error->abort("temperature for ff eam_dmd "
+                     "should be greater than 0.0");
+    
+    
     kb=8.617332478e-5;
     hbar=6.5821192815e-16;
+    
     
     setup_delta_e(arg[6]);
     
     clean_up();
+    
     if(strcmp(arg[7],"FS")==0)
     {
         eam_mode=FINNIS_FL;
@@ -794,47 +868,52 @@ void ForceField_eam_dmd::coef(int narg,char** arg)
     mod_rc=rc+xi[no_i-1]/sqrt(alpha_min);
     cut_sq_mod_0=mod_rc*mod_rc;
     
-    
-    
 }
 /*--------------------------------------------
  read from file and assign DeltaE
  --------------------------------------------*/
-void ForceField_eam_dmd::setup_delta_e(char* file)
+void ForceField_eam_dmd_hg_0::setup_delta_e(char* file_name)
 {
     FILE* fp=NULL;
     char* line;
     CREATE1D(line,MAXCHAR);
     char** arg=NULL;
     int narg;
+    int tot_no_types;
+    int* delta_e_chk;
+    CREATE1D(delta_e_chk,no_types);
     
-
+    for(int i=0;i<no_types;i++)
+        delta_e_chk[i]=0;
+    
     if(atoms->my_p_no==0)
     {
-        fp=fopen(file,"r");
+        fp=fopen(file_name,"r");
         if(fp==NULL)
-            error->abort("file %s not found",file);
+            error->abort("ff eam_dmd file %s not found",file_name);
     }
     
     narg=0;
     while(narg==0)
     {
         if(line_read(fp,line)==-1)
-            error->abort("delta_E file ended immaturely");
+            error->abort("%s file ended immaturely",file_name);
         
         narg=mapp->parse_line(line,arg);
     }
-    if(narg!=no_types)
-        error->abort("wrong line in delta_E file");
+    
+    tot_no_types=narg;
+    
+    if(tot_no_types<no_types)
+        error->abort("the number of atoms in %s file"
+                     " is less than the number of atom types"
+                     " present in the system",file_name);
     
     
     int* type_ref;
-    CREATE1D(type_ref,no_types);
-    for(int itype=0;itype<no_types;itype++)
-        type_ref[itype]=-1;
-    
-    for(int i=0;i<no_types;i++)
-        type_ref[i]=atom_types->find_type(arg[i]);
+    CREATE1D(type_ref,tot_no_types);
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+        type_ref[ityp]=atom_types->find_type_exist(arg[ityp]);
     
     for(int i=0;i<narg;i++)
         delete [] arg[i];
@@ -842,21 +921,23 @@ void ForceField_eam_dmd::setup_delta_e(char* file)
         delete [] arg;
     
     
-    for(int itype=0;itype<no_types;itype++)
+    for(int itype=0;itype<tot_no_types;itype++)
     {
         narg=0;
         while(narg==0)
         {
             if(line_read(fp,line)==-1)
-                error->abort("delta_E file ended immaturely");
-            
+                error->abort("%s file ended immaturely",file_name);
             narg=mapp->parse_line(line,arg);
         }
         
         if(narg!=1)
-            error->abort("wrong line in delta_E file");
-        
-        delta_e[type_ref[itype]]=atof(arg[0]);
+            error->abort("invalid line in %s file: %s",file_name,line);
+        if(type_ref[itype]!=-1)
+        {
+            delta_e[type_ref[itype]]=atof(arg[0]);
+            delta_e_chk[type_ref[itype]]=1;
+        }
         
         for(int i=0;i<narg;i++)
             delete [] arg[i];
@@ -865,18 +946,29 @@ void ForceField_eam_dmd::setup_delta_e(char* file)
     }
     
     
+    for(int i=0;i<no_types;i++)
+        if(delta_e_chk[i]==0)
+            error->abort("delta_e(%s) was not set by %s file "
+                         ,file_name,atom_types->atom_names[i]);
+    
     delete [] line;
-    delete [] type_ref;
+    if(tot_no_types)
+        delete [] type_ref;
+    if(no_types)
+        delete [] delta_e_chk;
+    
+    
 }
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_eam_dmd::set_funcfl(int no_files
-                                   ,char** file_names)
+void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
+                                       ,char** file_names)
 {
     if(no_files!=no_types)
-        error->abort("no of types and number "
-                     "of files should be equal in eam");
+        error->abort("for FuncFL mode number of"
+                     " ff eam_dmd files should be equal to the number"
+                     " of atom types present in the system");
     
     type0* drs;
     type0* drhos;
@@ -900,7 +992,8 @@ void ForceField_eam_dmd::set_funcfl(int no_files
     CREATE1D(line,MAXCHAR);
     int narg;
     char** arg;
-    int no;
+    type0 mass;
+    
     for(int ityp=0;ityp<no_types;ityp++)
     {
         fp=NULL;
@@ -908,21 +1001,61 @@ void ForceField_eam_dmd::set_funcfl(int no_files
         {
             fp=fopen(file_names[ityp],"r");
             if(fp==NULL)
-                error->abort("file %s not found",file_names[ityp]);
+                error->abort("ff eam_dmd file %s not found",file_names[ityp]);
         }
         
-        for(int i=0;i<3;i++)
+        for(int i=0;i<2;i++)
             if(line_read(fp,line)==-1)
-                error->abort("eam potential file ended immaturely");
+                error->abort("%s file ended immaturely",file_names[ityp]);
+        
+        narg=mapp->parse_line(line,arg);
+        if(narg!=4)
+            error->abort("invalid line in %s file: %s",file_names[ityp],line);
+        
+        mass=atof(arg[1]);
+        
+        if(mass!=atom_types->mass[ityp])
+            error->abort("mass of element %s in %s file (%lf) does not match "
+                         "the mass that is already assigned to the element (%lf), make "
+                         "sure that the right sequence of ff eam_dmd files are "
+                         "used",atom_types->atom_names[ityp],file_names[ityp],mass
+                         ,atom_types->mass[ityp]);
+        
+        for(int i=0;i<narg;i++)
+            delete arg[i];
+        if(narg)
+            delete [] arg;
+        
+        
+        
+        
+        if(line_read(fp,line)==-1)
+            error->abort("%s file ended immaturely",file_names[ityp]);
         
         narg=mapp->parse_line(line,arg);
         if(narg!=5)
-            error->abort("wrong line in eam file: %s",line);
+            error->abort("invalid line in %s file: %s",file_names[ityp],line);
         
         nrhos[ityp]=atoi(arg[0]);
         nrs[ityp]=atoi(arg[2]);
         drhos[ityp]=atof(arg[1]);
         drs[ityp]=atof(arg[3]);
+        
+        if(nrhos[ityp]<5)
+            error->abort("nrho in %s file must be larger than 5",file_names[ityp]);
+        if(nrs[ityp]<5)
+            error->abort("nr in %s file must be larger than 5",file_names[ityp]);
+        if(drhos[ityp]<=0.0)
+            error->abort("drho in %s file must be larger than 0.0",file_names[ityp]);
+        if(drs[ityp]<=0.0)
+            error->abort("dr in %s file must be larger than 0.0",file_names[ityp]);
+        
+        for(int i=0;i<narg;i++)
+            delete arg[i];
+        if(narg)
+            delete [] arg;
+        
+        
         
         int tot=nrhos[ityp]+2*nrs[ityp];
         
@@ -932,12 +1065,12 @@ void ForceField_eam_dmd::set_funcfl(int no_files
         while (ipos<tot)
         {
             if(line_read(fp,line)==-1)
-                error->abort("eam potential file ended immaturely");
+                error->abort("%s file ended immaturely",file_names[ityp]);
             
             narg=mapp->parse_line(line,arg);
             
             if(ipos+narg>tot)
-                error->abort("eam potential file ended immaturely");
+                error->abort("%s file ended immaturely",file_names[ityp]);
             
             for(int i=0;i<narg;i++)
             {
@@ -953,14 +1086,14 @@ void ForceField_eam_dmd::set_funcfl(int no_files
         if(atoms->my_p_no==0)
             fclose(fp);
         
-        CREATE1D(tmp_F[ityp],nrhos[ityp]+1);
-        CREATE1D(tmp_zi[ityp],nrs[ityp]+1);
-        CREATE1D(tmp_rho[ityp],nrs[ityp]+1);
+        CREATE1D(tmp_F[ityp],nrhos[ityp]);
+        CREATE1D(tmp_zi[ityp],nrs[ityp]);
+        CREATE1D(tmp_rho[ityp],nrs[ityp]);
         
-        tmp_rho[ityp][0]=tmp_zi[ityp][0]=tmp_F[ityp][0]=0.0;
-        memcpy(&tmp_F[ityp][1],&tmp[0],nrhos[ityp]*sizeof(type0));
-        memcpy(&tmp_zi[ityp][1],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(type0));
-        memcpy(&tmp_rho[ityp][1],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(type0));
+        
+        memcpy(tmp_F[ityp],&tmp[0],nrhos[ityp]*sizeof(type0));
+        memcpy(tmp_zi[ityp],&tmp[nrhos[ityp]],nrs[ityp]*sizeof(type0));
+        memcpy(tmp_rho[ityp],&tmp[nrhos[ityp]+nrs[ityp]],nrs[ityp]*sizeof(type0));
         
         delete [] tmp;
         
@@ -982,35 +1115,28 @@ void ForceField_eam_dmd::set_funcfl(int no_files
     }
     
     nr=static_cast<int>(maxr/maxdr+0.5);
-    nrho=static_cast<int>(maxr/maxdr+0.5);
+    nrho=static_cast<int>(maxrho/maxdrho+0.5);
     dr=maxdr;
     drho=maxdrho;
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
     allocate();
     
-    type0 r,p,coef1,coef2,coef3,coef4;
+    type0 r,p,tmp0,tmp1;
     int k;
-    type0 sixth=1.0/6.0;
     
-    for(int i=0;i<no_types;i++)
+    for(int ityp=0;ityp<no_types;ityp++)
     {
-        for(int j=0;j<nrho;j++)
+        for(int i=0;i<nrho;i++)
         {
-            r=static_cast<type0>(j)*drho;
-            p=r/drhos[i]+1.0;
+            r=static_cast<type0>(i)*drho;
+            p=r/drhos[ityp];
             k=static_cast<int> (p);
-            k=MIN(k,nrhos[i]-2);
-            k=MAX(k,2);
+            k=MIN(k,nrhos[ityp]-2);
             p-=k;
-            p=MIN(p,2.0);
-            coef1=-sixth*p*(p-1.0)*(p-2.0);
-            coef2=0.5*(p*p-1.0)*(p-2.0);
-            coef3=-0.5*p*(p+1.0)*(p-2.0);
-            coef4=sixth*p*(p*p-1.0);
-            F_arr[i][j][0]=coef1*tmp_F[i][k-1]+
-            coef2*tmp_F[i][k]+coef3*tmp_F[i][k+1]+
-            coef4*tmp_F[i][k+2];
+            p=MIN(p,1.0);
+            
+            F_arr[ityp][i][0]=interpolate(tmp_F[ityp],nrs[ityp],p,k);
         }
     }
     
@@ -1018,68 +1144,45 @@ void ForceField_eam_dmd::set_funcfl(int no_files
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
-        no=ityp*(ityp+1);
         for(int i=0;i<nr;i++)
         {
             r=static_cast<type0>(i)*dr;
-            p=r/drs[ityp]+1.0;
+            p=r/drs[ityp];
             k=static_cast<int> (p);
             k=MIN(k,nrs[ityp]-2);
-            k=MAX(k,2);
             p-=k;
-            p=MIN(p,2.0);
-            coef1=-sixth*p*(p-1.0)*(p-2.0);
-            coef2=0.5*(p*p-1.0)*(p-2.0);
-            coef3=-0.5*p*(p+1.0)*(p-2.0);
-            coef4=sixth*p*(p*p-1.0);
-            
-            rho_arr[no][i][0]=coef1*tmp_rho[ityp][k-1]+
-            coef2*tmp_rho[ityp][k]+coef3*tmp_rho[ityp][k+1]+
-            coef4*tmp_rho[ityp][k+2];
+            p=MIN(p,1.0);
+            rho_r_arr[type2rho[ityp][0]][i][0]=interpolate(tmp_rho[ityp],nrs[ityp],p,k)*static_cast<type0>(i)*dr;
         }
     }
     
-    type0 tmp0,tmp1;
+    
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
-        for(int jtyp=ityp;jtyp<no_types;jtyp++)
+        for(int jtyp=0;jtyp<ityp+1;jtyp++)
         {
-            no=COMP(ityp,jtyp);
-            
             for(int i=0;i<nr;i++)
             {
+                
                 r=static_cast<type0>(i)*dr;
                 
-                p=r/drs[ityp]+1.0;
-                k=static_cast<int>(p);
+                p=r/drs[ityp];
+                k=static_cast<int> (p);
                 k=MIN(k,nrs[ityp]-2);
-                k=MAX(k,2);
                 p-=k;
-                p=MIN(p,2.0);
-                coef1=-sixth*p*(p-1.0)*(p-2.0);
-                coef2=0.5*(p*p-1.0)*(p-2.0);
-                coef3=-0.5*p*(p+1.0)*(p-2.0);
-                coef4=sixth*p*(p*p-1.0);
-                tmp0=coef1*tmp_zi[ityp][k-1]+
-                coef2*tmp_zi[ityp][k]+coef3*tmp_zi[ityp][k+1]+
-                coef4*tmp_zi[ityp][k+2];
+                p=MIN(p,1.0);
+                tmp0=interpolate(tmp_zi[ityp],nrs[ityp],p,k);
                 
-                p=r/drs[jtyp] + 1.0;
-                k=static_cast<int>(p);
+                
+                p=r/drs[jtyp];
+                k=static_cast<int> (p);
                 k=MIN(k,nrs[jtyp]-2);
-                k=MAX(k,2);
                 p-=k;
-                p=MIN(p,2.0);
-                coef1=-sixth*p*(p-1.0)*(p-2.0);
-                coef2=0.5*(p*p-1.0)*(p-2.0);
-                coef3=-0.5*p*(p+1.0)*(p-2.0);
-                coef4=sixth*p*(p*p-1.0);
-                tmp1=coef1*tmp_zi[jtyp][k-1]+
-                coef2*tmp_zi[jtyp][k]+coef3*tmp_zi[jtyp][k+1]+
-                coef4*tmp_zi[jtyp][k+2];
+                p=MIN(p,1.0);
+                tmp1=interpolate(tmp_zi[jtyp],nrs[jtyp],p,k);
                 
-                phi_r_arr[no][i][0]=27.2*0.529*tmp0*tmp1;
+                phi_r_arr[type2phi[ityp][jtyp]][i][0]=27.2*0.529*tmp0*tmp1;
             }
         }
     }
@@ -1112,11 +1215,12 @@ void ForceField_eam_dmd::set_funcfl(int no_files
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_eam_dmd::set_setfl(int no_files
-                                  ,char** file_names)
+void ForceField_eam_dmd_hg_0::set_setfl(int no_files
+                                      ,char** file_names)
 {
     if(no_files!=1)
-        error->abort("one file is needed for eam");
+        error->abort("for SetFL mode number of"
+                     " ff eam_dmd files should be one");
     
     FILE* fp=NULL;
     char* line;
@@ -1127,105 +1231,98 @@ void ForceField_eam_dmd::set_setfl(int no_files
     {
         fp=fopen(file_names[0],"r");
         if(fp==NULL)
-            error->abort("file %s not found",file_names[0]);
+            error->abort("%s file not found",file_names[0]);
     }
     
     for(int i=0;i<4;i++)
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
     
     char** arg;
     int narg;
     
     narg=mapp->parse_line(line,arg);
     if(narg<2 || narg-1 < no_types)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     int tot_no_types=narg-1;
     
-    int** type_ref;
-    CREATE1D(type_ref,no_types);
+    int* type_ref;
+    CREATE1D(type_ref,tot_no_types);
+    for(int i=0;i<tot_no_types;i++)
+        type_ref[i]=atom_types->find_type_exist(arg[i+1]);
+    
+    for(int i=0;i<narg;i++)
+        delete [] arg[i];
+    if(narg)
+        delete [] arg;
+    
+    int* tmp_type_ref;
+    CREATE1D(tmp_type_ref,no_types);
     for(int i=0;i<no_types;i++)
-        CREATE1D(type_ref[i],2);
+        tmp_type_ref[i]=-1;
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+        if(type_ref[ityp]!=-1)
+            tmp_type_ref[type_ref[ityp]]=0;
     
     for(int i=0;i<no_types;i++)
-    {
-        int ityp=0;
-        while(strcmp(arg[ityp+1],atom_types->atom_names[i])!=0
-              &&ityp<tot_no_types)
-            ityp++;
-        
-        if(ityp==narg-1)
-            error->abort("atom type not found in eam file");
-        type_ref[i][0]=ityp;
-        type_ref[i][1]=i;
-    }
+        if(tmp_type_ref[i]==-1)
+            error->abort("%s file does not contain "
+                         "parameters for element %s",file_names[0]
+                         ,atom_types->atom_names[i]);
+    if(no_types)
+        delete [] tmp_type_ref;
     
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
-    delete [] arg;
-    
-    for(int i=0;i<no_types;i++)
-    {
-        for(int j=i+1;j<no_types;j++)
-        {
-            if(type_ref[i][0]>type_ref[j][0])
-            {
-                int tmp0,tmp1;
-                
-                tmp0=type_ref[i][0];
-                tmp1=type_ref[i][1];
-                
-                type_ref[i][0]=type_ref[j][0];
-                type_ref[i][1]=type_ref[j][1];
-                
-                type_ref[j][0]=tmp0;
-                type_ref[j][1]=tmp1;
-            }
-        }
-    }
     
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
+        error->abort("%s file ended immaturely",file_names[0]);
     narg=mapp->parse_line(line,arg);
     
     
     if(narg!=5)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     nrho=atoi(arg[0]);
     nr=atoi(arg[2]);
     drho=atof(arg[1]);
     dr=atof(arg[3]);
+    
+    for(int j=0;j<narg;j++)
+        delete [] arg[j];
+    if(narg)
+        delete [] arg;
+    
+    if(nrho<5)
+        error->abort("nrho in %s file must be larger than 5",file_names[0]);
+    if(nr<5)
+        error->abort("nr in %s file must be larger than 5",file_names[0]);
+    if(drho<=0.0)
+        error->abort("drho in %s file must be larger than 0.0",file_names[0]);
+    if(dr<=0.0)
+        error->abort("dr in %s file must be larger than 0.0",file_names[0]);
+    
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
     
     
-    
-    
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
-    delete [] arg;
-    
-    
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
+        error->abort("%s file ended immaturely",file_names[0]);
     
     
     int ipos=0;
-    int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)/2*nr;
+    int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)*nr/2;
     
     type0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
         
         if(ipos+narg>tot)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         for(int i=0;i<narg;i++)
         {
@@ -1246,83 +1343,74 @@ void ForceField_eam_dmd::set_setfl(int no_files
     allocate();
     
     
-    int icur_pos,jcur_pos;
     int component;
-    icur_pos=0;
+    
     ipos=0;
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            component=type_ref[icur_pos][1];
+            ipos+=nrho+nr;
+        }
+        else
+        {
+            component=type_ref[ityp];
             
             for(int i=0;i<nrho;i++)
                 F_arr[component][i][0]=tmp[ipos+i];
             
             ipos+=nrho;
             
+            component=type2rho[type_ref[ityp]][type_ref[0]];
             for(int i=0;i<nr;i++)
-                rho_arr[component][i][0]=tmp[ipos+i];
+                rho_r_arr[component][i][0]=tmp[ipos+i]*static_cast<type0>(i)*dr;
             
             ipos+=nr;
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nrho+nr;
         }
         
     }
     
-    icur_pos=0;
+    
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            jcur_pos=0;
+            ipos+=nr*(ityp+1);
+        }
+        else
+        {
             for(int jtyp=0;jtyp<ityp+1;jtyp++)
             {
-                if(jtyp==type_ref[jcur_pos][0])
+                if(type_ref[jtyp]==-1)
                 {
-                    component=type2phi[type_ref[icur_pos][1]][type_ref[jcur_pos][1]];
+                    ipos+=nr;
+                }
+                else
+                {
+                    component=type2phi[type_ref[ityp]][type_ref[jtyp]];
                     
                     for(int i=0;i<nr;i++)
                         phi_r_arr[component][i][0]=tmp[ipos+i];
                     
                     ipos+=nr;
-                    
-                    jcur_pos++;
                 }
-                else
-                {
-                    ipos+=nr;
-                }
+                
             }
-            
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nr*(ityp+1);
         }
     }
     
     
     delete [] tmp;
     
-    for(int i=0;i<no_types;i++)
-        delete [] type_ref[i];
-    if(no_types)
+    if(tot_no_types)
         delete [] type_ref;
     
 }
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_eam_dmd::set_fs(int no_files
-                               ,char** file_names)
+void ForceField_eam_dmd_hg_0::set_fs(int no_files
+                                   ,char** file_names)
 {
     if(no_files!=1)
         error->abort("one file is needed for eam");
@@ -1336,108 +1424,99 @@ void ForceField_eam_dmd::set_fs(int no_files
     {
         fp=fopen(file_names[0],"r");
         if(fp==NULL)
-            error->abort("file %s not found",file_names[0]);
+            error->abort("%s file not found",file_names[0]);
     }
     
     for(int i=0;i<4;i++)
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
     
     char** arg;
     int narg;
     
     narg=mapp->parse_line(line,arg);
     if(narg<2 || narg-1 < no_types)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     int tot_no_types=narg-1;
     
-    int** type_ref;
-    CREATE1D(type_ref,no_types);
-    for(int i=0;i<no_types;i++)
-        CREATE1D(type_ref[i],2);
     
-    for(int i=0;i<no_types;i++)
-    {
-        int ityp=0;
-        while(strcmp(arg[ityp+1],atom_types->atom_names[i])!=0
-              &&ityp<tot_no_types)
-            ityp++;
-        
-        if(ityp==narg-1)
-            error->abort("atom type not found in eam file");
-        type_ref[i][0]=ityp;
-        type_ref[i][1]=i;
-    }
     
-    for(int j=0;j<narg;j++)
-        delete [] arg[j];
+    int* type_ref;
+    CREATE1D(type_ref,tot_no_types);
+    for(int i=0;i<tot_no_types;i++)
+        type_ref[i]=atom_types->find_type_exist(arg[i+1]);
+    
+    for(int i=0;i<narg;i++)
+        delete [] arg[i];
     if(narg)
         delete [] arg;
     
+    int* tmp_type_ref;
+    CREATE1D(tmp_type_ref,no_types);
     for(int i=0;i<no_types;i++)
-    {
-        for(int j=i+1;j<no_types;j++)
-        {
-            if(type_ref[i][0]>type_ref[j][0])
-            {
-                int tmp0,tmp1;
-                
-                tmp0=type_ref[i][0];
-                tmp1=type_ref[i][1];
-                
-                type_ref[i][0]=type_ref[j][0];
-                type_ref[i][1]=type_ref[j][1];
-                
-                type_ref[j][0]=tmp0;
-                type_ref[j][1]=tmp1;
-            }
-        }
-    }
+        tmp_type_ref[i]=-1;
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+        if(type_ref[ityp]!=-1)
+            tmp_type_ref[type_ref[ityp]]=0;
+    
+    for(int i=0;i<no_types;i++)
+        if(tmp_type_ref[i]==-1)
+            error->abort("%s file does not contain "
+                         "parameters for element %s",file_names[0]
+                         ,atom_types->atom_names[i]);
+    if(no_types)
+        delete [] tmp_type_ref;
+    
     
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
+        error->abort("%s file ended immaturely",file_names[0]);
     narg=mapp->parse_line(line,arg);
     
-    
     if(narg!=5)
-        error->abort("wrong format in eam potential file");
+        error->abort("invalid line in %s file: %s",file_names[0],line);
     
     nrho=atoi(arg[0]);
     nr=atoi(arg[2]);
     drho=atof(arg[1]);
     dr=atof(arg[3]);
-    dr_inv=1.0/dr;
-    drho_inv=1.0/drho;
-    
-    
-    
     
     for(int j=0;j<narg;j++)
         delete [] arg[j];
     if(narg)
         delete [] arg;
     
+    if(nrho<5)
+        error->abort("nrho in %s file must be larger than 5",file_names[0]);
+    if(nr<5)
+        error->abort("nr in %s file must be larger than 5",file_names[0]);
+    if(drho<=0.0)
+        error->abort("drho in %s file must be larger than 0.0",file_names[0]);
+    if(dr<=0.0)
+        error->abort("dr in %s file must be larger than 0.0",file_names[0]);
+    
+    dr_inv=1.0/dr;
+    drho_inv=1.0/drho;
+    
     
     if(line_read(fp,line)==-1)
-        error->abort("eam potential file ended immaturely");
-    
+        error->abort("%s file ended immaturely",file_names[0]);
     
     
     int ipos=0;
     int tot=tot_no_types*nrho+tot_no_types*tot_no_types*nr
-    +tot_no_types*(tot_no_types+1)/2*nr;
+    +tot_no_types*(tot_no_types+1)*nr/2;
     type0* tmp;
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
         if(line_read(fp,line)==-1)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
         
         if(ipos+narg>tot)
-            error->abort("eam potential file ended immaturely");
+            error->abort("%s file ended immaturely",file_names[0]);
         
         for(int i=0;i<narg;i++)
         {
@@ -1447,7 +1526,6 @@ void ForceField_eam_dmd::set_fs(int no_files
         }
         if(narg)
             delete [] arg;
-        
     }
     
     delete [] line;
@@ -1457,102 +1535,81 @@ void ForceField_eam_dmd::set_fs(int no_files
     allocate();
     
     
-    int icur_pos,jcur_pos;
     int component;
     
-    
-    
     ipos=0;
-    icur_pos=0;
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            component=type_ref[icur_pos][1];
+            ipos+=nr*tot_no_types+nrho;
+        }
+        else
+        {
+            component=type_ref[ityp];
             
             for(int i=0;i<nrho;i++)
                 F_arr[component][i][0]=tmp[ipos+i];
             
             ipos+=nrho;
             
-            
-            jcur_pos=0;
             for(int jtyp=0;jtyp<tot_no_types;jtyp++)
             {
-                if(jtyp==type_ref[jcur_pos][0])
+                if(type_ref[jtyp]==-1)
                 {
-                    
-                    component=type2rho[type_ref[icur_pos][1]][type_ref[jcur_pos][1]];
-                    
-                    for(int i=0;i<nr;i++)
-                        rho_arr[component][i][0]=tmp[ipos+i];
-                    
                     ipos+=nr;
-                    jcur_pos++;
                 }
                 else
                 {
+                    component=type2rho[type_ref[ityp]][type_ref[jtyp]];
+                    
+                    for(int i=0;i<nr;i++)
+                        rho_r_arr[component][i][0]=tmp[ipos+i]*static_cast<type0>(i)*dr;
+                    
                     ipos+=nr;
                 }
+                
             }
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nr*tot_no_types+nrho;
         }
     }
     
     
-    icur_pos=0;
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(ityp==type_ref[icur_pos][0])
+        if(type_ref[ityp]==-1)
         {
-            jcur_pos=0;
+            ipos+=nr*(ityp+1);
+        }
+        else
+        {
             for(int jtyp=0;jtyp<ityp+1;jtyp++)
             {
-                if(jtyp==type_ref[jcur_pos][0])
+                if(type_ref[jtyp]==-1)
                 {
-                    component=type2phi[type_ref[icur_pos][1]][type_ref[jcur_pos][1]];
+                    ipos+=nr;
+                }
+                else
+                {
+                    component=type2phi[type_ref[ityp]][type_ref[jtyp]];
                     
                     for(int i=0;i<nr;i++)
                         phi_r_arr[component][i][0]=tmp[ipos+i];
                     
                     ipos+=nr;
-                    
-                    jcur_pos++;
-                }
-                else
-                {
-                    ipos+=nr;
                 }
             }
-            
-            
-            icur_pos++;
-        }
-        else
-        {
-            ipos+=nr*(ityp+1);
         }
     }
     
-    
     delete [] tmp;
-    
-    for(int i=0;i<no_types;i++)
-        delete [] type_ref[i];
-    if(no_types)
+    if(tot_no_types)
         delete [] type_ref;
-    
 }
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-int ForceField_eam_dmd::line_read(FILE* file
-                                 ,char*& line)
+int ForceField_eam_dmd_hg_0::line_read(FILE* file
+                                     ,char*& line)
 {
     int lenght;
     int eof=0;
@@ -1576,74 +1633,83 @@ int ForceField_eam_dmd::line_read(FILE* file
 /*--------------------------------------------
  clean up the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd::clean_up()
+void ForceField_eam_dmd_hg_0::clean_up()
 {
     if(allocated==0)
         return;
+    
     
     
     for(int i=0;i<no_types;i++)
     {
         delete [] type2phi[i];
         delete [] type2rho[i];
+        delete [] type2rho_pair_ij[i];
+        delete [] type2rho_pair_ji[i];
+        delete [] type2phi_pair_ij[i];
+        delete [] type2phi_pair_ji[i];
     }
     if(no_types)
     {
         delete [] type2phi;
         delete [] type2rho;
+        delete [] type2rho_pair_ij;
+        delete [] type2rho_pair_ji;
+        delete [] type2phi_pair_ij;
+        delete [] type2phi_pair_ji;
     }
     
     
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
     {
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] phi_r_arr[i][j];
-            delete [] phi_r_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] phi_r_arr[ityp][i];
+            delete [] phi_r_arr[ityp];
         }
         delete [] phi_r_arr;
         
-        for(int i=0;i<no_types;i++)
+        for(int ityp=0;ityp<no_types;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] rho_arr[i][j];
-            delete [] rho_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] rho_r_arr[ityp][i];
+            delete [] rho_r_arr[ityp];
         }
-        delete [] rho_arr;
+        delete [] rho_r_arr;
         
         
-        for(int i=0;i<no_types;i++)
+        for(int ityp=0;ityp<no_types;ityp++)
         {
-            for(int j=0;j<nrho;j++)
-                delete [] F_arr[i][j];
-            delete [] F_arr[i];
+            for(int i=0;i<nrho;i++)
+                delete [] F_arr[ityp][i];
+            delete [] F_arr[ityp];
         }
         delete [] F_arr;
     }
     else if(eam_mode==FINNIS_FL)
     {
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] phi_r_arr[i][j];
-            delete [] phi_r_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] phi_r_arr[ityp][i];
+            delete [] phi_r_arr[ityp];
         }
         delete [] phi_r_arr;
         
-        for(int i=0;i<no_types*no_types;i++)
+        for(int ityp=0;ityp<no_types*no_types;ityp++)
         {
-            for(int j=0;j<nr;j++)
-                delete [] rho_arr[i][j];
-            delete [] rho_arr[i];
+            for(int i=0;i<nr;i++)
+                delete [] rho_r_arr[ityp][i];
+            delete [] rho_r_arr[ityp];
         }
-        delete [] rho_arr;
+        delete [] rho_r_arr;
         
-        for(int i=0;i<no_types;i++)
+        for(int ityp=0;ityp<no_types;ityp++)
         {
-            for(int j=0;j<nrho;j++)
-                delete [] F_arr[i][j];
-            delete [] F_arr[i];
+            for(int i=0;i<nrho;i++)
+                delete [] F_arr[ityp][i];
+            delete [] F_arr[ityp];
         }
         delete [] F_arr;
     }
@@ -1653,17 +1719,58 @@ void ForceField_eam_dmd::clean_up()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd::allocate()
+void ForceField_eam_dmd_hg_0::allocate()
 {
+    int no_types=atom_types->no_types;
     
     CREATE2D(type2phi,no_types,no_types);
     CREATE2D(type2rho,no_types,no_types);
+    CREATE2D(type2rho_pair_ij,no_types,no_types);
+    CREATE2D(type2rho_pair_ji,no_types,no_types);
+    CREATE2D(type2phi_pair_ij,no_types,no_types);
+    CREATE2D(type2phi_pair_ji,no_types,no_types);
     
-    for(int i=0;i<no_types;i++)
-        for(int j=0;j<no_types;j++)
+    for(int ityp=0;ityp<no_types;ityp++)
+        for(int jtyp=0;jtyp<no_types;jtyp++)
         {
-            type2phi[i][j]=COMP(i,j);
-            type2rho[i][j]=j*no_types+i;
+            type2phi[ityp][jtyp]=COMP(ityp,jtyp);
+            type2rho[ityp][jtyp]=jtyp*no_types+ityp;
+        }
+    
+    
+    stride=0;
+    for(int ityp=0;ityp<no_types;ityp++)
+    {
+        type2rho_pair_ij[ityp][ityp]=type2rho_pair_ji[ityp][ityp]=stride;
+        stride++;
+    }
+    
+    for(int ityp=0;ityp<no_types;ityp++)
+        for(int jtyp=0;jtyp<no_types;jtyp++)
+        {
+            if(ityp!=jtyp)
+            {
+                type2rho_pair_ij[ityp][jtyp]=stride;
+                stride++;
+            }
+        }
+    
+    for(int ityp=0;ityp<no_types;ityp++)
+        for(int jtyp=0;jtyp<no_types;jtyp++)
+        {
+            if(ityp!=jtyp)
+            {
+                type2rho_pair_ji[ityp][jtyp]=stride;
+                stride++;
+            }
+        }
+    
+    for(int ityp=0;ityp<no_types;ityp++)
+        for(int jtyp=0;jtyp<no_types;jtyp++)
+        {
+            type2phi_pair_ij[ityp][jtyp]=type2phi_pair_ji[jtyp][ityp]=stride;
+            stride++;
+            
         }
     
     
@@ -1672,55 +1779,57 @@ void ForceField_eam_dmd::allocate()
     {
         
         CREATE1D(phi_r_arr,no_types*(no_types+1)/2);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            CREATE1D(phi_r_arr[i],nr);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            for(int j=0;j<nr;j++)
-                CREATE1D(phi_r_arr[i][j],7);
         
-        CREATE1D(rho_arr,no_types*no_types);
-        for(int i=0;i<no_types;i++)
-            CREATE1D(rho_arr[i],nr);
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<nr;j++)
-                CREATE1D(rho_arr[i][j],7);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            CREATE1D(phi_r_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(phi_r_arr[ityp][i],7);
         
-        for(int i=1;i<no_types;i++)
-            for(int j=0;j<no_types;j++)
-                rho_arr[type2rho[i][j]]
-                =rho_arr[type2rho[i][0]];
+        CREATE1D(rho_r_arr,no_types*no_types);
+        for(int ityp=0;ityp<no_types;ityp++)
+            CREATE1D(rho_r_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(rho_r_arr[type2rho[ityp][0]][i],7);
+        
+        
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int jtyp=0;jtyp<no_types;jtyp++)
+                rho_r_arr[type2rho[ityp][jtyp]]
+                =rho_r_arr[type2rho[ityp][0]];
         
         CREATE1D(F_arr,no_types);
-        for(int i=0;i<no_types;i++)
-            CREATE1D(F_arr[i],nrho+1);
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<nrho+1;j++)
-                CREATE1D(F_arr[i][j],9);
+        for(int ityp=0;ityp<no_types;ityp++)
+            CREATE1D(F_arr[ityp],nrho);
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int i=0;i<nrho;i++)
+                CREATE1D(F_arr[ityp][i],9);
         
     }
     else if(eam_mode==FINNIS_FL)
     {
         
         CREATE1D(phi_r_arr,no_types*(no_types+1)/2);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            CREATE1D(phi_r_arr[i],nr);
-        for(int i=0;i<no_types*(no_types+1)/2;i++)
-            for(int j=0;j<nr;j++)
-                CREATE1D(phi_r_arr[i][j],7);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            CREATE1D(phi_r_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types*(no_types+1)/2;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(phi_r_arr[ityp][i],7);
         
-        CREATE1D(rho_arr,no_types*no_types);
-        for(int i=0;i<no_types*no_types;i++)
-            CREATE1D(rho_arr[i],nr);
-        for(int i=0;i<no_types*no_types;i++)
-            for(int k=0;k<nr;k++)
-                CREATE1D(rho_arr[i][k],7);
+        CREATE1D(rho_r_arr,no_types*no_types);
+        for(int ityp=0;ityp<no_types*no_types;ityp++)
+            CREATE1D(rho_r_arr[ityp],nr);
+        for(int ityp=0;ityp<no_types*no_types;ityp++)
+            for(int i=0;i<nr;i++)
+                CREATE1D(rho_r_arr[ityp][i],7);
         
         CREATE1D(F_arr,no_types);
-        for(int i=0;i<no_types;i++)
-            CREATE1D(F_arr[i],nrho+1);
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<nrho+1;j++)
-                CREATE1D(F_arr[i][j],9);
+        for(int ityp=0;ityp<no_types;ityp++)
+            CREATE1D(F_arr[ityp],nrho);
+        for(int ityp=0;ityp<no_types;ityp++)
+            for(int i=0;i<nrho;i++)
+                CREATE1D(F_arr[ityp][i],9);
     }
     
     allocated=1;
@@ -1728,7 +1837,7 @@ void ForceField_eam_dmd::allocate()
 /*--------------------------------------------
  set the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd::set_arrays()
+void ForceField_eam_dmd_hg_0::set_arrays()
 {
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
     {
@@ -1736,7 +1845,7 @@ void ForceField_eam_dmd::set_arrays()
             interpolate_m(nrho,drho,F_arr[i]);
         
         for(int i=0;i<no_types;i++)
-            interpolate(nr,dr,rho_arr[i]);
+            interpolate(nr,dr,rho_r_arr[i]);
         
         for(int i=0;i<no_types;i++)
             for(int j=0;j<i+1;j++)
@@ -1749,7 +1858,7 @@ void ForceField_eam_dmd::set_arrays()
         
         for(int i=0;i<no_types;i++)
             for(int j=0;j<no_types;j++)
-                interpolate(nr,dr,rho_arr[type2rho[i][j]]);
+                interpolate(nr,dr,rho_r_arr[type2rho[i][j]]);
         
         for(int i=0;i<no_types;i++)
             for(int j=0;j<i+1;j++)
@@ -1759,8 +1868,8 @@ void ForceField_eam_dmd::set_arrays()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd::interpolate(int n,type0 delta
-                                    ,type0** spline)
+void ForceField_eam_dmd_hg_0::interpolate(int n
+                                        ,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1779,7 +1888,6 @@ void ForceField_eam_dmd::interpolate(int n,type0 delta
         2.0*(spline[i+1][0]-spline[i][0]);
     }
     
-    
     spline[n-1][2]=0.0;
     spline[n-1][3]=0.0;
     for(int i=0;i<n;i++)
@@ -1791,10 +1899,65 @@ void ForceField_eam_dmd::interpolate(int n,type0 delta
     
 }
 /*--------------------------------------------
+ interpolate for a single array
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::interpolate(type0* arr
+                                         ,int n,type0 p,int k)
+{
+    
+    // k_min=0 k_max=n-1
+    type0 coef0,coef1,coef2,coef3,tmp;
+    
+    coef0=arr[k];
+    
+    if(k==0)
+    {
+        coef1=arr[1]-arr[0];
+        tmp=0.5*(arr[2]-arr[0]);
+        coef2=(-arr[0]+2.0*arr[1]-arr[2])/2.0;
+        coef3=(arr[0]-2.0*arr[1]+arr[2])/2.0;
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    else if(k==1)
+    {
+        coef1=0.5*(arr[2]-arr[0]);
+        tmp=((arr[0]-arr[4])+8.0*(arr[3]-arr[1]))/12.0;
+        coef2=(11.0*arr[0]-28.0*arr[1]+24.0*arr[2]-8.0*arr[3]+arr[4])/12.0;
+        coef3=(-5.0*arr[0]+16.0*arr[1]-18.0*arr[2]+8.0*arr[3]-arr[4])/12.0;
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    else if(k==n-2)
+    {
+        coef1=0.5*(arr[n-1]-arr[n-3]);
+        tmp=arr[n-1]-arr[n-2];
+        coef2=arr[n-3]-3.0*arr[n-2]+2.0*arr[n-1];
+        coef3=0.5*(-arr[n-3]+3.0*arr[n-2]-2.0*arr[n-1]);
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    else if (k==n-1)
+    {
+        coef1=arr[n-1]-arr[n-2];
+        return coef0+coef1*p;
+    }
+    else
+    {
+        coef1=((arr[k-2]-arr[k+2])+
+               8.0*(arr[k+1]-arr[k-1]))/12.0;
+        tmp=((arr[k-1]-arr[k+3])+
+             8.0*(arr[k+2]-arr[k]))/12.0;
+        
+        coef2=(-2.0*arr[k-2]+15.0*arr[k-1]-28.0*arr[k]+21.0*arr[k+1]-6.0*arr[k+2])/12.0;
+        coef3=(arr[k-2]-7.0*arr[k-1]+16.0*arr[k]-17.0*arr[k+1]+7.0*arr[k+2])/12.0;
+        return ((coef3*p+coef2)*p+coef1)*p+coef0;
+    }
+    
+    
+}
+/*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd::interpolate_m(int n,type0 delta
-                                      ,type0** spline)
+void ForceField_eam_dmd_hg_0::interpolate_m(int n
+                                          ,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1840,11 +2003,13 @@ void ForceField_eam_dmd::interpolate_m(int n,type0 delta
  Gaussian-Hermite quadrature weights and
  abscissas for 1 to 14 points
  --------------------------------------------*/
-void ForceField_eam_dmd::set_weight_abs(int n)
+void ForceField_eam_dmd_hg_0::set_weight_abs(int n)
 {
     
     if(n<1 || n>14)
-        error->abort("n should be between 1 and 14");
+        error->abort("number of gaussian "
+                     "points for ff eam_dmd should be "
+                     "between 1 & 14");
     
     if(no_i)
     {
@@ -2137,8 +2302,9 @@ void ForceField_eam_dmd::set_weight_abs(int n)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd::create_2nd_neigh_lst()
+void ForceField_eam_dmd_hg_0::create_2nd_neigh_lst()
 {
+    
     
     type0 dx0,dx1,dx2,rsq;
     int iatm,jatm,icomp,jcomp;
@@ -2148,13 +2314,11 @@ void ForceField_eam_dmd::create_2nd_neigh_lst()
     
     type0* x;
     atoms->vectors[x_n].ret(x);
-    int* crd;
-    atoms->vectors[crd_n].ret(crd);
+    
     
     int* tmp_neigh_list;
     int tmp_neigh_list_size=1024;
     CREATE1D(tmp_neigh_list,1024);
-    
     
     if(neigh_lst_sz_sz)
     {
@@ -2171,7 +2335,7 @@ void ForceField_eam_dmd::create_2nd_neigh_lst()
     CREATE1D(neigh_lst_sz,natms);
     
     for(int i=0;i<natms;i++)
-        crd[i]=neigh_lst_sz[i]=0;
+        neigh_lst_sz[i]=0;
     
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -2195,10 +2359,7 @@ void ForceField_eam_dmd::create_2nd_neigh_lst()
                 }
                 tmp_neigh_list[neigh_lst_sz[iatm]]=jatm;
                 neigh_lst_sz[iatm]++;
-                crd[iatm]++;
                 
-                if(jatm<natms)
-                    crd[jatm]++;
             }
             
             CREATE1D(neigh_lst[iatm],neigh_lst_sz[iatm]);
@@ -2207,11 +2368,8 @@ void ForceField_eam_dmd::create_2nd_neigh_lst()
         }
     }
     
-    
     if(tmp_neigh_list_size)
         delete [] tmp_neigh_list;
-    
-    atoms->update(crd_n);
     
 }
 /*--------------------------------------------
@@ -2219,8 +2377,9 @@ void ForceField_eam_dmd::create_2nd_neigh_lst()
  this fucntion should be symmetric wrt fi &
  fj
  --------------------------------------------*/
-type0 ForceField_eam_dmd::
-mat(type0 fi,type0 fj,int itype)
+type0 ForceField_eam_dmd_hg_0::
+mat(type0 fi,type0 crdi,type0 fj,type0 crdj
+    ,int itype)
 {
     if(fi>fj)
         return fi+delta_e[itype];
@@ -2230,8 +2389,9 @@ mat(type0 fi,type0 fj,int itype)
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-type0 ForceField_eam_dmd::
-dmat(type0 fi,type0 fj,int itype)
+type0 ForceField_eam_dmd_hg_0::
+dmat0(type0 fi,type0 crdi,type0 fj,type0 crdj
+      ,int itype)
 {
     
     if(fi>fj)
@@ -2239,10 +2399,21 @@ dmat(type0 fi,type0 fj,int itype)
     else
         return 0.0;
 }
+
+/*--------------------------------------------
+ dmat(fi,fj)/dfi
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::
+dmat1(type0 fi,type0 crdi,type0 fj,type0 crdj
+      ,int itype)
+{
+    
+    return 0.0;
+}
 /*--------------------------------------------
  return M_{ij}^{\alpha}
  --------------------------------------------*/
-type0 ForceField_eam_dmd::calc_ent(type0 x)
+type0 ForceField_eam_dmd_hg_0::calc_ent(type0 x)
 {
     if(x<1.0e-8 || 0.99999999<x)
         return 0.0;
@@ -2253,8 +2424,9 @@ type0 ForceField_eam_dmd::calc_ent(type0 x)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd::c_d_calc()
+void ForceField_eam_dmd_hg_0::c_d_calc()
 {
+    
     type0* x;
     atoms->vectors[x_n].ret(x);
     type0* E;
@@ -2263,28 +2435,30 @@ void ForceField_eam_dmd::c_d_calc()
     atoms->vectors[dE_n].ret(dE);
     type0* c;
     atoms->vectors[c_n].ret(c);
-    type0* n;
-    atoms->vectors[n_n].ret(n);
-    int* crd;
-    atoms->vectors[crd_n].ret(crd);
     type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
-    type0* coef;
-    type0 p,p2,p3,p4,tmp0,tmp1,s_ij,fi,fj,exp_fi,exp_fj,tmpi,tmpj;
+    type0* n;
+    atoms->vectors[n_n].ret(n);
+    type0* crd;
+    atoms->vectors[crd_n].ret(crd);
     
+    type0 fi,fj,exp_fi,exp_fj;
+    type0 p,p2,p3,p4,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji;
+    type0* coef;
     int m;
     int iatm,jatm;
-    int icomp,jcomp,phi_start,rho_start;
+    int icomp,jcomp,istart;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    int natms=atoms->natms;
-    for(iatm=0;iatm<natms*no_types;iatm++)
-        c_d[iatm]=E[iatm]=dE[iatm]=0.0;
     
-    phi_start=0;
-    rho_start=0;
+    int natms=atoms->natms;
+    for(int i=0;i<natms*no_types;i++)
+        c_d[i]=E[i]=0.0;
+    
+    
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2295,15 +2469,21 @@ void ForceField_eam_dmd::c_d_calc()
             jcomp=no_types*jatm;
             for(int itype=0;itype<no_types;itype++)
             {
+                crd[iatm+itype]+=c[jcomp+itype];
+                if(jatm<natms)
+                    crd[jatm+itype]+=c[icomp+itype];
+                
+                
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    E[icomp+itype]+=c[jcomp+jtype]*rho[rho_start+type2rho[jtype][itype]];
+                    E[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
                     if(jatm<natms)
-                        E[jcomp+jtype]+=c[icomp+itype]*rho[rho_start+type2rho[itype][jtype]];
+                        E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
                 }
             }
             
-            rho_start+=no_types*no_types;
+            istart+=stride;
+            
         }
         
         for(int itype=0;itype<no_types; itype++)
@@ -2318,6 +2498,7 @@ void ForceField_eam_dmd::c_d_calc()
             p4=p3*p;
             coef=F_arr[itype][m];
             
+            
             tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
             tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
             
@@ -2329,11 +2510,10 @@ void ForceField_eam_dmd::c_d_calc()
         }
     }
     
-    
     atoms->update(dE_n);
     
-    phi_start=0;
-    rho_start=0;
+    
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2348,28 +2528,31 @@ void ForceField_eam_dmd::c_d_calc()
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    n[icomp+itype]+=c[jcomp+jtype]*(rho[rho_start+type2rho[itype][jtype]]*dE[jatm+jtype]
-                                                    +phi[phi_start+type2phi[itype][jtype]]);
+                    n[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
+                                                    +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                    
                     if(jatm<natms)
-                        n[jcomp+jtype]+=c[icomp+itype]*(rho[rho_start+type2rho[jtype][itype]]*dE[iatm+itype]
-                                                        +phi[phi_start+type2phi[itype][jtype]]);
+                        n[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
+                                                        +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
                 }
             }
-            rho_start+=no_types*no_types;
-            phi_start+=no_types*(no_types+1)/2;
+            istart+=stride;
         }
         
         for(int itype=0;itype<no_types;itype++)
         {
-            n[icomp+itype]+=c_0[itype]+1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
-            
+            n[icomp+itype]+=c_0[itype];
+            //fix this part for change of variables
+            n[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
         }
+        
     }
     
     atoms->update(n_n);
     
-    type0 inner=0.0;
-    type0 tot_inner=0.0;
+    
+    atoms->update(crd_n);
+    
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2377,39 +2560,38 @@ void ForceField_eam_dmd::c_d_calc()
         {
             jatm=neigh_lst[iatm][j];
             jcomp=no_types*jatm;
+            
             for(int itype=0;itype<no_types;itype++)
             {
-                
-                
+                crdi=crd[icomp+itype];
+                crdj=crd[jcomp+itype];
                 fi=n[icomp+itype];
                 fj=n[jcomp+itype];
+                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
+                w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
+                w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
                 
+                s_ij=w_ij-w_ji;
                 
-                exp_fi=exp(beta*(fi-mat(fi,fj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,fj,itype)));
-                tmpi=c[icomp+itype]*(1.0-c[jcomp+itype]);
-                tmpj=c[jcomp+itype]*(1.0-c[icomp+itype]);
-                s_ij=tmpj*exp_fj-tmpi*exp_fi;
                 
                 c_d[icomp+itype]+=s_ij;
                 if(jatm<natms)
+                {
                     c_d[jcomp+itype]-=s_ij;
+                }
             }
         }
         
-        for(int itype=0;itype<no_types;itype++)
-            inner+=c_d[icomp+itype]*c_d[icomp+itype];
     }
     
-    MPI_Allreduce(&inner,&tot_inner,1,MPI_TYPE0,MPI_SUM,world);
-    tot_inner=sqrt(tot_inner);
     
 }
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::g_calc(int chk,type0 alpha,
-type0* a,type0* g)
+type0 ForceField_eam_dmd_hg_0::g_calc(int chk
+                                    ,type0 alpha,type0* a,type0* g)
 {
     type0* x;
     atoms->vectors[x_n].ret(x);
@@ -2417,8 +2599,6 @@ type0* a,type0* g)
     atoms->vectors[E_n].ret(E);
     type0* dE;
     atoms->vectors[dE_n].ret(dE);
-    type0* ddE;
-    atoms->vectors[ddE_n].ret(ddE);
     type0* c;
     atoms->vectors[c_n].ret(c);
     type0* c_d;
@@ -2427,19 +2607,22 @@ type0* a,type0* g)
     atoms->vectors[n_n].ret(n);
     type0* s;
     atoms->vectors[s_n].ret(s);
-    int* crd;
-    atoms->vectors[crd_n].ret(crd);
     type0* t;
     atoms->vectors[t_n].ret(t);
     type0* v;
     atoms->vectors[v_n].ret(v);
+    type0* crd;
+    atoms->vectors[crd_n].ret(crd);
+    
     type0 inner,ans;
-    type0 fi,fj,exp_fi,exp_fj,ti,tj,tmpi,tmpj;
+    type0 fi,fj,exp_fi,exp_fj;
     type0 p,p2,p3,p4,tmp0,tmp1,s_ij;
+    type0 w_ij,w_ji,l_ij;
+    type0 crdi,crdj;
     type0* coef;
     int m;
     int iatm,jatm;
-    int icomp,jcomp,phi_start,rho_start;
+    int icomp,jcomp,istart;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
@@ -2450,33 +2633,32 @@ type0* a,type0* g)
         g[i]=E[i]=0.0;
     
     
-    /*
-     calculate E dE ddE
-     
-     */
     
-    phi_start=0;
-    rho_start=0;
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
         
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
-            
             jatm=neighbor_list[iatm][j];
             jcomp=no_types*jatm;
             for(int itype=0;itype<no_types;itype++)
             {
+                crd[iatm+itype]+=c[jcomp+itype];
+                if(jatm<natms)
+                    crd[jatm+itype]+=c[icomp+itype];
+                
+                
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    E[icomp+itype]+=c[jcomp+jtype]*rho[rho_start+type2rho[jtype][itype]];
+                    E[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
                     if(jatm<natms)
-                        E[jcomp+jtype]+=c[icomp+itype]*rho[rho_start+type2rho[itype][jtype]];
+                        E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
                 }
             }
             
-            rho_start+=no_types*no_types;
+            istart+=stride;
             
         }
         
@@ -2501,7 +2683,9 @@ type0* a,type0* g)
             
             n[icomp+itype]=E[icomp+itype]=tmp0;
             dE[icomp+itype]=tmp1;
-            ddE[icomp+itype]=(3.0*coef[8]*p2+coef[7]*p+coef[6])*drho_inv;
+            
+            //ddE
+            v[2*(icomp+itype)]=(3.0*coef[8]*p2+coef[7]*p+coef[6])*drho_inv;
         }
     }
     
@@ -2511,8 +2695,7 @@ type0* a,type0* g)
      claculate f (n)
      */
     
-    phi_start=0;
-    rho_start=0;
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2527,20 +2710,20 @@ type0* a,type0* g)
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    n[icomp+itype]+=c[jcomp+jtype]*(rho[rho_start+type2rho[itype][jtype]]*dE[jatm+jtype]
-                                                    +phi[phi_start+type2phi[itype][jtype]]);
+                    n[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
+                                                    +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
                     if(jatm<natms)
-                        n[jcomp+jtype]+=c[icomp+itype]*(rho[rho_start+type2rho[jtype][itype]]*dE[iatm+itype]
-                                                        +phi[phi_start+type2phi[itype][jtype]]);
+                        n[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
+                                                        +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
                 }
             }
-            rho_start+=no_types*no_types;
-            phi_start+=no_types*(no_types+1)/2;
+            istart+=stride;
         }
         
         for(int itype=0;itype<no_types;itype++)
         {
             n[icomp+itype]+=c_0[itype];
+            //fix this part for change of variables
             n[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
         }
         
@@ -2558,6 +2741,8 @@ type0* a,type0* g)
      claculate s and c_d
      */
     
+    atoms->update(crd_n);
+    
     inner=0.0;
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -2569,15 +2754,16 @@ type0* a,type0* g)
             
             for(int itype=0;itype<no_types;itype++)
             {
+                crdi=crd[icomp+itype];
+                crdj=crd[jcomp+itype];
                 fi=n[icomp+itype];
                 fj=n[jcomp+itype];
-                exp_fi=exp(beta*(fi-mat(fi,fj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,fj,itype)));
-                tmpi=c[icomp+itype]*(1.0-c[jcomp+itype]);
-                tmpj=c[jcomp+itype]*(1.0-c[icomp+itype]);
-                s_ij=tmpj*exp_fj-tmpi*exp_fi;
+                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
+                w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
+                w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
                 
-                
+                s_ij=w_ij-w_ji;
                 
                 s[icomp+itype]-=2.0*alpha*s_ij;
                 c_d[icomp+itype]+=s_ij;
@@ -2606,13 +2792,15 @@ type0* a,type0* g)
     
     for(int i=0;i<natms*no_types;i++)
     {
-        v[i]=t[i]=0.0;
+        v[2*i+1]=t[2*i]=t[2*i+1]=0.0;
         g[i]=-s[i];
     }
     
     /*
      claculate t and first part of g
      */
+    
+    
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2627,24 +2815,31 @@ type0* a,type0* g)
                 s_ij=s[icomp+itype]-s[jcomp+itype];
                 fi=n[icomp+itype];
                 fj=n[jcomp+itype];
+                crdi=crd[icomp+itype];
+                crdj=crd[jcomp+itype];
                 
-                exp_fi=exp(beta*(fi-mat(fi,fj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,fj,itype)));
-                tmpi=c[icomp+itype]*(1.0-c[jcomp+itype]);
-                tmpj=c[jcomp+itype]*(1.0-c[icomp+itype]);
+                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
                 
-                ti=tmpi*exp_fi+dmat(fi,fj,itype)*(tmpj*exp_fj-tmpi*exp_fi);
-                ti*=s_ij;
+                w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
+                w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
                 
-                t[icomp+itype]-=ti;
+                l_ij=s_ij*(w_ji-w_ij)*dmat1(fi,crdi,fj,crdj,itype);
+                
+                t[2*(icomp+itype)]+=s_ij*(w_ij+(w_ji-w_ij)*dmat0(fi,crdi,fj,crdj,itype));
+                
+                t[2*(icomp+itype)+1]+=l_ij;
+                
                 g[icomp+itype]-=alpha*((1.0-c[jcomp+itype])*exp_fi+c[jcomp+itype]*exp_fj)*s_ij;
+                
                 if(jatm<natms)
                 {
-                    tj=tmpj*exp_fj+dmat(fj,fi,itype)*(tmpi*exp_fi-tmpj*exp_fj);
-                    tj*=s_ij;
+                    t[2*(jcomp+itype)]-=s_ij*(w_ji+(w_ij-w_ji)*dmat0(fj,crdj,fi,crdi,itype));
                     
-                    t[jcomp+itype]+=tj;
+                    t[2*(jcomp+itype)+1]+=s_ij*(w_ji-w_ij)*dmat1(fj,crdj,fi,crdi,itype);
+                    
                     g[jcomp+itype]+=alpha*((1.0-c[icomp+itype])*exp_fj+c[icomp+itype]*exp_fi)*s_ij;
+                    
                 }
             }
         }
@@ -2652,12 +2847,7 @@ type0* a,type0* g)
     
     atoms->update(t_n);
     
-    
-    /*
-     claculate v and second part of g due to first part of df_i/dc_j
-     */
-    phi_start=0;
-    rho_start=0;
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2668,35 +2858,37 @@ type0* a,type0* g)
             
             for(int itype=0;itype<no_types;itype++)
             {
+                g[icomp+itype]+=alpha*beta*t[2*(jcomp+itype)+1];
+                if(jatm<natms)
+                {
+                    g[jcomp+itype]+=alpha*beta*t[2*(icomp+itype)+1];
+                }
+                
+                
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
                     
-                    tmp0=phi[phi_start+type2phi[jtype][itype]]
-                    +rho[rho_start+type2rho[jtype][itype]]*dE[icomp+itype]
-                    +rho[rho_start+type2rho[itype][jtype]]*dE[jcomp+jtype];
+                    tmp0=rho_phi[istart+type2phi_pair_ij[itype][jtype]]
+                    +rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                    +rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype];
                     tmp0*=beta*alpha;
                     
-                    v[icomp+itype]+=rho[rho_start+type2rho[jtype][itype]]*t[jcomp+jtype];
-                    g[icomp+itype]+=tmp0*t[jcomp+jtype];
+                    v[2*(icomp+itype)+1]+=rho_phi[istart+type2rho_pair_ji[jtype][itype]]*t[2*(jcomp+jtype)];
+                    g[icomp+itype]+=tmp0*t[2*(jcomp+jtype)];
                     if(jatm<natms)
                     {
-                        v[jcomp+jtype]+=rho[rho_start+type2rho[itype][jtype]]*t[icomp+itype];
-                        g[jcomp+jtype]+=tmp0*t[icomp+itype];
+                        v[2*(jcomp+jtype)+1]+=rho_phi[istart+type2rho_pair_ij[itype][jtype]]*t[2*(icomp+itype)];
+                        g[jcomp+jtype]+=tmp0*t[2*(icomp+itype)];
                     }
                 }
             }
-            rho_start+=no_types*no_types;
-            phi_start+=no_types*(no_types+1)/2;
+            istart+=stride;
         }
     }
     
     atoms->update(v_n);
-    atoms->update(ddE_n);
     
-    /*
-     claculate third part of g due to second part of df_i/dc_j
-     */
-    rho_start=0;
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
@@ -2708,14 +2900,14 @@ type0* a,type0* g)
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    g[icomp+itype]+=alpha*beta*rho[rho_start+type2rho[itype][jtype]]
-                    *ddE[jcomp+jtype]*c[jcomp+jtype]*v[jcomp+jtype];
+                    g[icomp+itype]+=alpha*beta*rho_phi[istart+type2rho_pair_ij[itype][jtype]]
+                    *v[2*(jcomp+jtype)]*c[jcomp+jtype]*v[2*(jcomp+jtype)+1];
                     if(jatm<natms)
-                        g[jcomp+jtype]+=alpha*beta*rho[rho_start+type2rho[jtype][itype]]
-                        *ddE[icomp+itype]*c[icomp+itype]*v[icomp+itype];
+                        g[jcomp+jtype]+=alpha*beta*rho_phi[istart+type2rho_pair_ji[jtype][itype]]
+                        *v[2*(icomp+itype)]*c[icomp+itype]*v[2*(icomp+itype)+1];
                 }
             }
-            rho_start+=no_types*no_types;
+            istart+=no_types*no_types;
         }
     }
     

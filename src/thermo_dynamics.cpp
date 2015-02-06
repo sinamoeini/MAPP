@@ -52,7 +52,7 @@ ThermoDynamics::ThermoDynamics(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
     mod_lngth=15;
-    step_name_lngth=12;
+    step_name_lngth=15;
     
     
     if(atoms->dimension!=3)

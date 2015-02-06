@@ -160,6 +160,9 @@ type0 LineSearch::energy(type0 alpha)
                 for(int k=j;k<dim;k++)
                     x[icomp+j]+=N[k][j]*x_prev[icomp+k]+alpha*H[k][j]*h[icomp+k];
             }
+            for(int j=dim;j<x_dim;j++)
+                x[icomp+j]=x_prev[icomp+j]+alpha*h[icomp+j];
+                
             icomp+=x_dim;
         }
         
@@ -182,6 +185,7 @@ type0 LineSearch::energy(type0 alpha)
         
         for(int i=0;i<x_dim*atoms->natms;i++)
             x[i]=x_prev[i]+alpha*h[i];
+
         
         thermo->start_comm_time();
         atoms->update_0(0,1,vecs_comm);
@@ -232,6 +236,7 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
     type0* h;
     type0* x;
     
+    
     if(mapp->mode==DMD_mode)
     {
         atoms->vectors[0].ret(x);
@@ -245,7 +250,7 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
         alpha_min=MIN(alpha_min,min_h_tot);
     }
     
-    
+    //printf("first energy %e\n",forcefield->energy_calc());
     
     if(chng_box)
     {
@@ -323,6 +328,7 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
         {
             ideal_energy=nrgy-alpha_m*c*inner;
             current_energy=energy(alpha_m);
+            //printf("first energy %e\n",current_energy);
             if(current_energy<=ideal_energy)
             {
                 nrgy=current_energy;

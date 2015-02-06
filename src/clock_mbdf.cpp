@@ -10,7 +10,7 @@ using namespace MAPP_NS;
 Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
 ,char** arg):Clock(mapp)
 {
-    min_gamma=1.0e-30;
+    min_gamma=0.0;
     gamma_red=0.8;
     slope=0.4;
     max_iter=50;

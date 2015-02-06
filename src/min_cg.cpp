@@ -229,6 +229,50 @@ void Min_cg::init()
         thermo->update(pe_idx,nrgy_strss[0]);
         thermo->update(stress_idx,6,&nrgy_strss[1]);
         
+    
+        /*test area */
+        /*
+        type0* x;
+        atoms->vectors[0].ret(x);
+        type0 u0=forcefield->energy_calc();
+        
+        printf("u_0 %e en %e \n",u0,nrgy_strss[0]);
+        type0 delta=1.0e-7;
+        type0 u1;
+        int curs;
+        for(int i=0;i<atoms->natms;i++)
+        {
+            curs=i*5+3;
+            x[curs]+=delta;
+            atoms->update(0);
+            u1=forcefield->energy_calc();
+            printf("%i:  approx %e the force %e \n",i,(u0-u1)/delta,f[curs]);
+            
+            x[curs]-=delta;
+            
+            curs=i*5+4;
+            x[curs]+=delta;
+            atoms->update(0);
+            u1=forcefield->energy_calc();
+            printf("%i:  approx %e the force %e \n",i,(u0-u1)/delta,f[curs]);
+            
+            x[curs]-=delta;
+        }
+        */
+        /*
+        int i=123*3;
+        x[i]+=delta;
+        atoms->update(0);
+        u1=forcefield->energy_calc();
+        printf("%i:  approx %e the force %e     %e\n",i,(u0-u1)/delta,f[i],x[i]);
+        
+        x[i]-=delta;
+        
+        error->abort("BREAK");
+        */
+        
+        /*test area */
+        
     }
     
     if(write!=NULL)
@@ -464,7 +508,6 @@ void Min_cg::run()
     }
     else
     {
-        
         atoms->vectors[h_n].ret(h);
         atoms->vectors[f_n].ret(f);
         memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
@@ -517,13 +560,13 @@ void Min_cg::run()
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
             
+            thermo->start_force_time();
+            forcefield->force_calc(1,nrgy_strss);
+            thermo->stop_force_time();
+            rectify_f(f);
+            
             if(thermo->test_prev_step() || err)
             {
-
-                thermo->start_force_time();
-                forcefield->force_calc(1,nrgy_strss);
-                thermo->stop_force_time();
-                rectify_f(f);
                 thermo->update(pe_idx,nrgy_strss[0]);
                 thermo->update(stress_idx,6,&nrgy_strss[1]);
                 curr_energy=nrgy_strss[0];
@@ -581,6 +624,7 @@ void Min_cg::run()
  --------------------------------------------*/
 void Min_cg::fin()
 {
+    
     forcefield->fin();
     neighbor->fin();
     
