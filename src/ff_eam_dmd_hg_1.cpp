@@ -831,8 +831,9 @@ void ForceField_eam_dmd_hg_1::coef(int narg,char** arg)
         set_funcfl(narg-8,&arg[8]);
     }
     else
-        error->abort("wrong coeff command "
-                     "for eam Force Field");
+        error->abort("unknown file format "
+        "for ff eam_dmd: %s",arg[7]);
+    
     set_arrays();
     
     type0 mass;
@@ -848,9 +849,6 @@ void ForceField_eam_dmd_hg_1::coef(int narg,char** arg)
     
     kbT=kb*T;
     beta=1.0/kbT;
-    
-    if(alpha_min==0.0)
-        error->abort("minimum alpha cannot be zero");
     
     rc=(static_cast<type0>(nr)-1.0)*dr;
     rho_max=(static_cast<type0>(nrho)-1.0)*drho;

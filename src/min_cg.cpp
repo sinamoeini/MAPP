@@ -53,7 +53,7 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
             error->abort("unknown keyword for min cg: %s",arg[iarg]);
     }
     
-    if(max_iter<=0)
+    if(max_iter<0)
         error->abort("max_iter in min cg should be greater than 0");
     if(energy_tolerance<=0.0)
          error->abort("e_tol in min cg should be greater than 0.0");
@@ -287,6 +287,7 @@ void Min_cg::init()
  --------------------------------------------*/
 void Min_cg::run()
 {
+    if(max_iter==0) return;
     
     type0* x;
     type0* f;

@@ -79,7 +79,7 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
             error->abort("unknown keyword for min l-bfgs: %s",arg[iarg]);
     }
     
-    if(max_iter<=0)
+    if(max_iter<0)
         error->abort("max_iter in min l-bfgs should be greater than 0");
     if(energy_tolerance<=0.0)
         error->abort("e_tol in min l-bfgs should be greater than 0.0");
@@ -300,6 +300,8 @@ void Min_lbfgs::init()
  --------------------------------------------*/
 void Min_lbfgs::run()
 {
+    if(max_iter==0) return;
+    
     type0* f;
     type0* x;
     type0* x_0;
