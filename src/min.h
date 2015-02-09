@@ -34,6 +34,8 @@ namespace MAPP_NS {
         int dof_n,cdof_n;
         int id_n;
         int c_type_n;
+        
+        void reg_h_H(type0**,type0**);
     public:
         Min(MAPP *);
         virtual ~Min();

@@ -306,13 +306,13 @@ MD_nh::MD_nh(MAPP* mapp,int narg,char** arg)
             peta_d[i]=0.0;
         CREATE1D(tmp_x,3);
         CREATE1D(tmp_fac,3);
-        CREATE1D(tmp_ke_curr,6);
         CREATE2D(H0,3,3);
         CREATE2D(H0_inv,3,3);
         CREATE2D(M1,3,3);
         CREATE2D(M2,3,3);
     }
     
+    CREATE1D(tmp_ke_curr,6);
     CREATE1D(eta_d,no_ch_eta);
     CREATE1D(eta_dd,no_ch_eta);
     CREATE1D(eta_m,no_ch_eta);
@@ -356,7 +356,6 @@ MD_nh::~MD_nh()
         delete [] H0;
         delete [] H0_inv;
         delete [] ke_curr;
-        delete [] tmp_ke_curr;
         delete [] tmp_fac;
         delete [] chk_tau;
         delete [] v_per_atm;
@@ -366,6 +365,7 @@ MD_nh::~MD_nh()
         delete [] omega_d;
     }
     
+    delete [] tmp_ke_curr;
     delete [] eta_d;
     delete [] eta_dd;
     delete [] eta_m;

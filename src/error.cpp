@@ -44,6 +44,7 @@ void Error::abort(const char* msg,...)
 /*--------------------------------------------
  output the error line and abort the code
  --------------------------------------------*/
+/*
 void Error::abort(int line,const char* file
 ,const char* msg,...)
 {
@@ -82,6 +83,7 @@ void Error::abort(int line,const char* file
     MPI_Finalize();
     exit(EXIT_FAILURE);
 }
+*/
 /*--------------------------------------------
  output the warning msg 
  --------------------------------------------*/

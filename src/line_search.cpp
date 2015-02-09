@@ -18,13 +18,21 @@ LineSearch::LineSearch(MAPP* mapp,VecLst*vec_list)
     vecs_comm=vec_list;
     dof_n=atoms->find_exist("dof");
     
+    CREATE2D(N,dim,dim);
+    CREATE2D(M,dim,dim);
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 LineSearch::~LineSearch()
 {
-
+    for(int i=0;i<dim;i++)
+    {
+        delete [] N[i];
+        delete [] M[i];
+    }
+    delete [] N;
+    delete [] M;
 }
 /*--------------------------------------------
  inner product of f and h
@@ -136,9 +144,11 @@ type0 LineSearch::energy(type0 alpha)
             {
                 H[i][j]=H_prev[i][j]+alpha*h_H[i][j];
                 N[i][j]=0.0;
+                M[i][j]=0.0;
                 for(int k=0;k<dim;k++)
                 {
                     N[i][j]+=alpha*h_H[i][k]*B_prev[k][j];
+                    M[i][j]+=alpha*H_prev[i][k]*(H_prev[k][j]+alpha*h_H[k][j]);
                 }
             }
         }
@@ -198,6 +208,54 @@ type0 LineSearch::energy(type0 alpha)
         return energy;
     }
 }
+
+/*--------------------------------------------
+ inner product of f and h
+ --------------------------------------------*/
+void LineSearch::ccc(type0** y,type0** H,type0** T,type0 alpha)
+{
+    y[2][0]=(H_prev[0][0]*(H_prev[2][0]+alpha*T[2][0])+alpha*(H_prev[2][0]*T[0][0]+H_prev[2][1]*T[0][1]+H_prev[2][2]*T[0][2]+alpha*T[0][0]*T[2][0]+alpha*T[0][1]*T[2][1]+alpha*T[0][2]*T[2][2]))/sqrt(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2));
+    
+    y[2][1]=(alpha*(-(H_prev[0][0]*(H_prev[1][1]*T[0][1]+alpha*T[0][1]*T[1][1]+alpha*T[0][2]*T[1][2]))+alpha*(-(H_prev[1][1]*T[0][0]*T[0][1])+H_prev[1][0]*(pow(T[0][1],2)+pow(T[0][2],2))+alpha*(pow(T[0][1],2)*T[1][0]+pow(T[0][2],2)*T[1][0]-T[0][0]*T[0][1]*T[1][1]-T[0][0]*T[0][2]*T[1][2])))*(H_prev[2][0]+alpha*T[2][0])+
+             ((pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(H_prev[1][1]+alpha*T[1][1])-alpha*T[0][1]*((H_prev[0][0]+alpha*T[0][0])*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][1]*(H_prev[1][1]+alpha*T[1][1])+pow(alpha,2)*T[0][2]*T[1][2]))*(H_prev[2][1]+alpha*T[2][1])+(-(alpha*T[0][2]*(H_prev[0][0]*(H_prev[1][0]+alpha*T[1][0])+alpha*(H_prev[1][0]*T[0][0]+H_prev[1][1]*T[0][1]+alpha*T[0][0]*T[1][0]+alpha*T[0][1]*T[1][1])))+alpha*(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2))*T[1][2])*(H_prev[2][2]+alpha*T[2][2]))/sqrt((pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(-pow((H_prev[0][0]+alpha*T[0][0])*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][1]*(H_prev[1][1]+alpha*T[1][1])+pow(alpha,2)*T[0][2]*T[1][2],2)+(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(pow(H_prev[1][0]+alpha*T[1][0],2)+pow(H_prev[1][1]+alpha*T[1][1],2)+pow(alpha,2)*pow(T[1][2],2))));
+    
+    y[2][2]=(H_prev[0][0]*(H_prev[1][1]*(H_prev[2][2]+alpha*T[2][2])+alpha*(H_prev[2][2]*T[1][1]-T[1][2]*(H_prev[2][1]+alpha*T[2][1])+alpha*T[1][1]*T[2][2]))+alpha*(H_prev[1][1]*(H_prev[2][2]*T[0][0]-T[0][2]*(H_prev[2][0]+alpha*T[2][0])+alpha*T[0][0]*T[2][2])+alpha*(-(H_prev[2][2]*T[0][1]*T[1][0])+H_prev[2][1]*T[0][2]*T[1][0]+H_prev[2][2]*T[0][0]*T[1][1]-H_prev[2][0]*T[0][2]*T[1][1]-H_prev[2][1]*T[0][0]*T[1][2]+H_prev[2][0]*T[0][1]*T[1][2]-alpha*T[0][2]*T[1][1]*T[2][0]+alpha*T[0][1]*T[1][2]*T[2][0]+alpha*T[0][2]*T[1][0]*T[2][1]-alpha*T[0][0]*T[1][2]*T[2][1]-alpha*T[0][1]*T[1][0]*T[2][2]+alpha*T[0][0]*T[1][1]*T[2][2])+H_prev[1][0]*(T[0][2]*(H_prev[2][1]+alpha*T[2][1])-T[0][1]*(H_prev[2][2]+alpha*T[2][2]))))/sqrt(pow(H_prev[0][0]*(H_prev[1][1]+alpha*T[1][1])+alpha*(H_prev[1][1]*T[0][0]-T[0][1]*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][0]*T[1][1]),2)+pow(alpha*T[0][2]*(H_prev[1][0]+alpha*T[1][0])-alpha*(H_prev[0][0]+alpha*T[0][0])*T[1][2],2)+pow(alpha,2)*pow(H_prev[1][1]*T[0][2]+alpha*T[0][2]*T[1][1]-alpha*T[0][1]*T[1][2],2));
+    
+    y[1][1]=sqrt((pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(-pow((H_prev[0][0]+alpha*T[0][0])*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][1]*(H_prev[1][1]+alpha*T[1][1])+pow(alpha,2)*T[0][2]*T[1][2],2)+(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(pow(H_prev[1][0]+alpha*T[1][0],2)+pow(H_prev[1][1]+alpha*T[1][1],2)+pow(alpha,2)*pow(T[1][2],2))))/(pow(H_prev[0][0],2)+2*alpha*H_prev[0][0]*T[0][0]+pow(alpha,2)*(pow(T[0][0],2)+pow(T[0][1],2)+pow(T[0][2],2)));
+    
+    y[1][0]=(H_prev[0][0]*(H_prev[1][0]+alpha*T[1][0])+alpha*(H_prev[1][0]*T[0][0]+H_prev[1][1]*T[0][1]+alpha*T[0][0]*T[1][0]+alpha*T[0][1]*T[1][1]+alpha*T[0][2]*T[1][2]))/sqrt(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2));
+    
+    y[0][0]=sqrt(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2));
+    
+    y[0][1]=y[0][2]=y[1][2]=0.0;
+
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            y[i][j]-=H[i][j];
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            if(H_dof[i][j]==0)
+                y[i][j]=0.0;
+    
+    
+    
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+        {
+            N[i][j]=0.0;
+            M[i][j]=0.0;
+            for(int k=0;k<3;k++)
+            {
+                M[i][j]+=alpha*H[i][k]*(H[k][j]+y[k][j]);
+                N[i][j]+=B_prev[i][k]*y[k][j];
+            }
+        }
+    for(int i=0;i<3;i++)
+        N[i][i]++;
+}
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
@@ -210,16 +268,14 @@ LineSearch_BackTrack::LineSearch_BackTrack(MAPP* mapp,VecLst*vec_list)
     alpha_min=0.0;
     d_max=1.0;
     s_max=0.1;
-    CREATE2D(N,dim,dim);
+    
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 LineSearch_BackTrack::~LineSearch_BackTrack()
 {
-    for(int i=0;i<dim;i++)
-        delete [] N[i];
-    delete [] N;
+
 }
 /*--------------------------------------------
  minimize line

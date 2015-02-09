@@ -26,6 +26,10 @@ namespace MAPP_NS {
         type0 d_max;
         type0 s_max;
         type0** N;
+        type0** M;
+        
+        int** H_dof;
+        void ccc(type0**,type0**,type0**,type0);
     public:
         type0** H_prev;
         type0** B_prev;

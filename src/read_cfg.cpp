@@ -451,7 +451,11 @@ void Read_cfg::read_atom_md()
     if(atom_cmplt)
     {
         if(narg)
+        {
+            for(int i=0;i<narg;i++)
+                delete [] arg[i];
             delete [] arg;
+        }
         return;
     }
     
@@ -466,6 +470,12 @@ void Read_cfg::read_atom_md()
         if(narg==1)
         {
             mass=static_cast<type0>(atof(arg[0]));
+            if(narg)
+            {
+                for(int i=0;i<narg;i++)
+                    delete [] arg[i];
+                delete [] arg;
+            }
             if(atoms->my_p_no==0)
                 fgets(line,MAXCHAR,cfgfile);
             MPI_Bcast(line,MAXCHAR,MPI_CHAR,0,world);
@@ -550,7 +560,11 @@ void Read_cfg::read_atom_dmd()
     if(atom_cmplt)
     {
         if(narg)
+        {
+            for(int i=0;i<narg;i++)
+                delete [] arg[i];
             delete [] arg;
+        }
         return;
     }
     
@@ -563,6 +577,12 @@ void Read_cfg::read_atom_dmd()
     if(narg==1)
     {
         mass=static_cast<type0>(atof(arg[0]));
+        if(narg)
+        {
+            for(int i=0;i<narg;i++)
+                delete [] arg[i];
+            delete [] arg;
+        }
         if(atoms->my_p_no==0)
             fgets(line,MAXCHAR,cfgfile);
         MPI_Bcast(line,MAXCHAR,MPI_CHAR,0,world);

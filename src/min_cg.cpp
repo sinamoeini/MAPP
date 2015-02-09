@@ -196,6 +196,7 @@ void Min_cg::init()
                     f_H[j][i]+=stress[i][k]*B[k][j];
             }
         }
+        
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
                 if(H_dof[i][j]==0)
@@ -279,7 +280,6 @@ void Min_cg::init()
         write->init();
     thermo->init();
     
-
 
 }
 /*--------------------------------------------
@@ -391,6 +391,7 @@ void Min_cg::run()
             if(err)
                 continue;
             
+            
             stress[0][0]=nrgy_strss[1];
             stress[1][1]=nrgy_strss[2];
             stress[2][2]=nrgy_strss[3];
@@ -407,7 +408,7 @@ void Min_cg::run()
                         f_H[j][i]+=stress[i][k]*B[k][j];
                 }
             }
-            
+
             for(int i=0;i<dim;i++)
                 for(int j=0;j<dim;j++)
                     if(H_dof[i][j]==0)
