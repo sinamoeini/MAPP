@@ -227,7 +227,7 @@ void Min_lbfgs::init()
         type0** stress;
         CREATE2D(stress,dim,dim);
         type0** H=atoms->H;
-        type0** B=atoms->B;
+        //type0** B=atoms->B;
         
         atoms->vectors[f_n].ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
@@ -238,7 +238,7 @@ void Min_lbfgs::init()
         curr_energy=nrgy_strss[0];
         thermo->update(pe_idx,nrgy_strss[0]);
         thermo->update(stress_idx,6,&nrgy_strss[1]);
-        
+        /*
         stress[0][0]=-nrgy_strss[1];
         stress[1][1]=-nrgy_strss[2];
         stress[2][2]=-nrgy_strss[3];
@@ -255,6 +255,9 @@ void Min_lbfgs::init()
                     f_H[j][i]+=stress[i][k]*B[k][j];
             }
         }
+         */
+        reg_h_H(f_H,atoms->H);
+        
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
                 if(H_dof[i][j]==0)
@@ -475,7 +478,7 @@ void Min_lbfgs::run()
             
             if(err)
                 continue;
-            
+            /*
             stress[0][0]=-nrgy_strss[1];
             stress[1][1]=-nrgy_strss[2];
             stress[2][2]=-nrgy_strss[3];
@@ -492,6 +495,8 @@ void Min_lbfgs::run()
                         f_H[j][i]+=stress[i][k]*B[k][j];
                 }
             }
+             */
+            reg_h_H(f_H,atoms->H);
             
             for(int i=0;i<dim;i++)
                 for(int j=0;j<dim;j++)
