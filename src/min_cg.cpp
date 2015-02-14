@@ -164,8 +164,10 @@ void Min_cg::init()
     type0* f;
     if(chng_box)
     {
+        /*
         type0** stress;
         CREATE2D(stress,dim,dim);
+         */
         type0** H=atoms->H;
         //type0** B=atoms->B;
         
@@ -215,10 +217,11 @@ void Min_cg::init()
             }
             icomp+=x_dim;
         }
-        
+        /*
         for(int i=0;i<dim;i++)
             delete [] stress[i];
         delete [] stress;
+         */
     }
     else
     {
@@ -272,9 +275,10 @@ void Min_cg::run()
     {
         H=atoms->H;
         B=atoms->B;
+        /*
         type0** stress;
         CREATE2D(stress,dim,dim);
-        
+        */
         atoms->vectors[f_n].ret(f);
         atoms->vectors[h_n].ret(h);
         memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
@@ -464,11 +468,11 @@ void Min_cg::run()
             istp++;
             step_no++;
         }
-        
+        /*
         for(int i=0;i<dim;i++)
             delete [] stress[i];
         delete [] stress;
-        
+        */
         
     }
     else

@@ -224,8 +224,10 @@ void Min_lbfgs::init()
 
     if(chng_box)
     {
+        /*
         type0** stress;
         CREATE2D(stress,dim,dim);
+         */
         type0** H=atoms->H;
         //type0** B=atoms->B;
         
@@ -277,9 +279,11 @@ void Min_lbfgs::init()
             icomp+=x_dim;
         }
         
+        /*
         for(int i=0;i<dim;i++)
             delete [] stress[i];
         delete [] stress;
+         */
     }
     else
     {
@@ -334,8 +338,10 @@ void Min_lbfgs::run()
 
         H=atoms->H;
         B=atoms->B;
+        /*
         type0** stress;
         CREATE2D(stress,dim,dim);
+         */
         while(err==LS_S)
         {
             atoms->vectors[h_n].ret(h);
@@ -613,11 +619,11 @@ void Min_lbfgs::run()
             step_no++;
         }
         
-        
+        /*
         for(int i=0;i<dim;i++)
             delete [] stress[i];
         delete [] stress;
-        
+        */
         
     }
     else
