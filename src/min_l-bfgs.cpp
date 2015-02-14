@@ -291,8 +291,10 @@ void Min_lbfgs::init()
         thermo->update(stress_idx,6,&nrgy_strss[1]);
         
     }
+    
     if(write!=NULL)
         write->init();
+    
     thermo->init();
 }
 /*--------------------------------------------
@@ -443,6 +445,7 @@ void Min_lbfgs::run()
             
             if(write!=NULL)
                 write->write();
+            
             thermo->thermo_print();
             
             err=line_search->line_min(curr_energy,alpha_m);
@@ -473,12 +476,12 @@ void Min_lbfgs::run()
             if(err)
                 continue;
             
-            stress[0][0]=nrgy_strss[1];
-            stress[1][1]=nrgy_strss[2];
-            stress[2][2]=nrgy_strss[3];
-            stress[1][2]=stress[2][1]=nrgy_strss[4];
-            stress[0][2]=stress[2][0]=nrgy_strss[5];
-            stress[0][1]=stress[1][0]=nrgy_strss[6];
+            stress[0][0]=-nrgy_strss[1];
+            stress[1][1]=-nrgy_strss[2];
+            stress[2][2]=-nrgy_strss[3];
+            stress[1][2]=stress[2][1]=-nrgy_strss[4];
+            stress[0][2]=stress[2][0]=-nrgy_strss[5];
+            stress[0][1]=stress[1][0]=-nrgy_strss[6];
             
             for(int i=0;i<dim;i++)
             {
@@ -673,6 +676,7 @@ void Min_lbfgs::run()
             
             if(write!=NULL)
                 write->write();
+            
             thermo->thermo_print();
             
             err=line_search->line_min(curr_energy,alpha_m);
@@ -878,6 +882,7 @@ void Min_lbfgs::fin()
     
     if(write!=NULL)
         write->fin();
+    
     thermo->fin();
     errors();
     atoms->x2s(atoms->natms);

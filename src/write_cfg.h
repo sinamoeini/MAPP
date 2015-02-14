@@ -20,9 +20,12 @@ namespace MAPP_NS {
         int type_cmp;
         int sorting;
         int tot_dim;
+        int x_dim;
+        int dim;
         int c_n;
         void write_file_dmd(int);
-        void write_file_md(int);        
+        void write_file_md(int);
+        void x2s(int);
     public:
         Write_cfg(MAPP *,int,char**);
         ~Write_cfg();

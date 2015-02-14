@@ -101,6 +101,8 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
         no_vecs++;
     }
     
+    x_dim=atoms->vectors[0].dim;
+    dim=atoms->dimension;
 }
 /*--------------------------------------------
  destructor
@@ -129,8 +131,6 @@ void Write_cfg::write_file(int stp)
 void Write_cfg::write_file_md(int stp)
 {
     
-    atoms->x2s_no_correction(atoms->natms);
-    
     for(int i=0;i<no_vecs;i++)
         atoms->vectors[vec_list[i]].gather_dump();
     
@@ -139,6 +139,7 @@ void Write_cfg::write_file_md(int stp)
     
     if(atoms->my_p_no==0)
     {
+        x2s(atoms->tot_natms);
         char* filename;
         CREATE1D(filename,MAXCHAR);
         sprintf (filename, "%s.%08d.cfg",file_name,stp);
@@ -253,16 +254,13 @@ void Write_cfg::write_file_md(int stp)
     
     for(int i=0;i<no_vecs;i++)
         atoms->vectors[vec_list[i]].del_dump();
-    
-    atoms->s2x(atoms->natms);
+
 }
 /*--------------------------------------------
  write file
  --------------------------------------------*/
 void Write_cfg::write_file_dmd(int stp)
 {
-    
-    atoms->x2s_no_correction(atoms->natms);
     
     for(int i=0;i<no_vecs;i++)
         atoms->vectors[vec_list[i]].gather_dump();
@@ -273,6 +271,7 @@ void Write_cfg::write_file_dmd(int stp)
     
     if(atoms->my_p_no==0)
     {
+        x2s(atoms->tot_natms);
         char* filename;
         CREATE1D(filename,MAXCHAR);
         sprintf (filename, "%s.%08d.cfg",file_name,stp);
@@ -427,7 +426,38 @@ void Write_cfg::write_file_dmd(int stp)
     for(int i=0;i<no_vecs;i++)
         atoms->vectors[vec_list[i]].del_dump();
     
-    atoms->s2x(atoms->natms);
 }
-
+/*--------------------------------------------
+ transform x 2 s
+ --------------------------------------------*/
+void Write_cfg::x2s(int no)
+{
+    
+    type0* x;
+    atoms->vectors[0].ret_dump(x);
+    type0** B=atoms->B;
+    
+    int icomp=0;
+    for(int i=0;i<no;i++)
+    {
+        for(int j=0;j<dim;j++)
+        {
+            x[icomp+j]=x[icomp+j]*B[j][j];
+            for(int k=j+1;k<dim;k++)
+                x[icomp+j]+=B[k][j]*x[icomp+k];
+            
+        }
+        
+        for(int j=0;j<dim;j++)
+        {
+            while(x[icomp+j]<0.0)
+                x[icomp+j]++;
+            while(x[icomp+j]>=1.0)
+                x[icomp+j]--;
+            
+        }
+        icomp+=x_dim;
+    }
+    
+}
 
