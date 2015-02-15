@@ -18,10 +18,10 @@ namespace MAPP_NS {
         int dof_n;
         
         type0 inner_f_h();
-        type0 inner_f_h_s();
         void normalize_h();
-        void normalize_h_s();
+
         type0 energy(type0);
+        type0 find_max_h();
         VecLst* vecs_comm;
         type0 d_max;
         type0 s_max;
@@ -29,7 +29,7 @@ namespace MAPP_NS {
         type0** M;
         
         int** H_dof;
-        void ccc(type0**,type0**,type0**,type0);
+        //void ccc(type0**,type0**,type0**,type0);
     public:
         type0** H_prev;
         type0** B_prev;

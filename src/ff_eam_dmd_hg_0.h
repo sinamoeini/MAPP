@@ -50,7 +50,7 @@ namespace MAPP_NS
         int stride;
         
         int f_n,type_n,x_n,c_n,E_n,dE_n,ddE_n,
-        n_n,s_n,crd_n,t_n,v_n,c_d_n,m_n;
+        mu_n,s_n,crd_n,t_n,v_n,c_d_n,m_n;
         type0 cut_sq_0;
         type0 cut_sq_mod_0;
         type0 rc,mod_rc,kbT,beta;

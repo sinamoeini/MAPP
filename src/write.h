@@ -1,4 +1,3 @@
-
 #ifndef __MAPP__write__
 #define __MAPP__write__
 

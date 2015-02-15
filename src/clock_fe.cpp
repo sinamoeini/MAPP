@@ -19,7 +19,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
         error->abort("clock fe should at least have 1 arguement");
     
     no_steps=atoi(arg[2]);
-    if(no_steps<=0)
+    if(no_steps<0)
         error->abort("no of steps for clock fe should be greater than 0");
     
     if(narg>3)
@@ -110,15 +110,16 @@ void Clock_fe::init()
     c_n=atoms->find_exist("c");
     c_d_n=atoms->find("c_d");
     
+    int id_n=atoms->find("id");
     if(cdof_n>-1)
     {
         int dof_n=atoms->find("dof");
-        vecs_comm=new VecLst(mapp,5,0,c_n,c_d_n,cdof_n,dof_n);
+        vecs_comm=new VecLst(mapp,6,0,c_n,c_d_n,cdof_n,dof_n,id_n);
         
     }
     else
     {
-        vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
+        vecs_comm=new VecLst(mapp,4,0,c_n,c_d_n,id_n);
     }
     
     vecs_comm->add_update(0);
@@ -138,15 +139,6 @@ void Clock_fe::init()
     
     forcefield->force_calc(1,nrgy_strss);
     
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    
-    if(write!=NULL)
-        write->init();
-    thermo->init();
-    
     type0* c;
     atoms->vectors[c_n].ret(c);
     type0* c_d;
@@ -161,6 +153,15 @@ void Clock_fe::init()
     
     memcpy(y,c,dof_lcl*sizeof(type0));
     memcpy(dy,c_d,dof_lcl*sizeof(type0));
+    
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(time_idx,0.0);
+    
+    
+    if(write!=NULL)
+        write->init();
+    thermo->init();
     
 }
 /*--------------------------------------------
@@ -184,6 +185,8 @@ void Clock_fe::fin()
  --------------------------------------------*/
 void Clock_fe::run()
 {
+    if(no_steps==0)
+        return;
     type0 curr_t=0.0;
     
     type0 del_t;

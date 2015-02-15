@@ -216,120 +216,86 @@ void Read_cfg::read_header()
     CREATE1D(strtmp2,MAXCHAR);
     CREATE1D(strtmp3,MAXCHAR);
     
-    if (narg==0)
-    {
-        delete [] strtmp3;
-        delete [] strtmp2;
-        delete [] strtmp1;
-        return;
-    }
-    else if(narg==1)
-    {
-        if(!strcmp(command,".NO_VELOCITY."))
-        {
-            vel_chk=0;
-            ext_cfg=1;
-            entry_count-=3;
-        }
-        else if(ext_cfg)
-            header_cmplt=1;
-        
-        else
-            error->abort("invalid line in %s file: %s",file_name,command);
-    }
-    else if(narg==3)
-    {
-        if(sscanf(command,"Transform(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            icmp--;
-            jcmp--;
-            if (icmp>2 || icmp<0)
-                 error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
-            if(jcmp>2 || jcmp<0)
-                error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
-            trns[icmp][jcmp]=tmp;
-        }
-        else if(sscanf(command,"eta(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            icmp--;
-            jcmp--;
-            if (icmp>2 || icmp<0)
-                error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
-            if(jcmp>2 || jcmp<0)
-                error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
-            eta[icmp][jcmp]=tmp;
-        }
-        else if(sscanf(command,"entry_count = %d",&tmpno)==1)
-        {
-            entry_count=tmpno;
-            ext_cfg=1;
-            int mincomp=3+(3*vel_chk);
-            if (entry_count < mincomp)
-                error->abort("entry_count in %s should at least be equal to %d",file_name,mincomp);
-        }
-        else
-            error->abort("invalid line in %s file: %s",file_name,command);
-    }
-    else if(narg==4)
-    {
-        if(sscanf(command,
-                  "H0(%d,%d) = %lf A",&icmp,&jcmp,&tmp)==3)
-        {
-            icmp--;
-            jcmp--;
-            if (icmp>2 || icmp<0)
-                error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
-            if(jcmp>2 || jcmp<0)
-                error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
-            H0[icmp][jcmp]=tmp;
-        }
-        else if(sscanf(command,"R = %lf %s",&tmp,strtmp1)==2)
-        {
-            R=tmp;
-        }
-        else if(sscanf(command,"auxiliary[%d] = %s %s",&icmp,strtmp1,strtmp2)==3)
-        {
-            int mincomp=3+(3*vel_chk);
-            if(icmp+mincomp+1>entry_count)
-                error->abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
-        }
-        else
-            error->abort("invalid line in %s file: %s",file_name,command);
-    }
-    else if(narg==5)
-    {
-        if(sscanf(command,"Number of particles = %d",&tmpno)==1)
-            atoms->tot_natms=tmpno;
-        else if(sscanf(command,"auxiliary[%d] = %s %s %s",&icmp,strtmp1,strtmp2,strtmp3)==4)
-        {
-            int mincomp=3+(3*vel_chk);
-            if(icmp+mincomp+1>entry_count)
-                error->abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
-        }
-
-        else
-            error->abort("invalid line in %s file: %s",file_name,command);
-    }
-    else if(narg==6)
-    {
-        if(sscanf(command,"A = %lf Angstrom (basic length-scale)",&tmp)==1)
-        {
-            if(tmp<=0.0)
-                error->abort("A in %s file should be greater than 0.0",file_name);
-            basic_length=tmp;
-        }
-        else
-            error->abort("invalid line in %s file: %s",file_name,command);
-    }
-    else if (narg==8&&ext_cfg==0)
-        header_cmplt=1;
-    else
-        error->abort("invalid line in %s file: %s",file_name,command);
     
-    delete [] command;
+    if(strcmp(command,".NO_VELOCITY.")==0)
+    {
+        vel_chk=0;
+        ext_cfg=1;
+        entry_count-=3;
+    }
+    else if(sscanf(command,"Transform(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+    {
+        icmp--;
+        jcmp--;
+        if (icmp>2 || icmp<0)
+            error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
+        if(jcmp>2 || jcmp<0)
+            error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
+        trns[icmp][jcmp]=tmp;
+    }
+    else if(sscanf(command,"eta(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+    {
+        icmp--;
+        jcmp--;
+        if (icmp>2 || icmp<0)
+            error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
+        if(jcmp>2 || jcmp<0)
+            error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
+        eta[icmp][jcmp]=tmp;
+    }
+    else if(sscanf(command,"entry_count = %d",&tmpno)==1)
+    {
+        entry_count=tmpno;
+        ext_cfg=1;
+        int mincomp=3+(3*vel_chk);
+        if (entry_count < mincomp)
+            error->abort("entry_count in %s should at least be equal to %d",file_name,mincomp);
+    }
+    else if(sscanf(command,"H0(%d,%d) = %lf A",&icmp,&jcmp,&tmp)==3)
+    {
+        icmp--;
+        jcmp--;
+        if (icmp>2 || icmp<0)
+            error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
+        if(jcmp>2 || jcmp<0)
+            error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
+        H0[icmp][jcmp]=tmp;
+    }
+    else if(sscanf(command,"R = %lf %s",&tmp,strtmp1)==2)
+    {
+        R=tmp;
+    }
+    else if(sscanf(command,"Number of particles = %d",&tmpno)==1)
+        atoms->tot_natms=tmpno;
+    else if(sscanf(command,"auxiliary[%d] = %s [%s]",&icmp,strtmp1,strtmp2)==3)
+    {
+        int mincomp=3+(3*vel_chk);
+        if(icmp+mincomp+1>entry_count)
+            error->abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
+    }
+    else if(sscanf(command,"A = %lf Angstrom (basic length-scale)",&tmp)==1)
+    {
+        if(tmp<=0.0)
+            error->abort("A in %s file should be greater than 0.0",file_name);
+        basic_length=tmp;
+    }
+    else
+    {
+        if (narg==8&&ext_cfg==0)
+            header_cmplt=1;
+        else if (narg==1&&ext_cfg)
+            header_cmplt=1;
+        else if (narg==0){}
+        else
+            error->warning("invalid line in %s file: %s",file_name,command);
+    }
+    
+    if(narg)
+        delete [] command;
     delete [] strtmp3;
     delete [] strtmp2;
-    delete [] strtmp1;
+    delete [] strtmp1;    
+    
 }
 /*--------------------------------------------
  calculates H from H0, Transform, and eta;
@@ -346,6 +312,7 @@ void Read_cfg::set_box()
     CREATE1D(sq,3);
     CREATE1D(b,3);
     type0 babs;
+    type0 tmp;
     
     for (int i=0;i<3;i++)
         for (int j=0;j<3;j++)
@@ -421,14 +388,18 @@ void Read_cfg::set_box()
     
     for (int i=0;i<3;i++)
         Ht[2][2]+=H_x[2][i]*b[i];
-    Ht[2][1]=sqrt(sq[2]-Ht[2][2]*Ht[2][2]-Ht[2][0]*Ht[2][0]);
+    tmp=sq[2]-Ht[2][2]*Ht[2][2]-Ht[2][0]*Ht[2][0];
+    if(tmp>0.0)
+        Ht[2][1]=sqrt(tmp);
+    else
+        Ht[2][1]=0.0;
     
     M3EQV(Ht,atoms->H);
     M3EQV(Ht,H_x);
     M3INV(atoms->H,atoms->B,det);
     
     for(int i=0;i<3;i++)
-        delete Ht[i];
+        delete [] Ht[i];
     delete [] Ht;
     delete [] b;
     delete [] sq;

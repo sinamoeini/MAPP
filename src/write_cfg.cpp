@@ -10,24 +10,56 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Write_cfg::Write_cfg(MAPP* mapp,int narg
-,char** arg) : Write(mapp)
+                     ,char** arg) : Write(mapp)
 {
+    lst_compltd=0;
     sorting=0;
-    if(narg<=4)
+    if(narg<4)
         error->abort("wrong write cfg command");
-
+    
     write_step_tally=atoi(arg[2]);
-    int lngth= static_cast<int>(strlen(arg[3]))+1;
+    int lngth=static_cast<int>(strlen(arg[3]))+1;
     CREATE1D(file_name,lngth);
     for(int i=0;i<lngth;i++)
         file_name[i]=arg[3][i];
     
+    
+    
+    
+    if(mapp->mode==DMD_mode)
+    {
+        no_vecs=2;
+        CREATE1D(vec_list,no_vecs);
+        vec_list[0]=atoms->find("x");
+        vec_list[1]=atoms->find("c");
+        CREATE1D(vec_name,no_vecs);
+        
+        lngth=static_cast<int>(strlen((char*)"x"))+1;
+        CREATE1D(vec_name[0],lngth);
+        memcpy(vec_name[0],(char*)"x",lngth*sizeof(char));
+        
+        lngth=static_cast<int>(strlen((char*)"c"))+1;
+        CREATE1D(vec_name[1],lngth);
+        memcpy(vec_name[1],(char*)"c",lngth*sizeof(char));
+    }
+    else
+    {
+        no_vecs=1;
+        CREATE1D(vec_list,no_vecs);
+        vec_list[0]=atoms->find("x");
+        CREATE1D(vec_name,no_vecs);
 
-    id_xst=0;
-    id_cmp=-1;
+        lngth=static_cast<int>(strlen((char*)"x"))+1;
+        CREATE1D(vec_name[0],lngth);
+        memcpy(vec_name[0],(char*)"x",lngth*sizeof(char));
+        
+    }
+    
+    
+    id_n=-1;
     int iarg=4;
-    no_vecs=0;
     int tmp;
+    
     while(iarg<narg)
     {
         if(strcmp(arg[iarg],"sort")==0)
@@ -38,12 +70,18 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
         else
         {
             if(strcmp(arg[iarg],"id")==0 ||
-               strcmp(arg[iarg],"type")==0)
+               strcmp(arg[iarg],"type")==0 ||
+               strcmp(arg[iarg],"c")==0 ||
+               strcmp(arg[iarg],"x")==0)
                 error->abort("%s cannot be included in auxilary",arg[iarg]);
             
             tmp=atoms->find_exist(arg[iarg]);
-            if(tmp<0)
-                error->abort("cannot find vector %s",arg[iarg]);
+
+            lngth=static_cast<int>(strlen(arg[iarg]))+1;
+            GROW(vec_name,no_vecs,no_vecs+1);
+            CREATE1D(vec_name[no_vecs],lngth);
+            memcpy(vec_name[no_vecs],arg[iarg],lngth*sizeof(char));
+            
             GROW(vec_list,no_vecs,no_vecs+1);
             vec_list[no_vecs]=tmp;
             no_vecs++;
@@ -51,58 +89,36 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
         }
     }
     
-    
-    
-    for(int i=0;i<no_vecs;i++)
-    {
-        for(int j=i+1;j<no_vecs;j++)
-        {
-            if(vec_list[i]>vec_list[j])
-            {
-                if(vec_list[i]==vec_list[j])
-                    error->abort("two components cannot be the same");
-                
-                tmp=vec_list[i];
-                vec_list[i]=vec_list[j];
-                vec_list[j]=tmp;
-            }
-        }
-    }
-    
-    tot_dim=0;
-    for(int i=0;i<no_vecs;i++)
-        tot_dim+=atoms->vectors[vec_list[i]].dim;
-    
-    if(vec_list[0]!=0)
-        error->abort("vector x should be included");
-    
-    if(mapp->mode==DMD_mode)
-    {
-        c_n=atoms->find("c");
-        if(vec_list[1]!=c_n)
-            error->abort("vector c should be included");
-    }
-    
-    
     if(mapp->mode==MD_mode)
     {
-        type_cmp=atoms->find("type");
+        type_n=atoms->find("type");
         GROW(vec_list,no_vecs,no_vecs+1);
-        vec_list[no_vecs]=type_cmp;
+        vec_list[no_vecs]=type_n;
+        
+        lngth=static_cast<int>(strlen((char*)"type"))+1;
+        GROW(vec_name,no_vecs,no_vecs+1);
+        CREATE1D(vec_name[no_vecs],lngth);
+        memcpy(vec_name[no_vecs],(char*)"type",lngth*sizeof(char));
+        
         no_vecs++;
     }
-
     
     if(sorting)
     {
-        id_cmp=atoms->find("id");
+        id_n=atoms->find("id");
         GROW(vec_list,no_vecs,no_vecs+1);
-        vec_list[no_vecs]=id_cmp;
+        vec_list[no_vecs]=id_n;
+        
+        lngth=static_cast<int>(strlen((char*)"id"))+1;
+        GROW(vec_name,no_vecs,no_vecs+1);
+        CREATE1D(vec_name[no_vecs],lngth);
+        memcpy(vec_name[no_vecs],(char*)"id",lngth*sizeof(char));
         no_vecs++;
     }
     
     x_dim=atoms->vectors[0].dim;
     dim=atoms->dimension;
+
 }
 /*--------------------------------------------
  destructor
@@ -111,8 +127,44 @@ Write_cfg::~Write_cfg()
 {
     delete [] file_name;
     
+    for(int i=0;i<no_vecs;i++)
+        delete [] vec_name[i];
     if(no_vecs)
+    {
         delete [] vec_list;
+        delete [] vec_name;
+    }
+}
+/*--------------------------------------------
+ complete the list
+ --------------------------------------------*/
+void Write_cfg::cmplt_lst()
+{
+    for(int i=0;i<no_vecs;i++)
+    {
+        if(vec_list[i]==-1)
+           vec_list[i]=atoms->find(vec_name[i]);
+    }
+    
+    //chek wether two vectors are the same
+    
+    for(int i=0;i<no_vecs;i++)
+        for(int j=i+1;j<no_vecs;j++)
+            if(vec_list[i]==vec_list[j])
+                error->abort("duplicate "
+                "atomic vectos in write "
+                "cfg cannot be the same");
+    
+    tot_dim=0;
+    for(int i=0;i<no_vecs;i++)
+        tot_dim+=atoms->vectors[vec_list[i]].dim;
+    
+    if(mapp->mode==MD_mode)
+        tot_dim-=atoms->vectors[type_n].dim;
+    if(sorting)
+        tot_dim-=atoms->vectors[id_n].dim;
+    
+    lst_compltd=1;
     
 }
 /*--------------------------------------------
@@ -120,6 +172,9 @@ Write_cfg::~Write_cfg()
  --------------------------------------------*/
 void Write_cfg::write_file(int stp)
 {
+    if(lst_compltd==0)
+        cmplt_lst();
+    
     if(mapp->mode==MD_mode)
         write_file_md(stp);
     else
@@ -182,14 +237,14 @@ void Write_cfg::write_file_md(int stp)
             
             int* id;
             int tot_natms=atoms->tot_natms;
-            atoms->vectors[id_cmp].ret_dump(id);
+            atoms->vectors[id_n].ret_dump(id);
             int* sort;
             CREATE1D(sort,tot_natms);
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
             
             int* type;
-            atoms->vectors[type_cmp].ret_dump(type);
+            atoms->vectors[type_n].ret_dump(type);
             
             for(int itype=0;itype<atom_types->no_types;itype++)
             {
@@ -231,7 +286,7 @@ void Write_cfg::write_file_md(int stp)
             int tot_natms=atoms->tot_natms;
             
             int* type;
-            atoms->vectors[type_cmp].ret_dump(type);
+            atoms->vectors[type_n].ret_dump(type);
             
             for(int itype=0;itype<atom_types->no_types;itype++)
             {
@@ -254,7 +309,7 @@ void Write_cfg::write_file_md(int stp)
     
     for(int i=0;i<no_vecs;i++)
         atoms->vectors[vec_list[i]].del_dump();
-
+    
 }
 /*--------------------------------------------
  write file
@@ -267,7 +322,6 @@ void Write_cfg::write_file_dmd(int stp)
     
     
     FILE* fp=NULL;
-    FILE* fp_usr=NULL;
     
     if(atoms->my_p_no==0)
     {
@@ -276,12 +330,6 @@ void Write_cfg::write_file_dmd(int stp)
         CREATE1D(filename,MAXCHAR);
         sprintf (filename, "%s.%08d.cfg",file_name,stp);
         fp=fopen(filename,"w");
-        delete [] filename;
-        
-
-        CREATE1D(filename,MAXCHAR);
-        sprintf (filename, "%s.%08d.usr",file_name,stp);
-        fp_usr=fopen(filename,"w");
         delete [] filename;
         
         
@@ -303,18 +351,18 @@ void Write_cfg::write_file_dmd(int stp)
         if(sorting)
         {
             int icomp=0;
-            int x_dim=atoms->vectors[0].dim-3;
-            if(x_dim==1)
+            int xx_dim=x_dim-3;
+            if(xx_dim==1)
             {
                 fprintf(fp,"auxiliary[%d] = alpha [reduced unit]\n",icomp++);
             }
-            else if(x_dim>1)
+            else if(xx_dim>1)
             {
-                for(int idim=0;idim<x_dim;idim++)
+                for(int idim=0;idim<xx_dim;idim++)
                     fprintf(fp,"auxiliary[%d] = alpha_%d [reduced unit]\n",icomp++,idim);
             }
             
-
+            
             for(int i=1;i<no_vecs-1;i++)
             {
                 if(atoms->vectors[vec_list[i]].dim>1)
@@ -333,7 +381,7 @@ void Write_cfg::write_file_dmd(int stp)
             
             int* id;
             int tot_natms=atoms->tot_natms;
-            atoms->vectors[id_cmp].ret_dump(id);
+            atoms->vectors[id_n].ret_dump(id);
             int* sort;
             CREATE1D(sort,tot_natms);
             for(int i=0;i<tot_natms;i++)
@@ -352,32 +400,20 @@ void Write_cfg::write_file_dmd(int stp)
                 fprintf(fp,"\n");
             }
             
-            
-            type0* c;
-            atoms->vectors[c_n].ret_dump(c);
-            type0 tmp;
-            for(int i=0;i<tot_natms;i++)
-            {
-                tmp=1.0-c[sort[i]];
-                fprintf(fp_usr,"%f %f %f",tmp,tmp,tmp);
-                fprintf(fp_usr,"\n");
-            }
-            
-            
             if(tot_natms)
                 delete [] sort;
         }
         else
         {
             int icomp=0;
-            int x_dim=atoms->vectors[0].dim-3;
-            if(x_dim==1)
+            int xx_dim=x_dim-3;
+            if(xx_dim==1)
             {
                 fprintf(fp,"auxiliary[%d] = alpha [reduced unit]\n",icomp++);
             }
-            else if(x_dim>1)
+            else if(xx_dim>1)
             {
-                for(int idim=0;idim<x_dim;idim++)
+                for(int idim=0;idim<xx_dim;idim++)
                     fprintf(fp,"auxiliary[%d] = alpha_%d [reduced unit]\n",icomp++,idim);
             }
             
@@ -408,19 +444,10 @@ void Write_cfg::write_file_dmd(int stp)
                 fprintf(fp,"\n");
             }
             
-            type0* c;
-            type0 tmp;
-            atoms->vectors[c_n].ret_dump(c);
-            for(int i=0;i<tot_natms;i++)
-            {
-                tmp=1.0-c[i];
-                fprintf(fp_usr,"%f %f %f",tmp,tmp,tmp);
-                fprintf(fp_usr,"\n");
-            }
+
         }
         
         fclose(fp);
-        fclose(fp_usr);
     }
     
     for(int i=0;i<no_vecs;i++)
@@ -460,4 +487,3 @@ void Write_cfg::x2s(int no)
     }
     
 }
-

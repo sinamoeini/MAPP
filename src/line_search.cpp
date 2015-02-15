@@ -45,35 +45,24 @@ type0 LineSearch::inner_f_h()
     atoms->vectors[h_n].ret(h);
     type0 inner=0.0;
     type0 inner_tot=0.0;
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        inner+=f[i]*h[i];
-    
-    MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
-    
-    return inner_tot;
-}
-/*--------------------------------------------
- inner product of f and h
- --------------------------------------------*/
-type0 LineSearch::inner_f_h_s()
-{
-    type0* f;
-    type0* h;
-    atoms->vectors[f_n].ret(f);
-    atoms->vectors[h_n].ret(h);
-    type0 inner=0.0;
-    type0 inner_tot=0.0;
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        inner+=f[i]*h[i];
-    
-    MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            inner_tot+=h_H[i][j]*f_H[i][j];
-    
-    return inner_tot;
-}
 
+    for(int i=0;i<x_dim*atoms->natms;i++)
+        inner+=f[i]*h[i];
+    MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
+
+    if(chng_box)
+    {
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+                inner_tot+=h_H[i][j]*f_H[i][j];
+        return inner_tot;
+    }
+    else
+    {
+        return inner_tot;
+    }
+    
+}
 /*--------------------------------------------
  inner product of f and h
  --------------------------------------------*/
@@ -83,39 +72,33 @@ void LineSearch::normalize_h()
     atoms->vectors[h_n].ret(h);
     type0 inner=0.0;
     type0 inner_tot=0.0;
+    
     for(int i=0;i<x_dim*atoms->natms;i++)
         inner+=h[i]*h[i];
     MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
+    
+    if(chng_box)
+    {
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+                inner_tot+=h_H[i][j]*h_H[i][j];
         
-    inner_tot=d_max/sqrt(inner_tot);
-    
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        h[i]*=inner_tot;
-}
-/*--------------------------------------------
- inner product of f and h
- --------------------------------------------*/
-void LineSearch::normalize_h_s()
-{
-    type0* h;
-    atoms->vectors[h_n].ret(h);
-    type0 inner=0.0;
-    type0 inner_tot=0.0;
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        inner+=h[i]*h[i];
-    MPI_Allreduce(&inner,&inner_tot,1,MPI_TYPE0,MPI_SUM,world);
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            inner_tot+=h_H[i][j]*h_H[i][j];
-    
-    inner_tot=s_max/sqrt(inner_tot);
-    
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        h[i]*=inner_tot;
-    
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            h_H[i][j]*=inner_tot;
+        inner_tot=s_max/sqrt(inner_tot);
+        
+        for(int i=0;i<x_dim*atoms->natms;i++)
+            h[i]*=inner_tot;
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+                h_H[i][j]*=inner_tot;
+    }
+    else
+    {
+        
+        inner_tot=d_max/sqrt(inner_tot);
+        
+        for(int i=0;i<x_dim*atoms->natms;i++)
+            h[i]*=inner_tot;
+    }
 }
 /*--------------------------------------------
  inner product of f and h
@@ -208,53 +191,27 @@ type0 LineSearch::energy(type0 alpha)
         return energy;
     }
 }
-
 /*--------------------------------------------
- inner product of f and h
+ find maximum h
  --------------------------------------------*/
-void LineSearch::ccc(type0** y,type0** H,type0** T,type0 alpha)
+type0 LineSearch::find_max_h()
 {
-    y[2][0]=(H_prev[0][0]*(H_prev[2][0]+alpha*T[2][0])+alpha*(H_prev[2][0]*T[0][0]+H_prev[2][1]*T[0][1]+H_prev[2][2]*T[0][2]+alpha*T[0][0]*T[2][0]+alpha*T[0][1]*T[2][1]+alpha*T[0][2]*T[2][2]))/sqrt(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2));
+    type0* h;
+    type0 max_h=0.0;
+    type0 max_h_tot=0.0;
+    atoms->vectors[h_n].ret(h);
     
-    y[2][1]=(alpha*(-(H_prev[0][0]*(H_prev[1][1]*T[0][1]+alpha*T[0][1]*T[1][1]+alpha*T[0][2]*T[1][2]))+alpha*(-(H_prev[1][1]*T[0][0]*T[0][1])+H_prev[1][0]*(pow(T[0][1],2)+pow(T[0][2],2))+alpha*(pow(T[0][1],2)*T[1][0]+pow(T[0][2],2)*T[1][0]-T[0][0]*T[0][1]*T[1][1]-T[0][0]*T[0][2]*T[1][2])))*(H_prev[2][0]+alpha*T[2][0])+
-             ((pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(H_prev[1][1]+alpha*T[1][1])-alpha*T[0][1]*((H_prev[0][0]+alpha*T[0][0])*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][1]*(H_prev[1][1]+alpha*T[1][1])+pow(alpha,2)*T[0][2]*T[1][2]))*(H_prev[2][1]+alpha*T[2][1])+(-(alpha*T[0][2]*(H_prev[0][0]*(H_prev[1][0]+alpha*T[1][0])+alpha*(H_prev[1][0]*T[0][0]+H_prev[1][1]*T[0][1]+alpha*T[0][0]*T[1][0]+alpha*T[0][1]*T[1][1])))+alpha*(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2))*T[1][2])*(H_prev[2][2]+alpha*T[2][2]))/sqrt((pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(-pow((H_prev[0][0]+alpha*T[0][0])*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][1]*(H_prev[1][1]+alpha*T[1][1])+pow(alpha,2)*T[0][2]*T[1][2],2)+(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(pow(H_prev[1][0]+alpha*T[1][0],2)+pow(H_prev[1][1]+alpha*T[1][1],2)+pow(alpha,2)*pow(T[1][2],2))));
+    for(int i=0;i<atoms->natms*x_dim;i++)
+        max_h=MAX(max_h,fabs(h[i]));
+    MPI_Allreduce(&max_h,&max_h_tot,1,MPI_TYPE0,MPI_MAX,world);
+    if(chng_box)
+    {
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+                max_h_tot=MAX(max_h_tot,fabs(h_H[i][j]));
+    }
     
-    y[2][2]=(H_prev[0][0]*(H_prev[1][1]*(H_prev[2][2]+alpha*T[2][2])+alpha*(H_prev[2][2]*T[1][1]-T[1][2]*(H_prev[2][1]+alpha*T[2][1])+alpha*T[1][1]*T[2][2]))+alpha*(H_prev[1][1]*(H_prev[2][2]*T[0][0]-T[0][2]*(H_prev[2][0]+alpha*T[2][0])+alpha*T[0][0]*T[2][2])+alpha*(-(H_prev[2][2]*T[0][1]*T[1][0])+H_prev[2][1]*T[0][2]*T[1][0]+H_prev[2][2]*T[0][0]*T[1][1]-H_prev[2][0]*T[0][2]*T[1][1]-H_prev[2][1]*T[0][0]*T[1][2]+H_prev[2][0]*T[0][1]*T[1][2]-alpha*T[0][2]*T[1][1]*T[2][0]+alpha*T[0][1]*T[1][2]*T[2][0]+alpha*T[0][2]*T[1][0]*T[2][1]-alpha*T[0][0]*T[1][2]*T[2][1]-alpha*T[0][1]*T[1][0]*T[2][2]+alpha*T[0][0]*T[1][1]*T[2][2])+H_prev[1][0]*(T[0][2]*(H_prev[2][1]+alpha*T[2][1])-T[0][1]*(H_prev[2][2]+alpha*T[2][2]))))/sqrt(pow(H_prev[0][0]*(H_prev[1][1]+alpha*T[1][1])+alpha*(H_prev[1][1]*T[0][0]-T[0][1]*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][0]*T[1][1]),2)+pow(alpha*T[0][2]*(H_prev[1][0]+alpha*T[1][0])-alpha*(H_prev[0][0]+alpha*T[0][0])*T[1][2],2)+pow(alpha,2)*pow(H_prev[1][1]*T[0][2]+alpha*T[0][2]*T[1][1]-alpha*T[0][1]*T[1][2],2));
-    
-    y[1][1]=sqrt((pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(-pow((H_prev[0][0]+alpha*T[0][0])*(H_prev[1][0]+alpha*T[1][0])+alpha*T[0][1]*(H_prev[1][1]+alpha*T[1][1])+pow(alpha,2)*T[0][2]*T[1][2],2)+(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2))*(pow(H_prev[1][0]+alpha*T[1][0],2)+pow(H_prev[1][1]+alpha*T[1][1],2)+pow(alpha,2)*pow(T[1][2],2))))/(pow(H_prev[0][0],2)+2*alpha*H_prev[0][0]*T[0][0]+pow(alpha,2)*(pow(T[0][0],2)+pow(T[0][1],2)+pow(T[0][2],2)));
-    
-    y[1][0]=(H_prev[0][0]*(H_prev[1][0]+alpha*T[1][0])+alpha*(H_prev[1][0]*T[0][0]+H_prev[1][1]*T[0][1]+alpha*T[0][0]*T[1][0]+alpha*T[0][1]*T[1][1]+alpha*T[0][2]*T[1][2]))/sqrt(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2));
-    
-    y[0][0]=sqrt(pow(H_prev[0][0]+alpha*T[0][0],2)+pow(alpha,2)*pow(T[0][1],2)+pow(alpha,2)*pow(T[0][2],2));
-    
-    y[0][1]=y[0][2]=y[1][2]=0.0;
-
-    
-    for(int i=0;i<3;i++)
-        for(int j=0;j<3;j++)
-            y[i][j]-=H[i][j];
-    
-    for(int i=0;i<3;i++)
-        for(int j=0;j<3;j++)
-            if(H_dof[i][j]==0)
-                y[i][j]=0.0;
-    
-    
-    
-    
-    for(int i=0;i<3;i++)
-        for(int j=0;j<3;j++)
-        {
-            N[i][j]=0.0;
-            M[i][j]=0.0;
-            for(int k=0;k<3;k++)
-            {
-                M[i][j]+=alpha*H[i][k]*(H[k][j]+y[k][j]);
-                N[i][j]+=B_prev[i][k]*y[k][j];
-            }
-        }
-    for(int i=0;i<3;i++)
-        N[i][i]++;
+    return max_h_tot;
 }
 /*--------------------------------------------
  constructor
@@ -275,7 +232,7 @@ LineSearch_BackTrack::LineSearch_BackTrack(MAPP* mapp,VecLst*vec_list)
  --------------------------------------------*/
 LineSearch_BackTrack::~LineSearch_BackTrack()
 {
-
+    
 }
 /*--------------------------------------------
  minimize line
@@ -285,16 +242,13 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
     type0 inner;
     type0 alpha_m;
     type0 max_h;
-    type0 max_h_tot;
     type0 min_h;
     type0 min_h_tot=0;
     type0 current_energy,ideal_energy;
-    type0* h;
-    type0* x;
-    
     
     if(mapp->mode==DMD_mode)
     {
+        type0* x;
         atoms->vectors[0].ret(x);
         min_h=INFINITY;
         for(int i=0;i<atoms->natms;i++)
@@ -306,99 +260,89 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
         alpha_min=MIN(alpha_min,min_h_tot);
     }
     
-    //printf("first energy %e\n",forcefield->energy_calc());
+    alph=0.0;
+    normalize_h();
+    inner=inner_f_h();
     
-    if(chng_box)
+    if(inner<=0)
+        return LS_F_DOWNHILL;
+    
+    max_h=find_max_h();
+    if(max_h==0)
+        return LS_F_GRAD0;
+    
+    alpha_m=MIN(alpha_max,max_h);
+    if(alpha_m<=alpha_min)
+        return LS_F_ALPHAMIN;
+    
+    while (1)
     {
-        alph=0.0;
-        normalize_h_s();
-        inner=inner_f_h_s();
-        
-        if(inner<=0)
-            return LS_F_DOWNHILL;
-        
-        
-        atoms->vectors[h_n].ret(h);
-        
-        max_h=0.0;
-        max_h_tot=0.0;
-        for(int i=0;i<atoms->natms*x_dim;i++)
-            max_h=MAX(max_h,fabs(h[i]));
-        MPI_Allreduce(&max_h,&max_h_tot,1,MPI_TYPE0,MPI_MAX,world);
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-                max_h_tot=MAX(max_h_tot,fabs(h_H[i][j]));
-        
-        if(max_h_tot==0)
-            return LS_F_GRAD0;
-        
-        alpha_m=MIN(alpha_max,max_h_tot);
-        if(alpha_m<=alpha_min)
-            return LS_F_ALPHAMIN;
-        
-        while (1)
+        ideal_energy=nrgy-alpha_m*c*inner;
+        current_energy=energy(alpha_m);
+        if(current_energy<=ideal_energy)
         {
-            
-            ideal_energy=nrgy-alpha_m*c*inner;
-            current_energy=energy(alpha_m);
-            if(current_energy<=ideal_energy)
-            {
-                nrgy=current_energy;
-                alph=alpha_m;
-                return LS_S;
-            }
-            alpha_m*=rho;
-            
-            if(alpha_m<=alpha_min)
-            {
-                nrgy=energy(0);
-                return LS_F_ALPHAMIN;
-            }
+            nrgy=current_energy;
+            alph=alpha_m;
+            return LS_S;
+        }
+        alpha_m*=rho;
+        
+        if(alpha_m<=alpha_min)
+        {
+            nrgy=energy(0);
+            return LS_F_ALPHAMIN;
         }
     }
-    else
-    {
-        alph=0.0;
-        normalize_h();
-        inner=inner_f_h();
-        
-        if(inner<=0)
-            return LS_F_DOWNHILL;
-        
-        
-        atoms->vectors[h_n].ret(h);
-        
-        max_h=0.0;
-        max_h_tot=0.0;
-        for(int i=0;i<atoms->natms*x_dim;i++)
-            max_h=MAX(max_h,fabs(h[i]));
-        MPI_Allreduce(&max_h,&max_h_tot,1,MPI_TYPE0,MPI_MAX,world);
-        if(max_h_tot==0)
-            return LS_F_GRAD0;
-        
-        alpha_m=MIN(alpha_max,max_h_tot);
-        if(alpha_m<=alpha_min)
-            return LS_F_ALPHAMIN;
-        
-        while (1)
-        {
-            ideal_energy=nrgy-alpha_m*c*inner;
-            current_energy=energy(alpha_m);
-            //printf("first energy %e\n",current_energy);
-            if(current_energy<=ideal_energy)
-            {
-                nrgy=current_energy;
-                alph=alpha_m;
-                return LS_S;
-            }
-            alpha_m*=rho;
-            
-            if(alpha_m<=alpha_min)
-            {
-                nrgy=energy(0);
-                return LS_F_ALPHAMIN;
-            }
-        }
-    }
+    
     
 }
+
+/*--------------------------------------------
+ minimize line
+ --------------------------------------------*/
+/*
+void LineSearch::ccc(type0** A,type0**TT,type0** AAA,type0 alpha)
+{
+    type0** Q;
+    type0** H_tmp;
+    type0 babs;
+    type0** del_H;
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            H_tmp[i][j]=H_prev[i][j]+alpha*A[i][j];
+    
+    Q[0][0]=H_tmp[0][0];
+    Q[0][1]=H_tmp[0][1];
+    Q[0][2]=H_tmp[0][2];
+    babs=sqrt(Q[0][0]*Q[0][0]+Q[0][1]*Q[0][1]+Q[0][2]*Q[0][2]);
+    Q[0][0]/=babs;
+    Q[0][1]/=babs;
+    Q[0][2]/=babs;
+    Q[2][0]=Q[0][1]*H_tmp[1][2]-Q[0][2]*H_tmp[1][1];
+    Q[2][1]=Q[0][2]*H_tmp[1][0]-Q[0][0]*H_tmp[1][2];
+    Q[2][2]=Q[0][0]*H_tmp[1][1]-Q[0][1]*H_tmp[1][0];
+    babs=sqrt(Q[2][0]*Q[2][0]+Q[2][1]*Q[2][1]+Q[2][2]*Q[2][2]);
+    Q[2][0]/=babs;
+    Q[2][1]/=babs;
+    Q[2][2]/=babs;
+    Q[1][0]=Q[0][2]*Q[2][1]-Q[0][1]*Q[2][2];
+    Q[1][1]=Q[0][0]*Q[2][2]-Q[0][2]*Q[2][0];
+    Q[1][2]=Q[0][1]*Q[2][0]-Q[0][0]*Q[2][1];
+    
+    
+    
+    
+    del_H[0][1]=del_H[0][2]=del_H[1][2]=0.0;
+    del_H[0][0]=V3MULV3(Q[0],H_tmp[0])-H_prev[0][0];
+    del_H[1][0]=V3MULV3(Q[0],H_tmp[1])-H_prev[1][0];
+    del_H[1][1]=V3MULV3(Q[1],H_tmp[1])-H_prev[1][1];
+    del_H[2][0]=V3MULV3(Q[0],H_tmp[2])-H_prev[2][0];
+    del_H[2][1]=V3MULV3(Q[1],H_tmp[2])-H_prev[2][1];
+    del_H[2][2]=V3MULV3(Q[2],H_tmp[2])-H_prev[2][2];
+    
+}
+*/
+
+
+

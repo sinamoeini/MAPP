@@ -740,7 +740,7 @@ void ForceField_eam_dmd_hg_0::init()
     E_n=atoms->add<type0>(1,no_types,"E");
     dE_n=atoms->add<type0>(1,no_types,"dE");
     ddE_n=atoms->add<type0>(1,no_types,"ddE");
-    n_n=atoms->add<type0>(1,no_types,"n");
+    mu_n=atoms->add<type0>(1,no_types,"mu");
     s_n=atoms->add<type0>(1,no_types,"s");
     t_n=atoms->add<type0>(1,2*no_types,"t");
     v_n=atoms->add<type0>(1,2*no_types,"v");
@@ -756,7 +756,7 @@ void ForceField_eam_dmd_hg_0::fin()
     atoms->del(v_n);
     atoms->del(t_n);
     atoms->del(s_n);
-    atoms->del(n_n);
+    atoms->del(mu_n);
     atoms->del(ddE_n);
     atoms->del(dE_n);
     atoms->del(E_n);
@@ -2435,8 +2435,8 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
     atoms->vectors[c_n].ret(c);
     type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
-    type0* n;
-    atoms->vectors[n_n].ret(n);
+    type0* mu;
+    atoms->vectors[mu_n].ret(mu);
     type0* crd;
     atoms->vectors[crd_n].ret(crd);
     
@@ -2503,7 +2503,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
             if(E[iatm*no_types+itype]>rho_max)
                 tmp0+=tmp1*(E[icomp+itype]-rho_max);
             
-            n[icomp+itype]=E[icomp+itype]=tmp0;
+            mu[icomp+itype]=E[icomp+itype]=tmp0;
             dE[icomp+itype]=tmp1;
         }
     }
@@ -2526,11 +2526,11 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    n[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
+                    mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
                                                     +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
                     
                     if(jatm<natms)
-                        n[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
+                        mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
                                                         +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
                 }
             }
@@ -2539,14 +2539,14 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
         
         for(int itype=0;itype<no_types;itype++)
         {
-            n[icomp+itype]+=c_0[itype];
+            mu[icomp+itype]+=c_0[itype];
             //fix this part for change of variables
-            n[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
+            mu[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
         }
         
     }
     
-    atoms->update(n_n);
+    atoms->update(mu_n);
     
     
     atoms->update(crd_n);
@@ -2563,8 +2563,8 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
             {
                 crdi=crd[icomp+itype];
                 crdj=crd[jcomp+itype];
-                fi=n[icomp+itype];
-                fj=n[jcomp+itype];
+                fi=mu[icomp+itype];
+                fj=mu[jcomp+itype];
                 exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
                 exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
                 w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
@@ -2601,8 +2601,8 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
     atoms->vectors[c_n].ret(c);
     type0* c_d;
     atoms->vectors[c_d_n].ret(c_d);
-    type0* n;
-    atoms->vectors[n_n].ret(n);
+    type0* mu;
+    atoms->vectors[mu_n].ret(mu);
     type0* s;
     atoms->vectors[s_n].ret(s);
     type0* t;
@@ -2679,7 +2679,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             if(E[iatm*no_types+itype]>rho_max)
                 tmp0+=tmp1*(E[icomp+itype]-rho_max);
             
-            n[icomp+itype]=E[icomp+itype]=tmp0;
+            mu[icomp+itype]=E[icomp+itype]=tmp0;
             dE[icomp+itype]=tmp1;
             
             //ddE
@@ -2708,10 +2708,10 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    n[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
+                    mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
                                                     +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
                     if(jatm<natms)
-                        n[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
+                        mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
                                                         +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
                 }
             }
@@ -2720,14 +2720,14 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
         
         for(int itype=0;itype<no_types;itype++)
         {
-            n[icomp+itype]+=c_0[itype];
+            mu[icomp+itype]+=c_0[itype];
             //fix this part for change of variables
-            n[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
+            mu[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
         }
         
     }
     
-    atoms->update(n_n);
+    atoms->update(mu_n);
     
     for(int i=0;i<natms*no_types;i++)
     {
@@ -2754,8 +2754,8 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             {
                 crdi=crd[icomp+itype];
                 crdj=crd[jcomp+itype];
-                fi=n[icomp+itype];
-                fj=n[jcomp+itype];
+                fi=mu[icomp+itype];
+                fj=mu[jcomp+itype];
                 exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
                 exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
                 w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
@@ -2811,8 +2811,8 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             {
                 
                 s_ij=s[icomp+itype]-s[jcomp+itype];
-                fi=n[icomp+itype];
-                fj=n[jcomp+itype];
+                fi=mu[icomp+itype];
+                fj=mu[jcomp+itype];
                 crdi=crd[icomp+itype];
                 crdj=crd[jcomp+itype];
                 

@@ -26,7 +26,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
         error->abort("clock cn should at least have 1 arguement");
     
     no_steps=atoi(arg[2]);
-    if(no_steps<=0)
+    if(no_steps<0)
         error->abort("no of steps for clock cn should be greater than 0");
     
     if(narg>3)
@@ -103,7 +103,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
         }
     }
     
-    if(min_gamma<=0.0)
+    if(min_gamma<0.0)
         error->abort("min_gamma in clock cn should be greater than 0.0");
     if(gamma_red<=0.0 || gamma_red>=1.0)
         error->abort("gamma_red in clock cn should be between 0.0 & 1.0");
@@ -183,15 +183,16 @@ void Clock_cn::init()
     if(f_n<0)
         f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
     
+    int id_n=atoms->find("id");
     if(cdof_n>-1)
     {
         int dof_n=atoms->find("dof");
-        vecs_comm=new VecLst(mapp,5,0,c_n,c_d_n,cdof_n,dof_n);
+        vecs_comm=new VecLst(mapp,6,0,c_n,c_d_n,cdof_n,dof_n,id_n);
         
     }
     else
     {
-        vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
+        vecs_comm=new VecLst(mapp,4,0,c_n,c_d_n,id_n);
     }
     
     vecs_comm->add_update(0);
@@ -207,14 +208,6 @@ void Clock_cn::init()
     
 
     forcefield->force_calc(1,nrgy_strss);
-    
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    if(write!=NULL)
-        write->init();
-    thermo->init();
 
     
     t[0]=0.0;
@@ -243,6 +236,14 @@ void Clock_cn::init()
     memcpy(dy[1],c_d,dof_lcl*sizeof(type0));
     memcpy(y,c,dof_lcl*sizeof(type0));
     
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(time_idx,0.0);
+    
+    if(write!=NULL)
+        write->init();
+    thermo->init();
+    
 }
 /*--------------------------------------------
  init
@@ -268,6 +269,8 @@ void Clock_cn::fin()
  --------------------------------------------*/
 void Clock_cn::run()
 {
+    if(no_steps==0)
+        return;
     type0* c;
     atoms->vectors[c_n].ret(c);
     type0* c_d;
