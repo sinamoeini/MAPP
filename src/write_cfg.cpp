@@ -116,7 +116,7 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
         no_vecs++;
     }
     
-    x_dim=atoms->vectors[0].dim;
+    x_dim=atoms->vectors[0]->dim;
     dim=atoms->dimension;
 
 }
@@ -157,12 +157,12 @@ void Write_cfg::cmplt_lst()
     
     tot_dim=0;
     for(int i=0;i<no_vecs;i++)
-        tot_dim+=atoms->vectors[vec_list[i]].dim;
+        tot_dim+=atoms->vectors[vec_list[i]]->dim;
     
     if(mapp->mode==MD_mode)
-        tot_dim-=atoms->vectors[type_n].dim;
+        tot_dim-=atoms->vectors[type_n]->dim;
     if(sorting)
-        tot_dim-=atoms->vectors[id_n].dim;
+        tot_dim-=atoms->vectors[id_n]->dim;
     
     lst_compltd=1;
     
@@ -187,7 +187,7 @@ void Write_cfg::write_file_md(int stp)
 {
     
     for(int i=0;i<no_vecs;i++)
-        atoms->vectors[vec_list[i]].gather_dump();
+        atoms->vectors[vec_list[i]]->gather_dump();
     
     
     FILE* fp=NULL;
@@ -221,30 +221,30 @@ void Write_cfg::write_file_md(int stp)
             
             for(int i=1;i<no_vecs-2;i++)
             {
-                if(atoms->vectors[vec_list[i]].dim>1)
+                if(atoms->vectors[vec_list[i]]->dim>1)
                 {
-                    for(int idim=0;idim<atoms->vectors[vec_list[i]].dim;idim++)
+                    for(int idim=0;idim<atoms->vectors[vec_list[i]]->dim;idim++)
                         fprintf(fp,"auxiliary[%d] = %s_%d [reduced unit]\n"
-                                ,icomp++,atoms->vectors[vec_list[i]].name,idim);
+                                ,icomp++,atoms->vectors[vec_list[i]]->name,idim);
                 }
                 else
                 {
                     fprintf(fp,"auxiliary[%d] = %s [reduced unit]\n"
-                            ,icomp++,atoms->vectors[vec_list[i]].name);
+                            ,icomp++,atoms->vectors[vec_list[i]]->name);
                 }
                 
             }
             
             int* id;
             int tot_natms=atoms->tot_natms;
-            atoms->vectors[id_n].ret_dump(id);
+            atoms->vectors[id_n]->ret_dump(id);
             int* sort;
             CREATE1D(sort,tot_natms);
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
             
             int* type;
-            atoms->vectors[type_n].ret_dump(type);
+            atoms->vectors[type_n]->ret_dump(type);
             
             for(int itype=0;itype<atom_types->no_types;itype++)
             {
@@ -255,7 +255,7 @@ void Write_cfg::write_file_md(int stp)
                     if(type[sort[i]]==itype)
                     {
                         for(int j=0;j<no_vecs-2;j++)
-                            atoms->vectors[vec_list[j]].print_dump(fp,sort[i]);
+                            atoms->vectors[vec_list[j]]->print_dump(fp,sort[i]);
                         fprintf(fp,"\n");
                     }
                 }
@@ -270,23 +270,23 @@ void Write_cfg::write_file_md(int stp)
             
             for(int i=1;i<no_vecs-1;i++)
             {
-                if(atoms->vectors[vec_list[i]].dim>1)
+                if(atoms->vectors[vec_list[i]]->dim>1)
                 {
-                    for(int idim=0;idim<atoms->vectors[vec_list[i]].dim;idim++)
+                    for(int idim=0;idim<atoms->vectors[vec_list[i]]->dim;idim++)
                         fprintf(fp,"auxiliary[%d] = %s_%d [reduced unit]\n"
-                                ,icomp++,atoms->vectors[vec_list[i]].name,idim);
+                                ,icomp++,atoms->vectors[vec_list[i]]->name,idim);
                 }
                 else
                 {
                     fprintf(fp,"auxiliary[%d] = %s [reduced unit]\n"
-                            ,icomp++,atoms->vectors[vec_list[i]].name);
+                            ,icomp++,atoms->vectors[vec_list[i]]->name);
                 }
                 
             }
             int tot_natms=atoms->tot_natms;
             
             int* type;
-            atoms->vectors[type_n].ret_dump(type);
+            atoms->vectors[type_n]->ret_dump(type);
             
             for(int itype=0;itype<atom_types->no_types;itype++)
             {
@@ -297,7 +297,7 @@ void Write_cfg::write_file_md(int stp)
                     if(type[i]==itype)
                     {
                         for(int j=0;j<no_vecs-1;j++)
-                            atoms->vectors[vec_list[j]].print_dump(fp,i);
+                            atoms->vectors[vec_list[j]]->print_dump(fp,i);
                         fprintf(fp,"\n");
                     }
                 }
@@ -308,7 +308,7 @@ void Write_cfg::write_file_md(int stp)
     }
     
     for(int i=0;i<no_vecs;i++)
-        atoms->vectors[vec_list[i]].del_dump();
+        atoms->vectors[vec_list[i]]->del_dump();
     
 }
 /*--------------------------------------------
@@ -318,7 +318,7 @@ void Write_cfg::write_file_dmd(int stp)
 {
     
     for(int i=0;i<no_vecs;i++)
-        atoms->vectors[vec_list[i]].gather_dump();
+        atoms->vectors[vec_list[i]]->gather_dump();
     
     
     FILE* fp=NULL;
@@ -365,23 +365,23 @@ void Write_cfg::write_file_dmd(int stp)
             
             for(int i=1;i<no_vecs-1;i++)
             {
-                if(atoms->vectors[vec_list[i]].dim>1)
+                if(atoms->vectors[vec_list[i]]->dim>1)
                 {
-                    for(int idim=0;idim<atoms->vectors[vec_list[i]].dim;idim++)
+                    for(int idim=0;idim<atoms->vectors[vec_list[i]]->dim;idim++)
                         fprintf(fp,"auxiliary[%d] = %s_%d [reduced unit]\n"
-                                ,icomp++,atoms->vectors[vec_list[i]].name,idim);
+                                ,icomp++,atoms->vectors[vec_list[i]]->name,idim);
                 }
                 else
                 {
                     fprintf(fp,"auxiliary[%d] = %s [reduced unit]\n"
-                            ,icomp++,atoms->vectors[vec_list[i]].name);
+                            ,icomp++,atoms->vectors[vec_list[i]]->name);
                 }
                 
             }
             
             int* id;
             int tot_natms=atoms->tot_natms;
-            atoms->vectors[id_n].ret_dump(id);
+            atoms->vectors[id_n]->ret_dump(id);
             int* sort;
             CREATE1D(sort,tot_natms);
             for(int i=0;i<tot_natms;i++)
@@ -396,7 +396,7 @@ void Write_cfg::write_file_dmd(int stp)
             for(int i=0;i<tot_natms;i++)
             {
                 for(int j=0;j<no_vecs-1;j++)
-                    atoms->vectors[vec_list[j]].print_dump(fp,sort[i]);
+                    atoms->vectors[vec_list[j]]->print_dump(fp,sort[i]);
                 fprintf(fp,"\n");
             }
             
@@ -419,16 +419,16 @@ void Write_cfg::write_file_dmd(int stp)
             
             for(int i=1;i<no_vecs;i++)
             {
-                if(atoms->vectors[vec_list[i]].dim>1)
+                if(atoms->vectors[vec_list[i]]->dim>1)
                 {
-                    for(int idim=0;idim<atoms->vectors[vec_list[i]].dim;idim++)
+                    for(int idim=0;idim<atoms->vectors[vec_list[i]]->dim;idim++)
                         fprintf(fp,"auxiliary[%d] = %s_%d [reduced unit]\n"
-                                ,icomp++,atoms->vectors[vec_list[i]].name,idim);
+                                ,icomp++,atoms->vectors[vec_list[i]]->name,idim);
                 }
                 else
                 {
                     fprintf(fp,"auxiliary[%d] = %s [reduced unit]\n"
-                            ,icomp++,atoms->vectors[vec_list[i]].name);
+                            ,icomp++,atoms->vectors[vec_list[i]]->name);
                 }
             }
             int tot_natms=atoms->tot_natms;
@@ -440,7 +440,7 @@ void Write_cfg::write_file_dmd(int stp)
             for(int i=0;i<tot_natms;i++)
             {
                 for(int j=0;j<no_vecs;j++)
-                    atoms->vectors[vec_list[j]].print_dump(fp,i);
+                    atoms->vectors[vec_list[j]]->print_dump(fp,i);
                 fprintf(fp,"\n");
             }
             
@@ -451,7 +451,7 @@ void Write_cfg::write_file_dmd(int stp)
     }
     
     for(int i=0;i<no_vecs;i++)
-        atoms->vectors[vec_list[i]].del_dump();
+        atoms->vectors[vec_list[i]]->del_dump();
     
 }
 /*--------------------------------------------
@@ -461,7 +461,7 @@ void Write_cfg::x2s(int no)
 {
     
     type0* x;
-    atoms->vectors[0].ret_dump(x);
+    atoms->vectors[0]->ret_dump(x);
     type0** B=atoms->B;
     
     int icomp=0;

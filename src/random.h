@@ -10,16 +10,16 @@
 namespace MAPP_NS {
     class Random : protected InitPtrs{
     private:
-        double reserved;
+        type0 reserved;
         int gauss_chk;
         int seed;
     protected:
     public:
         Random(MAPP *,int);
         ~Random();
-        double uniform();
-        double gaussian();
-        double gaussian(double,double);
+        type0 uniform();
+        type0 gaussian();
+        type0 gaussian(type0,type0);
     };
 }
 #endif 

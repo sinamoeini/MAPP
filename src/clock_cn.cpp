@@ -129,7 +129,7 @@ Clock_cn::Clock_cn(MAPP* mapp,int narg
     c_n=atoms->find("c");
     c_d_n=atoms->find("c_d");
     
-    int c_dim=atoms->vectors[c_n].dim;
+    int c_dim=atoms->vectors[c_n]->dim;
     dof_lcl=atoms->natms*c_dim;
     MPI_Allreduce(&dof_lcl,&dof_tot,1,MPI_INT,MPI_SUM,world);
     
@@ -181,7 +181,7 @@ void Clock_cn::init()
     
     int f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
+        f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
     
     int id_n=atoms->find("id");
     if(cdof_n>-1)
@@ -196,13 +196,8 @@ void Clock_cn::init()
     }
     
     vecs_comm->add_update(0);
-    atoms->reset_comm(vecs_comm);
-    forcefield->init();
-    atoms->ph_setup(1,vecs_comm);
-    
-    neighbor->init();
-    neighbor->create_list(0,1);
-    atoms->store_0();
+    atoms->init(vecs_comm);
+
     forcefield->create_2nd_neigh_lst();
     
     
@@ -214,8 +209,8 @@ void Clock_cn::init()
     thermo->start_force_time();
     forcefield->c_d_calc();
     thermo->stop_force_time();
-    atoms->vectors[c_n].ret(c);
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_n]->ret(c);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     rectify(c_d);
     if(initial_del_t<0.0)
@@ -261,7 +256,6 @@ void Clock_cn::fin()
     thermo->fin();
 
     
-    atoms->x2s(atoms->natms);
 }
 
 /*--------------------------------------------
@@ -272,9 +266,9 @@ void Clock_cn::run()
     if(no_steps==0)
         return;
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     type0* tmp_dy;
     type0 del_t=initial_del_t,del_t_tmp,err1;
     type0 ratio=1.0,cost;
@@ -403,9 +397,9 @@ int Clock_cn::interpolate(type0 del_t)
 type0 Clock_cn::solve(type0 del_t)
 {
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     type0 gamma,max_gamma=1.0;
     type0 inner,tmp0,tmp1;
@@ -418,7 +412,7 @@ type0 Clock_cn::solve(type0 del_t)
     
     memcpy(c,y_0,dof_lcl*sizeof(type0));
     thermo->start_comm_time();
-    atoms->update(c_n);
+    atoms->update_ph(c_n);
     thermo->stop_comm_time();
     
     curr_cost=forcefield->g_calc(0,beta,a,g);
@@ -467,7 +461,7 @@ type0 Clock_cn::solve(type0 del_t)
                 c[i]=c0[i]+max_gamma*h[i];
             
             thermo->start_comm_time();
-            atoms->update(c_n);
+            atoms->update_ph(c_n);
             thermo->stop_comm_time();
             
             thermo->start_force_time();
@@ -484,7 +478,7 @@ type0 Clock_cn::solve(type0 del_t)
                 memcpy(c,c0,dof_lcl*sizeof(type0));
                 
                 thermo->start_comm_time();
-                atoms->update(c_n);
+                atoms->update_ph(c_n);
                 thermo->stop_comm_time();
                 
                 thermo->start_force_time();

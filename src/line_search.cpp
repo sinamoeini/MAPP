@@ -14,18 +14,20 @@ LineSearch::LineSearch(MAPP* mapp,VecLst*vec_list)
     x_prev_n=atoms->find("x_prev");
     f_n=atoms->find("f");
     dim=atoms->dimension;
-    x_dim=atoms->vectors[0].dim;
+    x_dim=atoms->vectors[0]->dim;
     vecs_comm=vec_list;
     dof_n=atoms->find_exist("dof");
     
     CREATE2D(N,dim,dim);
     CREATE2D(M,dim,dim);
+    xmath=new XMath(mapp);
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 LineSearch::~LineSearch()
 {
+    delete xmath;
     for(int i=0;i<dim;i++)
     {
         delete [] N[i];
@@ -41,8 +43,8 @@ type0 LineSearch::inner_f_h()
 {
     type0* f;
     type0* h;
-    atoms->vectors[f_n].ret(f);
-    atoms->vectors[h_n].ret(h);
+    atoms->vectors[f_n]->ret(f);
+    atoms->vectors[h_n]->ret(h);
     type0 inner=0.0;
     type0 inner_tot=0.0;
 
@@ -69,7 +71,7 @@ type0 LineSearch::inner_f_h()
 void LineSearch::normalize_h()
 {
     type0* h;
-    atoms->vectors[h_n].ret(h);
+    atoms->vectors[h_n]->ret(h);
     type0 inner=0.0;
     type0 inner_tot=0.0;
     
@@ -111,11 +113,11 @@ type0 LineSearch::energy(type0 alpha)
     type0* h;
     char* dof=NULL;
     
-    atoms->vectors[x_n].ret(x);
-    atoms->vectors[x_prev_n].ret(x_prev);
-    atoms->vectors[h_n].ret(h);
+    atoms->vectors[x_n]->ret(x);
+    atoms->vectors[x_prev_n]->ret(x_prev);
+    atoms->vectors[h_n]->ret(h);
     if(dof_n>-1)
-        atoms->vectors[dof_n].ret(dof);
+        atoms->vectors[dof_n]->ret(dof);
 
     if(chng_box)
     {
@@ -142,7 +144,7 @@ type0 LineSearch::energy(type0 alpha)
         if(dim==3)
             M3INV_TRI_LOWER(atoms->H,atoms->B);
         else
-            atoms->invert_lower_triangle(atoms->H,atoms->B,dim);
+            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
        
         int icomp=0;
         for(int i=0;i<atoms->natms;i++)
@@ -164,7 +166,7 @@ type0 LineSearch::energy(type0 alpha)
                 if(dof[i]==1) x[i]=x_prev[i];
 
         thermo->start_comm_time();
-        atoms->update_0(1,1,vecs_comm);
+        atoms->update(1,vecs_comm);
         thermo->stop_comm_time();
         
         thermo->start_force_time();
@@ -181,7 +183,7 @@ type0 LineSearch::energy(type0 alpha)
 
         
         thermo->start_comm_time();
-        atoms->update_0(0,1,vecs_comm);
+        atoms->update(0,vecs_comm);
         thermo->stop_comm_time();
         
         thermo->start_force_time();
@@ -199,7 +201,7 @@ type0 LineSearch::find_max_h()
     type0* h;
     type0 max_h=0.0;
     type0 max_h_tot=0.0;
-    atoms->vectors[h_n].ret(h);
+    atoms->vectors[h_n]->ret(h);
     
     for(int i=0;i<atoms->natms*x_dim;i++)
         max_h=MAX(max_h,fabs(h[i]));
@@ -249,7 +251,7 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
     if(mapp->mode==DMD_mode)
     {
         type0* x;
-        atoms->vectors[0].ret(x);
+        atoms->vectors[0]->ret(x);
         min_h=INFINITY;
         for(int i=0;i<atoms->natms;i++)
             for(int j=0;j<atom_types->no_types;j++)

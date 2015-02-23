@@ -22,7 +22,7 @@ ForceField_eam_dmd_lg_0(MAPP* mapp) : ForceField(mapp)
     
     
     no_types=atom_types->no_types;
-    if(atoms->vectors[0].dim!=3+no_types)
+    if(atoms->vectors[0]->dim!=3+no_types)
         error->abort("the dimension of x"
                      " vector should be 3 + no of types");
     
@@ -36,7 +36,7 @@ ForceField_eam_dmd_lg_0(MAPP* mapp) : ForceField(mapp)
     if(c_d_n<0)
     {
         int tmp0=atoms->find("c");
-        tmp0=atoms->vectors[tmp0].dim;
+        tmp0=atoms->vectors[tmp0]->dim;
         c_d_n=atoms->add<type0>(0,tmp0,"c_d");
     }
     
@@ -85,15 +85,15 @@ void ForceField_eam_dmd_lg_0::
 force_calc(int st_clc,type0* en_st)
 {
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* f;
-    atoms->vectors[f_n].ret(f);
+    atoms->vectors[f_n]->ret(f);
     type0* E;
-    atoms->vectors[E_n].ret(E);
+    atoms->vectors[E_n]->ret(E);
     type0* dE;
-    atoms->vectors[dE_n].ret(dE);
+    atoms->vectors[dE_n]->ret(dE);
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     
     int iatm,jatm;
     
@@ -294,7 +294,7 @@ force_calc(int st_clc,type0* en_st)
         
     }
     
-    atoms->update(dE_n);
+    atoms->update_ph(dE_n);
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
@@ -394,11 +394,11 @@ type0 ForceField_eam_dmd_lg_0::energy_calc()
     type0 en=0.0,en_tot;
     
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* E;
-    atoms->vectors[E_n].ret(E);
+    atoms->vectors[E_n]->ret(E);
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     
     int iatm,jatm;
     
@@ -546,15 +546,8 @@ type0 ForceField_eam_dmd_lg_0::energy_calc()
  --------------------------------------------*/
 void ForceField_eam_dmd_lg_0::init()
 {
-    type0 skin=atoms->skin;
-    type0 ph_cut=0.0;
     for (int i=0;i<no_types*(no_types+1)/2;i++)
-        cut_sk_sq[i]=cut_sq_mod_0+(skin)*(skin)
-        +2.0*sqrt(cut_sq_mod_0)*(skin);
-    
-    ph_cut=sqrt(cut_sq_mod_0);
-    
-    atoms->set_ph(ph_cut);
+        cut_sq[i]=cut_sq_mod_0;
     
     x_n=atoms->find("x");
     f_n=atoms->find("f");
@@ -7289,7 +7282,7 @@ void ForceField_eam_dmd_lg_0::create_2nd_neigh_lst()
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     
     
     int* tmp_neigh_list;
@@ -7404,19 +7397,19 @@ void ForceField_eam_dmd_lg_0::c_d_calc()
 {
     
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* E;
-    atoms->vectors[E_n].ret(E);
+    atoms->vectors[E_n]->ret(E);
     type0* dE;
-    atoms->vectors[dE_n].ret(dE);
+    atoms->vectors[dE_n]->ret(dE);
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     type0* mu;
-    atoms->vectors[mu_n].ret(mu);
+    atoms->vectors[mu_n]->ret(mu);
     type0* crd;
-    atoms->vectors[crd_n].ret(crd);
+    atoms->vectors[crd_n]->ret(crd);
     
     type0 fi,fj,exp_fi,exp_fj;
     type0 p,p2,p3,p4,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji;
@@ -7486,7 +7479,7 @@ void ForceField_eam_dmd_lg_0::c_d_calc()
         }
     }
     
-    atoms->update(dE_n);
+    atoms->update_ph(dE_n);
     
     
     istart=0;
@@ -7524,10 +7517,10 @@ void ForceField_eam_dmd_lg_0::c_d_calc()
         
     }
     
-    atoms->update(mu_n);
+    atoms->update_ph(mu_n);
     
     
-    atoms->update(crd_n);
+    atoms->update_ph(crd_n);
     
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -7570,25 +7563,25 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
                                     ,type0 alpha,type0* a,type0* g)
 {
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* E;
-    atoms->vectors[E_n].ret(E);
+    atoms->vectors[E_n]->ret(E);
     type0* dE;
-    atoms->vectors[dE_n].ret(dE);
+    atoms->vectors[dE_n]->ret(dE);
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     type0* mu;
-    atoms->vectors[mu_n].ret(mu);
+    atoms->vectors[mu_n]->ret(mu);
     type0* s;
-    atoms->vectors[s_n].ret(s);
+    atoms->vectors[s_n]->ret(s);
     type0* t;
-    atoms->vectors[t_n].ret(t);
+    atoms->vectors[t_n]->ret(t);
     type0* v;
-    atoms->vectors[v_n].ret(v);
+    atoms->vectors[v_n]->ret(v);
     type0* crd;
-    atoms->vectors[crd_n].ret(crd);
+    atoms->vectors[crd_n]->ret(crd);
     
     type0 inner,ans;
     type0 fi,fj,exp_fi,exp_fj;
@@ -7665,7 +7658,7 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
         }
     }
     
-    atoms->update(dE_n);
+    atoms->update_ph(dE_n);
     
     /*
      claculate f (n)
@@ -7705,7 +7698,7 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
         
     }
     
-    atoms->update(mu_n);
+    atoms->update_ph(mu_n);
     
     for(int i=0;i<natms*no_types;i++)
     {
@@ -7717,7 +7710,7 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
      claculate s and c_d
      */
     
-    atoms->update(crd_n);
+    atoms->update_ph(crd_n);
     
     inner=0.0;
     for(iatm=0;iatm<natms;iatm++)
@@ -7764,7 +7757,7 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
         return ans;
     
     
-    atoms->update(s_n);
+    atoms->update_ph(s_n);
     
     for(int i=0;i<natms*no_types;i++)
     {
@@ -7821,7 +7814,7 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
         }
     }
     
-    atoms->update(t_n);
+    atoms->update_ph(t_n);
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
@@ -7862,7 +7855,7 @@ type0 ForceField_eam_dmd_lg_0::g_calc(int chk
         }
     }
     
-    atoms->update(v_n);
+    atoms->update_ph(v_n);
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)

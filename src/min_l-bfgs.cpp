@@ -103,7 +103,7 @@ void Min_lbfgs::init()
     
     CREATE1D(s_list,m_it);
     CREATE1D(y_list,m_it);
-    x_dim=atoms->vectors[0].dim;
+    x_dim=atoms->vectors[0]->dim;
     if(mapp->mode==DMD_mode)
         c_type_n=atoms->find("c");
     else
@@ -171,14 +171,7 @@ void Min_lbfgs::init()
     vecs_comm=new VecLst(mapp,tmp_lst,icurs);
     delete [] tmp_lst;
     vecs_comm->add_update(0);
-    
-    atoms->reset_comm(vecs_comm);
-    
-    forcefield->init();
-    atoms->ph_setup(1,vecs_comm);
-    neighbor->init();
-    neighbor->create_list(0,1);
-    atoms->store_0();
+    atoms->init(vecs_comm);
     
     
     CREATE1D(rho,m_it);
@@ -224,14 +217,9 @@ void Min_lbfgs::init()
 
     if(chng_box)
     {
-        /*
-        type0** stress;
-        CREATE2D(stress,dim,dim);
-         */
         type0** H=atoms->H;
-        //type0** B=atoms->B;
         
-        atoms->vectors[f_n].ret(f);
+        atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
         
@@ -240,24 +228,7 @@ void Min_lbfgs::init()
         curr_energy=nrgy_strss[0];
         thermo->update(pe_idx,nrgy_strss[0]);
         thermo->update(stress_idx,6,&nrgy_strss[1]);
-        /*
-        stress[0][0]=-nrgy_strss[1];
-        stress[1][1]=-nrgy_strss[2];
-        stress[2][2]=-nrgy_strss[3];
-        stress[1][2]=stress[2][1]=-nrgy_strss[4];
-        stress[0][2]=stress[2][0]=-nrgy_strss[5];
-        stress[0][1]=stress[1][0]=-nrgy_strss[6];
-        
-        for(int i=0;i<dim;i++)
-        {
-            for(int j=0;j<dim;j++)
-            {
-                f_H[j][i]=0.0;
-                for(int k=0;k<dim;k++)
-                    f_H[j][i]+=stress[i][k]*B[k][j];
-            }
-        }
-         */
+
         reg_h_H(f_H,atoms->H);
         
         for(int i=0;i<dim;i++)
@@ -278,16 +249,11 @@ void Min_lbfgs::init()
             }
             icomp+=x_dim;
         }
-        
-        /*
-        for(int i=0;i<dim;i++)
-            delete [] stress[i];
-        delete [] stress;
-         */
+
     }
     else
     {
-        atoms->vectors[f_n].ret(f);
+        atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
         
@@ -338,17 +304,14 @@ void Min_lbfgs::run()
 
         H=atoms->H;
         B=atoms->B;
-        /*
-        type0** stress;
-        CREATE2D(stress,dim,dim);
-         */
+
         while(err==LS_S)
         {
-            atoms->vectors[h_n].ret(h);
-            atoms->vectors[0].ret(x);
-            atoms->vectors[f_n].ret(f);
-            atoms->vectors[x_prev_n].ret(x_0);
-            atoms->vectors[f_prev_n].ret(f_0);
+            atoms->vectors[h_n]->ret(h);
+            atoms->vectors[0]->ret(x);
+            atoms->vectors[f_n]->ret(f);
+            atoms->vectors[x_prev_n]->ret(x_0);
+            atoms->vectors[f_prev_n]->ret(f_0);
             size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(h,f,size);
@@ -370,7 +333,7 @@ void Min_lbfgs::run()
             for(int i=k_it-1;i>-1;i--)
             {
                 
-                atoms->vectors[s_list[i]].ret(tmp_vec0);
+                atoms->vectors[s_list[i]]->ret(tmp_vec0);
                 inner=0.0;
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     inner+=h[j]*tmp_vec0[j];
@@ -389,7 +352,7 @@ void Min_lbfgs::run()
                 
                 alpha[i]*=rho[i];
                 
-                atoms->vectors[y_list[i]].ret(tmp_vec0);
+                atoms->vectors[y_list[i]]->ret(tmp_vec0);
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     h[j]-=alpha[i]*tmp_vec0[j];
                 
@@ -418,7 +381,7 @@ void Min_lbfgs::run()
             for(int i=0;i<k_it;i++)
             {
                 
-                atoms->vectors[y_list[i]].ret(tmp_vec0);
+                atoms->vectors[y_list[i]]->ret(tmp_vec0);
                 inner=0.0;
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     inner+=h[j]*tmp_vec0[j];
@@ -437,7 +400,7 @@ void Min_lbfgs::run()
                 
                 tot_inner*=rho[i];
                 
-                atoms->vectors[s_list[i]].ret(tmp_vec0);
+                atoms->vectors[s_list[i]]->ret(tmp_vec0);
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     h[j]-=(tot_inner+alpha[i])*tmp_vec0[j];
                 
@@ -466,7 +429,7 @@ void Min_lbfgs::run()
                 if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
             
-            atoms->vectors[f_n].ret(f);
+            atoms->vectors[f_n]->ret(f);
             
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
@@ -484,24 +447,7 @@ void Min_lbfgs::run()
             
             if(err)
                 continue;
-            /*
-            stress[0][0]=-nrgy_strss[1];
-            stress[1][1]=-nrgy_strss[2];
-            stress[2][2]=-nrgy_strss[3];
-            stress[1][2]=stress[2][1]=-nrgy_strss[4];
-            stress[0][2]=stress[2][0]=-nrgy_strss[5];
-            stress[0][1]=stress[1][0]=-nrgy_strss[6];
-            
-            for(int i=0;i<dim;i++)
-            {
-                for(int j=0;j<dim;j++)
-                {
-                    f_H[j][i]=0.0;
-                    for(int k=0;k<dim;k++)
-                        f_H[j][i]+=stress[i][k]*B[k][j];
-                }
-            }
-             */
+
             reg_h_H(f_H,atoms->H);
             
             for(int i=0;i<dim;i++)
@@ -509,7 +455,7 @@ void Min_lbfgs::run()
                     if(H_dof[i][j]==0)
                         f_H[i][j]=0.0;
             
-            atoms->vectors[f_n].ret(f);
+            atoms->vectors[f_n]->ret(f);
             
             int icomp=0;
             
@@ -550,13 +496,13 @@ void Min_lbfgs::run()
                     k_it++;
                 
                 
-                atoms->vectors[0].ret(x);
-                atoms->vectors[f_n].ret(f);
-                atoms->vectors[h_n].ret(h);
-                atoms->vectors[x_prev_n].ret(x_0);
-                atoms->vectors[f_prev_n].ret(f_0);
-                atoms->vectors[s_list[k_it-1]].ret(tmp_vec0);
-                atoms->vectors[y_list[k_it-1]].ret(tmp_vec1);
+                atoms->vectors[0]->ret(x);
+                atoms->vectors[f_n]->ret(f);
+                atoms->vectors[h_n]->ret(h);
+                atoms->vectors[x_prev_n]->ret(x_0);
+                atoms->vectors[f_prev_n]->ret(f_0);
+                atoms->vectors[s_list[k_it-1]]->ret(tmp_vec0);
+                atoms->vectors[y_list[k_it-1]]->ret(tmp_vec1);
                 
                 inner=0.0;
                 inner_tmp=0.0;
@@ -588,9 +534,9 @@ void Min_lbfgs::run()
             }
             else
             {
-                atoms->vectors[f_n].ret(f);
-                atoms->vectors[h_n].ret(h);
-                atoms->vectors[f_prev_n].ret(f_0);
+                atoms->vectors[f_n]->ret(f);
+                atoms->vectors[h_n]->ret(h);
+                atoms->vectors[f_prev_n]->ret(f_0);
                 inner=0.0;
                 inner_tmp=0.0;
                 for(int i=0;i<x_dim*atoms->natms;i++)
@@ -619,22 +565,16 @@ void Min_lbfgs::run()
             step_no++;
         }
         
-        /*
-        for(int i=0;i<dim;i++)
-            delete [] stress[i];
-        delete [] stress;
-        */
-        
     }
     else
     {
         while(err==LS_S)
         {
-            atoms->vectors[h_n].ret(h);
-            atoms->vectors[0].ret(x);
-            atoms->vectors[f_n].ret(f);
-            atoms->vectors[x_prev_n].ret(x_0);
-            atoms->vectors[f_prev_n].ret(f_0);
+            atoms->vectors[h_n]->ret(h);
+            atoms->vectors[0]->ret(x);
+            atoms->vectors[f_n]->ret(f);
+            atoms->vectors[x_prev_n]->ret(x_0);
+            atoms->vectors[f_prev_n]->ret(f_0);
             size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(h,f,size);
@@ -646,7 +586,7 @@ void Min_lbfgs::run()
             for(int i=k_it-1;i>-1;i--)
             {
                 
-                atoms->vectors[s_list[i]].ret(tmp_vec0);
+                atoms->vectors[s_list[i]]->ret(tmp_vec0);
                 inner=0.0;
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     inner+=h[j]*tmp_vec0[j];
@@ -656,7 +596,7 @@ void Min_lbfgs::run()
                 alpha[i]*=rho[i];
                 
                 
-                atoms->vectors[y_list[i]].ret(tmp_vec0);
+                atoms->vectors[y_list[i]]->ret(tmp_vec0);
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     h[j]-=alpha[i]*tmp_vec0[j];
             }
@@ -669,7 +609,7 @@ void Min_lbfgs::run()
             for(int i=0;i<k_it;i++)
             {
                 
-                atoms->vectors[y_list[i]].ret(tmp_vec0);
+                atoms->vectors[y_list[i]]->ret(tmp_vec0);
                 inner=0.0;
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     inner+=h[j]*tmp_vec0[j];
@@ -678,7 +618,7 @@ void Min_lbfgs::run()
                 MPI_Allreduce(&inner,&tot_inner,1,MPI_TYPE0,MPI_SUM,world);
                 tot_inner*=rho[i];
                 
-                atoms->vectors[s_list[i]].ret(tmp_vec0);
+                atoms->vectors[s_list[i]]->ret(tmp_vec0);
                 for(int j=0;j<atoms->natms*x_dim;j++)
                     h[j]-=(tot_inner+alpha[i])*tmp_vec0[j];
             }
@@ -699,7 +639,7 @@ void Min_lbfgs::run()
                 if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
             
-            atoms->vectors[f_n].ret(f);
+            atoms->vectors[f_n]->ret(f);
             
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
@@ -747,13 +687,13 @@ void Min_lbfgs::run()
                     k_it++;
                 
                 
-                atoms->vectors[0].ret(x);
-                atoms->vectors[f_n].ret(f);
-                atoms->vectors[h_n].ret(h);
-                atoms->vectors[x_prev_n].ret(x_0);
-                atoms->vectors[f_prev_n].ret(f_0);
-                atoms->vectors[s_list[k_it-1]].ret(tmp_vec0);
-                atoms->vectors[y_list[k_it-1]].ret(tmp_vec1);
+                atoms->vectors[0]->ret(x);
+                atoms->vectors[f_n]->ret(f);
+                atoms->vectors[h_n]->ret(h);
+                atoms->vectors[x_prev_n]->ret(x_0);
+                atoms->vectors[f_prev_n]->ret(f_0);
+                atoms->vectors[s_list[k_it-1]]->ret(tmp_vec0);
+                atoms->vectors[y_list[k_it-1]]->ret(tmp_vec1);
                 
                 inner=0.0;
                 inner_tmp=0.0;
@@ -774,9 +714,9 @@ void Min_lbfgs::run()
             }
             else
             {
-                atoms->vectors[f_n].ret(f);
-                atoms->vectors[h_n].ret(h);
-                atoms->vectors[f_prev_n].ret(f_0);
+                atoms->vectors[f_n]->ret(f);
+                atoms->vectors[h_n]->ret(h);
+                atoms->vectors[f_prev_n]->ret(f_0);
                 inner=0.0;
                 inner_tmp=0.0;
                 for(int i=0;i<x_dim*atoms->natms;i++)
@@ -896,6 +836,5 @@ void Min_lbfgs::fin()
     
     thermo->fin();
     errors();
-    atoms->x2s(atoms->natms);
 }
 

@@ -8,6 +8,7 @@
 #include "error.h"
 #include "memory.h"
 #include "atom_types.h"
+#include "xmath.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -93,9 +94,9 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
             x_d_n=atoms->add<type0>(0, 3,"x_d");
             vec_list=new VecLst(mapp,4,x_n,x_d_n,type_n,id_n);
             
-            ch_id=atoms->vectors[x_n].byte_size;
-            ch_type=ch_id+atoms->vectors[id_n].byte_size;
-            ch_x_d=ch_type+atoms->vectors[type_n].byte_size;
+            ch_id=atoms->vectors[x_n]->byte_size;
+            ch_type=ch_id+atoms->vectors[id_n]->byte_size;
+            ch_x_d=ch_type+atoms->vectors[type_n]->byte_size;
             tmp_buff_size=6;
             CREATE1D(tmp_buff,tmp_buff_size);
         }
@@ -104,8 +105,8 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
             
             vec_list=new VecLst(mapp,3,x_n,type_n,id_n);
             
-            ch_id=atoms->vectors[x_n].byte_size;
-            ch_type=ch_id+atoms->vectors[id_n].byte_size;
+            ch_id=atoms->vectors[x_n]->byte_size;
+            ch_type=ch_id+atoms->vectors[id_n]->byte_size;
             tmp_buff_size=3;
             CREATE1D(tmp_buff,tmp_buff_size);
         }
@@ -123,8 +124,8 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
         c_n=atoms->add<type0>(1,dmd_no_types,"c");
         vec_list=new VecLst(mapp,3,x_n,id_n,c_n);
         
-        ch_id=atoms->vectors[x_n].byte_size;
-        ch_c=ch_id+atoms->vectors[id_n].byte_size;
+        ch_id=atoms->vectors[x_n]->byte_size;
+        ch_c=ch_id+atoms->vectors[id_n]->byte_size;
         
         tmp_buff_size=3+2*dmd_no_types;
         CREATE1D(tmp_buff,tmp_buff_size);
@@ -165,7 +166,8 @@ Read_cfg::Read_cfg(MAPP* mapp,int narg,char** args)
     
     if(atoms->my_p_no==0)
         fclose(cfgfile);
-
+    
+    atoms->s2x(atoms->natms);
     
 }
 /*--------------------------------------------
@@ -305,15 +307,6 @@ void Read_cfg::read_header()
  --------------------------------------------*/
 void Read_cfg::set_box()
 {
-    type0** Ht;
-    type0* sq;
-    type0* b;
-    CREATE2D(Ht,3,3);
-    CREATE1D(sq,3);
-    CREATE1D(b,3);
-    type0 babs;
-    type0 tmp;
-    
     for (int i=0;i<3;i++)
         for (int j=0;j<3;j++)
             for (int k=0;k<3;k++)
@@ -354,6 +347,23 @@ void Read_cfg::set_box()
         error->abort("determinant of H in %s file is 0.0",file_name);
     type0 det;
     
+    XMath* xmath= new XMath(mapp);
+    xmath->square2lo_tri(H_x,atoms->H);
+    delete xmath;
+    
+    M3EQV(atoms->H,H_x);
+    M3INV(atoms->H,atoms->B,det);
+    
+
+    /*
+    type0** Ht;
+    CREATE2D(Ht,3,3);
+    type0* sq;
+    type0* b;
+    CREATE1D(sq,3);
+    CREATE1D(b,3);
+    type0 babs;
+    type0 tmp;
     for (int i=0;i<3;i++)
     {
         sq[i]=0.0;
@@ -394,6 +404,9 @@ void Read_cfg::set_box()
     else
         Ht[2][1]=0.0;
     
+    delete [] b;
+    delete [] sq;
+    
     M3EQV(Ht,atoms->H);
     M3EQV(Ht,H_x);
     M3INV(atoms->H,atoms->B,det);
@@ -401,8 +414,8 @@ void Read_cfg::set_box()
     for(int i=0;i<3;i++)
         delete [] Ht[i];
     delete [] Ht;
-    delete [] b;
-    delete [] sq;
+     */
+    
 }
 /*--------------------------------------------
  reads the atom section of the cfg file
@@ -585,7 +598,6 @@ void Read_cfg::read_atom_dmd()
         error->abort("invalid line in %s file: %s",file_name,line);
 
     
-    
     for(int i=0;i<narg;i++)
         delete [] arg[i];
     if(narg)
@@ -636,7 +648,7 @@ void Read_cfg::add_atom_read_x(int t)
     if(vel_chk)
         memcpy(&ch_buff[ch_x_d],&tmp_buff[3],3*sizeof(type0));
     
-    atoms->unpack(ch_buff,0,1,vec_list);
+    atoms->unpack_read(ch_buff,1,vec_list);
     curr_id++;
 }
 /*--------------------------------------------
@@ -665,7 +677,7 @@ void Read_cfg::add_atom_read_x()
     memcpy(&ch_buff[ch_c],&tmp_buff[3+dmd_no_types]
     ,dmd_no_types*sizeof(type0));
     
-    atoms->unpack(ch_buff,0,1,vec_list);
+    atoms->unpack_read(ch_buff,1,vec_list);
     curr_id++;
 }
 /*--------------------------------------------

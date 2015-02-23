@@ -432,18 +432,9 @@ int ForceField_fsm::read_line(FILE* file,char*& line)
  initiate before a run
  --------------------------------------------*/
 void ForceField_fsm::init()
-{
-    type0 skin=atoms->skin;
-    type0 ph_cut=0.0;
+{    
     for (int i=0;i<arr_size;i++)
-    {
         cut_sq[i]=MAX(cut_sq_phi[i],cut_sq_rho[i]);
-        cut_sk_sq[i]=cut_sq[i]+(skin)*(skin)
-        +2.0*sqrt(cut_sq[i])*(skin);
-        ph_cut=MAX(ph_cut,sqrt(cut_sq[i]));
-    }
-    
-    atoms->set_ph(ph_cut);
     
     x_n=atoms->find("x");
     f_n=atoms->find("f");
@@ -474,13 +465,13 @@ force_calc(int st_clc,type0* en_st)
      int* type=(int*)atoms->vectors[type_n].ret_vec();
      */
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* f;
-    atoms->vectors[f_n].ret(f);
+    atoms->vectors[f_n]->ret(f);
     type0* rho;
-    atoms->vectors[rho_n].ret(rho);
+    atoms->vectors[rho_n]->ret(rho);
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     
     int iatm,jatm;
     
@@ -533,7 +524,7 @@ force_calc(int st_clc,type0* en_st)
         }
     }
     
-    atoms->update(rho_n);
+    atoms->update_ph(rho_n);
     
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -688,11 +679,11 @@ type0 ForceField_fsm::energy_calc()
      int* type=(int*)atoms->vectors[type_n].ret_vec();
      */
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* rho;
-    atoms->vectors[rho_n].ret(rho);
+    atoms->vectors[rho_n]->ret(rho);
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     
     int natms=atoms->natms;
     int iatm,jatm;

@@ -94,7 +94,7 @@ Command_displace::Command_displace(MAPP* mapp
     VecLst* vecs_comm=new VecLst(mapp,tmp_list,no_vecs);
     delete [] tmp_list;
     
-    atoms->reset_comm(vecs_comm);
+    atoms->xchng_cmplt(vecs_comm);
     
     delete vecs_comm;
 }
@@ -116,10 +116,10 @@ int no_atoms,type0* disp)
             error->abort("invalid atom id %d",list[i]);
     type0 tmp_s;
     int* id;
-    atoms->vectors[id_n].ret(id);
+    atoms->vectors[id_n]->ret(id);
     type0* s;
-    atoms->vectors[0].ret(s);
-    int x_dim=atoms->vectors[0].dim;
+    atoms->vectors[0]->ret(s);
+    int x_dim=atoms->vectors[0]->dim;
     int dim=atoms->dimension;
     
     int natms=atoms->natms;

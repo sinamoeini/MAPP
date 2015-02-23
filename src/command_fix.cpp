@@ -27,7 +27,7 @@ Command_fix::~Command_fix()
 void Command_fix::md(int narg,char** args)
 {
     int dof_n,iarg;
-    int x_dim=atoms->vectors[0].dim;
+    int x_dim=atoms->vectors[0]->dim;
     char* dof_ch;
     CREATE1D(dof_ch,x_dim);
     memset(dof_ch,0,x_dim);
@@ -116,15 +116,15 @@ void Command_fix::md(int narg,char** args)
     if(dof_n==-1)
     {
         dof_n=atoms->add<char>(0,x_dim,"dof");
-        atoms->vectors[dof_n].ret(dof);
+        atoms->vectors[dof_n]->ret(dof);
         memset(dof,0,x_dim*natms);
     }
     
-    atoms->vectors[dof_n].ret(dof);
+    atoms->vectors[dof_n]->ret(dof);
     
     int* id;
     id_n=atoms->find("id");
-    atoms->vectors[id_n].ret(id);
+    atoms->vectors[id_n]->ret(id);
     
     for(int i=0;i<natms;i++)
         for(int j=0;j<list_size;j++)
@@ -144,7 +144,7 @@ void Command_fix::md(int narg,char** args)
 void Command_fix::dmd(int narg,char** args)
 {
     int dof_n,cdof_n,iarg;
-    int x_dim=atoms->vectors[0].dim;
+    int x_dim=atoms->vectors[0]->dim;
     char* dof_ch;
     CREATE1D(dof_ch,x_dim);
     memset(dof_ch,0,x_dim);
@@ -257,7 +257,7 @@ void Command_fix::dmd(int narg,char** args)
     if(dof_n==-1)
     {
         dof_n=atoms->add<char>(0,x_dim,"dof");
-        atoms->vectors[dof_n].ret(dof);
+        atoms->vectors[dof_n]->ret(dof);
         memset(dof,0,x_dim*natms);
     }
     
@@ -268,17 +268,17 @@ void Command_fix::dmd(int narg,char** args)
     if(cdof_n==-1)
     {
         cdof_n=atoms->add<char>(0,no_types,"cdof");
-        atoms->vectors[cdof_n].ret(cdof);
+        atoms->vectors[cdof_n]->ret(cdof);
         memset(cdof,0,no_types*natms);
     }
     
-    atoms->vectors[dof_n].ret(dof);
-    atoms->vectors[cdof_n].ret(cdof);
+    atoms->vectors[dof_n]->ret(dof);
+    atoms->vectors[cdof_n]->ret(cdof);
     
     
     int* id;
     id_n=atoms->find("id");
-    atoms->vectors[id_n].ret(id);
+    atoms->vectors[id_n]->ret(id);
     
     for(int i=0;i<natms;i++)
         for(int j=0;j<list_size;j++)

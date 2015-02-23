@@ -12,6 +12,256 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
+XMath::XMath(MAPP* mapp): InitPtrs(mapp)
+{
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+XMath::~XMath()
+{
+}
+/*--------------------------------------------
+ autogrid the domain
+ --------------------------------------------*/
+int XMath::fac(int no,int dim,int**& list)
+{
+    
+    int list_size=0;
+    int* tmp_list;
+    CREATE1D(tmp_list,dim);
+    fac_rec(no,dim,0,tmp_list,list,list_size);
+    if(dim)
+        delete [] tmp_list;
+    return list_size;
+}
+/*--------------------------------------------
+ autogrid the domain
+ --------------------------------------------*/
+void XMath::fac_rec(int no,int dim,int pos,
+int*& tmp_list,int**& list,int& list_size)
+{
+    
+    if(dim>1)
+    {
+        for(int i=1;i<=no;i++)
+        {
+            if(no%i==0)
+            {
+                tmp_list[pos]=i;
+                fac_rec(no/i,dim-1,pos+1,
+                        tmp_list,list,list_size);
+            }
+        }
+    }
+    else
+    {
+        tmp_list[pos]=no;
+        GROW(list,list_size,list_size+1);
+        CREATE1D(list[list_size],pos+1);
+        for(int i=0;i<=pos;i++)
+            list[list_size][i]=tmp_list[i];
+        list_size++;
+    }
+}
+/*--------------------------------------------
+ autogrid the domain
+ --------------------------------------------*/
+void XMath::square2lo_tri(type0** H_old
+,type0** H_new)
+{
+    type0** Q;
+    CREATE2D(Q,3,3);
+    type0 H0H0;
+    type0 H0H1;
+    H0H0=H0H1=0.0;
+    for(int i=0;i<3;i++)
+    {
+        H0H0+=H_old[0][i]*H_old[0][i];
+        H0H1+=H_old[0][i]*H_old[1][i];
+    }
+    Q[0][0]=H_old[0][0];
+    Q[0][1]=H_old[0][1];
+    Q[0][2]=H_old[0][2];
+    Q[1][0]=H0H0*H_old[1][0]-H0H1*H_old[0][0];
+    Q[1][1]=H0H0*H_old[1][1]-H0H1*H_old[0][1];
+    Q[1][2]=H0H0*H_old[1][2]-H0H1*H_old[0][2];
+    Q[2][0]=H_old[0][1]*H_old[1][2]-H_old[0][2]*H_old[1][1];
+    Q[2][1]=H_old[0][2]*H_old[1][0]-H_old[0][0]*H_old[1][2];
+    Q[2][2]=H_old[0][0]*H_old[1][1]-H_old[0][1]*H_old[1][0];
+    for(int i=0;i<3;i++)
+    {
+        H0H0=0.0;
+        for(int j=0;j<3;j++)
+            H0H0+=Q[i][j]*Q[i][j];
+        
+        H0H1=sqrt(H0H0);
+        for(int j=0;j<3;j++)
+            Q[i][j]/=H0H1;
+    }
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            H_new[i][j]=0.0;
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<i+1;j++)
+        {
+            for(int k=0;k<3;k++)
+                H_new[i][j]+=H_old[i][k]*Q[j][k];
+        }
+    
+    for(int i=0;i<3;i++)
+        delete [] Q[i];
+    delete [] Q;
+}
+/*--------------------------------------------
+ inversion funtion to calculate B whenever H
+ is changed
+ --------------------------------------------*/
+void XMath::invert(type0** A,type0** Ainv,int dim)
+{
+    if(dim==0)
+        return;
+    
+    type0** ATA;
+    CREATE2D(ATA,dim,dim);
+    type0* c;
+    CREATE1D(c,dim);
+    type0* x;
+    CREATE1D(x,dim);
+    type0* g;
+    CREATE1D(g,dim);
+    type0* g0;
+    CREATE1D(g0,dim);
+    type0* h;
+    CREATE1D(h,dim);
+    type0 a0,a1,alpha;
+    type0 g0g0,gg,gg0,ratio;
+    
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            Ainv[i][j]=ATA[i][j]=0.0;
+    
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            for(int k=0;k<dim;k++)
+                ATA[i][j]+=A[k][i]*A[k][j];
+    
+    for(int itry=0;itry<dim;itry++)
+    {
+        for(int i=0;i<dim;i++)
+        {
+            c[i]=A[itry][i];
+            x[i]=c[i];
+        }
+        
+        
+        g0g0=0.0;
+        for(int i=0;i<dim;i++)
+        {
+            h[i]=2.0*c[i];
+            for(int j=0;j<dim;j++)
+                h[i]-=2.0*ATA[i][j]*x[j];
+            g[i]=h[i];
+            g0g0+=h[i]*h[i];
+        }
+        
+        int jtry=0;
+        double error=1.0;
+        while(jtry<dim+1 && error!=0.0)
+        {
+            
+            if(g0g0==0.0)
+            {
+                error=0.0;
+                continue;
+            }
+            
+            
+            a0=0.0;
+            a1=0.0;
+            for(int i=0;i<dim;i++)
+            {
+                a0+=h[i]*g[i];
+                for(int j=0;j<dim;j++)
+                    a1+=h[i]*ATA[i][j]*h[j];
+            }
+            if(a1==0.0)
+            {
+                error=0.0;
+                continue;
+            }
+            alpha=0.5*a0/a1;
+            
+            for(int i=0;i<dim;i++)
+                x[i]+=alpha*h[i];
+            
+            //cout << "chk 3" << endl;
+            
+            gg=0.0;
+            gg0=0.0;
+            for(int i=0;i<dim;i++)
+            {
+                g[i]=2.0*c[i];
+                for(int j=0;j<dim;j++)
+                    g[i]-=2.0*ATA[i][j]*x[j];
+                gg+=g[i]*g[i];
+                gg0+=g0[i]*g[i];
+            }
+            
+            //cout << "chk 4" << endl;
+            ratio=(gg-gg0)/g0g0;
+            g0g0=gg;
+            
+            
+            for(int i=0;i<dim;i++)
+            {
+                h[i]=ratio*h[i]+g[i];
+                g0[i]=g[i];
+            }
+            
+            
+            error=0.0;
+            for(int i=0;i<dim;i++)
+            {
+                for(int j=0;j<dim;j++)
+                    error+=x[i]*ATA[i][j]*x[i];
+                error-=2*c[i]*x[i];
+            }
+            error++;
+            
+            jtry++;
+        }
+        
+        for(int i=0;i<dim;i++)
+            Ainv[i][itry]=x[i];
+    }
+    
+    for(int i=0;i<dim;i++)
+        delete [] ATA[i];
+    delete [] ATA;
+    delete [] c;
+    delete [] x;
+    delete [] g;
+    delete [] g0;
+    delete [] h;
+}
+/*--------------------------------------------
+ inversion funtion to calculate B whenever H
+ is changed
+ --------------------------------------------*/
+void XMath::invert_lower_triangle(type0** A,type0** Ainv,int dim)
+{
+    invert(A,Ainv,dim);
+    for(int i=0;i<dim;i++)
+        for(int j=i+1;j<dim;j++)
+            Ainv[i][j]=0.0;
+    
+}
+/*--------------------------------------------
+ constructor
+ --------------------------------------------*/
 SPARSE::
 SPARSE(MAPP* mapp,int n0,int n1): InitPtrs(mapp)
 {

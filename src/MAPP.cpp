@@ -40,7 +40,7 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     
     error = new Error(this);
     memory = new Memory(this);
-    atoms = new Atoms(this,world);
+    atoms = new Atoms(this);
     atom_types = new AtomTypes(this);
     neighbor = new Neighbor(this);
     
@@ -225,7 +225,7 @@ void MAPP::command(char* command)
     }
     else if(strcmp(args[0],"skin")==0)
     {
-        atoms->add_skin(narg,args);
+        atoms->chng_skin(narg,args);
     }
     else if(strcmp(args[0],"mode")==0)
     {
@@ -422,7 +422,7 @@ void MAPP::read_style(int narg,char** args)
     if(0){}
     #include "read_styles.h"
     else
-        error->abort("wrong style of md: %s",args[1]);
+        error->abort("wrong style of read: %s",args[1]);
     #undef Read_Style
     delete read;
 }
@@ -661,23 +661,6 @@ void MAPP::concatenate(int narg,char** args
  --------------------------------------------*/
 void MAPP::test()
 {
-    /*
-    int no_vecs=atoms->no_vecs;
-    int* vecs;
-    VecLst* list;
-    
-    CREATE1D(vecs,no_vecs);
-    
-    for(int i=0;i<no_vecs;i++)
-        vecs[i]=i;
-    
-    list=new VecLst(this,vecs,no_vecs);
-    
-    atoms->reset_comm(list);
-        
-    if(no_vecs)
-        delete [] vecs;
-    delete [] list;
-     */
+
 }
 

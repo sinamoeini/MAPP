@@ -2,8 +2,11 @@
 #define __MAPP__line_search__
 
 #include <iostream>
+#include "init.h"
 #include "atoms.h"
-namespace MAPP_NS {
+#include "xmath.h"
+namespace MAPP_NS
+{
     enum {LS_S,LS_F_DOWNHILL,LS_F_GRAD0,LS_F_ALPHAMIN,MIN_F_MAX_ITER,MIN_F_TOLERANCE};
     
     class LineSearch : protected InitPtrs
@@ -29,6 +32,8 @@ namespace MAPP_NS {
         type0** M;
         
         int** H_dof;
+        
+        XMath* xmath;
         //void ccc(type0**,type0**,type0**,type0);
     public:
         type0** H_prev;

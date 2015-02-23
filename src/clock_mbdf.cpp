@@ -137,7 +137,7 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
     c_n=atoms->find("c");
     c_d_n=atoms->find("c_d");
     
-    int c_dim=atoms->vectors[c_n].dim;
+    int c_dim=atoms->vectors[c_n]->dim;
     dof_lcl=atoms->natms*c_dim;
     MPI_Allreduce(&dof_lcl,&dof_tot,1,MPI_INT,MPI_SUM,world);
     
@@ -196,7 +196,7 @@ void Clock_mbdf::init()
     
     int f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
+        f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
     
     int id_n=atoms->find("id");
     if(cdof_n>-1)
@@ -211,13 +211,8 @@ void Clock_mbdf::init()
     }
     
     vecs_comm->add_update(0);
-    atoms->reset_comm(vecs_comm);
-    forcefield->init();
-    atoms->ph_setup(1,vecs_comm);
-    
-    neighbor->init();
-    neighbor->create_list(0,1);
-    atoms->store_0();
+    atoms->init(vecs_comm);
+
     forcefield->create_2nd_neigh_lst();
     
     
@@ -229,8 +224,8 @@ void Clock_mbdf::init()
     forcefield->c_d_calc();
     thermo->stop_force_time();
     
-    atoms->vectors[c_n].ret(c);
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_n]->ret(c);
+    atoms->vectors[c_d_n]->ret(c_d);
     rectify(c_d);
     if(initial_del_t<0.0)
     {
@@ -275,7 +270,6 @@ void Clock_mbdf::fin()
     thermo->fin();
     
     
-    atoms->x2s(atoms->natms);
 }
 /*--------------------------------------------
  init
@@ -358,9 +352,9 @@ void Clock_mbdf::run()
         return;
     
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     type0* tmp_y;
     
@@ -467,7 +461,7 @@ type0 Clock_mbdf::step_size(type0 del_t,int ord)
     
     
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0 tmp,ratio,tot_ratio;
     type0 max_h;
     
@@ -528,9 +522,9 @@ type0 Clock_mbdf::step_size(type0 del_t,int ord)
 type0 Clock_mbdf::solve(type0 del_t,int ord)
 {
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     type0 gamma,max_gamma=1.0;
     type0 inner,tmp0,tmp1;
@@ -562,7 +556,7 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
     for(int i=0;i<dof_lcl;i++)
         c[i]=y[0][i]+dy[i]*del_t*tot_ratio;
     thermo->start_comm_time();
-    atoms->update(c_n);
+    atoms->update_ph(c_n);
     thermo->stop_comm_time();
     
     
@@ -628,7 +622,7 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
                 c[i]=c0[i]+max_gamma*h[i];
             
             thermo->start_comm_time();
-            atoms->update(c_n);
+            atoms->update_ph(c_n);
             thermo->stop_comm_time();
             
             thermo->start_force_time();
@@ -654,7 +648,7 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
                 memcpy(c,c0,dof_lcl*sizeof(type0));
                 
                 thermo->start_comm_time();
-                atoms->update(c_n);
+                atoms->update_ph(c_n);
                 thermo->stop_comm_time();
                 
                 thermo->start_force_time();
@@ -960,7 +954,7 @@ void Clock_mbdf::ord_dt(type0& del_t,int& q
 type0 Clock_mbdf::err_est(int q)
 {
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     
     type0 tmp0,err_lcl,err_tot;
     err_lcl=0.0;

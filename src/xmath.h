@@ -4,12 +4,30 @@
  --------------------------------------------*/
 #ifndef __MAPP__xmath__
 #define __MAPP__xmath__
-
 #include <iostream>
 #include "init.h"
-
 using namespace std;
-namespace MAPP_NS {
+namespace MAPP_NS
+{
+    class XMath: protected InitPtrs
+    {
+    private:
+        // recursive form of above functions that feeds into it
+        void fac_rec(int,int,int,int*&,int**&,int&);
+    protected:
+    public:
+        XMath(MAPP*);
+        ~XMath();
+        // inverse square matrix
+        void invert(type0**,type0**,int);
+        // inverse lower triangle square matrix
+        void invert_lower_triangle(type0**,type0**,int);
+        // return the list of all possible groups of integers that their products are equal to specific number
+        int fac(int,int,int**&);
+        void square2lo_tri(type0**,type0**);
+
+    };
+    
     class SPARSE : protected InitPtrs
     {
     private:

@@ -11,442 +11,257 @@
 #include <mpi.h>
 #include "init.h"
 #include "memory.h"
-using namespace std;
-namespace MAPP_NS {
-/*--------------------------------------------
- atomic vectors
- --------------------------------------------*/
-    class AVec
+/*---------------------------------------------------------------------------
+   _____   _          __      ___   _____   _       _____   _____
+  /  ___/ | |        / /     /   | |  _  \ | |     /  ___/ |_   _|
+  | |___  | |  __   / /     / /| | | |_| | | |     | |___    | |
+  \___  \ | | /  | / /     / / | | |  ___/ | |     \___  \   | |
+   ___| | | |/   |/ /     / /  | | | |     | |___   ___| |   | |
+  /_____/ |___/|___/     /_/   |_| |_|     |_____| /_____/   |_|
+ 
+ int** snd_list: snd_list[iswap][iatm]
+ list of the atoms to send in each swap
+ 
+ int* snd_list_capacity: snd_list_capacity[iswap]
+ maximum size of the list in a swap
+ 
+ int* snd_size: snd_size[iswap]
+ number of atoms to send in each swap
+ 
+ int* rcv_size: rcv[size]
+ number of atoms to recieve in each swap
+
+ int* snd_p: snd_p[iswap]
+ the processor id to send to in each swap
+ 
+ int* rcv_p: rcv_p[iswap]
+ the processor id to recieve from in each swap
+ 
+ int* pbc_correction: pbc_correction[iswap]
+ the correction to x or s due to periodic boundary condition in each swap
+ pbc_correction[iswap]=0:
+ there is no cerrection 
+ 
+ pbc_correction[iswap]=idim+1:
+ s[iatm*x_dim+idim]++;
+ for(int jdim=0;jdim<idim+1;jdim++)
+    x[iatm*x_dim+jdim]+=H[idim][jdim]
+ 
+ pbc_correction[iswap]=-(idim+1):
+ s[iatm*x_dim+idim]--;
+ for(int jdim=0;jdim<idim+1;jdim++)
+    x[iatm*x_dim+jdim]-=H[idim][jdim]
+ 
+ 
+ setup_ph(int,class VecLst*) assigns the following:
+ snd_list[iswap]
+ snd_size[iswap]
+ snd_p[iswap]
+ rcv_p[iswap]
+ pbc_correction[iswap]
+ 
+ xchng_ph(int,int,int*,int,class VecLst*) assigns the following:
+ rcv_size[iswap]
+ 
+ ---------------------------------------------------------------------------*/
+namespace MAPP_NS
+{
+    class SwapLst : protected InitPtrs
     {
     private:
+        int* snd_list_capacity;
     protected:
     public:
-        int type;
-        int ph;
-        int dim;
-        int byte_size;
-        int initiated;
-        char* name;
-    
-        char* vec_0;
-        unsigned char* vec_1;
+        int** snd_list;
         
-        short int* vec_2;
-        unsigned short int* vec_3;
+        int* snd_size;
+        int* rcv_size;
         
-        int* vec_4;
-        unsigned int* vec_5;
+        int* snd_p;
+        int* rcv_p;
         
-        long int* vec_6;
-        unsigned long int* vec_7;
-        long long int* vec_8;
-        unsigned long long int* vec_9;
+        int* pbc_correction;
         
-        float* vec_10;
-        double* vec_11;
-        long double* vec_12;
-        
-        char* vec_0_dump;
-        unsigned char* vec_1_dump;
-        
-        short int* vec_2_dump;
-        unsigned short int* vec_3_dump;
-        
-        int* vec_4_dump;
-        unsigned int* vec_5_dump;
-        
-        long int* vec_6_dump;
-        unsigned long int* vec_7_dump;
-        long long int* vec_8_dump;
-        unsigned long long int* vec_9_dump;
-        
-        float* vec_10_dump;
-        double* vec_11_dump;
-        long double* vec_12_dump;
-        
-        void gather_dump();
-        void print_dump(FILE*,int);
-        
-        Atoms* atms;
-        
-        ~AVec();
-        void init(Atoms*,int,int,int,const char*);
-        int unpack(char*&,int);
-        int pack(char*&,int,int);
-        
-        int x_pack(char*&,int,int*,int);
-        int x_unpack(char*&,int,int);
-        
-        void copy(int,int);
-        void grow(int);
-        void resize(int);
-        void* ret_vec(int);
-        void* ret_vec();
-        void change_dimension(int);
-        
-        template <typename TYPE>
-        TYPE* create(TYPE*&,int);
-        
-        template <typename TYPE>
-        TYPE* grow(TYPE*&,int,int);
-        
-        void ret(char*&);
-        void ret(unsigned char*&);
-        
-        void ret(short int*&);
-        void ret(unsigned short int*&);
-        
-        void ret(int*&);
-        void ret(unsigned int*&);
-        
-        void ret(long int*&);
-        void ret(unsigned long int*&);
-        void ret(long long int*&);
-        void ret(unsigned long long int*&);
-        
-        void ret(float*&);
-        void ret(double*&);
-        void ret(long double*&);
-        
-        void ret_dump(char*&);
-        void ret_dump(unsigned char*&);
-        
-        void ret_dump(short int*&);
-        void ret_dump(unsigned short int*&);
-        
-        void ret_dump(int*&);
-        void ret_dump(unsigned int*&);
-        
-        void ret_dump(long int*&);
-        void ret_dump(unsigned long int*&);
-        void ret_dump(long long int*&);
-        void ret_dump(unsigned long long int*&);
-        
-        void ret_dump(float*&);
-        void ret_dump(double*&);
-        void ret_dump(long double*&);
-        
-        void del_dump();
-    };
-/*--------------------------------------------
- collection of all atomic vectors
- --------------------------------------------*/
-    template <typename LISTTYPE>
-    class SwapLst : protected InitPtrs{
-    private:
-    protected:
-    public:
-        
-        LISTTYPE** list;
-        int* list_size;
-        int* pos;
         int grow_size;
         int no_swaps;
-        //int* list_cur;
         
-        SwapLst(MAPP* mapp):InitPtrs(mapp)
-        {
-            grow_size=1;
-            no_swaps=0;
-        }
-        SwapLst(MAPP* mapp,int nswaps)
-        {
-            no_swaps=nswaps;
-            CREATE1D(list,no_swaps);
-            CREATE1D(list_size,no_swaps);
-            CREATE1D(pos,no_swaps);
-            grow_size=1;
-            
-            for(int i=0;i<no_swaps;i++)
-                list_size[i]=pos[i]=0;
-        }
-        ~SwapLst()
-        {
-            if(no_swaps)
-            {
-                for(int i=0;i<no_swaps;i++)
-                    if(list_size[i])
-                        delete [] list[i];
-                delete [] list;
-                delete [] list_size;
-                delete [] pos;
-            }
-            
-        }
-        void newlist(int nswaps)
-        {
-            if(no_swaps)
-            {
-                for(int i=0;i<no_swaps;i++)
-                    if(list_size[i])
-                        delete [] list[i];
-                delete [] list;
-                delete [] list_size;
-                delete [] pos;
-            }
-            no_swaps=nswaps;
-            CREATE1D(list,no_swaps);
-            CREATE1D(list_size,no_swaps);
-            CREATE1D(pos,no_swaps);
-            grow_size=1;
-            
-            for(int i=0;i<no_swaps;i++)
-                list_size[i]=pos[i]=0;
-            
-        }
-        void add(int iswap,LISTTYPE val)
-        {
-            if(pos[iswap]==list_size[iswap])
-            {
-                GROW(list[iswap],list_size[iswap],list_size[iswap]+grow_size);
-                list_size[iswap]+=grow_size;
-            }
-            list[iswap][pos[iswap]]=val;
-            pos[iswap]++;
-        }
-        void reset()
-        {
-            for(int iswap=0;iswap<no_swaps;iswap++)
-                pos[iswap]=0;
-        }
-        void reset(int iswap)
-        {
-            pos[iswap]=0;
-        }
+        SwapLst(MAPP*);
+        SwapLst(MAPP*,int);
+        ~SwapLst();
+        
+        void newlist(int);
+        void add(int&,int&);
+        void reset();
+        void reset(int);
         
     };
+}
+/*---------------------------------------------------------------------------
+      ___   _     _   _____   _____
+     /   | | |   / / | ____| /  ___|
+    / /| | | |  / /  | |__   | |
+   / / | | | | / /   |  __|  | |
+  / /  | | | |/ /    | |___  | |___
+ /_/   |_| |___/     |_____| \_____|
+ 
+ 
+ pack(char*,int&,int):
+ pack just 1 atom, not used
+ 
+ pack(char*,int&,int*,int):
+ pack multiple atoms, not used by
+ atoms
+ 
+ pack_n_mv(char*,int&,int):
+ pack just 1 atom, and replace it
+ with the last owned atom
+ 
+ pack_n_mv(char*,int&,int*,int):
+ pack multiple atoms, and replace the
+ with the last owned atoms, not used
+ by atoms
+ 
+ unpack(char*,int&):
+ unpack just 1 atom after last own atom
+ 
+ unpack(char*,int&,int):
+ unpack just multiple atoms after last
+ own atom, not used by atoms
+ 
+ unpack(char*,int&,int,int):
+ unpack just multiple atoms after last
+ own atom, but the buffer has stride.
+ to clarify: values related to this
+ vector have distances between (stride)
+ them in the buffer
+ 
+ unpack_ph(char*,int&):
+ unpack just 1 atom after last phantom
+ atom, not used  by atoms
+ 
+ unpack_ph(char*,int&,int):
+ unpack just multiple atoms after last
+ phantom atom
+ 
+ ---------------------------------------------------------------------------*/
 
-/*--------------------------------------------
- properties of the box
- --------------------------------------------*/
-    class Atoms:protected InitPtrs
+namespace MAPP_NS {
+    class Avec:protected InitPtrs
     {
     private:
     protected:
-        
-        // snd and rcv buffers
-        char* snd_buff_0;
-        int snd_buff_0_capacity;
-        char* snd_buff_1;
-        int snd_buff_1_capacity;
-        char* rcv_buff;
-        int rcv_buff_capacity;
-        
-        char* snd_ph_buff;
-        int snd_ph_buff_capacity;
-        char* rcv_ph_buff;
-        int rcv_ph_buff_capacity;
-        
-       
-        void copy(AVec*,AVec*);
-        void move(AVec*,AVec*);
-        
-        //void grow(int,int);
-        void grow(int,int,class VecLst*);
-        //void grow(int);
-        
-        void prime_factorize(int,int*&,int*&);
-        
-        int* comm_need;
-        SwapLst<int>* ph_lst;        
-        
     public:
-        MPI_Comm comm_world;
-        int dimension;
-        int tot_natms;
-        int natms;
-        int natms_ph;
-        int atm_vec_ph_size;
-        int atm_vec_size;
+        int byte_size;
+        int ph;
+        int dim;
+        char* name;
+        char* print_format;
         
-        /* begining of box properties */
-        // H matrix
-        type0** H;
-        // Hinv matrix
-        type0** B;
-        // lower bond of the local box
-        type0* s_lo;
-        type0* s_ph_lo;
-        // higher bond of the local box
-        type0* s_hi;
-        type0* s_ph_hi;
+        Avec(MAPP* mapp):InitPtrs(mapp)
+        {}
+        
+        template<typename T>
+        void ret(T*& v)
+        {v=static_cast<T*>(ret());}
+        template<typename T>
+        void ret_dump(T*& v)
+        {v=static_cast<T*>(ret_dump());}
+        
+        
+        virtual void* ret()=0;
+        virtual void* ret(int)=0;
+        virtual void* ret_dump()=0;
+        
+        virtual void move(int,int)=0;
+        virtual void copy(int,int)=0;
+        virtual void copy2bottom(int*,int)=0;
+        
+        virtual void gather_dump()=0;
+        virtual void del_dump()=0;
+        
+        virtual void change_dimension(int)=0;
 
-        type0 skin;
-        type0 tot_cut_ph;
-        type0* cut_ph_s;
-        
-        /* end of box box properties */
-        Atoms(MAPP*,MPI_Comm);
-        ~Atoms();
-        void chng_dim(int);
-        void set_ph(type0);
-        void set_ph(int);
-        void store_0();
-        void update_0(int,int,class VecLst*);
-        
-        // high level griding
-        void hard_auto_grid_proc(type0 f);
-        void fac(int,int,int,int*&);
-        void comb(int*,int);
-        void comb_rec(int,int,int,int,int*&,int*&,int*,int,int);
+        virtual void pack(char*,int&,int)=0;
+        virtual void pack(char*,int&,int*,int)=0;
+        virtual void pack_n_mv(char*,int&,int)=0;
+        virtual void pack_n_mv(char*,int&,int*,int)=0;
     
-        int** fac_list;
-        int fac_list_size;
+        virtual void unpack(char*,int&)=0;
+        virtual void unpack(char*,int&,int)=0;
+        virtual void unpack(char*,int&,int,int)=0;
+        virtual void unpack_ph(char*,int&)=0;
+        virtual void unpack_ph(char*,int&,int)=0;
         
-        type0 energy_all;
         
-        type0** areas;
-        type0* vols;
-        type0 inter_n_efficency;
         
-        int* res_perm;
-        int* res_grid;
+        virtual void resize(int)=0;
+        virtual void grow(int)=0;
         
-        int** nxt_p;
-        int** prv_p;
-
-        // end of high level griding
-        
-        //communication related parameters
-        void auto_grid_proc();
-        void man_grid_proc(int,char**);
-        
-        int tot_n;
-        int my_n_no;
-        int* p_per_n;
-        int** n_p_grid;
-
-        int tot_p;
-        int* tot_p_grid;
-        int my_p_no;
-        int* my_loc;
-        int** neigh_p;
-        
-        void ph_setup(int,class VecLst*);
-        void ph_xchng(int,int,int*,int,class VecLst*);
-        void reset_comm(class VecLst*);
-        void reset_comm(int,class VecLst*);
-        void xchng_comm(class VecLst*);
-        void xchng_comm(int,class VecLst*);
-        
-        int pack(char*&,int,int&,int,class VecLst*);
-        int unpack(char*&,int,int,class VecLst*);
-        void x2s(int);
-        void s2x(int);
-        void x2s_no_correction(int);
-        
-        void x_unpack(char*&,class VecLst*,int);
-        int x_pack(char*&,class VecLst*,int*,int);
-
-        void x_unpack(char*&,int*,int,int);
-        int x_pack(char*&,int*,int,int*,int);
-        
-        void update(class VecLst*);
-        void update(int*,int,int);
-        void update(int);
-        void invert(type0**,type0**,int);
-        void invert_lower_triangle(type0**,type0**,int);
-        void add_skin(int,char**);
-        /*-------------------------------*/
-        AVec* vectors;
-        int no_vecs;
-        int tot_byte_size;
-        
-        void del(int);
-        void restart();
-        int find(const char* name);
-        int find_exist(const char* name);
-        template <typename TYPE>
-        int add(int p,int d,const char* name)
-        {
-
-            for(int i=0;i<no_vecs;i++)
-                if(!strcasecmp(name,vectors[i].name))
-                    error->abort("duplicate atomic vector name %s",vectors[i].name);
-            
-            int type;
-            
-            if(no_vecs==0)
-            {
-                if (strcmp(typeid(TYPE).name(),typeid(type0).name())!=0)
-                    error->abort("zeroth atomic vector shoud be of type %s"
-                           ,typeid(type0).name());
-                if (p!=1)
-                    error->abort("zeroth atomic vector shoud be phantom");
-                if(d<dimension)
-                    error->abort("dimension of zeroth atomic vector should "
-                           "be more or equal to box dimension");
-            }
-            
-            if (strcmp(typeid(TYPE).name(),typeid(char).name())==0)
-                type=0;
-            else if (strcmp(typeid(TYPE).name(),typeid(unsigned char).name())==0)
-                type=1;
-            else if (strcmp(typeid(TYPE).name(),typeid(short int).name())==0)
-                type=2;
-            else if (strcmp(typeid(TYPE).name(),typeid(unsigned short int).name())==0)
-                type=3;
-            else if (strcmp(typeid(TYPE).name(),typeid(int).name())==0)
-                type=4;
-            else if (strcmp(typeid(TYPE).name(),typeid(unsigned int).name())==0)
-                type=5;
-            else if (strcmp(typeid(TYPE).name(),typeid(long int).name())==0)
-                type=6;
-            else if (strcmp(typeid(TYPE).name(),typeid(unsigned long int).name())==0)
-                type=7;
-            else if (strcmp(typeid(TYPE).name(),typeid(long long int).name())==0)
-                type=8;
-            else if (strcmp(typeid(TYPE).name(),typeid(unsigned long long int).name())==0)
-                type=9;
-            else if (strcmp(typeid(TYPE).name(),typeid(float).name())==0)
-                type=10;
-            else if (strcmp(typeid(TYPE).name(),typeid(double).name())==0)
-                type=11;
-            else if (strcmp(typeid(TYPE).name(),typeid(long double).name())==0)
-                type=12;
-            else
-            {
-                error->abort("the requested atomic vector type is not provided");
-                type=-1;
-            }
-            AVec* new_vectors;
-            new_vectors = new AVec[no_vecs+1];
-            for(int i=0;i<no_vecs;i++)
-                new_vectors[i].initiated=0;
-            
-            for(int i=0;i<no_vecs;i++)
-                move(&(new_vectors[i]),&(vectors[i]));
-            
-            new_vectors[no_vecs].init(this,type,p,d,name);
-            
-            if(no_vecs)
-                delete [] vectors;
-            vectors=new_vectors;
-            no_vecs++;
-            tot_byte_size=0;
-            for(int i=0;i<no_vecs;i++)
-                tot_byte_size+=vectors[i].byte_size;
-            
-            if(no_vecs==1)
-            {
-                char* x0name;
-                CREATE1D(x0name,100);
-                sprintf(x0name,"%s_0",name);
-                add<TYPE>(0,dimension,x0name);
-                delete [] x0name;
-                return (no_vecs-2);
-            }
+        virtual void print_dump(FILE*,int)=0;
+    };
+}
+/*---------------------------------------------------------------------------
+      ___   _     _   _____   _____
+     /   | | |   / / | ____| /  ___|
+    / /| | | |  / /  | |__   | |
+   / / | | | | / /   |  __|  | |
+  / /  | | | |/ /    | |___  | |___   _____
+ /_/   |_| |___/     |_____| \_____| |_____|
+ ---------------------------------------------------------------------------*/
+namespace MAPP_NS
+{
     
-            return (no_vecs-1);
-        }
+    template<typename T>
+    class AVec_: public Avec
+    {
+    private:
+        T* vec;
+        T* dump_vec;
+    protected:
+    public:
+        AVec_(MAPP*,int,int,const char*);
+        ~AVec_();
         
-        void gather_all(VecLst*);
-
+        void* ret();
+        void* ret(int);
+        void* ret_dump();
+        
+        void gather_dump();
+        void del_dump();
+        
+        void change_dimension(int);
+        
+        void move(int,int);
+        void copy(int,int);
+        void copy2bottom(int*,int);
+        
+        void pack(char*,int&,int);
+        void pack(char*,int&,int*,int);
+        void pack_n_mv(char*,int&,int);
+        void pack_n_mv(char*,int&,int*,int);
+        
+        void unpack(char*,int&);
+        void unpack(char*,int&,int);
+        void unpack(char*,int&,int,int);
+        void unpack_ph(char*,int&);
+        void unpack_ph(char*,int&,int);
+        
+        void resize(int);
+        void grow(int);
+        void print_dump(FILE*,int);
         
     };
-/*--------------------------------------------
- collection of all atomic vectors
- --------------------------------------------*/
+}
+/*---------------------------------------------------------------------------
+  _     _   _____   _____   _       _____   _____
+ | |   / / | ____| /  ___| | |     /  ___/ |_   _|
+ | |  / /  | |__   | |     | |     | |___    | |
+ | | / /   |  __|  | |     | |     \___  \   | |
+ | |/ /    | |___  | |___  | |___   ___| |   | |
+ |___/     |_____| \_____| |_____| /_____/   |_|
+ ---------------------------------------------------------------------------*/
+namespace MAPP_NS
+{
     class VecLst: protected InitPtrs
     {
     private:
@@ -471,6 +286,746 @@ namespace MAPP_NS {
         void del_update(int);
         
     };
+    
+}
 
+/*---------------------------------------------------------------------------
+      ___   _____   _____       ___  ___   _____
+     /   | |_   _| /  _  \     /   |/   | /  ___/
+    / /| |   | |   | | | |    / /|   /| | | |___
+   / / | |   | |   | | | |   / / |__/ | | \___  \
+  / /  | |   | |   | |_| |  / /       | |  ___| |
+ /_/   |_|   |_|   \_____/ /_/        |_| /_____/
+ 
+ ---------------------------------------------------------------------------*/
+namespace MAPP_NS
+{
+    class Atoms:protected InitPtrs
+    {
+    private:
+        // snd and rcv buffers
+        char* snd_buff_0;
+        int snd_buff_0_capacity;
+        char* snd_buff_1;
+        int snd_buff_1_capacity;
+        char* rcv_buff;
+        int rcv_buff_capacity;
+        
+        char* snd_ph_buff;
+        int snd_ph_buff_capacity;
+        char* rcv_ph_buff;
+        int rcv_ph_buff_capacity;
+        
+        // to manage the size of above buffers
+        inline void buff_size_management(char*&,int&,int);
+  
+        void grow(int,int,class VecLst*);
+        
+        int** comm_need;
+        SwapLst* ph_lst;
+        
+        
+        void set_max_cutoff(type0);
+        void store_0();
+        void xchng_cmplt(int,class VecLst*);
+        void xchng_prtl(int,class VecLst*);
+        
+        void setup_ph(int,class VecLst*);
+        void xchng_ph(int,class VecLst*);
+        void xchng_ph(int,int* vec_list,int,int);
+        
+        // for xchng_cmplt(int,class VecLst*) & xchng_prtl(int,class VecLst*)
+        inline void pack_cmplt_prtl(char*&,int&,int&,int,class VecLst*);
+        // for xchng_cmplt(int,class VecLst*)
+        inline void unpack_cmplt(char*&,int,class VecLst*);
+        // for xchng_prtl(int,class VecLst*)
+        inline void unpack_prtl(char*&,int,class VecLst*);
+        
+        // for xchng_ph(int*,int,int)
+        inline void unpack_ph(char*&,class VecLst*,int);
+        inline void pack_ph(char*&,class VecLst*,int*,int);
+        
+        // for update_ph(int*,int,int)
+        inline void unpack_ph(char*&,int*,int,int);
+        inline void pack_ph(char*&,int*,int,int*,int);
+        
+        /*
+        void setup_ph_old(int,class VecLst*);
+        void xchng_ph_old(int,int,int*,int,class VecLst*);
+        void update_ph_old(int*,int,int);
+        void update_ph_old(int);
+         */
+        
+        inline void setup_comm_need();
+        
+    protected:
+    public:
+                
+        /*-----------------------------------------------*/
+        /* begining of atomic vectors related properties */
+        // number of my processor owned atoms
+        int natms;
+        // number of my processor phantom atoms
+        int natms_ph;
+        //total number of owned atoms (sum of all processors natm)
+        int tot_natms;
+
+        // the maximim available size of non-phantom vectors (atms unit)
+        // natms<=atm_vec_size ALL THE TIME
+        int atm_vec_size;
+        // the maximim available size of phantom vectors (atms unit)
+        // natms+natms_ph<=atm_vec_ph_size ALL THE TIME
+        int atm_vec_ph_size;
+        /* end of atomic vectors related properties */
+        
+        // pointer to all the atomic vectors
+        Avec** vectors;
+        // number of atomic vectors
+        int no_vecs;
+        // sum of the dimension of all atomic vectors (byte unit) (MIGHT BE USELESS)
+        int tot_byte_size;
+        /* end of atomic vectors related properties */
+        /*------------------------------------------*/
+        
+        
+        /*----------------------------*/
+        /* begining of box properties */
+        //box dimension
+        int dimension;
+        // H matrix
+        type0** H;
+        // Hinv matrix
+        type0** B;
+        
+        // these two define the domain under control of my processor
+        // own atoms belong to this domain
+        // lower bond of the local domain (s unit)
+        type0* s_lo;
+        // higher bond of the local domain (s unit)
+        type0* s_hi;
+        
+        
+        // these two define the domain under control of my processor + the domain that phanthom atoms of my processor should be inside
+        // own atoms + phantom atoms belong to this domain
+        // lower bond of the local domain + local phantom domain (s unit)
+        type0* s_ph_lo;
+        // higher bond of the local domain + local phantom domain (s unit)
+        type0* s_ph_hi;
+
+        // skin size which is the same as the skin size in neghborlist
+        type0 skin;
+        // thickness of extra layer to define the local phantom domain (length unit)
+        // tot_cut_ph = skin + maximum cutoff
+        type0 tot_cut_ph;
+        // thickness of extra layer to define the local phantom domain (s unit)
+        type0* cut_ph_s;
+        /* end of box box properties */
+        /*---------------------------*/
+        
+        
+        /*------------------------------------------*/
+        /* begining of processor related properties */
+
+        // total number of processors
+        int tot_p;
+        // my processor id
+        int my_p_no;
+        // the location of my processor in the grid (domain) for each dimension
+        int* my_loc;
+        // the number of my neighbor processors
+        // 1st input: dimension
+        // 2nd input: direction; 0 for behind me, 1 for infront of me
+        int** neigh_p;
+        // total number of processor in each dimension
+        int* tot_p_grid;
+        
+        // total number of nodes
+        int tot_n;
+        // my node id
+        int my_n_no;
+        // number of processors per each node
+        // 1st input: node number
+        int* p_per_n;
+        // the processor ids in each node
+        // 1st input: node number
+        // 2nd input: ith processor in that node
+        // 0 <= i < p_per_n[node]
+        int** n_p_grid;
+        
+
+        /* end of processor related properties */
+        /*-------------------------------------*/
+        
+        Atoms(MAPP*);
+        ~Atoms();
+        void chng_dim(int);
+        
+        /*---------------------------------------------------------*/
+        /* beginning of atomic vector related management functions */
+        // add a new atomic vector
+        // 1st input: 0 if the vector does not contain phantom atoms, 1 if it does
+        // 2nd input: dimension of the vector
+        // 3rd input: name of the vector
+        template <typename TYPE>
+        int add(int,int,const char*);
+        // remove a vector by its number
+        void del(int);
+        // find an atomic vector by its name
+        // if it cannot find it, it will produce an error and abort the execution
+        int find(const char* name);
+        // find an atomic vector by its name
+        // if it cannot find it, it will return -1
+        int find_exist(const char* name);
+        /* end of atomic vector related management functions */
+        /*---------------------------------------------------*/
+        
+       
+        /*--------------------------------------*/
+        /* beginning of grid related funcctions */
+        void auto_grid_proc();
+        // change the grid from command line
+        void man_grid_proc(int,char**);
+        /* end of grid related funcctions */
+        /*--------------------------------*/
+        
+        void unpack_read(char*&,int,class VecLst*);
+        
+        void x2s(int);
+        void s2x(int);
+
+        // change the skin size from command line
+        void chng_skin(int,char**);
+        
+        void restart();
+
+        // init before a run
+        void init(class VecLst*);
+
+        /*
+        update and make necessary changes
+        after x is changed
+         */
+        void update(int,class VecLst*);
+        
+        /*
+         exchange atoms untill everybody
+         has theor own atoms
+         */
+        void xchng_cmplt(class VecLst*);
+        /*
+         exchange atoms only once
+         */
+        void xchng_prtl(class VecLst*);
+        /*
+         update the phantom atoms of a 
+         list of atomic vectors
+         */
+        void update_ph(int*,int,int);
+        /*
+         update the phantom atoms of an
+         atomic vector
+         */
+        void update_ph(int);
+    };
+}
+
+using namespace MAPP_NS;
+/*---------------------------------------------------------------------------
+      ___   _____   _____       ___  ___   _____
+     /   | |_   _| /  _  \     /   |/   | /  ___/
+    / /| |   | |   | | | |    / /|   /| | | |___
+   / / | |   | |   | | | |   / / |__/ | | \___  \
+  / /  | |   | |   | |_| |  / /       | |  ___| |
+ /_/   |_|   |_|   \_____/ /_/        |_| /_____/
+
+---------------------------------------------------------------------------*/
+template<typename T>
+int Atoms::add(int ph,int dim,const char* name)
+{
+    if(no_vecs==0)
+    {
+        if(typeid(T)!=typeid(type0))
+        {
+            error->abort("zeroth atomic vector shoud be of type %s"
+                         ,typeid(type0).name());
+        }
+        if (ph!=1)
+            error->abort("zeroth atomic vector shoud be phantom");
+        if(dim<dimension)
+            error->abort("dimension of zeroth atomic vector should "
+                         "be more or equal to box dimension");
+    }
+    
+    
+    Avec** new_vectors=new Avec*[no_vecs+1];
+    
+    new_vectors[no_vecs]=new AVec_<T>(mapp,ph,dim,name);
+    
+    for(int ivec=0;ivec<no_vecs;ivec++)
+        new_vectors[ivec]=vectors[ivec];
+    if(no_vecs)
+        delete [] vectors;
+    vectors=new_vectors;
+    no_vecs++;
+    
+    if(no_vecs==1)
+    {
+        int lngth=static_cast<int>(strlen(name))+1;
+        char* x0name;
+        CREATE1D(x0name,lngth+2);
+        sprintf(x0name,"%s_0",name);
+        add<T>(0,dim,x0name);
+        delete [] x0name;
+        return (no_vecs-2);
+    }
+    
+    return no_vecs-1;
+}
+/*---------------------------------------------------------------------------
+      ___   _     _   _____   _____
+     /   | | |   / / | ____| /  ___|
+    / /| | | |  / /  | |__   | |
+   / / | | | | / /   |  __|  | |
+  / /  | | | |/ /    | |___  | |___   _____
+ /_/   |_| |___/     |_____| \_____| |_____|
+ ---------------------------------------------------------------------------*/
+/*--------------------------------------------
+ constructor
+ --------------------------------------------*/
+template<typename T>
+AVec_<T>::AVec_(MAPP* mapp,int phantom
+,int dimension,const char* vec_name):Avec(mapp)
+{
+    int lngth=static_cast<int>(strlen(vec_name))+1;
+    CREATE1D(name,lngth);
+    memcpy(name,vec_name,lngth*sizeof(char));
+    
+    dim=dimension;
+    ph=phantom;
+    byte_size=sizeof(T)*dim;
+    
+    
+    if(typeid(T)==typeid(char))
+    {
+        lngth=static_cast<int>(strlen((char*)"%c "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%c ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(unsigned char))
+    {
+        lngth=static_cast<int>(strlen((char*)"%c "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%c ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(short int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%d "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(unsigned short int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%d "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%d "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(unsigned int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%d "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(long int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%ld "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%ld ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(unsigned long int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%ld "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%ld ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(long long int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%lld "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%lld ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(unsigned long long int))
+    {
+        lngth=static_cast<int>(strlen((char*)"%lld "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%lld ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(float))
+    {
+        lngth=static_cast<int>(strlen((char*)"%f "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%f ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(double))
+    {
+        lngth=static_cast<int>(strlen((char*)"%lf "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%lf ",lngth*sizeof(char));
+    }
+    else if(typeid(T)==typeid(long double))
+    {
+        lngth=static_cast<int>(strlen((char*)"%Lf "))+1;
+        CREATE1D(print_format,lngth);
+        memcpy(print_format,(char*)"%Lf ",lngth*sizeof(char));
+    }
+    else
+    {
+        error->abort("this type is not supported for atomic vectors");
+    }
+    
+    if(ph)
+        CREATE1D(vec,dim*atoms->atm_vec_ph_size);
+    else
+        CREATE1D(vec,dim*atoms->atm_vec_size);
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+template<typename T>
+AVec_<T>::~AVec_()
+{
+    
+    if(ph)
+    {
+        if(atoms->atm_vec_ph_size)
+            delete [] vec;
+    }
+    else
+    {
+        if(atoms->atm_vec_size)
+            delete [] vec;
+    }
+    
+    delete [] print_format;
+    delete [] name;
+}
+/*--------------------------------------------
+ return the vector
+ --------------------------------------------*/
+template<typename T>
+void* AVec_<T>::ret()
+{
+    return vec;
+}
+/*--------------------------------------------
+ return the pointer to iatom
+ --------------------------------------------*/
+template<typename T>
+void* AVec_<T>::ret(int iatm)
+{
+    return &vec[iatm*dim];
+}
+/*--------------------------------------------
+ return the vector
+ --------------------------------------------*/
+template<typename T>
+void* AVec_<T>::ret_dump()
+{
+    if(atoms->my_p_no==0)
+        return dump_vec;
+    else
+        return NULL;
+}
+/*--------------------------------------------
+ gather dump
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::gather_dump()
+{
+    int my_p_no=atoms->my_p_no;
+    int tot_p=atoms->tot_p;
+    int tot_natms=atoms->tot_natms;
+    int natms=atoms->natms;
+    int* rcv_size=NULL;
+    
+    if(my_p_no!=0)
+        MPI_Send(&natms,1,MPI_INT,0,my_p_no,world);
+    
+    if(my_p_no==0)
+    {
+        CREATE1D(rcv_size,tot_p);
+        MPI_Status status;
+        for(int iproc=1;iproc<tot_p;iproc++)
+            MPI_Recv(&rcv_size[iproc],1
+            ,MPI_INT,iproc,iproc,world,&status);
+    }
+    
+    if(my_p_no==0)
+    {
+        CREATE1D(dump_vec,dim*tot_natms);
+        memcpy(dump_vec,vec,natms*byte_size);
+    }
+    
+    if(my_p_no!=0)
+        MPI_Send(vec,natms*byte_size,MPI_BYTE,0,my_p_no,world);
+    
+    if(my_p_no==0)
+    {
+        MPI_Status status;
+        int tot_atoms=natms;
+        for(int iproc=1;iproc<tot_p;iproc++)
+        {
+            MPI_Recv(&dump_vec[tot_atoms*dim]
+            ,(byte_size*rcv_size[iproc]),MPI_BYTE
+            ,iproc,iproc,world,&status);
+            tot_atoms+=rcv_size[iproc];
+        }
+    }
+    
+    if(my_p_no==0)
+    {
+        delete [] rcv_size;
+    }
+    
+    
+}
+/*--------------------------------------------
+ delete dump
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::change_dimension(int d)
+{
+    if(d==dim)
+        return;
+    
+    int d_min=MIN(d,dim);
+    
+    int tot;
+    int max_size;
+    if(ph==0)
+    {
+        tot=atoms->natms;
+        max_size=atoms->atm_vec_size;
+    }
+    else
+    {
+        tot=atoms->natms+atoms->natms_ph;
+        max_size=atoms->atm_vec_ph_size;
+    }
+    
+    T* new_vec;
+    CREATE1D(new_vec,max_size*tot);
+    
+    for(int i=0;i<tot;i++)
+        for(int j=0;j<d_min;j++)
+            new_vec[i*d+j]=vec[i*dim+j];
+    
+    if(max_size)
+        delete [] vec;
+    
+    vec=new_vec;
+    dim=d;
+    byte_size=sizeof(T)*dim;
+    
+}
+/*--------------------------------------------
+ delete dump
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::del_dump()
+{
+    if(atoms->my_p_no==0 && atoms->tot_natms)
+        delete [] dump_vec;
+}
+/*--------------------------------------------
+ copy from jatm to iatm
+ 1st input: destination
+ 2nd input: source
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::copy(int iatm,int jatm)
+{
+    memcpy(&vec[iatm*dim],&vec[jatm*dim],byte_size);
+}
+/*--------------------------------------------
+ copy from jatm to iatm
+ 1st input: destination
+ 2nd input: source
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::copy2bottom(int* lst,int no)
+{
+    no--;
+    while(no>-1)
+    {
+        memcpy(&vec[dim*(atoms->natms+atoms->natms_ph+no)]
+        ,&vec[dim*lst[no]],byte_size);
+        no--;
+    }
+    
+}
+/*--------------------------------------------
+ move from iatm to jatm
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::move(int iatm,int jatm)
+{
+    memcpy(&vec[jatm*dim],&vec[iatm*dim],byte_size);
+}
+/*--------------------------------------------
+ pack a list without removing it from the
+ atomic vector
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::pack(char* buff,int& buff_pos,int iatm)
+{
+    memcpy(&buff[buff_pos],&vec[iatm*dim],byte_size);
+    buff_pos+=byte_size;
+}
+/*--------------------------------------------
+ pack a list and remove them from the atomic
+ vector
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::pack_n_mv(char* buff,int& buff_pos,int iatm)
+{
+    memcpy(&buff[buff_pos],&vec[iatm*dim],byte_size);
+    memcpy(&vec[iatm*dim],&vec[(atoms->natms-1)*dim],byte_size);
+    buff_pos+=byte_size;
+}
+/*--------------------------------------------
+ unpack just one own atom
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::unpack(char* buff,int& buff_pos)
+{
+    memcpy(&vec[atoms->natms*dim],&buff[buff_pos],byte_size);
+    buff_pos+=byte_size;
+}
+/*--------------------------------------------
+ unpack just one phantom atoms
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::unpack_ph(char* buff,int& buff_pos)
+{
+    memcpy(&vec[(atoms->natms+atoms->natms_ph)*dim],&buff[buff_pos],byte_size);
+    buff_pos+=byte_size;
+}
+/*----------------------------------------------------------------------------------------*/
+/*--------------------------------------------
+ pack a list without removing it from the
+ atomic vector
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::pack(char* buff,int& buff_pos,int* lst,int no)
+{
+    for(int i=0;i<no;i++)
+    {
+        memcpy(&buff[buff_pos],&vec[lst[i]*dim],byte_size);
+        buff_pos+=byte_size;
+    }
+}
+/*--------------------------------------------
+ pack a list and remove them from the atomic
+ vector
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::pack_n_mv(char* buff,int& buff_pos,int* lst,int no)
+{
+    int my_natms=atoms->natms;
+    for(int i=0;i<no;i++)
+    {
+        memcpy(&buff[buff_pos],&vec[lst[i]*dim],byte_size);
+        memcpy(&vec[lst[i]*dim],&vec[(my_natms-1)*dim],byte_size);
+        my_natms--;
+        buff_pos+=byte_size;
+    }
+}
+/*--------------------------------------------
+ unpack the own atoms
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::unpack(char* buff,int& buff_pos,int xtra_natms)
+{
+    memcpy(&vec[atoms->natms*dim],&buff[buff_pos],byte_size*xtra_natms);
+    buff_pos+=byte_size*xtra_natms;
+}
+/*--------------------------------------------
+ unpack the phantom atoms
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::unpack_ph(char* buff,int& buff_pos,int xtra_natms)
+{
+    memcpy(&vec[(atoms->natms+atoms->natms_ph)*dim],&buff[buff_pos],byte_size*xtra_natms);
+    buff_pos+=byte_size*xtra_natms;
+}
+/*--------------------------------------------
+ resize the vector
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::resize(int xtra_natms)
+{
+    
+    if(ph)
+    {
+        if(atoms->atm_vec_ph_size)
+            delete [] vec;
+        xtra_natms+=atoms->atm_vec_ph_size;
+    }
+    else
+    {
+        xtra_natms+=atoms->atm_vec_size;
+        if(atoms->atm_vec_size)
+            delete [] vec;
+    }
+    
+    CREATE1D(vec,dim*xtra_natms);
+
+}
+/*--------------------------------------------
+ grow the vector
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::grow(int xtra_natms)
+{
+    
+    if(ph)
+    {
+        xtra_natms+=atoms->atm_vec_ph_size;
+        GROW(vec,dim*atoms->atm_vec_ph_size,dim*xtra_natms);
+    }
+    else
+    {
+        xtra_natms+=atoms->atm_vec_size;
+        GROW(vec,dim*atoms->atm_vec_size,dim*xtra_natms);
+    }
+    
+}
+/*--------------------------------------------
+ print the dump values in a file
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::print_dump(FILE* fp,int iatm)
+{
+    for(int i=0;i<dim;i++)
+        fprintf(fp,print_format,dump_vec[iatm*dim+i]);
+}
+/*--------------------------------------------
+ unpack the own atoms with stride
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::unpack(char* buff,int& buff_pos,int stride,int xtra_natms)
+{
+    for(int i=0;i<xtra_natms;i++)
+    {
+        memcpy(&vec[(atoms->natms+i)*dim],&buff[buff_pos],byte_size);
+        buff_pos+=stride;
+    }
+    buff_pos+=byte_size-stride*xtra_natms;
 }
 #endif

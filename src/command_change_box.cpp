@@ -1,5 +1,6 @@
 #include "command_change_box.h"
 #include "atoms.h"
+#include "xmath.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
 using namespace std;
@@ -113,8 +114,11 @@ Command_change_box::Command_change_box(MAPP* mapp
     if(dim==3)
         M3INV_TRI_LOWER(atoms->H,atoms->B);
     else
-        atoms->invert_lower_triangle(atoms->H,atoms->B,dim);
-    
+    {
+        XMath* xmath=new XMath(mapp);
+        xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
+        delete xmath;
+    }
 
 }
 /*--------------------------------------------

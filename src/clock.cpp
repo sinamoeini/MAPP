@@ -56,7 +56,7 @@ void Clock::rectify(type0* f)
 {
     if(cdof_n==-1)
         return;
-    atoms->vectors[cdof_n].ret(cdof);
+    atoms->vectors[cdof_n]->ret(cdof);
     
     int tot=(atoms->natms)*(atom_types->no_types);
     for(int i=0;i<tot;i++) if(cdof[i]==1) f[i]=0.0;

@@ -170,11 +170,11 @@ void Neighbor::create_list(int box_change,int s_or_x)
     //type0* x=(type0*)atoms->vectors[0].ret_vec();
     
     type0* x;
-    atoms->vectors[0].ret(x);
+    atoms->vectors[0]->ret(x);
     int* type=NULL;
     if(mapp->mode==MD_mode)
-        atoms->vectors[type_n].ret(type);
-    int x_dim=atoms->vectors[0].dim;
+        atoms->vectors[type_n]->ret(type);
+    int x_dim=atoms->vectors[0]->dim;
 
     int dim=atoms->dimension;
     type0 cut_sq,rsq;
@@ -187,7 +187,7 @@ void Neighbor::create_list(int box_change,int s_or_x)
     int tmp_neigh_list_size=1024;
     int tmp_neigh_list_grow=50;
     CREATE1D(tmp_neigh_list,tmp_neigh_list_size);
-
+ 
     no_pairs=0;
     if(pair_wise)
     {
@@ -285,6 +285,7 @@ void Neighbor::create_list(int box_change,int s_or_x)
             }
         }
     }
+
     delete [] tmp_neigh_list;
     if(atm_bin_size)
         delete [] atm_bin;
@@ -414,9 +415,9 @@ void Neighbor::bin_atoms()
     
     //type0* x=(type0*)atoms->vectors[0].ret_vec();
     type0* x;
-    atoms->vectors[0].ret(x);
+    atoms->vectors[0]->ret(x);
     
-    int x_dim=atoms->vectors[0].dim;
+    int x_dim=atoms->vectors[0]->dim;
     
     if(atm_bin_size)
         delete [] atm_bin;
@@ -489,9 +490,9 @@ void Neighbor::bin_atoms_s()
     int bin;
     //type0* s=(type0*)atoms->vectors[0].ret_vec();
     type0* s;
-    atoms->vectors[0].ret(s);
+    atoms->vectors[0]->ret(s);
 
-    int s_dim=atoms->vectors[0].dim;
+    int s_dim=atoms->vectors[0]->dim;
     for(int i=tot_natms-1;i>-1;i--)
     {
         bin=s2bin(&s[s_dim*i]);

@@ -106,18 +106,12 @@ void ForceField_lj::coef(int narg,char** arg)
  --------------------------------------------*/
 void ForceField_lj::init()
 {
-    type0 skin=atoms->skin;
-    type0 ph_cut=0.0;
-    
+    // dummy line to illustrate that
+    // cut_sq has to be definitely
+    // assigned in init()
     for (int i=0;i<arr_size;i++)
-    {
-        cut_sk_sq[i]=cut_sq[i]+skin*skin
-        +2*sqrt(cut_sq[i])*skin;
-        ph_cut=MAX(ph_cut,sqrt(cut_sq[i]));
-    }
-
+        cut_sq[i]=cut_sq[i];
     
-    atoms->set_ph(ph_cut);
     
     x_n=atoms->find("x");
     f_n=atoms->find("f");
@@ -141,11 +135,11 @@ force_calc(int st_clc,type0* en_st)
 {
 
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* f;
-    atoms->vectors[f_n].ret(f);
+    atoms->vectors[f_n]->ret(f);
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
 
     int natms=atoms->natms;
     int iatm,jatm;
@@ -251,9 +245,9 @@ type0 ForceField_lj::energy_calc()
 {
 
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     
     int natms=atoms->natms;
     int iatm,jatm;

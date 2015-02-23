@@ -35,7 +35,7 @@ Random::~Random()
  uses Park Miller algorith to generate a
  random number (0,1)
  --------------------------------------------*/
-double Random::uniform()
+type0 Random::uniform()
 {
     int first,second,rnd;
     
@@ -51,11 +51,11 @@ double Random::uniform()
 /*--------------------------------------------
  gaussian random number generator
  --------------------------------------------*/
-double Random::gaussian()
+type0 Random::gaussian()
 {
     if(gauss_chk==0)
     {
-        double u=0.0,v=0.0,s,r;
+        type0 u=0.0,v=0.0,s,r;
         s=1.0;
         while(s>=1.0)
         {
@@ -78,8 +78,8 @@ double Random::gaussian()
 /*--------------------------------------------
  gaussian random number generator
  --------------------------------------------*/
-double Random::
-gaussian(double sigma,double mu)
+type0 Random::
+gaussian(type0 sigma,type0 mu)
 {
     return (mu+sigma*gaussian());
 }

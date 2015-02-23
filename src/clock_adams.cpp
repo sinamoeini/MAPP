@@ -76,7 +76,7 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
     c_n=atoms->find("c");
     c_d_n=atoms->find("c_d");
     
-    int c_dim=atoms->vectors[c_n].dim;
+    int c_dim=atoms->vectors[c_n]->dim;
     tot_dim=atoms->natms*c_dim;
     
     CREATE1D(a,tot_dim);
@@ -128,17 +128,13 @@ void Clock_adams::init()
     
     int f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
+        f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
     
     vecs_comm=new VecLst(mapp,3,0,c_n,c_d_n);
     vecs_comm->add_update(0);
-    atoms->reset_comm(vecs_comm);
-    forcefield->init();
-    atoms->ph_setup(1,vecs_comm);
     
-    neighbor->init();
-    neighbor->create_list(0,1);
-    atoms->store_0();
+    atoms->init(vecs_comm);
+
     forcefield->create_2nd_neigh_lst();
     
     
@@ -154,7 +150,7 @@ void Clock_adams::init()
     thermo->init();
     
     
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     
     ave_err=0.0;
     
@@ -177,7 +173,6 @@ void Clock_adams::fin()
     if(atoms->my_p_no==0)
         printf("ave. err.: %5.4e\n",ave_err);
     
-    atoms->x2s(atoms->natms);
 }
 /*--------------------------------------------
  init
@@ -187,9 +182,9 @@ void Clock_adams::run()
     type0 curr_err;
     
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     type0* tmp_y;
     
@@ -242,9 +237,9 @@ void Clock_adams::run()
 type0 Clock_adams::solve(type0 bet)
 {
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     type0 gamma,max_gamma=1.0,min_gamma;
     type0 inner,tmp;
@@ -273,7 +268,7 @@ type0 Clock_adams::solve(type0 bet)
     MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
     for(int i=0;i<tot_dim;i++)
         c[i]+=c_d[i]*delta_t*tot_ratio;
-    atoms->update(c_n);
+    atoms->update_ph(c_n);
     
     memcpy(h,g,tot_dim*sizeof(type0));
     
@@ -315,7 +310,7 @@ type0 Clock_adams::solve(type0 bet)
             for(int i=0;i<tot_dim;i++)
                 c[i]=c0[i]+max_gamma*h[i];
             
-            atoms->update(c_n);
+            atoms->update_ph(c_n);
             
             curr_cost=forcefield->g_calc(1,delta_t*bet,a,g);
             ideal_cost=cost-slope*max_gamma*g_h;
@@ -325,7 +320,7 @@ type0 Clock_adams::solve(type0 bet)
             if(max_gamma<=0.0)
             {
                 memcpy(c,c0,tot_dim*sizeof(type0));
-                atoms->update(c_n);
+                atoms->update_ph(c_n);
             }
         }
         

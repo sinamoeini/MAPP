@@ -650,20 +650,10 @@ int form)
  --------------------------------------------*/
 void ForceField_meam::init()
 {
-    type0 skin=atoms->skin;
-    type0 ph_cut=0.0;
     int no_types=atom_types->no_types;
-    int tot_types=no_types*(no_types+1)/2;
-    
-    for (int i=0;i<tot_types;i++)
-    {
+    for (int i=0;i<no_types*(no_types+1)/2;i++)
         cut_sq[i]=rc_meam*rc_meam;
-        cut_sk_sq[i]=cut_sq[i]+skin*skin
-        +2*sqrt(cut_sq[i])*skin;
-        ph_cut=MAX(ph_cut,rc_meam);
-    }
-    
-    atoms->set_ph(ph_cut);
+        
     
     x_n=atoms->find("x");
     f_n=atoms->find("f");
@@ -745,15 +735,15 @@ void ForceField_meam::force_calc
     
 
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* rho;
-    atoms->vectors[rho_n].ret(rho);
+    atoms->vectors[rho_n]->ret(rho);
     type0* rho_vec;
-    atoms->vectors[rho_vec_n].ret(rho_vec);
+    atoms->vectors[rho_vec_n]->ret(rho_vec);
     type0* f;
-    atoms->vectors[f_n].ret(f);
+    atoms->vectors[f_n]->ret(f);
     
     int kn,kk,curs;
     type0 pp;
@@ -1168,7 +1158,7 @@ void ForceField_meam::force_calc
     /*----------------------------------------------------------------------------*/
     
     
-    atoms->update(rho_n);
+    atoms->update_ph(rho_n);
     
     
     /*----------------------------------------------------------------------------*/
@@ -1805,13 +1795,13 @@ type0 ForceField_meam::energy_calc()
     
     
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     type0* rho;
-    atoms->vectors[rho_n].ret(rho);
+    atoms->vectors[rho_n]->ret(rho);
     type0* rho_vec;
-    atoms->vectors[rho_vec_n].ret(rho_vec);
+    atoms->vectors[rho_vec_n]->ret(rho_vec);
     
     
     for(int i=0;i<atoms->natms;i++)
@@ -2243,9 +2233,9 @@ void ForceField_meam::coef(int narg,char** args)
 void ForceField_meam::reset()
 {
     type0* rho;
-    atoms->vectors[rho_n].ret(rho);
+    atoms->vectors[rho_n]->ret(rho);
     type0* rho_vec;
-    atoms->vectors[rho_vec_n].ret(rho_vec);
+    atoms->vectors[rho_vec_n]->ret(rho_vec);
     
     for(int i=0;i<atoms->natms;i++)
         rho_vec[i]=0.0;

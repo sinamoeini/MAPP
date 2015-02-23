@@ -437,15 +437,15 @@ void MD_nh::init()
         +chk_tau[2]*atoms->tot_natms;
     }
 
-    x_dim=atoms->vectors[x_n].dim;
-    x_d_dim=atoms->vectors[x_d_n].dim;
-    f_dim=atoms->vectors[f_n].dim;
+    x_dim=atoms->vectors[x_n]->dim;
+    x_d_dim=atoms->vectors[x_d_n]->dim;
+    f_dim=atoms->vectors[f_n]->dim;
     
     if(dof_n!=-1)
     {
         char* dof;
-        atoms->vectors[dof_n].ret(dof);
-        dof_dim=atoms->vectors[dof_n].dim;
+        atoms->vectors[dof_n]->ret(dof);
+        dof_dim=atoms->vectors[dof_n]->dim;
         
         int tmp_0=0;
         int tmp_1=0;
@@ -481,36 +481,7 @@ void MD_nh::init()
     
         
     vecs_comm->add_update(x_n);
-    atoms->reset_comm(vecs_comm);
-    /*--------------------------------------*/
-    
-    /*
-     1. setup the cutoffs for neighbor lists
-     and also the maximum for communication
-     in atoms class (this is needed for
-     finding the phantom atoms and updating
-     them);
-     */
-    forcefield->init();
-    /*--------------------------------------*/
-    
-    /*
-     2. find the phantom atoms and
-     communicate them between the processors
-     using the values assigned by the
-     previous step;
-     */
-    atoms->ph_setup(1,vecs_comm);
-    /*--------------------------------------*/
-    
-    /*
-     3. creates the neighbor list for the
-     bins;
-     */
-    neighbor->init();
-    neighbor->create_list(0,1);
-
-    /*--------------------------------------*/
+    atoms->init(vecs_comm);
 
     if(chk_create_vel)
         create_vel(seed,t_tar);
@@ -582,7 +553,6 @@ void MD_nh::fin()
     forcefield->fin();
     neighbor->fin();
     delete vecs_comm;
-    atoms->x2s(atoms->natms);
 }
 /*--------------------------------------------
  MDrun
@@ -602,7 +572,7 @@ void MD_nh::run(int no_stps)
             update_x_d(dt2);
             update_x(dt);
             thermo->start_comm_time();
-            atoms->update_0(1,1,vecs_comm);
+            atoms->update(1,vecs_comm);
             thermo->stop_comm_time();
             zero_f();
             thermo->thermo_print();
@@ -644,7 +614,7 @@ void MD_nh::run(int no_stps)
             update_x(dt);
             
             thermo->start_comm_time();
-            atoms->update_0(0,1,vecs_comm);
+            atoms->update(0,vecs_comm);
             thermo->stop_comm_time();
             
             zero_f();
@@ -796,14 +766,14 @@ void MD_nh::update_H(type0 dlt)
 void MD_nh::update_x(type0 dlt)
 {
     type0* x;
-    atoms->vectors[x_n].ret(x);
+    atoms->vectors[x_n]->ret(x);
     
     type0* x_d;
-    atoms->vectors[x_d_n].ret(x_d);
+    atoms->vectors[x_d_n]->ret(x_d);
     
     char* dof=NULL;
     if(dof_n!=-1)
-            atoms->vectors[dof_n].ret(dof);
+            atoms->vectors[dof_n]->ret(dof);
     
     int natms=atoms->natms;
     int icomp,iicomp,iiicomp;
@@ -902,14 +872,14 @@ void MD_nh::update_x_d(type0 dlt)
     
     char* dof=NULL;
     if(dof_n!=-1)
-        atoms->vectors[dof_n].ret(dof);
+        atoms->vectors[dof_n]->ret(dof);
     
     type0* x_d;
-    atoms->vectors[x_d_n].ret(x_d);
+    atoms->vectors[x_d_n]->ret(x_d);
     type0* f;
-    atoms->vectors[f_n].ret(f);
+    atoms->vectors[f_n]->ret(f);
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     
     
     type0* mass=atom_types->mass;
@@ -1021,7 +991,7 @@ void MD_nh::update_NH_T(type0 dlt)
     //type0* x_d=(type0*)atoms->vectors[x_d_n].ret_vec();
     //cout << "vel fac "<< velfac << endl;
     type0* x_d;
-    atoms->vectors[x_d_n].ret(x_d);
+    atoms->vectors[x_d_n]->ret(x_d);
     for (int i=0;i<natoms;i++)
         for (int j=0;j<3;j++)
             x_d[i*x_d_dim+j]*=velfac;
@@ -1128,13 +1098,13 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
     
     char* dof=NULL;
     if(dof_n!=-1)
-        atoms->vectors[dof_n].ret(dof);
+        atoms->vectors[dof_n]->ret(dof);
     
     
     type0* x_d;
-    atoms->vectors[x_d_n].ret(x_d);
+    atoms->vectors[x_d_n]->ret(x_d);
     int* type;
-    atoms->vectors[type_n].ret(type);
+    atoms->vectors[type_n]->ret(type);
     type0* mass=atom_types->mass;
     
     int natms=atoms->natms;
@@ -1189,7 +1159,7 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
 void MD_nh::zero_f()
 {
     type0* f;
-    atoms->vectors[f_n].ret(f);
+    atoms->vectors[f_n]->ret(f);
     for(int i=0;i<atoms->natms*f_dim;i++)
         f[i]=0.0;
 }
@@ -1200,12 +1170,12 @@ void MD_nh::create_vel(int seed,type0 temperature)
 {
     char* dof=NULL;
     if(dof_n!=-1)
-        atoms->vectors[dof_n].ret(dof);
+        atoms->vectors[dof_n]->ret(dof);
     
     type0* x_d;
-    atoms->vectors[atoms->find("x_d")].ret(x_d);
+    atoms->vectors[atoms->find("x_d")]->ret(x_d);
     int* type;
-    atoms->vectors[atoms->find("type")].ret(type);
+    atoms->vectors[atoms->find("type")]->ret(type);
     type0* mass=atom_types->mass;
     
     int natms=atoms->natms;
@@ -1271,9 +1241,9 @@ void MD_nh::init_vel(type0 temperature)
 {
 
     type0* x_d;
-    atoms->vectors[atoms->find("x_d")].ret(x_d);
+    atoms->vectors[atoms->find("x_d")]->ret(x_d);
     int* type;
-    atoms->vectors[atoms->find("type")].ret(type);
+    atoms->vectors[atoms->find("type")]->ret(type);
     type0* mass=atom_types->mass;
     
     int natms=atoms->natms;

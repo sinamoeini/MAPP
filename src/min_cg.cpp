@@ -75,8 +75,7 @@ Min_cg::~Min_cg()
  --------------------------------------------*/
 void Min_cg::init()
 {
-
-    x_dim=atoms->vectors[0].dim;
+    x_dim=atoms->vectors[0]->dim;
     f_n=atoms->find_exist("f");
     if(f_n<0)
         f_n=atoms->add<type0>(0,x_dim,"f");
@@ -107,34 +106,7 @@ void Min_cg::init()
     }
 
     vecs_comm->add_update(0);
-    
-    /*
-     reset to make sure that each processor
-     has the atoms that really belongs to
-     it.
-     */
-    atoms->reset_comm(vecs_comm);
-    /*
-     1. assign the cut_sk_sq (for neighbor list)
-     2. find the maximum cuttf off and 
-     atoms->set_ph(ph_cut);
-     2.0 set_ph(ph_cut) finds boundary of of domain
-     for phantom atoms (s)
-     */
-    forcefield->init();
-    /*
-     communicate the phantom atoms for the 1st time
-     */
-    atoms->ph_setup(1,vecs_comm);
-    /*
-     init neigh list for bins
-     */
-    neighbor->init();
-    /*
-     make the neigh list of all atoms
-     */
-    neighbor->create_list(0,1);
-    atoms->store_0();
+    atoms->init(vecs_comm);
 
     
     for(int i=0;i<dim;i++)
@@ -171,7 +143,7 @@ void Min_cg::init()
         type0** H=atoms->H;
         //type0** B=atoms->B;
         
-        atoms->vectors[f_n].ret(f);
+        atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
         
@@ -181,24 +153,7 @@ void Min_cg::init()
         curr_energy=nrgy_strss[0];
         thermo->update(pe_idx,nrgy_strss[0]);
         thermo->update(stress_idx,6,&nrgy_strss[1]);
-        /*
-        stress[0][0]=-nrgy_strss[1];
-        stress[1][1]=-nrgy_strss[2];
-        stress[2][2]=-nrgy_strss[3];
-        stress[1][2]=stress[2][1]=-nrgy_strss[4];
-        stress[0][2]=stress[2][0]=-nrgy_strss[5];
-        stress[0][1]=stress[1][0]=-nrgy_strss[6];
-        
-        for(int i=0;i<dim;i++)
-        {
-            for(int j=0;j<dim;j++)
-            {
-                f_H[j][i]=0.0;
-                for(int k=0;k<dim;k++)
-                    f_H[j][i]+=stress[i][k]*B[k][j];
-            }
-        }
-        */
+
         reg_h_H(f_H,atoms->H);
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
@@ -217,15 +172,11 @@ void Min_cg::init()
             }
             icomp+=x_dim;
         }
-        /*
-        for(int i=0;i<dim;i++)
-            delete [] stress[i];
-        delete [] stress;
-         */
+
     }
     else
     {
-        atoms->vectors[f_n].ret(f);
+        atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
         forcefield->force_calc(1,nrgy_strss);
@@ -275,12 +226,9 @@ void Min_cg::run()
     {
         H=atoms->H;
         B=atoms->B;
-        /*
-        type0** stress;
-        CREATE2D(stress,dim,dim);
-        */
-        atoms->vectors[f_n].ret(f);
-        atoms->vectors[h_n].ret(h);
+
+        atoms->vectors[f_n]->ret(f);
+        atoms->vectors[h_n]->ret(h);
         memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
@@ -305,10 +253,10 @@ void Min_cg::run()
                 continue;
             }
             
-            atoms->vectors[0].ret(x);
-            atoms->vectors[f_n].ret(f);
-            atoms->vectors[x_prev_n].ret(x_0);
-            atoms->vectors[f_prev_n].ret(f_0);
+            atoms->vectors[0]->ret(x);
+            atoms->vectors[f_n]->ret(f);
+            atoms->vectors[x_prev_n]->ret(x_0);
+            atoms->vectors[f_prev_n]->ret(f_0);
             size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(x_0,x,size);
@@ -337,7 +285,7 @@ void Min_cg::run()
                 if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
             
-            atoms->vectors[f_n].ret(f);
+            atoms->vectors[f_n]->ret(f);
             
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
@@ -356,24 +304,6 @@ void Min_cg::run()
             if(err)
                 continue;
             
-            /*
-            stress[0][0]=-nrgy_strss[1];
-            stress[1][1]=-nrgy_strss[2];
-            stress[2][2]=-nrgy_strss[3];
-            stress[1][2]=stress[2][1]=-nrgy_strss[4];
-            stress[0][2]=stress[2][0]=-nrgy_strss[5];
-            stress[0][1]=stress[1][0]=-nrgy_strss[6];
-            
-            for(int i=0;i<dim;i++)
-            {
-                for(int j=0;j<dim;j++)
-                {
-                    f_H[j][i]=0.0;
-                    for(int k=0;k<dim;k++)
-                        f_H[j][i]+=stress[i][k]*B[k][j];
-                }
-            }
-             */
             reg_h_H(f_H,atoms->H);
 
             for(int i=0;i<dim;i++)
@@ -381,7 +311,7 @@ void Min_cg::run()
                     if(H_dof[i][j]==0)
                         f_H[i][j]=0.0;
             
-            atoms->vectors[f_n].ret(f);
+            atoms->vectors[f_n]->ret(f);
 
             int icomp=0;
             
@@ -398,8 +328,8 @@ void Min_cg::run()
             }
             
             
-            atoms->vectors[h_n].ret(h);
-            atoms->vectors[f_prev_n].ret(f_0);
+            atoms->vectors[h_n]->ret(h);
+            atoms->vectors[f_prev_n]->ret(f_0);
             inner=0.0;
             for(int i=0;i<x_dim*atoms->natms;i++)
                 inner+=f[i]*f[i];
@@ -468,20 +398,15 @@ void Min_cg::run()
             istp++;
             step_no++;
         }
-        /*
-        for(int i=0;i<dim;i++)
-            delete [] stress[i];
-        delete [] stress;
-        */
         
     }
     else
     {
-        atoms->vectors[h_n].ret(h);
-        atoms->vectors[f_n].ret(f);
+        atoms->vectors[h_n]->ret(h);
+        atoms->vectors[f_n]->ret(f);
         memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
         
-        atoms->vectors[f_n].ret(f);
+        atoms->vectors[f_n]->ret(f);
         inner=0.0;
         for(int i=0;i<x_dim*atoms->natms;i++)
             inner+=f[i]*f[i];
@@ -497,10 +422,10 @@ void Min_cg::run()
                 continue;
             }
             
-            atoms->vectors[0].ret(x);
-            atoms->vectors[f_n].ret(f);
-            atoms->vectors[x_prev_n].ret(x_0);
-            atoms->vectors[f_prev_n].ret(f_0);
+            atoms->vectors[0]->ret(x);
+            atoms->vectors[f_n]->ret(f);
+            atoms->vectors[x_prev_n]->ret(x_0);
+            atoms->vectors[f_prev_n]->ret(f_0);
             size=atoms->natms*x_dim*sizeof(type0);
             
             memcpy(x_0,x,size);
@@ -522,9 +447,9 @@ void Min_cg::run()
                 if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
             
-            atoms->vectors[f_n].ret(f);
-            atoms->vectors[f_prev_n].ret(f_0);
-            atoms->vectors[h_n].ret(h);
+            atoms->vectors[f_n]->ret(f);
+            atoms->vectors[f_prev_n]->ret(f_0);
+            atoms->vectors[h_n]->ret(h);
             
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
@@ -634,5 +559,4 @@ void Min_cg::fin()
     thermo->fin();
     errors();
     
-    atoms->x2s(atoms->natms);
 }

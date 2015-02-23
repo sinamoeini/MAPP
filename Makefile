@@ -14,7 +14,7 @@ OBJ_FILES   = $(addprefix $(OBJ),$(notdir $(CPP_FILES:.cpp=.o)))
 
 
 $(OBJ)%.o: $(SRC)%.cpp $(MAKEFILE)
-	$(CC) -c $(CFLAGS) -o $@ $(INCLUDES) $(LIBS) $<
+	$(CC) -c $(CFLAGS) -o $@ $(INCLUDES)  $<
 
 MAPP:	prep $(OBJ_FILES) $(MAKEFILE) 
 	$(CC) $(CFLAGS) $(OBJ_FILES) -o $@ $(INCLUDES) $(LIBS)
@@ -53,4 +53,3 @@ prep:
 	echo \#include \"$$i\" >>write_styles.h; \
 	done; \
 	cd ..
-	@echo 'preparing the style files'

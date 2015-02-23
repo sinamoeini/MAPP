@@ -77,7 +77,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
     c_n=atoms->find("c");
     c_d_n=atoms->find("c_d");
     
-    int c_dim=atoms->vectors[c_n].dim;
+    int c_dim=atoms->vectors[c_n]->dim;
     dof_lcl=atoms->natms*c_dim;
     MPI_Allreduce(&dof_lcl,&dof_tot,1,MPI_INT,MPI_SUM,world);
     
@@ -105,7 +105,7 @@ void Clock_fe::init()
 {
     int f_n=atoms->find_exist("f");
     if(f_n<0)
-        f_n=atoms->add<type0>(0,atoms->vectors[0].dim,"f");
+        f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
     
     c_n=atoms->find_exist("c");
     c_d_n=atoms->find("c_d");
@@ -123,16 +123,8 @@ void Clock_fe::init()
     }
     
     vecs_comm->add_update(0);
-    atoms->reset_comm(vecs_comm);
-    
-    
-    forcefield->init();
-    atoms->ph_setup(1,vecs_comm);
-    neighbor->init();
-    neighbor->create_list(0,1);
-    atoms->store_0();
-    
-    
+    atoms->init(vecs_comm);
+
     forcefield->create_2nd_neigh_lst();
     
     
@@ -140,9 +132,9 @@ void Clock_fe::init()
     forcefield->force_calc(1,nrgy_strss);
     
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     
     
@@ -178,7 +170,6 @@ void Clock_fe::fin()
     delete vecs_comm;
     
     thermo->fin();
-    atoms->x2s(atoms->natms);
 }
 /*--------------------------------------------
  run
@@ -192,9 +183,9 @@ void Clock_fe::run()
     type0 del_t;
     
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     del_t=min_del_t;
     eq_ratio=1.0;
     int istep=0;
@@ -245,9 +236,9 @@ void Clock_fe::solve(type0& del_t)
 {
     
     type0* c;
-    atoms->vectors[c_n].ret(c);
+    atoms->vectors[c_n]->ret(c);
     type0* c_d;
-    atoms->vectors[c_d_n].ret(c_d);
+    atoms->vectors[c_d_n]->ret(c_d);
     
     type0 ratio,tot_ratio,tmp0,tmp1,err_lcl;
     ratio=1.0;
@@ -270,7 +261,7 @@ void Clock_fe::solve(type0& del_t)
             c[i]=y[i]+0.5*del_t*dy[i];
         
         thermo->start_comm_time();
-        atoms->update(c_n);
+        atoms->update_ph(c_n);
         thermo->stop_comm_time();
         
         thermo->start_force_time();
@@ -310,7 +301,7 @@ void Clock_fe::solve(type0& del_t)
     }
 
     thermo->start_comm_time();
-    atoms->update(c_n);
+    atoms->update_ph(c_n);
     thermo->stop_comm_time();
     
     MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);

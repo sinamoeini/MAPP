@@ -100,8 +100,8 @@ void Min::rectify_f(type0* f)
 {
     if(dof_n==-1)
         return;
-    atoms->vectors[dof_n].ret(dof);
-    int tot=(atoms->natms)*(atoms->vectors[0].dim);
+    atoms->vectors[dof_n]->ret(dof);
+    int tot=(atoms->natms)*(atoms->vectors[0]->dim);
     for(int i=0;i<tot;i++) if(dof[i]==1) f[i]=0.0;
 }
 /*--------------------------------------------
