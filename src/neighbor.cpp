@@ -165,10 +165,6 @@ void Neighbor::create_list(int box_change,int s_or_x)
     for(int i=0;i<neighbor_list_size_size;i++)
         neighbor_list_size[i]=0;
     
-    
-    //int* type=(int*)atoms->vectors[type_no].ret_vec();
-    //type0* x=(type0*)atoms->vectors[0].ret_vec();
-    
     type0* x;
     atoms->vectors[0]->ret(x);
     int* type=NULL;

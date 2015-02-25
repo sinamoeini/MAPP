@@ -27,7 +27,6 @@ Command_displace::Command_displace(MAPP* mapp
     id_n=atoms->find("id");
     
     
-    type0** B=atoms->B;
     
     
     for(int i=0;i<no_traj;i++)
@@ -63,17 +62,7 @@ Command_displace::Command_displace(MAPP* mapp
         for(int j=0;j<dim;j++)
             disp[j]=atof(args[iarg++]);
         
-        
-        for(int j=0;j<dim;j++)
-        {
-            disp[j]=disp[j]*B[j][j];
-            for(int k=j+1;k<dim;k++)
-                disp[j]+=B[k][j]*disp[k];
-            
-            while(disp[j]>=1.0) disp[j]--;
-            while(disp[j]<0.0) disp[j]++;
-        }
-        
+
         
         move(list,no_atoms,disp);
 
@@ -94,7 +83,10 @@ Command_displace::Command_displace(MAPP* mapp
     VecLst* vecs_comm=new VecLst(mapp,tmp_list,no_vecs);
     delete [] tmp_list;
     
+    atoms->x2s(atoms->natms);
     atoms->xchng_cmplt(vecs_comm);
+    atoms->s2x(atoms->natms);
+    
     
     delete vecs_comm;
 }
@@ -114,11 +106,10 @@ int no_atoms,type0* disp)
     for(int i=0;i<no_atoms;i++)
         if(list[i]<0 || list[i]>atoms->tot_natms-1)
             error->abort("invalid atom id %d",list[i]);
-    type0 tmp_s;
     int* id;
     atoms->vectors[id_n]->ret(id);
-    type0* s;
-    atoms->vectors[0]->ret(s);
+    type0* x;
+    atoms->vectors[0]->ret(x);
     int x_dim=atoms->vectors[0]->dim;
     int dim=atoms->dimension;
     
@@ -127,14 +118,7 @@ int no_atoms,type0* disp)
         for(int j=0;j<no_atoms;j++)
             if(id[i]==list[j])
                 for(int k=0;k<dim;k++)
-                {
-                    tmp_s=s[i*x_dim+k]+disp[k];
-                    while (tmp_s>=1.0)
-                        tmp_s--;
-                    while (tmp_s<0.0)
-                        tmp_s++;
-                    
-                    s[i*x_dim+k]=tmp_s;
-                }
+                    x[i*x_dim+k]+=disp[k];
+    
     
 }

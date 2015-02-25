@@ -67,6 +67,8 @@ Command_change_box::Command_change_box(MAPP* mapp
             error->abort("wrong command %s",args[iarg]);
     }    
     
+    atoms->x2s(atoms->natms);
+    
     if(strcmp(args[1],"strain")==0)
     {
         for(int i=0;i<dim;i++)
@@ -119,7 +121,7 @@ Command_change_box::Command_change_box(MAPP* mapp
         xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
         delete xmath;
     }
-
+    atoms->s2x(atoms->natms);
 }
 /*--------------------------------------------
  destructor
