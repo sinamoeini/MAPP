@@ -29,13 +29,13 @@
  number of atoms to send in each swap
  
  int* rcv_size: rcv[size]
- number of atoms to recieve in each swap
+ number of atoms to receive in each swap
 
  int* snd_p: snd_p[iswap]
  the processor id to send to in each swap
  
  int* rcv_p: rcv_p[iswap]
- the processor id to recieve from in each swap
+ the processor id to receive from in each swap
  
  int* pbc_correction: pbc_correction[iswap]
  the correction to x or s due to periodic boundary condition in each swap
@@ -300,6 +300,7 @@ namespace MAPP_NS
  ---------------------------------------------------------------------------*/
 namespace MAPP_NS
 {
+    enum {BASIC_mode,TYPE_mode};
     class Atoms:protected InitPtrs
     {
     private:
@@ -330,7 +331,8 @@ namespace MAPP_NS
         void xchng_cmplt(int,class VecLst*);
         void xchng_prtl(int,class VecLst*);
         
-        void setup_ph(int,class VecLst*);
+        void setup_ph_basic(int,class VecLst*);
+        void setup_ph_type(int,class VecLst*);
         void xchng_ph(int,class VecLst*);
         void xchng_ph(int,int* vec_list,int,int);
         
@@ -348,19 +350,14 @@ namespace MAPP_NS
         // for update_ph(int*,int,int)
         inline void unpack_ph(char*&,int*,int,int);
         inline void pack_ph(char*&,int*,int,int*,int);
-        
-        /*
-        void setup_ph_old(int,class VecLst*);
-        void xchng_ph_old(int,int,int*,int,class VecLst*);
-        void update_ph_old(int*,int,int);
-        void update_ph_old(int);
-         */
+
         
         inline void setup_comm_need();
-        
+                
     protected:
     public:
-                
+        
+        int atom_mode;
         /*-----------------------------------------------*/
         /* begining of atomic vectors related properties */
         // number of my processor owned atoms
@@ -404,13 +401,23 @@ namespace MAPP_NS
         // higher bond of the local domain (s unit)
         type0* s_hi;
         
-        
         // these two define the domain under control of my processor + the domain that phanthom atoms of my processor should be inside
         // own atoms + phantom atoms belong to this domain
         // lower bond of the local domain + local phantom domain (s unit)
         type0* s_ph_lo;
         // higher bond of the local domain + local phantom domain (s unit)
         type0* s_ph_hi;
+        
+        
+        int no_types;
+        int type_n;
+        type0* s_bound;
+        type0** s_lo_type;
+        type0** s_hi_type;
+        type0** s_ph_lo_type;
+        type0** s_ph_hi_type;
+        
+        
 
         // skin size which is the same as the skin size in neghborlist
         type0 skin;
@@ -484,7 +491,7 @@ namespace MAPP_NS
         /* beginning of grid related funcctions */
         void auto_grid_proc();
         // change the grid from command line
-        void man_grid_proc(int,char**);
+        void man_grid_proc(int*);
         /* end of grid related funcctions */
         /*--------------------------------*/
         
@@ -494,7 +501,7 @@ namespace MAPP_NS
         void s2x(int);
 
         // change the skin size from command line
-        void chng_skin(int,char**);
+        void chng_skin(type0);
         
         void restart();
 
@@ -509,7 +516,7 @@ namespace MAPP_NS
         
         /*
          exchange atoms untill everybody
-         has theor own atoms
+         has their own atoms
          */
         void xchng_cmplt(class VecLst*);
         /*

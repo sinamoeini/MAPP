@@ -48,46 +48,4 @@ MD::~MD()
     if(ns_alloc)
         delete [] nrgy_strss;
 }
-/*--------------------------------------------
- add time step
- --------------------------------------------*/
-void MD::add_dt(int narg,char** args)
-{
-    if(narg!=2)
-        error->abort("time_step should have 1 arguement");
-    dt=atof(args[1]);
-    if(dt<=0.0)
-        error->abort("time_step should be"
-        " greater than 0.0");
-}
-/*--------------------------------------------
- add time step
- --------------------------------------------*/
-void MD::add_boltzmann(int narg,char** args)
-{
-    if(narg!=2)
-        error->abort("boltzmann should have 1 arguement");
-    
-    boltz=atof(args[1]);
-    if(boltz<=0.0)
-        error->abort("boltzmann should be"
-        " greater than 0.0");
-}
-/*--------------------------------------------
- add time step
- --------------------------------------------*/
-void MD::run(int narg,char** args)
-{
-    if(narg!=2)
-        error->abort("run should have 1 arguement");
 
-    int steps=atoi(args[1]);
-    if(steps<=0)
-        error->abort("run should be "
-        "greater than 0");
-    
-    init();
-    run(steps);
-    fin();
-    
-}

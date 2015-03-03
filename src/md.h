@@ -23,15 +23,12 @@ namespace MAPP_NS {
         VecLst* vecs_comm;
     public:
         
-        MD(MAPP *);
+        MD(MAPP*);
         virtual ~MD()=0;
         virtual void init()=0;
         virtual void fin()=0;
         virtual void run(int)=0;
 
-        void add_dt(int,char**);
-        void add_boltzmann(int,char**);
-        void run(int,char**);
         type0 dt,boltz;
     };
 }

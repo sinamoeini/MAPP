@@ -197,7 +197,7 @@ void Write_cfg::write_file_md(int stp)
         x2s(atoms->tot_natms);
         char* filename;
         CREATE1D(filename,MAXCHAR);
-        sprintf (filename, "%s.%08d.cfg",file_name,stp);
+        sprintf (filename, "%s.%010d.cfg",file_name,stp);
         fp=fopen(filename,"w");
         delete [] filename;
         
@@ -328,7 +328,7 @@ void Write_cfg::write_file_dmd(int stp)
         x2s(atoms->tot_natms);
         char* filename;
         CREATE1D(filename,MAXCHAR);
-        sprintf (filename, "%s.%08d.cfg",file_name,stp);
+        sprintf (filename, "%s.%010d.cfg",file_name,stp);
         fp=fopen(filename,"w");
         delete [] filename;
         

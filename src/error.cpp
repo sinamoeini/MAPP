@@ -13,7 +13,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor of the error handler:
  --------------------------------------------*/
-Error::Error(MAPP* mapp) : InitPtrs(mapp)
+Error::Error(MAPP* mapp):InitPtrs(mapp)
 {
     MPI_Comm_rank(world,&my_no);
 }

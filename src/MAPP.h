@@ -52,7 +52,6 @@ namespace MAPP_NS {
         void read_style(int,char**);
         void write_style(int,char**);
         void command_style(int,char**);
-        void change_mode(int,char**);
         
         int parse_line(char*,char**&);
         int hash_remover(char*,char*&);

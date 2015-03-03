@@ -1,10 +1,10 @@
 SHELL 	    = /bin/bash
 SRC         = src/
 PROGRAMS    = main
-CC          = mpic++ 
+CC          = mpic++
 OBJ         = obj/
 MAKEFILE    = Makefile
-CFLAGS      = -O3 
+CFLAGS      = -O3
 LIBS        = 
 INCLUDES    = 
         
@@ -14,9 +14,9 @@ OBJ_FILES   = $(addprefix $(OBJ),$(notdir $(CPP_FILES:.cpp=.o)))
 
 
 $(OBJ)%.o: $(SRC)%.cpp $(MAKEFILE)
-	$(CC) -c $(CFLAGS) -o $@ $(INCLUDES)  $<
+	$(CC) -c $(CFLAGS) -o $@ $(INCLUDES)$<
 
-MAPP:	prep $(OBJ_FILES) $(MAKEFILE) 
+mapp:	prep $(OBJ_FILES) $(MAKEFILE) 
 	$(CC) $(CFLAGS) $(OBJ_FILES) -o $@ $(INCLUDES) $(LIBS)
 
 clean:  

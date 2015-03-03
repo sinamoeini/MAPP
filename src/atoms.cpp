@@ -19,8 +19,8 @@ using namespace MAPP_NS;
 Atoms::Atoms(MAPP* mapp)
 :InitPtrs(mapp)
 {
+    atom_mode=BASIC_mode;
     
-    //world=communicator;
     dimension=3;
     tot_natms=0;
     natms=0;
@@ -29,6 +29,8 @@ Atoms::Atoms(MAPP* mapp)
     atm_vec_size=0;
     tot_cut_ph=0.0;
     skin=0.5;
+    no_types=0;
+    
     
     CREATE2D(H,dimension,dimension);
     CREATE2D(B,dimension,dimension);
@@ -37,6 +39,12 @@ Atoms::Atoms(MAPP* mapp)
     CREATE1D(s_hi,dimension);
     CREATE1D(s_ph_lo,dimension);
     CREATE1D(s_ph_hi,dimension);
+    
+    CREATE1D(s_lo_type,dimension);
+    CREATE1D(s_hi_type,dimension);
+    CREATE1D(s_ph_lo_type,dimension);
+    CREATE1D(s_ph_hi_type,dimension);
+    
     CREATE1D(cut_ph_s,dimension);
     CREATE2D(comm_need,dimension,2);
     
@@ -180,6 +188,25 @@ Atoms::~Atoms()
         delete [] s_hi;
         delete [] s_ph_lo;
         delete [] s_ph_hi;
+        
+        if(no_types)
+        {
+            delete [] s_bound;
+            for(int i=0;i<dimension;i++)
+            {
+                
+                delete [] s_lo_type[i];
+                delete [] s_hi_type[i];
+                delete [] s_ph_lo_type[i];
+                delete [] s_ph_hi_type[i];
+            }
+        }
+        
+        delete [] s_lo_type;
+        delete [] s_hi_type;
+        delete [] s_ph_lo_type;
+        delete [] s_ph_hi_type;
+        
         delete [] cut_ph_s;
         
         delete [] tot_p_grid;
@@ -328,6 +355,25 @@ void Atoms::chng_dim(int dim)
         delete [] s_hi;
         delete [] s_ph_lo;
         delete [] s_ph_hi;
+        
+        if(no_types)
+        {
+            delete [] s_bound;
+            for(int i=0;i<dimension;i++)
+            {
+                
+                delete [] s_lo_type[i];
+                delete [] s_hi_type[i];
+                delete [] s_ph_lo_type[i];
+                delete [] s_ph_hi_type[i];
+            }
+        }
+        
+        delete [] s_lo_type;
+        delete [] s_hi_type;
+        delete [] s_ph_lo_type;
+        delete [] s_ph_hi_type;
+        
         delete [] cut_ph_s;
         
         delete [] tot_p_grid;
@@ -345,6 +391,13 @@ void Atoms::chng_dim(int dim)
     CREATE1D(s_hi,dimension);
     CREATE1D(s_ph_lo,dimension);
     CREATE1D(s_ph_hi,dimension);
+    
+    CREATE1D(s_bound,no_types);
+    CREATE2D(s_lo_type,dimension,no_types);
+    CREATE2D(s_hi_type,dimension,no_types);
+    CREATE2D(s_ph_lo_type,dimension,no_types);
+    CREATE2D(s_ph_hi_type,dimension,no_types);
+    
     CREATE1D(cut_ph_s,dimension);
     CREATE2D(comm_need,dimension,2);
     
@@ -375,19 +428,18 @@ void Atoms::set_max_cutoff(type0 cut)
         for(int j=i;j<dimension;j++)
             tmp+=B[j][i]*B[j][i];
         
-        cut_ph_s[i]=tot_cut_ph*sqrt(tmp);
+        cut_ph_s[i]=sqrt(tmp);
     }
+    
+    for (int i=0;i<dimension;i++)
+        cut_ph_s[i]*=tot_cut_ph;
        
     for (int i=0;i<dimension;i++)
     {
         s_ph_hi[i]=s_hi[i]-cut_ph_s[i];
         s_ph_lo[i]=s_lo[i]+cut_ph_s[i];
     }
-    /*
-    for (int i=0;i<dimension;i++)
-        comm_need[i][0]=comm_need[i][1]=static_cast<int>
-        (cut_ph_s[i]/(s_hi[i]-s_lo[i]))+1;
-     */
+
     setup_comm_need();
     
     int nswap=0;
@@ -408,7 +460,211 @@ void Atoms::set_max_cutoff(type0 cut)
  converted to s, i.e. the coordinates are
  frational.
  --------------------------------------------*/
-void Atoms::setup_ph(int box_chng,class VecLst* list)
+void Atoms::setup_ph_type(int box_chng,class VecLst* list)
+{
+    if(box_chng)
+    {
+        type0 tmp;
+        for (int i=0;i<dimension;i++)
+        {
+            tmp=0.0;
+            for(int j=i;j<dimension;j++)
+                tmp+=B[j][i]*B[j][i];
+            
+            cut_ph_s[i]=sqrt(tmp);
+        }
+        
+        for (int i=0;i<dimension;i++)
+            cut_ph_s[i]*=tot_cut_ph;
+        
+        setup_comm_need();
+        
+        int nswap=0;
+        for(int i=0;i<dimension;i++)
+            nswap+=comm_need[i][0]+comm_need[i][1];
+        
+        ph_lst->newlist(nswap);
+    }
+    
+    
+    for(int idim=0;idim<dimension;idim++)
+    {
+        for(int itype=0;itype<no_types;itype++)
+        {
+            s_hi_type[idim][itype]=-2.0;
+            s_lo_type[idim][itype]=2.0;
+        }
+    }
+    
+    
+    type0* s;
+    int* type;
+    vectors[0]->ret(s);
+    vectors[type_n]->ret(type);
+    int s_dim=vectors[0]->dim;
+    int icomp=0;
+    type0 cut_s;
+    
+    for(int iatm=0;iatm<natms;iatm++)
+    {
+        for (int idim=0;idim<dimension;idim++)
+        {
+            s_hi_type[idim][type[iatm]]=MAX(s_hi_type[idim][type[iatm]],s[icomp+idim]);
+            s_lo_type[idim][type[iatm]]=MIN(s_lo_type[idim][type[iatm]],s[icomp+idim]);
+        }
+        icomp+=s_dim;
+    }
+    
+    for(int idim=0;idim<dimension;idim++)
+        for(int itype=0;itype<no_types;itype++)
+        {
+            s_ph_hi_type[idim][itype]=s_hi[idim];
+            s_ph_lo_type[idim][itype]=s_lo[idim];
+            
+            for(int jtype=0;jtype<no_types;jtype++)
+                if(s_lo_type[0][jtype]!=2.0)
+                {
+                    cut_s=(sqrt(forcefield->cut_sq[COMP(jtype,itype)])+skin)*cut_ph_s[idim]/tot_cut_ph;
+                    s_ph_hi_type[idim][itype]=MAX(s_ph_hi_type[idim][itype],s_hi_type[idim][jtype]+cut_s);
+                    s_ph_lo_type[idim][itype]=MIN(s_ph_lo_type[idim][itype],s_lo_type[idim][jtype]-cut_s);
+                }
+        }
+    
+    
+    for(int idim=0;idim<dimension;idim++)
+    {
+        if(my_loc[idim]==tot_p_grid[idim]-1)
+            for(int itype=0;itype<no_types;itype++)
+                s_ph_hi_type[idim][itype]--;
+        if(my_loc[idim]==0)
+            for(int itype=0;itype<no_types;itype++)
+                s_ph_lo_type[idim][itype]++;
+    }
+    
+    
+    
+    natms_ph=0;
+    ph_lst->reset();
+    int lo_r_dir,hi_r_dir,lo_r_dim,hi_r_dim,tmp_r;
+    int icomm,iatm,idim;
+    int iswap=0;
+    lo_r_dim=0;
+    hi_r_dim=natms+natms_ph;
+        
+    for(idim=0;idim<dimension;idim++)
+    {
+
+        if(tot_p_grid[idim]==1)
+        {
+            for(int itype=0;itype<no_types;itype++)
+                s_bound[itype]=s_ph_hi_type[idim][itype];
+        }
+        else
+        {
+            MPI_Status status;
+            MPI_Sendrecv(s_ph_hi_type[idim],no_types,MPI_TYPE0,neigh_p[idim][1],
+            0,
+            s_bound,no_types,MPI_TYPE0,neigh_p[idim][0],
+            0,
+            world,&status);
+            
+        }
+        
+        lo_r_dir=lo_r_dim;
+        hi_r_dir=hi_r_dim;
+        /*
+         send to back & reciev from front dir=0
+         */
+        for(icomm=0;icomm<comm_need[idim][0];icomm++)
+        {
+            tmp_r=natms+natms_ph;
+            vectors[0]->ret(s);
+            vectors[type_n]->ret(type);
+            
+            for(iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
+                if(s[iatm*s_dim+idim]<=s_bound[type[iatm]])
+                    ph_lst->add(iswap,iatm);
+            
+            ph_lst->snd_p[iswap]=neigh_p[idim][0];
+            ph_lst->rcv_p[iswap]=neigh_p[idim][1];
+            
+            if(my_loc[idim]==tot_p_grid[idim]-1)
+                ph_lst->pbc_correction[iswap]=1+idim;
+            else
+                ph_lst->pbc_correction[iswap]=0;
+            
+            xchng_ph(iswap,list);
+            
+            hi_r_dir=natms+natms_ph;
+            lo_r_dir=tmp_r;
+            iswap++;
+        }
+        
+        
+        if(tot_p_grid[idim]==1)
+        {
+            for(int itype=0;itype<no_types;itype++)
+                s_bound[itype]=s_ph_lo_type[idim][itype];
+        }
+        else
+        {
+            MPI_Status status;
+            MPI_Sendrecv(s_ph_lo_type[idim],no_types,MPI_TYPE0,neigh_p[idim][0],
+            0,
+            s_bound,no_types,MPI_TYPE0,neigh_p[idim][1],
+            0,
+            world,&status);
+        }
+        
+        lo_r_dir=lo_r_dim;
+        hi_r_dir=hi_r_dim;
+        
+        /*
+         send to front & receive from back dir=1
+         */
+        for(icomm=0;icomm<comm_need[idim][1];icomm++)
+        {
+            tmp_r=natms+natms_ph;
+            vectors[0]->ret(s);
+            vectors[type_n]->ret(type);
+            for(iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
+                if(s_bound[type[iatm]]<=s[iatm*s_dim+idim])
+                    ph_lst->add(iswap,iatm);
+            
+            ph_lst->snd_p[iswap]=neigh_p[idim][1];
+            ph_lst->rcv_p[iswap]=neigh_p[idim][0];
+            
+            if(my_loc[idim]==0)
+                ph_lst->pbc_correction[iswap]=-(1+idim);
+            else
+                ph_lst->pbc_correction[iswap]=0;
+            
+            xchng_ph(iswap,list);
+            
+            hi_r_dir=natms+natms_ph;
+            lo_r_dir=tmp_r;
+            iswap++;
+        }
+        
+        lo_r_dim=0;
+        hi_r_dim=natms+natms_ph;
+    }
+    
+}
+/*--------------------------------------------
+ this function:
+ 0. finds the swap lists for each dimension
+ & direction
+ 1. uses xchng_ph(int,int,int*,int
+ ,class VecLst*) to transfer said lists to
+ neighboring processors
+ 
+ caveat: it is assumed that x is already is
+ converted to s, i.e. the coordinates are
+ frational.
+ --------------------------------------------*/
+void Atoms::setup_ph_basic(int box_chng
+,class VecLst* list)
 {
     
     /*
@@ -428,8 +684,11 @@ void Atoms::setup_ph(int box_chng,class VecLst* list)
             for(int j=i;j<dimension;j++)
                 tmp+=B[j][i]*B[j][i];
             
-            cut_ph_s[i]=tot_cut_ph*sqrt(tmp);
+            cut_ph_s[i]=sqrt(tmp);
         }
+        
+        for (int i=0;i<dimension;i++)
+            cut_ph_s[i]*=tot_cut_ph;
         
         for (int i=0;i<dimension;i++)
         {
@@ -474,33 +733,10 @@ void Atoms::setup_ph(int box_chng,class VecLst* list)
             for(iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
                 if(s[iatm*s_dim+idim]<=s_ph_lo[idim])
                     ph_lst->add(iswap,iatm);
-            /*
-             find the snd_p[iswap and rcv_p[iswap]
-             int snd_proc=neigh_p[idim][0];
-             int rcv_proc=neigh_p[idim][1];
-             */
+        
             ph_lst->snd_p[iswap]=neigh_p[idim][0];
             ph_lst->rcv_p[iswap]=neigh_p[idim][1];
-            /*
-             pbc_correction[iswap]=0 or (1+idim) or -(1+idim)
-             
-             if((dir==0&&my_loc[dim]==tot_p_grid[dim]-1) ||
-             (dir==1&&my_loc[dim]==0))
-             {
-             int last_atm_no=natms+natms_ph;
-             int strt_atm_no=last_atm_no-no_new_atms;
-             type0* s;
-             vectors[0]->ret(s);
-             int s_dim=vectors[0]->dim;
-             if(dir==0)
-             for (int iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-             s[iatm*s_dim+dim]++;
-             else if(dir==1)
-             for (int iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-             s[iatm*s_dim+dim]--;
-             }
-             
-             */
+            
             if(my_loc[idim]==tot_p_grid[idim]-1)
                 ph_lst->pbc_correction[iswap]=1+idim;
             else
@@ -517,7 +753,7 @@ void Atoms::setup_ph(int box_chng,class VecLst* list)
         hi_r_dir=hi_r_dim;
         
         /*
-         send to front & recieve from back dir=1
+         send to front & receive from back dir=1
          */
         for(icomm=0;icomm<comm_need[idim][1];icomm++)
         {
@@ -527,33 +763,9 @@ void Atoms::setup_ph(int box_chng,class VecLst* list)
                 if(s_ph_hi[idim]<=s[iatm*s_dim+idim])
                     ph_lst->add(iswap,iatm);
             
-            /*
-             find the snd_p[iswap and rcv_p[iswap]
-             int snd_proc=neigh_p[idim][0];
-             int rcv_proc=neigh_p[idim][1];
-             */
             ph_lst->snd_p[iswap]=neigh_p[idim][1];
             ph_lst->rcv_p[iswap]=neigh_p[idim][0];
-            /*
-             pbc_correction[iswap]=0 or (1+idim) or -(1+idim)
-             
-             if((dir==0&&my_loc[dim]==tot_p_grid[dim]-1) ||
-             (dir==1&&my_loc[dim]==0))
-             {
-             int last_atm_no=natms+natms_ph;
-             int strt_atm_no=last_atm_no-no_new_atms;
-             type0* s;
-             vectors[0]->ret(s);
-             int s_dim=vectors[0]->dim;
-             if(dir==0)
-             for (int iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-             s[iatm*s_dim+dim]++;
-             else if(dir==1)
-             for (int iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-             s[iatm*s_dim+dim]--;
-             }
-             
-             */
+
             if(my_loc[idim]==0)
                 ph_lst->pbc_correction[iswap]=-(1+idim);
             else
@@ -635,7 +847,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
         if(list->ph_no_vecs!=1)
         {
             /*
-             if there is nothing to send & something to recieve, just recieve
+             if there is nothing to send & something to receive, just receive
              */
             if (ph_lst->rcv_size[iswap]&&ph_lst->snd_size[iswap]==0)
             {
@@ -646,7 +858,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 buff_size_management(rcv_ph_buff,rcv_ph_buff_capacity,rcv_buff_size);
                 
                 /*
-                 prepare for recieve
+                 prepare for receive
                  */
                 MPI_Irecv(rcv_ph_buff,rcv_buff_size,
                 MPI_BYTE,ph_lst->rcv_p[iswap],
@@ -664,7 +876,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 unpack_ph(rcv_ph_buff,list,ph_lst->rcv_size[iswap]);
             }
             /*
-             if there is something to send & nothing to recieve, just send
+             if there is something to send & nothing to receive, just send
              */
             else if (ph_lst->rcv_size[iswap]==0&&ph_lst->snd_size[iswap])
             {
@@ -693,7 +905,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 MPI_Wait(&request[1],&status[1]);
             }
             /*
-             if there is something to send & something to recieve, send and recieve
+             if there is something to send & something to receive, send and receive
              */
             else if (ph_lst->rcv_size[iswap]&&ph_lst->snd_size[iswap])
             {
@@ -713,7 +925,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 
                 
                 /*
-                 prepare for recieve
+                 prepare for receive
                  */
                 MPI_Irecv(rcv_ph_buff,rcv_buff_size,
                 MPI_BYTE,ph_lst->rcv_p[iswap],
@@ -745,7 +957,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
              */
             
             /*
-             if there was something to recieve natms_ph are updated by now
+             if there was something to receive natms_ph are updated by now
              */
         }
         else
@@ -760,13 +972,13 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
             }
             
             /*
-             if there is nothing to send & something to recieve, just recieve
+             if there is nothing to send & something to receive, just receive
              */
             if (ph_lst->rcv_size[iswap]&&ph_lst->snd_size[iswap]==0)
             {
                 
                 /*
-                 prepare for recieve
+                 prepare for receive
                  */
                 MPI_Irecv(vectors[list->ph_vec_list[0]]->ret(natms+natms_ph),ph_lst->rcv_size[iswap]*list->ph_byte_size,
                 MPI_BYTE,ph_lst->rcv_p[iswap],
@@ -779,7 +991,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 MPI_Wait(&request[0],&status[0]);
             }
             /*
-             if there is something to send & nothing to recieve, just send
+             if there is something to send & nothing to receive, just send
              */
             else if (ph_lst->rcv_size[iswap]==0&&ph_lst->snd_size[iswap])
             {
@@ -808,7 +1020,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 MPI_Wait(&request[1],&status[1]);
             }
             /*
-             if there is something to send & something to recieve, send and recieve
+             if there is something to send & something to receive, send and receive
              */
             else if (ph_lst->rcv_size[iswap]&&ph_lst->snd_size[iswap])
             {
@@ -825,7 +1037,7 @@ void Atoms::xchng_ph(int iswap,class VecLst* list)
                 
                 
                 /*
-                 prepare for recieve
+                 prepare for receive
                  */
                 MPI_Irecv(vectors[list->ph_vec_list[0]]->ret(natms+natms_ph),ph_lst->rcv_size[iswap]*list->ph_byte_size,
                 MPI_BYTE,ph_lst->rcv_p[iswap],
@@ -1688,7 +1900,12 @@ void Atoms::update(int box_change,class VecLst* list)
     {
         x2s(natms);
         xchng_prtl(list);
-        setup_ph(box_change,list);
+
+        if(atom_mode==TYPE_mode)
+            setup_ph_type(box_change,list);
+        else
+            setup_ph_basic(box_change,list);
+
         neighbor->create_list(box_change,1);
         /*no need to convert s back to x,
          the neighbor list takes care of it*/
@@ -2134,42 +2351,11 @@ void Atoms::auto_grid_proc()
 /*--------------------------------------------
  manually grid the domain
  --------------------------------------------*/
-void Atoms::man_grid_proc(int narg,char** args)
+void Atoms::man_grid_proc(int* n)
 {
-    if(narg!=dimension+1)
-        error->abort("grid should at least"
-        " have %d arguement",dimension);
-    
     for(int i=0;i<dimension;i++)
-        tot_p_grid[i]=atoi(args[i+1]);
-
-    int tmp=1;
-    for(int i=0;i<dimension;i++)
-    {
-        if(tot_p_grid[i]<1)
-            error->abort("number of processors "
-            "in dimension %d for grid cannot be "
-            "less than 1",i);
-        tmp*=tot_p_grid[i];
-    }
-    if(tmp!=tot_p)
-    {
-        /*
-        char err_msg[MAXCHAR];
-        sprintf(err_msg,"%d\u00D7",tot_p_grid[0]);
-        for(int i=1;i<dimension-1;i++)
-            sprintf(err_msg,"%s%d\u00D7",err_msg,tot_p_grid[i]);
-        sprintf(err_msg,"%s%d",err_msg,tot_p_grid[dimension-1]);
-        
-        error->abort("for grid %d\u2260%s",tot_p,err_msg);
-         */
-        error->abort("for grid total number of "
-        "processors should be equal to the "
-        "product of arguments");
-    }
-
+        tot_p_grid[i]=n[i];
     
-        
     int* list;
     CREATE1D(list,dimension);
     for(int i=0;i<dimension;i++)
@@ -2204,9 +2390,9 @@ void Atoms::man_grid_proc(int narg,char** args)
             list[i]=i;
         VecLst* vecs_comm;
         vecs_comm=new VecLst(mapp,list,no_vecs);
-        
+        x2s(natms);
         xchng_cmplt(vecs_comm);
-        
+        s2x(natms);
         delete vecs_comm;
         if(no_vecs)
             delete [] list;
@@ -2231,13 +2417,8 @@ void Atoms::man_grid_proc(int narg,char** args)
 /*--------------------------------------------
  add skin command
  --------------------------------------------*/
-void Atoms::chng_skin(int narg,char** args)
+void Atoms::chng_skin(type0 s)
 {
-    if(narg!=2)
-        error->abort("wrong number of inputs for skin command");
-    type0 s=atof(args[1]);
-    if(s<=0.0)
-        error->abort("skin cannot be equal or less than zero");
     skin=s;
 }
 /*--------------------------------------------
@@ -2310,6 +2491,44 @@ void Atoms::init(class VecLst* vecs_comm)
     }
     set_max_cutoff(max_cut);
     
+    if(atom_mode==TYPE_mode)
+    {
+        type_n=find("type");
+        if(no_types!=atom_types->no_types)
+        {
+            
+            if(no_types)
+            {
+                delete [] s_bound;
+                for(int i=0;i<dimension;i++)
+                {
+                    
+                    delete [] s_lo_type[i];
+                    delete [] s_hi_type[i];
+                    delete [] s_ph_lo_type[i];
+                    delete [] s_ph_hi_type[i];
+                }
+            }
+            
+            delete [] s_lo_type;
+            delete [] s_hi_type;
+            delete [] s_ph_lo_type;
+            delete [] s_ph_hi_type;
+            
+            no_types=atom_types->no_types;
+            CREATE1D(s_bound,no_types);
+            CREATE2D(s_lo_type,dimension,no_types);
+            CREATE2D(s_hi_type,dimension,no_types);
+            CREATE2D(s_ph_lo_type,dimension,no_types);
+            CREATE2D(s_ph_hi_type,dimension,no_types);
+            
+        }
+        
+        
+        
+    }
+    
+    
     
     /*--------------------------------------*/
     
@@ -2319,7 +2538,10 @@ void Atoms::init(class VecLst* vecs_comm)
      using the values assigned by the
      previous step;
      */
-    setup_ph(1,vecs_comm);
+    if(atom_mode==TYPE_mode)
+        setup_ph_type(1,vecs_comm);
+    else
+        setup_ph_basic(1,vecs_comm);
     /*--------------------------------------*/
     
     /*
@@ -2555,12 +2777,12 @@ void VecLst::del_update(int vec_no)
     update_every_ph_no_vecs--;
 }
 /*---------------------------------------------------------------------------
-  _____   _          __      ___   _____   _       _____   _____
- /  ___/ | |        / /     /   | |  _  \ | |     /  ___/ |_   _|
- | |___  | |  __   / /     / /| | | |_| | | |     | |___    | |
- \___  \ | | /  | / /     / / | | |  ___/ | |     \___  \   | |
-  ___| | | |/   |/ /     / /  | | | |     | |___   ___| |   | |
- /_____/ |___/|___/     /_/   |_| |_|     |_____| /_____/   |_|
+  _____   _          __  ___   _____   _       _____   _____
+ /  ___/ | |        / / /   | |  _  \ | |     /  ___/ |_   _|
+ | |___  | |  __   / / / /| | | |_| | | |     | |___    | |
+ \___  \ | | /  | / / / / | | |  ___/ | |     \___  \   | |
+  ___| | | |/   |/ / / /  | | | |     | |___   ___| |   | |
+ /_____/ |___/|___/ /_/   |_| |_|     |_____| /_____/   |_|
  ---------------------------------------------------------------------------*/
 
 /*--------------------------------------------
@@ -2694,479 +2916,4 @@ void SwapLst::reset(int iswap)
     snd_size[iswap]=0;
 }
 
-
-/*----------------------------------------------------------------------------------------------------------
-  _____   _____        _____   _____        _____    _____       ___  ___   _____   _     _   _____   _____
- |_   _| /  _  \      |  _  \ | ____|      |  _  \  | ____|     /   |/   | /  _  \ | |   / / | ____| |  _  \
-   | |   | | | |      | |_| | | |__        | |_| |  | |__      / /|   /| | | | | | | |  / /  | |__   | | | |
-   | |   | | | |      |  _  { |  __|       |  _  /  |  __|    / / |__/ | | | | | | | | / /   |  __|  | | | |
-   | |   | |_| |      | |_| | | |___       | | \ \  | |___   / /       | | | |_| | | |/ /    | |___  | |_| |
-   |_|   \_____/      |_____/ |_____|      |_|  \_\ |_____| /_/        |_| \_____/ |___/     |_____| |_____/
- ----------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------
- updates the phantom atoms of a specific
- vector.
- --------------------------------------------*/
-/*
-void Atoms::update_ph_old(int ivec)
-{
-    update_ph(&ivec,1,vectors[ivec]->byte_size);
-}
- */
-/*--------------------------------------------
- updates the phantom atoms of a group of vectors
- --------------------------------------------*/
-/*
-void Atoms::update_ph_old(int* vec_list,int no_vecs,int vec_byte_size)
-{
-    int snd_proc,rcv_proc;
-    int snd_buff_size,rcv_buff_size;
-    int last_atm_no,no_new_atms;
-    int iswap,idim,idir,icomm,ivec,iatm,jdim;
-    
-    MPI_Request request[2];
-    MPI_Status status[2];
-    
-    natms_ph=0;
-    iswap=0;
-    if(no_vecs==1)
-    {
-        for(idim=0;idim<dimension;idim++)
-        {
-            if(tot_p_grid[idim]!=1)
-            {
-                for(idir=0;idir<2;idir++)
-                {
-                    for(icomm=0;icomm<comm_need[idim][idir];icomm++)
-                    {
-                        snd_proc=neigh_p[idim][idir];
-                        rcv_proc=neigh_p[idim][1-idir];
-                        snd_buff_size=vec_byte_size*ph_lst->snd_size[iswap];
-                        
-                        buff_size_management(snd_ph_buff,snd_ph_buff_capacity,snd_buff_size);
-                        
-                        pack_ph(snd_ph_buff,vec_list,no_vecs,ph_lst->snd_list[iswap],ph_lst->snd_size[iswap]);
-                        
-                        
-                        
-                        MPI_Sendrecv(&snd_buff_size,1,MPI_INT,snd_proc,0,&rcv_buff_size,
-                                     1,MPI_INT,rcv_proc,0,world,&status[0]);
-                        
-                        if (rcv_buff_size)
-                        {
-                            MPI_Irecv(vectors[vec_list[0]]->ret(natms+natms_ph)
-                                      ,rcv_buff_size,MPI_BYTE,rcv_proc,0,world,&request[0]);
-                            
-                        }
-                        if (snd_buff_size)
-                        {
-                            MPI_Isend(snd_ph_buff,snd_buff_size
-                                      ,MPI_BYTE,snd_proc,0,world,&request[1]);
-                        }
-                        
-                        no_new_atms=rcv_buff_size/vec_byte_size;
-                        
-                        if (rcv_buff_size&&snd_buff_size==0)
-                            MPI_Wait(&request[0],&status[0]);
-                        else if (rcv_buff_size==0&&snd_buff_size)
-                            MPI_Wait(&request[1],&status[1]);
-                        else if (rcv_buff_size&&snd_buff_size)
-                            MPI_Waitall(2,request,status);
-                        
-                        natms_ph+=no_new_atms;
-                        if(vec_list[0]==0)
-                        {
-                            if((idir==0&&my_loc[idim]==tot_p_grid[idim]-1) ||
-                               (idir==1&&my_loc[idim]==0))
-                            {
-                                last_atm_no=natms+natms_ph;
-                                int strt_atm_no=last_atm_no-no_new_atms;
-                                type0* x;
-                                vectors[0]->ret(x);
-                                int x_dim=vectors[0]->dim;
-                                
-                                if(idir==0)
-                                    for (iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-                                        for(jdim=0;jdim<=idim;jdim++)
-                                            x[iatm*x_dim+jdim]+=H[idim][jdim];
-                                else if(idir==1)
-                                    for (iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-                                        for(jdim=0;jdim<=idim;jdim++)
-                                            x[iatm*x_dim+jdim]-=H[idim][jdim];
-                            }
-                        }
-                        iswap++;
-                    }
-                }
-            }
-            else
-            {
-                for(idir=0;idir<2;idir++)
-                {
-                    for(icomm=0;icomm<comm_need[idim][idir];icomm++)
-                    {
-                        last_atm_no=natms+natms_ph;
-                        
-                        for(ivec=0;ivec<no_vecs;ivec++)
-                            for(iatm=0;iatm<ph_lst->snd_size[iswap];iatm++)
-                                vectors[vec_list[ivec]]->copy(last_atm_no+iatm,ph_lst->snd_list[iswap][iatm]);
-                        
-                        if(vec_list[0]==0)
-                        {
-                            
-                            type0* x;
-                            vectors[0]->ret(x);
-                            int x_dim=vectors[0]->dim;
-                            
-                            if(idir==0)
-                                for (iatm=natms+natms_ph;iatm<natms+natms_ph+ph_lst->snd_size[iswap];iatm++)
-                                    for(jdim=0;jdim<=idim;jdim++)
-                                        x[iatm*x_dim+jdim]+=H[idim][jdim];
-                            
-                            else if(idir==1)
-                                for (iatm=natms+natms_ph;iatm<natms+natms_ph+ph_lst->snd_size[iswap];iatm++)
-                                    for(jdim=0;jdim<=idim;jdim++)
-                                        x[iatm*x_dim+jdim]-=H[idim][jdim];
-                            
-                        }
-                        natms_ph+=ph_lst->snd_size[iswap];
-                        iswap++;
-                    }
-                }
-            }
-            
-        }
-    }
-    else
-    {
-        for(idim=0;idim<dimension;idim++)
-        {
-            if(tot_p_grid[idim]!=1)
-            {
-                for(idir=0;idir<2;idir++)
-                {
-                    for(icomm=0;icomm<comm_need[idim][idir];icomm++)
-                    {
-                        snd_proc=neigh_p[idim][idir];
-                        rcv_proc=neigh_p[idim][1-idir];
-                        snd_buff_size=vec_byte_size*ph_lst->snd_size[iswap];
-                        
-                        buff_size_management(snd_ph_buff,snd_ph_buff_capacity,snd_buff_size);
-                        
-                        pack_ph(snd_ph_buff,vec_list,no_vecs,ph_lst->snd_list[iswap],ph_lst->snd_size[iswap]);
-                        
-                        MPI_Sendrecv(&snd_buff_size,1,
-                                     MPI_INT,snd_proc,0,&rcv_buff_size,
-                                     1,MPI_INT,rcv_proc,0,world,&status[0]);
-                        
-                        buff_size_management(rcv_ph_buff,rcv_ph_buff_capacity,rcv_buff_size);
-                        
-                        if (rcv_buff_size)
-                        {
-                            MPI_Irecv(rcv_ph_buff,rcv_buff_size,
-                                      MPI_BYTE,rcv_proc,0,world,
-                                      &request[0]);
-                            
-                        }
-                        if (snd_buff_size)
-                        {
-                            MPI_Isend(snd_ph_buff,snd_buff_size,
-                                      MPI_BYTE,snd_proc,0,world,
-                                      &request[1]);
-                        }
-                        
-                        no_new_atms=rcv_buff_size/vec_byte_size;
-                        
-                        if (rcv_buff_size&&snd_buff_size==0)
-                        {
-                            MPI_Wait(&request[0],&status[0]);
-                            unpack_ph(rcv_ph_buff,vec_list,no_vecs,no_new_atms);
-                            
-                        }
-                        else if (rcv_buff_size==0&&snd_buff_size)
-                        {
-                            MPI_Wait(&request[1],&status[1]);
-                        }
-                        else if (rcv_buff_size&&snd_buff_size)
-                        {
-                            MPI_Waitall(2,request,status);
-                            unpack_ph(rcv_ph_buff,vec_list,no_vecs,no_new_atms);
-                        }
-                        
-                        if(vec_list[0]==0)
-                        {
-                            if((idir==0&&my_loc[idim]==tot_p_grid[idim]-1) ||
-                               (idir==1&&my_loc[idim]==0))
-                            {
-                                last_atm_no=natms+natms_ph;
-                                int strt_atm_no=last_atm_no-no_new_atms;
-                                type0* x;
-                                vectors[0]->ret(x);
-                                int x_dim=vectors[0]->dim;
-                                
-                                if(idir==0)
-                                    for (iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-                                        for(jdim=0;jdim<=idim;jdim++)
-                                            x[iatm*x_dim+jdim]+=H[idim][jdim];
-                                else if(idir==1)
-                                    for (iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-                                        for(jdim=0;jdim<=idim;jdim++)
-                                            x[iatm*x_dim+jdim]-=H[idim][jdim];
-                            }
-                        }
-                        iswap++;
-                    }
-                }
-            }
-            else
-            {
-                for(idir=0;idir<2;idir++)
-                {
-                    for(icomm=0;icomm<comm_need[idim][idir];icomm++)
-                    {
-                        last_atm_no=natms+natms_ph;
-                        
-                        for(ivec=0;ivec<no_vecs;ivec++)
-                            for(iatm=0;iatm<ph_lst->snd_size[iswap];iatm++)
-                                vectors[vec_list[ivec]]->copy(last_atm_no+iatm,ph_lst->snd_list[iswap][iatm]);
-                        
-                        if(vec_list[0]==0)
-                        {
-                            type0* x;
-                            vectors[0]->ret(x);
-                            int x_dim=vectors[0]->dim;
-                            
-                            if(idir==0)
-                                for (iatm=natms+natms_ph;iatm<natms+natms_ph+ph_lst->snd_size[iswap];iatm++)
-                                    for(jdim=0;jdim<=idim;jdim++)
-                                        x[iatm*x_dim+jdim]+=H[idim][jdim];
-                            else if(idir==1)
-                                for (iatm=natms+natms_ph;iatm<natms+natms_ph+ph_lst->snd_size[iswap];iatm++)
-                                    for(jdim=0;jdim<=idim;jdim++)
-                                        x[iatm*x_dim+jdim]-=H[idim][jdim];
-                            
-                        }
-                        natms_ph+=ph_lst->snd_size[iswap];
-                        iswap++;
-                    }
-                }
-            }
-        }
-    }
-    
-}
- */
-/*--------------------------------------------
- this function:
- 0. finds the swap lists for each dimension
- & direction
- 1. uses xchng_ph(int,int,int*,int
- ,class VecLst*) to transfer said lists to
- neighboring processors
- 
- caveat: it is assumed that x is already is
- converted to s, i.e. the coordinates are
- frational.
- --------------------------------------------*/
-/*
-void Atoms::setup_ph_old(int box_chng,class VecLst* list)
-{
- 
-    if(box_chng)
-    {
-        type0 tmp;
-        for (int i=0;i<dimension;i++)
-        {
-            tmp=0.0;
-            for(int j=i;j<dimension;j++)
-                tmp+=B[j][i]*B[j][i];
-            
-            cut_ph_s[i]=tot_cut_ph*sqrt(tmp);
-        }
-        
-        for (int i=0;i<dimension;i++)
-        {
-            s_ph_hi[i]=s_hi[i]-cut_ph_s[i];
-            s_ph_lo[i]=s_lo[i]+cut_ph_s[i];
-        }
-        for (int i=0;i<dimension;i++)
-            comm_need[i][0]=comm_need[i][1]=static_cast<int>
-            (cut_ph_s[i]/(s_hi[i]-s_lo[i]))+1;
-        
-        int nswap=0;
-        for(int i=0;i<dimension;i++)
-            nswap+=comm_need[i][0]+comm_need[i][1];
-        
-        ph_lst->newlist(nswap);
-    }
-    
-    
-    
-    
-    natms_ph=0;
-    ph_lst->reset();
-    int lo_r_dir,hi_r_dir,lo_r_dim,hi_r_dim,tmp_r;
-    int icomm,iatm,idim;
-    type0* s;
-    int s_dim=vectors[0]->dim;
-    int iswap=0;
-    
-    lo_r_dim=0;
-    hi_r_dim=natms+natms_ph;
-    for(idim=0;idim<dimension;idim++)
-    {
-        lo_r_dir=lo_r_dim;
-        hi_r_dir=hi_r_dim;
- 
-        for(icomm=0;icomm<comm_need[idim][0];icomm++)
-        {
-            tmp_r=natms+natms_ph;
-            vectors[0]->ret(s);
-            for(iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
-                if(s[iatm*s_dim+idim]<=s_ph_lo[idim])
-                    ph_lst->add(iswap,iatm);
-            
-            xchng_ph_old(0,idim,ph_lst->snd_list[iswap],ph_lst->snd_size[iswap],list);
-            hi_r_dir=natms+natms_ph;
-            lo_r_dir=tmp_r;
-            iswap++;
-        }
-        
-        lo_r_dir=lo_r_dim;
-        hi_r_dir=hi_r_dim;
-        
-        for(icomm=0;icomm<comm_need[idim][1];icomm++)
-        {
-            tmp_r=natms+natms_ph;
-            vectors[0]->ret(s);
-            for(iatm=lo_r_dir;iatm<hi_r_dir;iatm++)
-                if(s_ph_hi[idim]<=s[iatm*s_dim+idim])
-                    ph_lst->add(iswap,iatm);
-            xchng_ph_old(1,idim,ph_lst->snd_list[iswap],ph_lst->snd_size[iswap],list);
-            hi_r_dir=natms+natms_ph;
-            lo_r_dir=tmp_r;
-            iswap++;
-        }
-        
-        lo_r_dim=0;
-        hi_r_dim=natms+natms_ph;
-    }
-    
-}
-*/
-/*--------------------------------------------
- this function:
- 0. sends/recieves phantom atoms to/from
- neighboring processors.
- 1. if needed makes correction to positions (s)
- due to periodic boundary conditions
- --------------------------------------------*/
-/*
-void Atoms::xchng_ph_old(int dir,int dim,
-                         int* atm_list,int atm_list_size,class VecLst* list)
-{
-    
-    if(tot_p_grid[dim]!=1)
-    {
-        int snd_proc=neigh_p[dim][dir];
-        int rcv_proc=neigh_p[dim][1-dir];
-        int snd_buff_size=list->ph_byte_size
-        *atm_list_size;
-        int rcv_buff_size;
-        buff_size_management(snd_ph_buff,snd_ph_buff_capacity,snd_buff_size);
-        
-        MPI_Request request[2];
-        MPI_Status status[2];
-        MPI_Sendrecv(&snd_buff_size,1,
-                     MPI_INT,snd_proc,0,&rcv_buff_size,
-                     1,MPI_INT,rcv_proc,0,world,
-                     &status[0]);
-        
-        buff_size_management(rcv_ph_buff,rcv_ph_buff_capacity,rcv_buff_size);
-        
-        pack_ph(snd_ph_buff,list,atm_list,atm_list_size);
-        
-        
-        if (rcv_buff_size)
-        {
-            MPI_Irecv(rcv_ph_buff,rcv_buff_size,
-                      MPI_BYTE,rcv_proc,0,world,
-                      &request[0]);
-        }
-        if (snd_buff_size)
-        {
-            MPI_Isend(snd_ph_buff,snd_buff_size,
-                      MPI_BYTE,snd_proc,0,world,
-                      &request[1]);
-        }
-        
-        int no_new_atms=rcv_buff_size/list->ph_byte_size;
-        
-        if (rcv_buff_size&&snd_buff_size==0)
-        {
-            MPI_Wait(&request[0],&status[0]);
-            unpack_ph(rcv_ph_buff,list,no_new_atms);
-        }
-        else if (rcv_buff_size==0&&snd_buff_size)
-        {
-            MPI_Wait(&request[1],&status[1]);
-        }
-        else if (rcv_buff_size&&snd_buff_size)
-        {
-            MPI_Waitall(2,request,status);
-            unpack_ph(rcv_ph_buff,list, no_new_atms);
-        }
-        
-        //correction due to periodic boundary conditions
-        
-        if((dir==0&&my_loc[dim]==tot_p_grid[dim]-1) ||
-           (dir==1&&my_loc[dim]==0))
-        {
-            int last_atm_no=natms+natms_ph;
-            int strt_atm_no=last_atm_no-no_new_atms;
-            type0* s;
-            vectors[0]->ret(s);
-            int s_dim=vectors[0]->dim;
-            if(dir==0)
-                for (int iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-                    s[iatm*s_dim+dim]++;
-            else if(dir==1)
-                for (int iatm=strt_atm_no;iatm<last_atm_no;iatm++)
-                    s[iatm*s_dim+dim]--;
-        }
-    }
-    else
-    {
-        int new_size=natms_ph+natms
-        +atm_list_size;
-        int old_size=atm_vec_ph_size;
-        
-        if(new_size>old_size)
-        {
-            grow(1,new_size-old_size,list);
-        }
-        
-        int last_atm_no=natms+natms_ph;
-        
-        for(int ivec=0;ivec<list->ph_no_vecs;ivec++)
-            for(int iatm=0;iatm<atm_list_size;iatm++)
-                vectors[list->ph_vec_list[ivec]]->copy(last_atm_no+iatm,atm_list[iatm]);
-        
-        
-        type0* s;
-        vectors[0]->ret(s);
-        int s_dim=vectors[0]->dim;
-        
-        if(dir==0)
-            for (int iatm=natms+natms_ph;iatm<natms+natms_ph+atm_list_size;iatm++)
-                s[iatm*s_dim+dim]++;
-        else if(dir==1)
-            for (int iatm=natms+natms_ph;iatm<natms+natms_ph+atm_list_size;iatm++)
-                s[iatm*s_dim+dim]--;
-        
-        natms_ph+=atm_list_size;
-    }
-    
-}
-*/
 

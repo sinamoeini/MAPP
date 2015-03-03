@@ -9,7 +9,7 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Clock_bdf::Clock_bdf(MAPP* mapp,int narg
-                     ,char** arg):Clock(mapp)
+,char** arg):Clock(mapp)
 {
     min_gamma=0.0;
     gamma_red=0.8;

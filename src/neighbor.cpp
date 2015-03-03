@@ -17,31 +17,14 @@ Neighbor::Neighbor(MAPP* mapp):InitPtrs(mapp)
     next_atm_size=0;
     pair_wise=1;
     atm_bin_size=0;
-    /*
-    if(atoms->dimension)
-    {
-        int d=atoms->dimension;
-        CREATE1D(tot_bin_grid,d);
-        CREATE1D(bin_size,d);
-        CREATE1D(bin_denom_list,d);
-        CREATE1D(s_tmp,d);
-    }*/
+
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Neighbor::~Neighbor()
 {
-    /*
-    if(atoms->dimension)
-    {
-        delete [] tot_bin_grid;
-        delete [] bin_size;
-        delete [] bin_denom_list;
-        delete [] s_tmp;
-    }
-     */
-    
+
     if(tot_bin)
     {
         for(int i=0;i<tot_bin;i++)
@@ -409,7 +392,6 @@ void Neighbor::bin_atoms()
     next_atm_size=tot_natms;
     
     
-    //type0* x=(type0*)atoms->vectors[0].ret_vec();
     type0* x;
     atoms->vectors[0]->ret(x);
     
@@ -484,7 +466,6 @@ void Neighbor::bin_atoms_s()
     atm_bin_size=atoms->natms;
     
     int bin;
-    //type0* s=(type0*)atoms->vectors[0].ret_vec();
     type0* s;
     atoms->vectors[0]->ret(s);
 

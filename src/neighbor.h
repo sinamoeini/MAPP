@@ -10,7 +10,8 @@
 #include "memory.h"
 
 namespace MAPP_NS {
-    class Neighbor : protected InitPtrs{
+    class Neighbor:protected InitPtrs
+    {
     private:
     protected:
         type0* s_tmp;
@@ -49,7 +50,7 @@ namespace MAPP_NS {
         int neighbor_list_size_size;
         int no_pairs;
         
-        Neighbor(MAPP *);
+        Neighbor(MAPP*);
         ~Neighbor();
         
         void create_list(int,int);

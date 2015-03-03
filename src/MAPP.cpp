@@ -215,79 +215,14 @@ void MAPP::command(char* command)
     if(narg)
         no_commands++;
     
-    if(narg==0)
-    {
-        return;
-    }
-    else if(strcmp(args[0],"grid")==0)
-    {
-        atoms->man_grid_proc(narg,args);
-    }
-    else if(strcmp(args[0],"skin")==0)
-    {
-        atoms->chng_skin(narg,args);
-    }
-    else if(strcmp(args[0],"mode")==0)
-    {
-        change_mode(narg,args);
-    }
-    else if(strcmp(args[0],"step_tally")==0)
-    {
-        if(narg!=2)
-            error->abort("unknown command: %s",command);
-        step_tally=atoi(args[1]);
-        if(step_tally<=0)
-            error->abort("step tally cannot "
-            "be equal or less than zero");
-    }
-    else if(strcmp(args[0],"reset")==0)
-    {
-        if(narg!=1)
-            error->abort("unknown command: %s",command);
-        step_no=0;
-    }
-
-    else if(strcmp(args[0],"ff_coef")==0)
-    {
-        if(forcefield==NULL)
-            error->abort("cannot add the coefficients"
-            " before the forcefield is initiated");
-        forcefield->coef(narg,args);
-    }
+    if(narg==0) return;
     else if(strcmp(args[0],"read")==0) read_style(narg,args);
     else if(strcmp(args[0],"ff")==0) ff_style(narg,args);
     else if(strcmp(args[0],"min")==0) min_style(narg,args);
     else if(strcmp(args[0],"clock")==0) clock_style(narg,args);
     else if(strcmp(args[0],"md")==0) md_style(narg,args);
     else if(strcmp(args[0],"write")==0) write_style(narg,args);
-    else if(strcmp(args[0],"del_write")==0)
-    {
-        if(write!=NULL)
-            delete write;
-        write=NULL;
-    }
-    else if(strcmp(args[0],"time_step")==0)
-    {
-        if(md==NULL)
-            error->abort("before adjusting the "
-            "time_step, ensemble should be initialized");
-        md->add_dt(narg,args);
-    }
-    else if(strcmp(args[0],"boltzmann")==0)
-    {
-        if(md==NULL)
-            error->abort("before adjusting the boltzmann"
-            " constant, ensemble should be initialized");
-        md->add_boltzmann(narg,args);
-    }
-    else if(strcmp(args[0],"run")==0)
-    {
-        if(md==NULL)
-            error->abort("before run, ensemble should be initialized");
-        md->run(narg,args);
-    }
-    else
-        command_style(narg,args);
+    else command_style(narg,args);
     
     
     for(int i=0;i<narg;i++)
@@ -326,7 +261,8 @@ void MAPP::ff_style(int narg,char** args)
 void MAPP::min_style(int narg,char** args)
 {
     if(narg<2)
-        error->abort("wrong command: %s",args[0]);
+        error->abort("wrong command: %s"
+        ,args[0]);
     if(min!=NULL)
         delete min;
     
@@ -352,7 +288,8 @@ void MAPP::min_style(int narg,char** args)
 void MAPP::clock_style(int narg,char** args)
 {
     if(narg<2)
-        error->abort("wrong command: %s",args[0]);
+        error->abort("wrong command: %s"
+        ,args[0]);
     if(clock!=NULL)
         delete clock;
     
@@ -378,7 +315,8 @@ void MAPP::clock_style(int narg,char** args)
 void MAPP::md_style(int narg,char** args)
 {
     if(narg<2)
-        error->abort("wrong command: %s",args[0]);
+        error->abort("wrong command: %s"
+        ,args[0]);
     
     int nh_xist=0;
     type0 t_step = 0.0,boltz=0.0;
@@ -397,7 +335,8 @@ void MAPP::md_style(int narg,char** args)
     if(0){}
     #include "md_styles.h"
     else
-        error->abort("wrong style of md: %s",args[1]);
+        error->abort("wrong style of md: %s"
+        ,args[1]);
     #undef MD_Style
     if(nh_xist)
     {
@@ -456,9 +395,6 @@ void MAPP::write_style(int narg,char** args)
  --------------------------------------------*/
 void MAPP::command_style(int narg,char** args)
 {
-    if(narg<2)
-        error->abort("wrong command: %s",args[0]);
-    
     
     #define Command_Style
     #define CommandStyle(class_name,style_name) \
@@ -475,37 +411,6 @@ void MAPP::command_style(int narg,char** args)
     #undef Command_Style
     
     
-}
-/*--------------------------------------------
- differnt command styles
- --------------------------------------------*/
-void MAPP::change_mode(int narg,char** args)
-{
-    if(no_commands!=1)
-        error->abort("mode command should be the first command");
-        
-    if(narg!=2)
-        error->abort("wrong command: %s",args[0]);
-    int new_mode;
-    if(strcmp(args[1],"md")==0)
-    {
-        new_mode=MD_mode;
-        if(atoms->my_p_no==0)
-            printf("mode set to md\n");
-    }
-    else if(strcmp(args[1],"dmd")==0)
-    {
-        new_mode=DMD_mode;
-        if(atoms->my_p_no==0)
-            printf("mode set to dmd\n");
-    }
-    else
-        error->abort("unknown mode: %s",args[1]);
-    if(new_mode==mode)
-        return;
-    mode=new_mode;
-    
-
 }
 /*--------------------------------------------
  parse a command line:
@@ -600,7 +505,6 @@ int MAPP::hash_remover(char* line,char*& newline)
     {
         if (isspace(line[cursor]))
             cursor++;
-        
         else
         {   if (narg!=0)
             newline[icursor++]=' ';

@@ -104,7 +104,6 @@ void Min_cg::init()
             vecs_comm=new VecLst(mapp,9,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,cdof_n,id_n);
         }
     }
-
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
 
@@ -136,12 +135,8 @@ void Min_cg::init()
     type0* f;
     if(chng_box)
     {
-        /*
-        type0** stress;
-        CREATE2D(stress,dim,dim);
-         */
+
         type0** H=atoms->H;
-        //type0** B=atoms->B;
         
         atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
