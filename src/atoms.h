@@ -327,7 +327,6 @@ namespace MAPP_NS
         
         
         void set_max_cutoff(type0);
-        void store_0();
         void xchng_cmplt(int,class VecLst*);
         void xchng_prtl(int,class VecLst*);
         

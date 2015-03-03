@@ -7,8 +7,8 @@ using namespace std;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_grid::Command_grid(MAPP* mapp,int narg,char** args)
-:InitPtrs(mapp)
+Command_grid::Command_grid(MAPP* mapp,int narg
+,char** args):InitPtrs(mapp)
 {
     int dimension=atoms->dimension;
     if(narg!=dimension+1)
@@ -37,6 +37,9 @@ Command_grid::Command_grid(MAPP* mapp,int narg,char** args)
         "to the product of arguments");
 
     atoms->man_grid_proc(n);
+    
+    if(dimension)
+        delete [] n;
 }
 /*--------------------------------------------
  destructor

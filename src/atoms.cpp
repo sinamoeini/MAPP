@@ -1822,119 +1822,6 @@ void Atoms::unpack_read(char*& buff,int atm_list_size
     unpack_prtl(buff,atm_list_size,list);
 }
 /*--------------------------------------------
- 
- --------------------------------------------*/
-void Atoms::store_0()
-{
-    type0* x;
-    vectors[0]->ret(x);
-    type0* x_0;
-    vectors[1]->ret(x_0);
-    
-    int x_dim=vectors[0]->dim;
-    int x_0_dim=vectors[1]->dim;
-    int x_comp=0;
-    int x_0_comp=0;
-    for(int i=0;i<natms;i++)
-    {
-        for(int idim=0;idim<dimension;idim++)
-            x_0[x_0_comp+idim]=x[x_comp+idim];
-        x_comp+=x_dim;
-        x_0_comp+=x_0_dim;
-    }
-}
-/*--------------------------------------------
- please note that if the box's size changes,
- this function assumes the you have already 
- inversed the H matrix and calculated the B
- matrix; if you have truble inersing your H
- matrix, you can use the invert(double**,
- double**,int). however, please be advised 
- this procedure is numerical and you need to
- adjust TOLERANCE value.
- --------------------------------------------*/
-void Atoms::update(int box_change,class VecLst* list)
-{
-    
-    type0* x;
-    vectors[0]->ret(x);
-    type0* x_0;
-    vectors[1]->ret(x_0);
-    
-    int x_dim=vectors[0]->dim;
-    int x_0_dim=vectors[1]->dim;
-
-
-    type0 dx;
-    type0 sq_dx;
-    
-    int iatm=0;
-    int check=0;
-    type0 sq_skin=skin*skin;
-    
-    int x_comp=0;
-    int x_0_comp=0;
-    while (iatm<natms&& check==0)
-    {
-        
-        sq_dx=0.0;
-        for(int idim=0;idim<dimension;idim++)
-        {
-            dx=x[x_comp+idim]-x_0[x_0_comp+idim];
-            sq_dx+=dx*dx;
-        }
-        if(sq_dx>sq_skin)
-            check=1;
-        
-        iatm++;
-        x_comp+=x_dim;
-        x_0_comp+=x_0_dim;
-    }
-    
-    int check_all;
-    MPI_Allreduce(&check,&check_all,1,
-    MPI_INT,MPI_MAX,world);
-
-    
-    if(check_all)
-    {
-        x2s(natms);
-        xchng_prtl(list);
-
-        if(atom_mode==TYPE_mode)
-            setup_ph_type(box_change,list);
-        else
-            setup_ph_basic(box_change,list);
-
-        neighbor->create_list(box_change,1);
-        /*no need to convert s back to x,
-         the neighbor list takes care of it*/
-
-        x_comp=0;
-        x_0_comp=0;
- 
-        vectors[0]->ret(x);
-        vectors[1]->ret(x_0);
-        for(int i=0;i<natms;i++)
-        {
-            for(int idim=0;idim<dimension;idim++)
-                x_0[x_0_comp+idim]=x[x_comp+idim];
-            x_comp+=x_dim;
-            x_0_comp+=x_0_dim;
-        }
-    }
-    else
-    {
-        
-
-        update_ph(list->update_every_ph_vec_list
-               ,list->update_every_ph_no_vecs
-               ,list->update_every_ph_byte_size);
-        
-
-    }
-}
-/*--------------------------------------------
  transform x 2 s
  --------------------------------------------*/
 void Atoms::x2s(int no)
@@ -2558,8 +2445,111 @@ void Atoms::init(class VecLst* vecs_comm)
     /*
      5. store the first projections
      */
-    store_0();
+
+    int x_comp,x_0_comp,x_dim,x_0_dim;
+    type0* x;
+    type0* x_0;
+    vectors[0]->ret(x);
+    vectors[1]->ret(x_0);
+    x_dim=vectors[0]->dim;
+    x_0_dim=vectors[1]->dim;
+    x_comp=0;
+    x_0_comp=0;
+    for(int i=0;i<natms;i++)
+    {
+        for(int idim=0;idim<dimension;idim++)
+            x_0[x_0_comp+idim]=x[x_comp+idim];
+        x_comp+=x_dim;
+        x_0_comp+=x_0_dim;
+    }
     /*--------------------------------------*/
+}
+/*--------------------------------------------
+ please note that if the box's size changes,
+ this function assumes the you have already
+ inversed the H matrix and calculated the B
+ matrix; if you have truble inersing your H
+ matrix, you can use the invert(double**,
+ double**,int). however, please be advised
+ this procedure is numerical and you need to
+ adjust TOLERANCE value.
+ --------------------------------------------*/
+void Atoms::update(int box_change
+,class VecLst* list)
+{
+    
+    type0* x;
+    vectors[0]->ret(x);
+    type0* x_0;
+    vectors[1]->ret(x_0);
+    
+    int x_dim=vectors[0]->dim;
+    int x_0_dim=vectors[1]->dim;
+    
+    
+    type0 dx;
+    type0 sq_dx;
+    
+    int iatm=0;
+    int check=0;
+    type0 sq_skin=skin*skin;
+    
+    int x_comp=0;
+    int x_0_comp=0;
+    while (iatm<natms&& check==0)
+    {
+        sq_dx=0.0;
+        for(int idim=0;idim<dimension;idim++)
+        {
+            dx=x[x_comp+idim]-x_0[x_0_comp+idim];
+            sq_dx+=dx*dx;
+        }
+        if(sq_dx>sq_skin)
+            check=1;
+        
+        iatm++;
+        x_comp+=x_dim;
+        x_0_comp+=x_0_dim;
+    }
+    
+    int check_all;
+    MPI_Allreduce(&check,&check_all,1,
+    MPI_INT,MPI_MAX,world);
+    
+    
+    if(check_all)
+    {
+        x2s(natms);
+        xchng_prtl(list);
+        
+        if(atom_mode==TYPE_mode)
+            setup_ph_type(box_change,list);
+        else
+            setup_ph_basic(box_change,list);
+        
+        neighbor->create_list(box_change,1);
+        /*no need to convert s back to x,
+         the neighbor list takes care of it*/
+        
+        x_comp=0;
+        x_0_comp=0;
+        
+        vectors[0]->ret(x);
+        vectors[1]->ret(x_0);
+        for(int i=0;i<natms;i++)
+        {
+            for(int idim=0;idim<dimension;idim++)
+                x_0[x_0_comp+idim]=x[x_comp+idim];
+            x_comp+=x_dim;
+            x_0_comp+=x_0_dim;
+        }
+    }
+    else
+    {
+        update_ph(list->update_every_ph_vec_list
+        ,list->update_every_ph_no_vecs
+        ,list->update_every_ph_byte_size);
+    }
 }
 /*---------------------------------------------------------------------------
   _     _   _____   _____   _       _____   _____
@@ -2892,7 +2882,8 @@ void SwapLst::add(int& iswap,int& val)
 {
     if(snd_size[iswap]==snd_list_capacity[iswap])
     {
-        GROW(snd_list[iswap],snd_list_capacity[iswap],snd_list_capacity[iswap]+grow_size);
+        GROW(snd_list[iswap],snd_list_capacity[iswap]
+        ,snd_list_capacity[iswap]+grow_size);
         snd_list_capacity[iswap]+=grow_size;
     }
     snd_list[iswap][snd_size[iswap]]=val;
