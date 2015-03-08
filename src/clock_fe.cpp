@@ -125,35 +125,34 @@ void Clock_fe::init()
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
 
-    forcefield->create_2nd_neigh_lst();
+    
+    forcefield->create_2nd_neigh_lst_timer();
+    forcefield->force_calc_timer(1,nrgy_strss);
+    forcefield->c_d_calc_timer();
     
     
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(time_idx,0.0);
     
-    forcefield->force_calc(1,nrgy_strss);
+    thermo->init();
+    
+    if(write!=NULL)
+        write->init();
+
     
     type0* c;
     atoms->vectors[c_n]->ret(c);
     type0* c_d;
     atoms->vectors[c_d_n]->ret(c_d);
     
-    
-    
-    thermo->start_force_time();
-    forcefield->c_d_calc();
+
     rectify(c_d);
-    thermo->stop_force_time();
+    
     
     memcpy(y,c,dof_lcl*sizeof(type0));
     memcpy(dy,c_d,dof_lcl*sizeof(type0));
-    
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    
-    if(write!=NULL)
-        write->init();
-    thermo->init();
+
     
 }
 /*--------------------------------------------
@@ -163,13 +162,12 @@ void Clock_fe::fin()
 {
     if(write!=NULL)
         write->fin();
-    
-    forcefield->fin();
-    neighbor->fin();
+    thermo->fin();
+    atoms->fin();
     
     delete vecs_comm;
     
-    thermo->fin();
+
 }
 /*--------------------------------------------
  run
@@ -203,9 +201,10 @@ void Clock_fe::run()
         
         if(thermo->test_prev_step() || istep+1==no_steps)
         {
-            thermo->start_force_time();
-            forcefield->force_calc(1,nrgy_strss);
-            thermo->stop_force_time();
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
+            
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,curr_t);
@@ -215,10 +214,12 @@ void Clock_fe::run()
         ord_dt(del_t);
 
         
-        thermo->start_force_time();
-        forcefield->c_d_calc();
+        
+        forcefield->c_d_calc_timer();
+        
+        
         rectify(c_d);
-        thermo->stop_force_time();
+        
         
         memcpy(y,c,dof_lcl*sizeof(type0));
         memcpy(dy,c_d,dof_lcl*sizeof(type0));
@@ -260,14 +261,16 @@ void Clock_fe::solve(type0& del_t)
         for(int i=0;i<dof_lcl;i++)
             c[i]=y[i]+0.5*del_t*dy[i];
         
-        thermo->start_comm_time();
-        atoms->update_ph(c_n);
-        thermo->stop_comm_time();
         
-        thermo->start_force_time();
-        forcefield->c_d_calc();
+        atoms->update_ph(c_n);
+        
+        
+        
+        forcefield->c_d_calc_timer();
+        
+        
         rectify(c_d);
-        thermo->stop_force_time();
+        
         
         err_lcl=0.0;
         for(int i=0;i<dof_lcl;i++)
@@ -300,9 +303,9 @@ void Clock_fe::solve(type0& del_t)
         c[i]=y[i]+del_t*dy[i];
     }
 
-    thermo->start_comm_time();
+    
     atoms->update_ph(c_n);
-    thermo->stop_comm_time();
+    
     
     MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
     eq_ratio=sqrt(eq_ratio/static_cast<type0>(dof_tot))/e_tol;

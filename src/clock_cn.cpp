@@ -197,18 +197,25 @@ void Clock_cn::init()
     
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
-
-    forcefield->create_2nd_neigh_lst();
     
     
-
-    forcefield->force_calc(1,nrgy_strss);
-
+    forcefield->create_2nd_neigh_lst_timer();
+    forcefield->force_calc_timer(1,nrgy_strss);
+    forcefield->c_d_calc_timer();
+    
+    
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(time_idx,0.0);
+    
+    thermo->init();
+    
+    if(write!=NULL)
+        write->init();
+    
     
     t[0]=0.0;
-    thermo->start_force_time();
-    forcefield->c_d_calc();
-    thermo->stop_force_time();
+    
     atoms->vectors[c_n]->ret(c);
     atoms->vectors[c_d_n]->ret(c_d);
     
@@ -230,14 +237,7 @@ void Clock_cn::init()
     memcpy(dy[0],c_d,dof_lcl*sizeof(type0));
     memcpy(dy[1],c_d,dof_lcl*sizeof(type0));
     memcpy(y,c,dof_lcl*sizeof(type0));
-    
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    if(write!=NULL)
-        write->init();
-    thermo->init();
+
     
 }
 /*--------------------------------------------
@@ -248,14 +248,9 @@ void Clock_cn::fin()
     
     if(write!=NULL)
         write->fin();
-    
-    forcefield->fin();
-    neighbor->fin();
-    
-    delete vecs_comm;
     thermo->fin();
-
-    
+    atoms->fin();
+    delete vecs_comm;
 }
 
 /*--------------------------------------------
@@ -321,7 +316,9 @@ void Clock_cn::run()
         
         if(thermo->test_prev_step() || istep+1==no_steps)
         {
-            forcefield->force_calc(1,nrgy_strss);
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,t[0]+del_t);
@@ -411,11 +408,12 @@ type0 Clock_cn::solve(type0 del_t)
 
     
     memcpy(c,y_0,dof_lcl*sizeof(type0));
-    thermo->start_comm_time();
-    atoms->update_ph(c_n);
-    thermo->stop_comm_time();
     
-    curr_cost=forcefield->g_calc(0,beta,a,g);
+    atoms->update_ph(c_n);
+    
+    
+    curr_cost=forcefield->g_calc_timer(0,beta,a,g);
+    
     rectify(g);
     memcpy(h,g,dof_lcl*sizeof(type0));
     
@@ -460,14 +458,15 @@ type0 Clock_cn::solve(type0 del_t)
             for(int i=0;i<dof_lcl;i++)
                 c[i]=c0[i]+max_gamma*h[i];
             
-            thermo->start_comm_time();
-            atoms->update_ph(c_n);
-            thermo->stop_comm_time();
             
-            thermo->start_force_time();
-            curr_cost=forcefield->g_calc(0,beta,a,g);
+            atoms->update_ph(c_n);
+            
+            
+            
+            curr_cost=forcefield->g_calc_timer(0,beta,a,g);
+            
             rectify(g);
-            thermo->stop_force_time();
+            
             
             ideal_cost=cost-slope*max_gamma*g_h;
             if(curr_cost<ideal_cost)
@@ -477,13 +476,13 @@ type0 Clock_cn::solve(type0 del_t)
             {
                 memcpy(c,c0,dof_lcl*sizeof(type0));
                 
-                thermo->start_comm_time();
-                atoms->update_ph(c_n);
-                thermo->stop_comm_time();
                 
-                thermo->start_force_time();
-                curr_cost=forcefield->g_calc(1,beta,a,g);
-                thermo->stop_force_time();
+                atoms->update_ph(c_n);
+                
+                
+                
+                curr_cost=forcefield->g_calc_timer(1,beta,a,g);
+                
             }
         }
         

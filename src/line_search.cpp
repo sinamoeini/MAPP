@@ -1,7 +1,6 @@
 #include "line_search.h"
 #include "ff.h"
 #include "atom_types.h"
-#include "thermo_dynamics.h"
 using namespace std;
 using namespace MAPP_NS;
 /*--------------------------------------------
@@ -165,13 +164,13 @@ type0 LineSearch::energy(type0 alpha)
             for(int i=0;i<(atoms->natms)*x_dim;i++)
                 if(dof[i]==1) x[i]=x_prev[i];
 
-        thermo->start_comm_time();
-        atoms->update(1,vecs_comm);
-        thermo->stop_comm_time();
         
-        thermo->start_force_time();
-        energy=forcefield->energy_calc();
-        thermo->stop_force_time();
+        atoms->update(1,vecs_comm);
+        
+        
+        
+        energy=forcefield->energy_calc_timer();
+        
         
         return energy;
     }
@@ -182,13 +181,13 @@ type0 LineSearch::energy(type0 alpha)
             x[i]=x_prev[i]+alpha*h[i];
 
         
-        thermo->start_comm_time();
-        atoms->update(0,vecs_comm);
-        thermo->stop_comm_time();
         
-        thermo->start_force_time();
-        energy=forcefield->energy_calc();
-        thermo->stop_force_time();
+        atoms->update(0,vecs_comm);
+        
+        
+        
+        energy=forcefield->energy_calc_timer();
+        
         
         return energy;
     }

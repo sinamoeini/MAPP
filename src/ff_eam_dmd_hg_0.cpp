@@ -2583,7 +2583,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::g_calc(int chk
-                                    ,type0 alpha,type0* a,type0* g)
+,type0 alpha,type0* a,type0* g)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);

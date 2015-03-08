@@ -99,19 +99,41 @@ Min_lbfgs::~Min_lbfgs()
  --------------------------------------------*/
 void Min_lbfgs::init()
 {
-    char* vec_name;
     
-    CREATE1D(s_list,m_it);
-    CREATE1D(y_list,m_it);
+    // determine if the there is chng_box
+    chng_box=0;
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            if(H_dof[i][j])
+                chng_box=1;
+    
+    
+    
+    /*
+     make sure the we have all the necessary atomic vecotrs
+     */
     x_dim=atoms->vectors[0]->dim;
+    f_n=atoms->find_exist("f");
+    if(f_n<0)
+        f_n=atoms->add<type0>(0,x_dim,"f");
+    
     if(mapp->mode==DMD_mode)
         c_type_n=atoms->find("c");
     else
         c_type_n=atoms->find("type");
 
-    f_n=atoms->find_exist("f");
-    if(f_n<0)
-        f_n=atoms->add<type0>(0,x_dim,"f");
+    id_n=atoms->find("id");
+    dof_n=atoms->find_exist("dof");
+
+    
+    /*
+     add the new atomic vectors needed for this min style
+     */
+    char* vec_name;
+    
+    CREATE1D(s_list,m_it);
+    CREATE1D(y_list,m_it);
+
     
     for (int i=0;i<m_it;i++)
     {
@@ -130,9 +152,26 @@ void Min_lbfgs::init()
     f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
     h_n=atoms->add<type0>(0,x_dim,"h");
     
-    dof_n=atoms->find_exist("dof");
-    id_n=atoms->find("id");
-
+    
+    /*
+     add the tensors for box if necessary
+     */
+    
+    if(chng_box)
+    {
+        CREATE2D(h_H,dim,dim);
+        CREATE2D(f_H,dim,dim);
+        CREATE2D(f_H_prev,dim,dim);
+        CREATE2D(H_prev,dim,dim);
+        CREATE2D(B_prev,dim,dim);
+    }
+    
+    
+    
+    
+    /*
+     create the vec list fior this run
+     */
     int* tmp_lst;
     int icurs=0;
     
@@ -144,7 +183,7 @@ void Min_lbfgs::init()
         {
             CREATE1D(tmp_lst,2*m_it+8);
             tmp_lst[icurs++]=dof_n;
-
+            
         }
         else if (mapp->mode==DMD_mode)
         {
@@ -170,21 +209,86 @@ void Min_lbfgs::init()
     
     vecs_comm=new VecLst(mapp,tmp_lst,icurs);
     delete [] tmp_lst;
+    /*
+     add the update to vec list
+     */
     vecs_comm->add_update(0);
+    
+    /*
+     initiate the run
+     */
     atoms->init(vecs_comm);
     
     
-    CREATE1D(rho,m_it);
-    CREATE1D(alpha,m_it);
+    /*
+     do the first force calculatation for
+     thermo and write
+     */
+    type0* f;
+    atoms->vectors[f_n]->ret(f);
+    for(int i=0;i<x_dim*atoms->natms;i++)
+        f[i]=0.0;
+    forcefield->force_calc_timer(1,nrgy_strss);
+    rectify_f(f);
+    
+    curr_energy=nrgy_strss[0];
+    thermo->update(pe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    
+    thermo->init();
+    
+    if(write!=NULL)
+        write->init();
+    
+    
+
+    /*
+     create the linesearch
+     */
+
     line_search=new LineSearch_BackTrack(mapp,vecs_comm);
     line_search->h_n=h_n;
-    line_search->thermo=thermo;
+    line_search->chng_box=chng_box;
     
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            if(H_dof[i][j])
-                chng_box=1;
+    if(chng_box)
+    {
+        line_search->h_H=h_H;
+        line_search->f_H=f_H;
+        line_search->H_prev=H_prev;
+        line_search->B_prev=B_prev;
+    }
     
+    /*
+     if there is box change correct the f vector and assign
+     the projections for H
+     */
+
+    if(chng_box)
+    {
+        
+        reg_h_H(f_H,atoms->H);
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+                if(H_dof[i][j]==0)
+                    f_H[i][j]=0.0;
+        
+        int icomp=0;
+        
+        for(int i=0;i<atoms->natms;i++)
+        {
+            for(int j=0;j<dim;j++)
+            {
+                f[icomp+j]=f[icomp+j]*atoms->H[j][j];
+                for(int k=j+1;k<dim;k++)
+                    f[icomp+j]+=atoms->H[k][j]*f[icomp+k];
+            }
+            icomp+=x_dim;
+        }
+    }
+    
+    /*
+     etc stuff
+     */
     
     if(chng_box)
     {
@@ -199,76 +303,13 @@ void Min_lbfgs::init()
         CREATE1D(H_s_y_list,m_it);
         for(int i=0;i<m_it;i++)
             H_s_y_list[i]=i;
-        
-        CREATE2D(h_H,dim,dim);
-        CREATE2D(f_H,dim,dim);
-        CREATE2D(f_H_prev,dim,dim);
-        CREATE2D(H_prev,dim,dim);
-        CREATE2D(B_prev,dim,dim);
-        
-        line_search->h_H=h_H;
-        line_search->f_H=f_H;
-        line_search->H_prev=H_prev;
-        line_search->B_prev=B_prev;
-    }
-    line_search->chng_box=chng_box;
-    
-    type0* f;
-
-    if(chng_box)
-    {
-        type0** H=atoms->H;
-        
-        atoms->vectors[f_n]->ret(f);
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-        
-        forcefield->force_calc(1,nrgy_strss);
-        rectify_f(f);
-        curr_energy=nrgy_strss[0];
-        thermo->update(pe_idx,nrgy_strss[0]);
-        thermo->update(stress_idx,6,&nrgy_strss[1]);
-
-        reg_h_H(f_H,atoms->H);
-        
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-                if(H_dof[i][j]==0)
-                    f_H[i][j]=0.0;
-        
-        int icomp=0;
-        
-        //change f to fractional coordinates
-        for(int i=0;i<atoms->natms;i++)
-        {
-            for(int j=0;j<dim;j++)
-            {
-                f[icomp+j]=f[icomp+j]*H[j][j];
-                for(int k=j+1;k<dim;k++)
-                    f[icomp+j]+=H[k][j]*f[icomp+k];
-            }
-            icomp+=x_dim;
-        }
-
-    }
-    else
-    {
-        atoms->vectors[f_n]->ret(f);
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-        
-        forcefield->force_calc(1,nrgy_strss);
-        rectify_f(f);
-        curr_energy=nrgy_strss[0];
-        thermo->update(pe_idx,nrgy_strss[0]);
-        thermo->update(stress_idx,6,&nrgy_strss[1]);
-        
     }
     
-    if(write!=NULL)
-        write->init();
+    CREATE1D(rho,m_it);
+    CREATE1D(alpha,m_it);
+
     
-    thermo->init();
+
 }
 /*--------------------------------------------
  run
@@ -434,9 +475,9 @@ void Min_lbfgs::run()
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
             
-            thermo->start_force_time();
-            forcefield->force_calc(1,nrgy_strss);
-            thermo->stop_force_time();
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
             
             rectify_f(f);
             if(thermo->test_prev_step() || err)
@@ -646,9 +687,9 @@ void Min_lbfgs::run()
             
             if(thermo->test_prev_step() || err)
             {
-                thermo->start_force_time();
-                forcefield->force_calc(1,nrgy_strss);
-                thermo->stop_force_time();
+                
+                forcefield->force_calc_timer(1,nrgy_strss);
+                
                 
                 rectify_f(f);
                 thermo->update(pe_idx,nrgy_strss[0]);
@@ -657,9 +698,9 @@ void Min_lbfgs::run()
             }
             else
             {
-                thermo->start_force_time();
-                forcefield->force_calc(0,&curr_energy);
-                thermo->stop_force_time();
+                
+                forcefield->force_calc_timer(0,&curr_energy);
+                
                 
                 rectify_f(f);
             }
@@ -743,14 +784,73 @@ void Min_lbfgs::run()
  --------------------------------------------*/
 void Min_lbfgs::fin()
 {
-    forcefield->fin();
-    neighbor->fin();
+    
+    if(m_it)
+    {
+        delete [] rho;
+        delete [] alpha;
+    }
+    
+    
+    if(chng_box)
+    {
+        for(int i=0;i<m_it;i++)
+        {
+            for(int j=0;j<dim;j++)
+            {
+                delete [] H_y[i][j];
+                delete [] H_s[i][j];
+            }
+            
+            delete [] H_y[i];
+            delete [] H_s[i];
+        }
+        delete [] H_y;
+        delete [] H_s;
+        
+        if(m_it)
+            delete [] H_s_y_list;
+        
+    }
+    
+    
+    delete line_search;
+    if(write!=NULL)
+        write->fin();
+    thermo->fin();
+    errors();
+    atoms->fin();
+    
+    delete vecs_comm;
+    
+    if(chng_box)
+    {
+        for(int i=0;i<dim;i++)
+            delete [] f_H_prev[i];
+        delete [] f_H_prev;
+        
+        for(int i=0;i<dim;i++)
+            delete [] f_H[i];
+        delete [] f_H;
+        
+        for(int i=0;i<dim;i++)
+            delete [] h_H[i];
+        delete [] h_H;
+        
+        for(int i=0;i<dim;i++)
+            delete [] H_prev[i];
+        delete [] H_prev;
+        
+        for(int i=0;i<dim;i++)
+            delete [] B_prev[i];
+        delete [] B_prev;
+        
+    }
+    
+    
     atoms->del(h_n);
     atoms->del(f_prev_n);
     atoms->del(x_prev_n);
-    
-    delete line_search;
-    delete vecs_comm;
     
     int tmp;
     
@@ -782,59 +882,15 @@ void Min_lbfgs::fin()
             atoms->del(y_list[i]);
             atoms->del(s_list[i]);
         }
-        
-        delete [] s_list;
-        delete [] y_list;
-        
-        delete [] rho;
-        delete [] alpha;
     }
 
- 
-    if(chng_box)
+    if(m_it)
     {
-        for(int i=0;i<m_it;i++)
-        {
-            for(int j=0;j<dim;j++)
-            {
-                delete [] H_y[i][j];
-                delete [] H_s[i][j];
-            }
-            
-            delete [] H_y[i];
-            delete [] H_s[i];
-        }
-        delete [] H_y;
-        delete [] H_s;
-        
-        for(int i=0;i<dim;i++)
-            delete [] f_H_prev[i];
-        delete [] f_H_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] f_H[i];
-        delete [] f_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] h_H[i];
-        delete [] h_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] H_prev[i];
-        delete [] H_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] B_prev[i];
-        delete [] B_prev;
-        
-        if(m_it)
-            delete [] H_s_y_list;
+        delete [] s_list;
+        delete [] y_list;
     }
+
     
-    if(write!=NULL)
-        write->fin();
-    
-    thermo->fin();
-    errors();
+
 }
 

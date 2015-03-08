@@ -17,6 +17,7 @@ namespace MAPP_NS{
         mapp(ptr),
         memory(ptr->memory),
         error(ptr->error),
+        timer(ptr->timer),
         forcefield(ptr->forcefield),
         world(ptr->world),
         atoms(ptr->atoms),
@@ -32,6 +33,7 @@ namespace MAPP_NS{
         MAPP* mapp;
         Memory*& memory;
         Error*& error;
+        Timer*& timer;
         ForceField*& forcefield;
         MPI_Comm &world;
         Neighbor*& neighbor;

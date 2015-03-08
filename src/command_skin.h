@@ -4,7 +4,7 @@
 #ifndef __MAPP__command_skin__
 #define __MAPP__command_skin__
 
-#include <iostream>
+#include <stdlib.h>
 #include "init.h"
 namespace MAPP_NS
 {

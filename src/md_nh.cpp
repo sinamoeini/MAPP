@@ -396,7 +396,9 @@ void MD_nh::init()
     dt2=0.5*dt;
     dt4=0.25*dt;
     dt8=0.125*dt;
-    x_n=atoms->find("x");
+
+    
+    
     type_n=atoms->find("type");
     id_n=atoms->find("id");
     
@@ -414,6 +416,11 @@ void MD_nh::init()
     if(f_n<0)
         f_n=atoms->add<type0>(0,3,"f");
     
+    
+    x_dim=atoms->vectors[0]->dim;
+    x_d_dim=atoms->vectors[x_d_n]->dim;
+    f_dim=atoms->vectors[f_n]->dim;
+    
     /*
      0. set the atomic vectors communication
      we need force and type in addition to
@@ -425,22 +432,6 @@ void MD_nh::init()
      appropriate size
      */
     dof_n=atoms->find_exist("dof");
-    if(dof_n>-1)
-        vecs_comm=new VecLst(mapp,5,x_n,x_d_n,type_n,id_n,dof_n);
-    else
-        vecs_comm=new VecLst(mapp,4,x_n,x_d_n,type_n,id_n);
-    
-    if(chk_stress)
-    {
-        omega_denom=chk_tau[0]*atoms->tot_natms
-        +chk_tau[1]*atoms->tot_natms
-        +chk_tau[2]*atoms->tot_natms;
-    }
-
-    x_dim=atoms->vectors[x_n]->dim;
-    x_d_dim=atoms->vectors[x_d_n]->dim;
-    f_dim=atoms->vectors[f_n]->dim;
-    
     if(dof_n!=-1)
     {
         char* dof;
@@ -465,22 +456,37 @@ void MD_nh::init()
         MPI_Allreduce(&tmp_0,&tmp_all_0,1,MPI_INT,MPI_SUM,world);
         MPI_Allreduce(&tmp_1,&tmp_all_1,1,MPI_INT,MPI_SUM,world);
         MPI_Allreduce(&tmp_2,&tmp_all_2,1,MPI_INT,MPI_SUM,world);
-
+        
         no_dof-=static_cast<type0>(tmp_all_0+tmp_all_1+tmp_all_2);
         
         if(chk_stress)
             omega_denom-=chk_tau[0]*tmp_all_0
             +chk_tau[1]*tmp_all_1+chk_tau[2]*tmp_all_2;
         
-       
+        
+    }
+    else
+    {
+        if(chk_stress)
+        {
+            omega_denom=chk_tau[0]*atoms->tot_natms
+            +chk_tau[1]*atoms->tot_natms
+            +chk_tau[2]*atoms->tot_natms;
+        }
     }
     
     if(no_dof==0.0)
         error->abort("degrees of freedom shoud be greater than 0 for md nh");
     
     
-        
-    vecs_comm->add_update(x_n);
+    if(dof_n>-1)
+        vecs_comm=new VecLst(mapp,5,0,x_d_n,type_n,id_n,dof_n);
+    else
+        vecs_comm=new VecLst(mapp,4,0,x_d_n,type_n,id_n);
+    
+
+    vecs_comm->add_update(0);
+    
     atoms->init(vecs_comm);
 
     if(chk_create_vel)
@@ -490,20 +496,22 @@ void MD_nh::init()
     
     zero_f();
     
+    forcefield->force_calc_timer(1,nrgy_strss);
     
-
-    forcefield->force_calc(1,nrgy_strss);
-
     thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(ke_idx,ke_cur);
     thermo->update(temp_idx,t_cur);
-    if(chk_stress)
-        for(int i=0;i<6;i++)
-            v_per_atm[i]=-nrgy_strss[i+1];
+
+    thermo->init();
+    
+    if(write!=NULL)
+        write->init();
+    
+    
+    
     
 
-    
     for (int i=0;i<no_ch_eta;i++)
         eta_m[i] = boltz * t_tar/(t_freq*t_freq);
     eta_m[0]*=no_dof;
@@ -517,6 +525,8 @@ void MD_nh::init()
     
     if(chk_stress)
     {
+        for(int i=0;i<6;i++)
+            v_per_atm[i]=-nrgy_strss[i+1];
        
         for (int i=0;i<no_ch_peta;i++)
             peta_m[i] = boltz * t_tar/(tau_freq_m*tau_freq_m);
@@ -535,23 +545,18 @@ void MD_nh::init()
     }
     
     
-    thermo->init();
-    if(write!=NULL)
-        write->init();
+
 }
 /*--------------------------------------------
  finalize after the run is complete
  --------------------------------------------*/
 void MD_nh::fin()
 {
-    thermo->fin();
     if(write!=NULL)
         write->fin();
-    if(atoms->my_p_no==0)
-        fprintf(output,"\n");
+    thermo->fin();
+    atoms->fin();
     
-    forcefield->fin();
-    neighbor->fin();
     delete vecs_comm;
 }
 /*--------------------------------------------
@@ -571,16 +576,18 @@ void MD_nh::run(int no_stps)
             update_x_d_xpnd(dt2);
             update_x_d(dt2);
             update_x(dt);
-            thermo->start_comm_time();
+            
             atoms->update(1,vecs_comm);
-            thermo->stop_comm_time();
+            
             zero_f();
             thermo->thermo_print();
             if(write!=NULL)
                 write->write();
-            thermo->start_force_time();
-            forcefield->force_calc(1,nrgy_strss);
-            thermo->stop_force_time();
+            
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
+            
             for (int j=0;j<6;j++)
                 v_per_atm[j]=-nrgy_strss[1+j];
             
@@ -613,9 +620,9 @@ void MD_nh::run(int no_stps)
             update_x_d(dt2);
             update_x(dt);
             
-            thermo->start_comm_time();
+            
             atoms->update(0,vecs_comm);
-            thermo->stop_comm_time();
+            
             
             zero_f();
             thermo->thermo_print();
@@ -624,9 +631,9 @@ void MD_nh::run(int no_stps)
             
             if(thermo->test_prev_step()|| i==no_stps-1)
             {
-                thermo->start_force_time();
-                forcefield->force_calc(1,&nrgy_strss[0]);
-                thermo->stop_force_time();
+                
+                forcefield->force_calc_timer(1,&nrgy_strss[0]);
+                
                 for (int j=0;j<6;j++)
                     nrgy_strss[1+j]-=ke_curr[j];
                 thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -637,9 +644,9 @@ void MD_nh::run(int no_stps)
             }
             else
             {
-                thermo->start_force_time();
-                forcefield->force_calc(0,&nrgy_strss[0]);
-                thermo->stop_force_time();
+                
+                forcefield->force_calc_timer(0,&nrgy_strss[0]);
+                
             }
 
             update_x_d(dt2);
@@ -766,7 +773,7 @@ void MD_nh::update_H(type0 dlt)
 void MD_nh::update_x(type0 dlt)
 {
     type0* x;
-    atoms->vectors[x_n]->ret(x);
+    atoms->vectors[0]->ret(x);
     
     type0* x_d;
     atoms->vectors[x_d_n]->ret(x_d);

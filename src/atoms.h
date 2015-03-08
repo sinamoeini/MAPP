@@ -69,7 +69,10 @@ namespace MAPP_NS
     class SwapLst : protected InitPtrs
     {
     private:
-        int* snd_list_capacity;
+        int* snd_list_capacity;        
+        char* del_buff;
+        int del_buff_capacity;
+        
     protected:
     public:
         int** snd_list;
@@ -93,6 +96,8 @@ namespace MAPP_NS
         void add(int&,int&);
         void reset();
         void reset(int);
+        
+        int rectify(char*,int*);
         
     };
 }
@@ -192,6 +197,8 @@ namespace MAPP_NS {
         virtual void unpack_ph(char*,int&)=0;
         virtual void unpack_ph(char*,int&,int)=0;
         
+        virtual void del(int*,int)=0;
+        virtual void del(char*)=0;
         
         
         virtual void resize(int)=0;
@@ -250,6 +257,8 @@ namespace MAPP_NS
         void grow(int);
         void print_dump(FILE*,int);
         
+        void del(int*,int);
+        void del(char*);
     };
 }
 /*---------------------------------------------------------------------------
@@ -300,7 +309,7 @@ namespace MAPP_NS
  ---------------------------------------------------------------------------*/
 namespace MAPP_NS
 {
-    enum {BASIC_mode,TYPE_mode};
+    enum {COMM_MODE_0,COMM_MODE_1,COMM_MODE_2,COMM_MODE_3,COMM_MODE_4,COMM_MODE_5};
     class Atoms:protected InitPtrs
     {
     private:
@@ -317,21 +326,21 @@ namespace MAPP_NS
         char* rcv_ph_buff;
         int rcv_ph_buff_capacity;
         
+        int* old2new;
+        int old2new_capacity;
+        
         // to manage the size of above buffers
-        inline void buff_size_management(char*&,int&,int);
+        template <typename TYPE>
+        inline void buff_size_management(TYPE*&,int&,int);
   
         void grow(int,int,class VecLst*);
         
         int** comm_need;
         SwapLst* ph_lst;
         
-        
-        void set_max_cutoff(type0);
         void xchng_cmplt(int,class VecLst*);
         void xchng_prtl(int,class VecLst*);
         
-        void setup_ph_basic(int,class VecLst*);
-        void setup_ph_type(int,class VecLst*);
         void xchng_ph(int,class VecLst*);
         void xchng_ph(int,int* vec_list,int,int);
         
@@ -352,11 +361,26 @@ namespace MAPP_NS
 
         
         inline void setup_comm_need();
-                
+               
+
+        void setup_ph_n_neighbor(int,class VecLst*);
+        
+        void pre_pre_setup_ph(int);
+        
+        void pre_setup_ph();
+        
+        void setup_ph_0(class VecLst*);
+        void setup_ph_1(class VecLst*);
+
+        void post_setup_ph_0(class VecLst*);
+        void post_setup_ph_1(class VecLst*);
+
+
+        
     protected:
     public:
-        
-        int atom_mode;
+        int no_neigh_list_created;
+        int comm_mode;
         /*-----------------------------------------------*/
         /* begining of atomic vectors related properties */
         // number of my processor owned atoms
@@ -367,19 +391,17 @@ namespace MAPP_NS
         int tot_natms;
 
         // the maximim available size of non-phantom vectors (atms unit)
-        // natms<=atm_vec_size ALL THE TIME
-        int atm_vec_size;
+        // natms<=avec_size ALL THE TIME
+        int avec_size;
         // the maximim available size of phantom vectors (atms unit)
-        // natms+natms_ph<=atm_vec_ph_size ALL THE TIME
-        int atm_vec_ph_size;
+        // natms+natms_ph<=avec_ph_size ALL THE TIME
+        int avec_ph_size;
         /* end of atomic vectors related properties */
         
         // pointer to all the atomic vectors
         Avec** vectors;
         // number of atomic vectors
         int no_vecs;
-        // sum of the dimension of all atomic vectors (byte unit) (MIGHT BE USELESS)
-        int tot_byte_size;
         /* end of atomic vectors related properties */
         /*------------------------------------------*/
         
@@ -411,20 +433,18 @@ namespace MAPP_NS
         int no_types;
         int type_n;
         type0* s_bound;
-        type0** s_lo_type;
-        type0** s_hi_type;
         type0** s_ph_lo_type;
         type0** s_ph_hi_type;
-        
-        
+        type0** s_ph_lo_type_orig;
+        type0** s_ph_hi_type_orig;
 
         // skin size which is the same as the skin size in neghborlist
         type0 skin;
         // thickness of extra layer to define the local phantom domain (length unit)
         // tot_cut_ph = skin + maximum cutoff
-        type0 tot_cut_ph;
+        type0 max_cut;
         // thickness of extra layer to define the local phantom domain (s unit)
-        type0* cut_ph_s;
+        type0* max_cut_s;
         /* end of box box properties */
         /*---------------------------*/
         
@@ -513,6 +533,8 @@ namespace MAPP_NS
          */
         void update(int,class VecLst*);
         
+        void fin();
+        
         /*
          exchange atoms untill everybody
          has their own atoms
@@ -586,6 +608,20 @@ int Atoms::add(int ph,int dim,const char* name)
     }
     
     return no_vecs-1;
+}
+/*--------------------------------------------
+ buffer size management
+ --------------------------------------------*/
+template<typename T>
+inline void Atoms::buff_size_management(T*& buff
+,int& curr_size,int size_needed)
+{
+    if(size_needed<curr_size)
+        return;
+    if(curr_size)
+        delete [] buff;
+    CREATE1D(buff,size_needed);
+    curr_size=size_needed;
 }
 /*---------------------------------------------------------------------------
       ___   _     _   _____   _____
@@ -695,9 +731,9 @@ AVec_<T>::AVec_(MAPP* mapp,int phantom
     }
     
     if(ph)
-        CREATE1D(vec,dim*atoms->atm_vec_ph_size);
+        CREATE1D(vec,dim*atoms->avec_ph_size);
     else
-        CREATE1D(vec,dim*atoms->atm_vec_size);
+        CREATE1D(vec,dim*atoms->avec_size);
 }
 /*--------------------------------------------
  destructor
@@ -708,12 +744,12 @@ AVec_<T>::~AVec_()
     
     if(ph)
     {
-        if(atoms->atm_vec_ph_size)
+        if(atoms->avec_ph_size)
             delete [] vec;
     }
     else
     {
-        if(atoms->atm_vec_size)
+        if(atoms->avec_size)
             delete [] vec;
     }
     
@@ -816,12 +852,12 @@ void AVec_<T>::change_dimension(int d)
     if(ph==0)
     {
         tot=atoms->natms;
-        max_size=atoms->atm_vec_size;
+        max_size=atoms->avec_size;
     }
     else
     {
         tot=atoms->natms+atoms->natms_ph;
-        max_size=atoms->atm_vec_ph_size;
+        max_size=atoms->avec_ph_size;
     }
     
     T* new_vec;
@@ -866,6 +902,7 @@ void AVec_<T>::copy(int iatm,int jatm)
 template<typename T>
 void AVec_<T>::copy2bottom(int* lst,int no)
 {
+    
     no--;
     while(no>-1)
     {
@@ -926,6 +963,9 @@ void AVec_<T>::unpack_ph(char* buff,int& buff_pos)
 /*--------------------------------------------
  pack a list without removing it from the
  atomic vector
+ pack(buff,buff_pos,atm_list,atm_list_size)
+ used by pack_ph pack_ph(char*&,class VecLst*
+ ,int*,int)
  --------------------------------------------*/
 template<typename T>
 void AVec_<T>::pack(char* buff,int& buff_pos,int* lst,int no)
@@ -963,6 +1003,7 @@ void AVec_<T>::unpack(char* buff,int& buff_pos,int xtra_natms)
 }
 /*--------------------------------------------
  unpack the phantom atoms
+ used by unpack_ph(char*&,class VecLst*,int)
  --------------------------------------------*/
 template<typename T>
 void AVec_<T>::unpack_ph(char* buff,int& buff_pos,int xtra_natms)
@@ -979,14 +1020,14 @@ void AVec_<T>::resize(int xtra_natms)
     
     if(ph)
     {
-        if(atoms->atm_vec_ph_size)
+        if(atoms->avec_ph_size)
             delete [] vec;
-        xtra_natms+=atoms->atm_vec_ph_size;
+        xtra_natms+=atoms->avec_ph_size;
     }
     else
     {
-        xtra_natms+=atoms->atm_vec_size;
-        if(atoms->atm_vec_size)
+        xtra_natms+=atoms->avec_size;
+        if(atoms->avec_size)
             delete [] vec;
     }
     
@@ -1002,13 +1043,13 @@ void AVec_<T>::grow(int xtra_natms)
     
     if(ph)
     {
-        xtra_natms+=atoms->atm_vec_ph_size;
-        GROW(vec,dim*atoms->atm_vec_ph_size,dim*xtra_natms);
+        xtra_natms+=atoms->avec_ph_size;
+        GROW(vec,dim*atoms->avec_ph_size,dim*xtra_natms);
     }
     else
     {
-        xtra_natms+=atoms->atm_vec_size;
-        GROW(vec,dim*atoms->atm_vec_size,dim*xtra_natms);
+        xtra_natms+=atoms->avec_size;
+        GROW(vec,dim*atoms->avec_size,dim*xtra_natms);
     }
     
 }
@@ -1034,4 +1075,62 @@ void AVec_<T>::unpack(char* buff,int& buff_pos,int stride,int xtra_natms)
     }
     buff_pos+=byte_size-stride*xtra_natms;
 }
+/*--------------------------------------------
+ del a list of atoms
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::del(int* list,int list_size)
+{
+    if(list_size)
+    {
+        int start=list[0];
+        int size;
+        for(int i=0;i<list_size;i++)
+        {
+            if(i==list_size-1)
+                size=atoms->natms+atoms->natms_ph-list[i]-1;
+            else
+                size=list[i+1]-list[i]-1;
+            
+            if(size)
+            {
+                memcpy(&vec[start*dim],&vec[(list[i]+1)*dim],size*byte_size);
+            }
+            start+=size;
+        }
+
+    }
+}
+/*--------------------------------------------
+ del a list of atoms
+ --------------------------------------------*/
+template<typename T>
+void AVec_<T>::del(char* mark)
+{
+    if(atoms->natms_ph)
+    {
+        int icurs,strt,istrt,isize;
+        icurs=0;
+        while (mark[icurs]=='1'&&icurs<atoms->natms_ph)
+            icurs++;
+        strt=icurs+atoms->natms;
+        
+        while(icurs<atoms->natms_ph)
+        {
+            while (mark[icurs]=='0'&&icurs<atoms->natms_ph)
+                icurs++;
+            istrt=icurs;
+            
+            while (mark[icurs]=='1'&&icurs<atoms->natms_ph)
+                icurs++;
+            isize=icurs-istrt;
+            istrt+=atoms->natms;
+            
+            if(isize)
+                memcpy(&vec[strt*dim],&vec[istrt*dim],isize*byte_size);
+            strt+=isize;
+        }
+    }
+}
+
 #endif

@@ -75,6 +75,17 @@ Min_cg::~Min_cg()
  --------------------------------------------*/
 void Min_cg::init()
 {
+    // determine if the there is chng_box
+    chng_box=0;
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            if(H_dof[i][j])
+                chng_box=1;
+    
+    
+    /*
+     make sure the we have all the necessary atomic vecotrs
+     */
     x_dim=atoms->vectors[0]->dim;
     f_n=atoms->find_exist("f");
     if(f_n<0)
@@ -85,13 +96,33 @@ void Min_cg::init()
     else
         c_type_n=atoms->find("type");
     
+    id_n=atoms->find("id");
+    dof_n=atoms->find_exist("dof");
+    
+    /*
+     add the new atomic vectors needed for this min style
+     */
+    
     x_prev_n=atoms->add<type0>(0,x_dim,"x_prev");
     f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
     h_n=atoms->add<type0>(0,x_dim,"h");
-
-    id_n=atoms->find("id");
     
-    dof_n=atoms->find_exist("dof");
+    /*
+     add the tensors for box if necessary
+     */
+
+    if(chng_box)
+    {
+        CREATE2D(h_H,dim,dim);
+        CREATE2D(f_H,dim,dim);
+        CREATE2D(f_H_prev,dim,dim);
+        CREATE2D(H_prev,dim,dim);
+        CREATE2D(B_prev,dim,dim);
+    }
+    
+    /*
+     create the vec list fior this run
+     */
     if(dof_n<0)
         vecs_comm=new VecLst(mapp,7,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,id_n);
     else
@@ -100,95 +131,92 @@ void Min_cg::init()
             vecs_comm=new VecLst(mapp,8,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,id_n);
         else
         {
-            cdof_n=atoms->find_exist("cdof");
+            cdof_n=atoms->find("cdof");
             vecs_comm=new VecLst(mapp,9,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,cdof_n,id_n);
         }
     }
+    /*
+     add the update to vec list
+     */
     vecs_comm->add_update(0);
+    
+    /*
+     initiate the run
+     */
     atoms->init(vecs_comm);
 
+
+    /*
+     do the first force calculatation for 
+     thermo and write
+     */
+    type0* f;
+    atoms->vectors[f_n]->ret(f);
+    for(int i=0;i<x_dim*atoms->natms;i++)
+        f[i]=0.0;
+    forcefield->force_calc_timer(1,nrgy_strss);
+    rectify_f(f);
     
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            if(H_dof[i][j])
-                chng_box=1;
+    curr_energy=nrgy_strss[0];
+    thermo->update(pe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
     
+    thermo->init();
+    
+    if(write!=NULL)
+        write->init();
+    
+
+    
+    
+    
+    /*
+     create the linesearch
+     */
+
     line_search=new LineSearch_BackTrack(mapp,vecs_comm);
     line_search->h_n=h_n;
-    line_search->thermo=thermo;
     line_search->chng_box=chng_box;
     
     if(chng_box)
     {
-        CREATE2D(h_H,dim,dim);
-        CREATE2D(f_H,dim,dim);
-        CREATE2D(f_H_prev,dim,dim);
-        CREATE2D(H_prev,dim,dim);
-        CREATE2D(B_prev,dim,dim);
-        
         line_search->h_H=h_H;
         line_search->f_H=f_H;
         line_search->H_prev=H_prev;
         line_search->B_prev=B_prev;
     }
     
-    type0* f;
+    
+    /*
+     if there is box change correct the f vector and assign
+     the projections for H
+     */
+    
     if(chng_box)
     {
-
-        type0** H=atoms->H;
         
-        atoms->vectors[f_n]->ret(f);
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-        
-        forcefield->force_calc(1,nrgy_strss);
-        
-        rectify_f(f);
-        curr_energy=nrgy_strss[0];
-        thermo->update(pe_idx,nrgy_strss[0]);
-        thermo->update(stress_idx,6,&nrgy_strss[1]);
-
         reg_h_H(f_H,atoms->H);
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
                 if(H_dof[i][j]==0)
                     f_H[i][j]=0.0;
-                
+    
         int icomp=0;
         
         for(int i=0;i<atoms->natms;i++)
         {
             for(int j=0;j<dim;j++)
             {
-                f[icomp+j]=f[icomp+j]*H[j][j];
+                f[icomp+j]=f[icomp+j]*atoms->H[j][j];
                 for(int k=j+1;k<dim;k++)
-                    f[icomp+j]+=H[k][j]*f[icomp+k];
+                    f[icomp+j]+=atoms->H[k][j]*f[icomp+k];
             }
             icomp+=x_dim;
         }
-
     }
-    else
-    {
-        atoms->vectors[f_n]->ret(f);
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-        forcefield->force_calc(1,nrgy_strss);
-        rectify_f(f);
-        curr_energy=nrgy_strss[0];
-        thermo->update(pe_idx,nrgy_strss[0]);
-        thermo->update(stress_idx,6,&nrgy_strss[1]);
-        
 
-        
-    }
     
-    if(write!=NULL)
-        write->init();
-    
-    thermo->init();
-    
+
 
 }
 /*--------------------------------------------
@@ -285,9 +313,10 @@ void Min_cg::run()
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
             
-            thermo->start_force_time();
-            forcefield->force_calc(1,nrgy_strss);
-            thermo->stop_force_time();
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
+            
             rectify_f(f);
             
             if(thermo->test_prev_step() || err)
@@ -449,9 +478,10 @@ void Min_cg::run()
             for(int i=0;i<x_dim*atoms->natms;i++)
                 f[i]=0.0;
             
-            thermo->start_force_time();
-            forcefield->force_calc(1,nrgy_strss);
-            thermo->stop_force_time();
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
+            
             rectify_f(f);
             
             if(thermo->test_prev_step() || err)
@@ -462,9 +492,9 @@ void Min_cg::run()
             }
             else
             {
-                thermo->start_force_time();
-                forcefield->force_calc(0,&curr_energy);
-                thermo->stop_force_time();
+                
+                forcefield->force_calc_timer(0,&curr_energy);
+                
                 
                 rectify_f(f);
             }
@@ -513,16 +543,14 @@ void Min_cg::run()
  --------------------------------------------*/
 void Min_cg::fin()
 {
-    
-    forcefield->fin();
-    neighbor->fin();
-    
-    atoms->del(h_n);
-    atoms->del(f_prev_n);
-    atoms->del(x_prev_n);
+    delete line_search;
+    if(write!=NULL)
+        write->fin();
+    thermo->fin();
+    errors();
+    atoms->fin();
 
     delete vecs_comm;
-    delete line_search;
     
     if(chng_box)
     {
@@ -547,11 +575,10 @@ void Min_cg::fin()
         delete [] B_prev;
 
     }
+
+    atoms->del(h_n);
+    atoms->del(f_prev_n);
+    atoms->del(x_prev_n);
     
-    if(write!=NULL)
-        write->fin();
-    
-    thermo->fin();
-    errors();
     
 }

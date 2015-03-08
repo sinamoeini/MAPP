@@ -1,6 +1,6 @@
-#include "command_atom_mode.h"
 #include "command_boltzmann.h"
 #include "command_change_box.h"
+#include "command_comm_mode.h"
 #include "command_del_write.h"
 #include "command_displace.h"
 #include "command_ff_coef.h"

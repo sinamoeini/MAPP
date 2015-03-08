@@ -5,6 +5,7 @@
 #include "MAPP.h"
 #include "memory.h"
 #include "error.h"
+#include "timer.h"
 #include "atoms.h"
 #include "neighbor.h"
 #include "atom_types.h"
@@ -40,6 +41,8 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     
     error = new Error(this);
     memory = new Memory(this);
+    timer = new Timer(this);
+    
     atoms = new Atoms(this);
     atom_types = new AtomTypes(this);
     neighbor = new Neighbor(this);
@@ -61,6 +64,7 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     input_file=NULL;
     input_file=stdin;
     
+
     int iarg=1;
     while(iarg<narg)
     {
@@ -94,7 +98,7 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     if(input_file!=stdin)
         fclose(input_file);
     
-    
+
     
     test();
 
@@ -120,6 +124,8 @@ MAPP::~MAPP()
     delete neighbor;
     delete atom_types;
     delete atoms;
+    
+    delete timer;
     delete error;
     delete memory;
 }
@@ -565,6 +571,5 @@ void MAPP::concatenate(int narg,char** args
  --------------------------------------------*/
 void MAPP::test()
 {
-
 }
 

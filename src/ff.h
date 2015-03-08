@@ -13,22 +13,34 @@ namespace MAPP_NS {
     private:
         int cut_alloc;
         int ns_alloc;
+
+        
     protected:
         type0* nrgy_strss;
     public:
         ForceField(MAPP *);
         virtual ~ForceField();
-        virtual void force_calc(int,type0*){};
-        virtual type0 energy_calc()=0;
+
+        
         virtual void init(){};
         virtual void fin(){};
-        virtual void coef(int,char**){};
+        virtual void coef(int,char**)=0;
         type0* cut_sq;
         type0* cut_sk_sq;
-        
-        virtual void create_2nd_neigh_lst(){};
+
+
+        virtual void force_calc(int,type0*)=0;
+        virtual type0 energy_calc()=0;
+        virtual void create_2nd_neigh_lst()=0;
         virtual type0 g_calc(int,type0,type0*,type0*)=0;
-        virtual void c_d_calc(){};
+        virtual void c_d_calc()=0;
+        
+        void force_calc_timer(int,type0*);
+        type0 energy_calc_timer();
+        type0 g_calc_timer(int,type0,type0*,type0*);
+        void c_d_calc_timer();
+        void create_2nd_neigh_lst_timer();
+        
     };
 }
 #endif

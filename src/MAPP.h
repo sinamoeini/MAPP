@@ -26,6 +26,7 @@ namespace MAPP_NS {
         int step_tally;
         class Memory* memory;
         class Error* error;
+        class Timer* timer;
         class PerAtom* peratom;
         class ForceField* forcefield;
         class Atoms* atoms;

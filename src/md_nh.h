@@ -15,7 +15,7 @@
 namespace MAPP_NS {
     class MD_nh : public MD{
     private:
-        int x_n,x_d_n,f_n,type_n,id_n,dof_n;
+        int x_d_n,f_n,type_n,id_n,dof_n;
         type0 MTK_1,MTK_2;
         type0 ke_cur,ke_tar,t_tar,t_cur;
         type0* ke_curr;

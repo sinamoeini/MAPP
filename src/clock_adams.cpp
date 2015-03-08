@@ -1,4 +1,3 @@
-
 #include "clock_adams.h"
 #include "neighbor.h"
 #include "ff.h"
@@ -135,11 +134,10 @@ void Clock_adams::init()
     
     atoms->init(vecs_comm);
 
-    forcefield->create_2nd_neigh_lst();
     
+    forcefield->create_2nd_neigh_lst_timer();
+    forcefield->force_calc_timer(1,nrgy_strss);
     
-
-    forcefield->force_calc(1,nrgy_strss);
     
     thermo->update(fe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -164,15 +162,11 @@ void Clock_adams::fin()
     
     if(write!=NULL)
         write->fin();
-    
-    forcefield->fin();
-    neighbor->fin();
+    thermo->fin();
+    atoms->fin();
     
     delete vecs_comm;
-    thermo->fin();
-    if(atoms->my_p_no==0)
-        printf("ave. err.: %5.4e\n",ave_err);
-    
+
 }
 /*--------------------------------------------
  init
@@ -213,7 +207,9 @@ void Clock_adams::run()
         
         if(thermo->test_prev_step()|| istep+1==no_steps)
         {
-            forcefield->force_calc(1,nrgy_strss);
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,curr_err);
@@ -250,11 +246,14 @@ type0 Clock_adams::solve(type0 bet)
     min_gamma=1.0e-16;
     int chk;
     
-    curr_cost=forcefield->g_calc(0,delta_t*bet,a,g);
+    
+    curr_cost=forcefield->g_calc_timer(0,delta_t*bet,a,g);
+    
     
     type0 tot_ratio;
     
-    forcefield->c_d_calc();
+    forcefield->c_d_calc_timer();
+    
     ratio=1.0;
     
     for(int i=0;i<tot_dim;i++)
@@ -312,7 +311,8 @@ type0 Clock_adams::solve(type0 bet)
             
             atoms->update_ph(c_n);
             
-            curr_cost=forcefield->g_calc(1,delta_t*bet,a,g);
+            curr_cost=forcefield->g_calc_timer(1,delta_t*bet,a,g);
+            
             ideal_cost=cost-slope*max_gamma*g_h;
             if(curr_cost<ideal_cost)
                 chk=0;
@@ -324,7 +324,7 @@ type0 Clock_adams::solve(type0 bet)
             }
         }
         
-        curr_cost=forcefield->g_calc(0,delta_t*bet,a,g);
+        curr_cost=forcefield->g_calc_timer(0,delta_t*bet,a,g);
         
         
         inner=0.0;

@@ -41,7 +41,6 @@ namespace MAPP_NS
         type0** h_H;
         type0** f_H;
         int chng_box;
-        ThermoDynamics* thermo;
         LineSearch(MAPP *,VecLst*);
         virtual ~LineSearch()=0;
         virtual int line_min(type0&,type0&)=0;

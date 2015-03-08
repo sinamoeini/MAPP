@@ -4,6 +4,7 @@
  --------------------------------------------*/
 #include "ff.h"
 #include "atom_types.h"
+#include "timer.h"
 using namespace MAPP_NS;
 using namespace std;
 /*--------------------------------------------
@@ -51,4 +52,55 @@ ForceField::~ForceField()
     if(ns_alloc)
         delete [] nrgy_strss;
 }
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceField::force_calc_timer(int chk,type0* enst)
+{
+    timer->start(FORCE_TIME_mode);
+    force_calc(chk,enst);
+    timer->stop(FORCE_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+type0 ForceField::energy_calc_timer()
+{
+    type0 en;
+    timer->start(FORCE_TIME_mode);
+    en=energy_calc();
+    timer->stop(FORCE_TIME_mode);
+    return en;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+type0 ForceField::g_calc_timer(int chk
+,type0 alpha,type0* a,type0* g)
+{
+    type0 en;
+    timer->start(FORCE_TIME_mode);
+    en=g_calc_timer(chk,alpha,a,g);
+    timer->stop(FORCE_TIME_mode);
+    return en;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceField::c_d_calc_timer()
+{
+    timer->start(FORCE_TIME_mode);
+    c_d_calc();
+    timer->stop(FORCE_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceField::create_2nd_neigh_lst_timer()
+{
+    timer->start(FORCE_TIME_mode);
+    create_2nd_neigh_lst();
+    timer->stop(FORCE_TIME_mode);
+}
+
 

@@ -213,16 +213,19 @@ void Clock_mbdf::init()
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
 
-    forcefield->create_2nd_neigh_lst();
     
+    forcefield->create_2nd_neigh_lst_timer();
+    forcefield->force_calc_timer(1,nrgy_strss);
+    forcefield->c_d_calc_timer();
     
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(time_idx,0.0);
+
+    thermo->init();
     
-    forcefield->force_calc(1,nrgy_strss);
-    
-    
-    thermo->start_force_time();
-    forcefield->c_d_calc();
-    thermo->stop_force_time();
+    if(write!=NULL)
+        write->init();
     
     atoms->vectors[c_n]->ret(c);
     atoms->vectors[c_d_n]->ret(c_d);
@@ -246,13 +249,7 @@ void Clock_mbdf::init()
     memcpy(y[1],c,dof_lcl*sizeof(type0));
     memcpy(dy,c_d,dof_lcl*sizeof(type0));
     
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    if(write!=NULL)
-        write->init();
-    thermo->init();
+
 }
 /*--------------------------------------------
  init
@@ -262,13 +259,11 @@ void Clock_mbdf::fin()
     
     if(write!=NULL)
         write->fin();
-    
-    forcefield->fin();
-    neighbor->fin();
+    thermo->fin();
+    atoms->fin();
     
     delete vecs_comm;
-    thermo->fin();
-    
+
     
 }
 /*--------------------------------------------
@@ -438,9 +433,10 @@ void Clock_mbdf::run()
         
         if(thermo->test_prev_step() || istep+1==no_steps)
         {
-            thermo->start_force_time();
-            forcefield->force_calc(1,nrgy_strss);
-            thermo->stop_force_time();
+            
+            forcefield->force_calc_timer(1,nrgy_strss);
+            
+            
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,t[0]);
@@ -536,9 +532,9 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
     
     /*
     memcpy(c,y_0,dof_lcl*sizeof(type0));
-    thermo->start_comm_time();
+    
     atoms->update(c_n);
-    thermo->stop_comm_time();
+    
     */
     
     
@@ -555,16 +551,18 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
     MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
     for(int i=0;i<dof_lcl;i++)
         c[i]=y[0][i]+dy[i]*del_t*tot_ratio;
-    thermo->start_comm_time();
+    
     atoms->update_ph(c_n);
-    thermo->stop_comm_time();
     
     
     
-    thermo->start_force_time();
-    curr_cost=forcefield->g_calc(0,beta,a,g);
+    
+    
+    curr_cost=forcefield->g_calc_timer(0,beta,a,g);
+    
+    
     rectify(g);
-    thermo->stop_force_time();
+    
     /*
      type0 sum_lcl;
      type0 sum_tot;
@@ -621,14 +619,16 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
             for(int i=0;i<dof_lcl;i++)
                 c[i]=c0[i]+max_gamma*h[i];
             
-            thermo->start_comm_time();
-            atoms->update_ph(c_n);
-            thermo->stop_comm_time();
             
-            thermo->start_force_time();
-            curr_cost=forcefield->g_calc(0,beta,a,g);
+            atoms->update_ph(c_n);
+            
+            
+            
+            curr_cost=forcefield->g_calc_timer(0,beta,a,g);
+            
+            
             rectify(g);
-            thermo->stop_force_time();
+            
             /*
              sum_lcl=0.0;
              sum_tot=0.0;
@@ -647,13 +647,13 @@ type0 Clock_mbdf::solve(type0 del_t,int ord)
             {
                 memcpy(c,c0,dof_lcl*sizeof(type0));
                 
-                thermo->start_comm_time();
-                atoms->update_ph(c_n);
-                thermo->stop_comm_time();
                 
-                thermo->start_force_time();
-                curr_cost=forcefield->g_calc(1,beta,a,g);
-                thermo->stop_force_time();
+                atoms->update_ph(c_n);
+                
+                
+                
+                curr_cost=forcefield->g_calc_timer(1,beta,a,g);
+                
             }
         }
         

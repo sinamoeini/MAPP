@@ -4,6 +4,7 @@
  --------------------------------------------*/
 #include "neighbor.h"
 #include "ff.h"
+#include "timer.h"
 using namespace std;
 using namespace MAPP_NS;
 /*--------------------------------------------
@@ -68,7 +69,7 @@ void Neighbor::init()
 
     if(mapp->mode==MD_mode)
         type_n=atoms->find("type");
-    create_bin_list();
+    //create_bin_list();
 }
 /*--------------------------------------------
  finalize MD
@@ -120,6 +121,8 @@ void Neighbor::fin()
  --------------------------------------------*/
 void Neighbor::create_list(int box_change,int s_or_x)
 {
+    timer->start(NEIGH_TIME_mode);
+    
     if(box_change)
         create_bin_list();
 
@@ -270,13 +273,14 @@ void Neighbor::create_list(int box_change,int s_or_x)
         delete [] atm_bin;
     atm_bin_size=0;
     
+    timer->stop(NEIGH_TIME_mode);
 }
 /*--------------------------------------------
  create the bin neighbor list
  --------------------------------------------*/
 void Neighbor::create_bin_list()
 {
-    type0* cut_ph_s=atoms->cut_ph_s;
+    type0* max_cut_s=atoms->max_cut_s;
     type0* s_lo=atoms->s_lo;
     type0* s_hi=atoms->s_hi;
     int dim=atoms->dimension;
@@ -292,9 +296,9 @@ void Neighbor::create_bin_list()
     tot_bin=1;
     for (int i=0;i<dim;i++)
     {
-        bin_size[i]=cut_ph_s[i];
+        bin_size[i]=max_cut_s[i];
         tot_bin_grid[i]=static_cast<int>
-        ((2.0*cut_ph_s[i]+s_hi[i]-s_lo[i])/bin_size[i])+1;
+        ((2.0*max_cut_s[i]+s_hi[i]-s_lo[i])/bin_size[i])+1;
         tot_bin*=tot_bin_grid[i];
     }
     
@@ -428,14 +432,14 @@ int Neighbor::x2bin(type0* x)
             s_tmp[j]+=B[k][j]*x[k];
     }
     
-    type0* cut_ph_s=atoms->cut_ph_s;
+    type0* max_cut_s=atoms->max_cut_s;
     type0* s_lo=atoms->s_lo;
     
     int no=0;
     for(int i=0;i<dim;i++)
     {
         no+=static_cast<int>
-        ((s_tmp[i]+cut_ph_s[i]-s_lo[i])/bin_size[i])
+        ((s_tmp[i]+max_cut_s[i]-s_lo[i])/bin_size[i])
         *bin_denom_list[i];
     }
     
@@ -487,14 +491,14 @@ int Neighbor::s2bin(type0* s)
 {
     int dim=atoms->dimension;
     
-    type0* cut_ph_s=atoms->cut_ph_s;
+    type0* max_cut_s=atoms->max_cut_s;
     type0* s_lo=atoms->s_lo;
     
     int no=0;
     for(int i=0;i<dim;i++)
     {
         no+=static_cast<int>
-        ((s[i]+cut_ph_s[i]-s_lo[i])/bin_size[i])
+        ((s[i]+max_cut_s[i]-s_lo[i])/bin_size[i])
         *bin_denom_list[i];
         
     }
