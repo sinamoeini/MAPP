@@ -547,7 +547,7 @@ void Min_cg::fin()
     if(write!=NULL)
         write->fin();
     thermo->fin();
-    errors();
+    print_error();
     atoms->fin();
 
     delete vecs_comm;

@@ -63,7 +63,7 @@ Min::~Min()
 /*--------------------------------------------
  error messages
  --------------------------------------------*/
-void Min::errors()
+void Min::print_error()
 {
     
     if(err==LS_F_DOWNHILL)

@@ -39,7 +39,7 @@ namespace MAPP_NS {
     public:
         Min(MAPP *);
         virtual ~Min();
-        void errors();
+        void print_error();
         virtual void run()=0;
         virtual void init()=0;
         virtual void fin()=0;

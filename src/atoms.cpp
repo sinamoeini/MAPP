@@ -1121,7 +1121,6 @@ void Atoms::post_setup_ph_1(class VecLst* list)
 void Atoms::setup_ph_n_neighbor(int box_chng,
 class VecLst* list)
 {
-    no_neigh_list_created++;
     
     pre_pre_setup_ph(box_chng);
     
@@ -2718,8 +2717,6 @@ void Atoms::init(class VecLst* list)
     timer->init();
     timer->start(COMM_TIME_mode);
     
-    no_neigh_list_created=-1;
-
     x2s(natms);
     
     /*
@@ -2851,6 +2848,7 @@ void Atoms::fin()
     forcefield->fin();
     timer->fin();
     timer->print_time_stats();
+    neighbor->print_neigh_stats();
 }
 /*--------------------------------------------
  please note that if the box's size changes,

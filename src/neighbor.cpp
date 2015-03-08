@@ -69,6 +69,8 @@ void Neighbor::init()
 
     if(mapp->mode==MD_mode)
         type_n=atoms->find("type");
+    
+    no_neigh_lists=0;
     //create_bin_list();
 }
 /*--------------------------------------------
@@ -272,6 +274,8 @@ void Neighbor::create_list(int box_change,int s_or_x)
     if(atm_bin_size)
         delete [] atm_bin;
     atm_bin_size=0;
+    
+    no_neigh_lists++;
     
     timer->stop(NEIGH_TIME_mode);
 }
@@ -507,4 +511,14 @@ int Neighbor::s2bin(type0* s)
     
 }
 
-
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Neighbor::print_neigh_stats()
+{
+    if(atoms->my_p_no==0)
+    {
+        fprintf(output,"no of neigh lists "
+        "generated: %d\n",no_neigh_lists);
+    }
+}

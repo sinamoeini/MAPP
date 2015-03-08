@@ -379,7 +379,6 @@ namespace MAPP_NS
         
     protected:
     public:
-        int no_neigh_list_created;
         int comm_mode;
         /*-----------------------------------------------*/
         /* begining of atomic vectors related properties */

@@ -43,6 +43,8 @@ namespace MAPP_NS {
         int type_n;
         
         void find_bin_no(int,int,int*&,int,int*,int*);
+        
+        int no_neigh_lists;
     public:
         int pair_wise;
         int** neighbor_list;
@@ -57,6 +59,7 @@ namespace MAPP_NS {
         void init();
         void fin();
         
+        void print_neigh_stats();
     };
 }
 
