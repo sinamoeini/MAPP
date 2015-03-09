@@ -1,4 +1,5 @@
 #include "write.h"
+#include "timer.h"
 using namespace std;
 using namespace MAPP_NS;
 /*--------------------------------------------
@@ -22,7 +23,9 @@ void Write::init()
 {
     if(last_write_step!=step_no)
     {
+        timer->start(WRITE_TIME_mode);
         write_file(step_no);
+        timer->stop(WRITE_TIME_mode);
         last_write_step=step_no;
     }
     write_step=step_no+write_step_tally;
@@ -34,7 +37,9 @@ void Write::write()
 {
     if(write_step!=step_no)
         return;
+    timer->start(WRITE_TIME_mode);
     write_file(step_no);
+    timer->stop(WRITE_TIME_mode);
     last_write_step=step_no;
     write_step=step_no+write_step_tally;
 }
@@ -44,6 +49,10 @@ void Write::write()
 void Write::fin()
 {
     if(last_write_step!=step_no)
+    {
+        timer->start(WRITE_TIME_mode);
         write_file(step_no);
+        timer->stop(WRITE_TIME_mode);
+    }
     last_write_step=step_no;
 }

@@ -7,7 +7,7 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Timer::Timer(MAPP* mapp):InitPtrs(mapp)
 {
-    no_of_modes=4;
+    no_of_modes=5;
     curr_level=-1;
     level2mode_capacity=0;
     
@@ -114,6 +114,9 @@ void Timer::print_time_stats()
         
         fprintf(output,"comm  time: %lf secs (%05.2lf%%)\n"
         ,time[COMM_TIME_mode],time[COMM_TIME_mode]*100.0/tot_time);
+        
+        fprintf(output,"write time: %lf secs (%05.2lf%%)\n"
+        ,time[WRITE_TIME_mode],time[WRITE_TIME_mode]*100.0/tot_time);
         
         fprintf(output,"other time: %lf secs (%05.2lf%%)\n"
         ,time[OTHER_TIME_mode],time[OTHER_TIME_mode]*100.0/tot_time);
