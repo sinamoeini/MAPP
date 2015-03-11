@@ -1,8 +1,5 @@
-
 #ifndef __MAPP__timer__
 #define __MAPP__timer__
-
-#include <stdio.h>
 #include "init.h"
 namespace MAPP_NS {
     enum{COMM_TIME_mode,NEIGH_TIME_mode,FORCE_TIME_mode,WRITE_TIME_mode,OTHER_TIME_mode};

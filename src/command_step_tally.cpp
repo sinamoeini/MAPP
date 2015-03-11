@@ -1,7 +1,8 @@
+#include <stdlib.h>
 #include "command_step_tally.h"
 #include "error.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

@@ -5,7 +5,6 @@
 
 #ifndef __MAPP__error__
 #define __MAPP__error__
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS {
     class Error : protected InitPtrs {

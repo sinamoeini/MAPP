@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__min_cg__
 #define __MAPP__min_cg__
-
-#include <iostream>
 #include "min.h"
 namespace MAPP_NS {
     class Min_cg : public Min {

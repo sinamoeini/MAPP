@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__command_displace__
 #define __MAPP__command_displace__
-
-#include <iostream>
 #include "init.h"
 #include "atoms.h"
 namespace MAPP_NS {

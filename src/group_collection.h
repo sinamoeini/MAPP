@@ -1,10 +1,8 @@
 #ifndef __MAPP__group_collection__
 #define __MAPP__group_collection__
-#include <iostream>
 #include "init.h"
 #include "group.h"
-#include "region.h"
-using namespace std;
+
 namespace MAPP_NS
 {
     class GroupCollection:protected InitPtrs

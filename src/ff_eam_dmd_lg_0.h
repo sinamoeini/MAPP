@@ -4,10 +4,7 @@
 #ifndef __MAPP__ff_eam_dmd_lg_0__
 #define __MAPP__ff_eam_dmd_lg_0__
 
-#include <stdio.h>
-#include <iostream>
 #include "ff.h"
-#include "atoms.h"
 namespace MAPP_NS
 {
     class ForceField_eam_dmd_lg_0 : public ForceField

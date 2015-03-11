@@ -5,7 +5,7 @@
 #include "neighbor.h"
 #include "ff.h"
 #include "timer.h"
-using namespace std;
+
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

@@ -1,8 +1,8 @@
+#include <stdlib.h>
 #include "command_skin.h"
 #include "atoms.h"
-#include "error.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

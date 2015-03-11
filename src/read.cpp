@@ -3,11 +3,10 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "read.h"
-#include "memory.h"
 #include "ff.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

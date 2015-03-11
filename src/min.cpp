@@ -3,9 +3,6 @@
  Copyright (c) 2014 MIT. All rights reserved.
  --------------------------------------------*/
 #include "min.h"
-#include "ff.h"
-#include "neighbor.h"
-#include "error.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------

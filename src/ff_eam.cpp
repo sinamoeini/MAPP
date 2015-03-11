@@ -1,4 +1,4 @@
-
+#include <stdlib.h>
 #include "neighbor.h"
 #include "ff_eam.h"
 #include "atom_types.h"

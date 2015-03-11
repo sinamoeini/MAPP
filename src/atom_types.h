@@ -4,8 +4,6 @@
  --------------------------------------------*/
 #ifndef __MAPP__atom_types__
 #define __MAPP__atom_types__
-
-#include <iostream>
 #include "init.h"
 #include "atoms.h"
 

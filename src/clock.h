@@ -2,7 +2,6 @@
 #define __MAPP__clock__
 #include "init.h"
 #include "atoms.h"
-#include <stdio.h>
 namespace MAPP_NS {
     class Clock : protected InitPtrs
     {

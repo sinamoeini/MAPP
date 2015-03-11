@@ -1,9 +1,8 @@
+#include <stdlib.h>
 #include "command_grid.h"
 #include "atoms.h"
-#include "error.h"
-#include "memory.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

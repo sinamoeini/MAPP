@@ -3,11 +3,7 @@
 #else
 #ifndef __MAPP__ff_eam_dmd_lg_1__
 #define __MAPP__ff_eam_dmd_lg_1__
-
-#include <stdio.h>
-#include <iostream>
 #include "ff.h"
-#include "atoms.h"
 namespace MAPP_NS
 {
     class ForceField_eam_dmd_lg_1 : public ForceField

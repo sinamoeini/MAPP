@@ -3,11 +3,9 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "MAPP.h"
-#include <iostream>
 #include <stdlib.h>
-#include <cstdlib>
 using namespace MAPP_NS;
-using namespace std;
+
 int main(int narg, char** arg)
 {
 

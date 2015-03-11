@@ -4,7 +4,6 @@
  --------------------------------------------*/
 #ifndef __MAPP__read__
 #define __MAPP__read__
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS {
     class Read : protected InitPtrs{

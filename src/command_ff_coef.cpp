@@ -1,12 +1,8 @@
 #include "command_ff_coef.h"
 #include "ff.h"
-#include "error.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
- you might need to include ff_styles.h
- 
- 
  constructor
  --------------------------------------------*/
 Command_ff_coef::Command_ff_coef(MAPP* mapp,int narg,char** args)

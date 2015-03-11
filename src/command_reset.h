@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__command_reset__
 #define __MAPP__command_reset__
-
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS
 {

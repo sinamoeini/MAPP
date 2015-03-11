@@ -1,8 +1,8 @@
+#include <stdlib.h>
 #include "command_boltzmann.h"
-#include "error.h"
 #include "md.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

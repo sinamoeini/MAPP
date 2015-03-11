@@ -1,10 +1,4 @@
-//
-//  ff_meam.cpp
-//  MAPP
-//
-//  Created by Sina on 7/23/14.
-//  Copyright (c) 2014 Li Group/Sina. All rights reserved.
-//
+#include <stdlib.h>
 #include "neighbor.h"
 #include "ff_meam.h"
 #include "atom_types.h"

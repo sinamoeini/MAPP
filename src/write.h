@@ -1,7 +1,6 @@
 #ifndef __MAPP__write__
 #define __MAPP__write__
 
-#include <iostream>
 #include "init.h"
 
 namespace MAPP_NS {

@@ -4,7 +4,6 @@
 #ifndef __MAPP__command_comm_mode__
 #define __MAPP__command_comm_mode__
 
-#include <stdio.h>
 #include "init.h"
 namespace MAPP_NS
 {

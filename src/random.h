@@ -4,8 +4,6 @@
  --------------------------------------------*/
 #ifndef __MAPP__rand_engine__
 #define __MAPP__rand_engine__
-
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS {
     class Random : protected InitPtrs{

@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__command_ff_coef__
 #define __MAPP__command_ff_coef__
-
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS
 {

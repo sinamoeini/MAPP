@@ -1,7 +1,7 @@
 #include "command_reset.h"
 #include "error.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

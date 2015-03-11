@@ -1,9 +1,7 @@
 #include <stdlib.h>
 #include "atom_types.h"
 #include "write_cfg.h"
-#include "error.h"
-#include "memory.h"
-using namespace std;
+
 using namespace MAPP_NS;
 
 /*--------------------------------------------

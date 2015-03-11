@@ -2,9 +2,8 @@
  Created by Sina on 07/15/13.
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
-#include <cmath>
+#include <stdlib.h>
 #include "ff_lj.h"
-#include "memory.h"
 #include "neighbor.h"
 #include "atom_types.h"
 using namespace MAPP_NS;

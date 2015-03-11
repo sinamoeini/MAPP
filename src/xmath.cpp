@@ -2,10 +2,7 @@
  Created by Sina on 2/5/14.
  Copyright (c) 2014 MIT. All rights reserved.
  --------------------------------------------*/
-#include <cmath>
 #include "xmath.h"
-#include "memory.h"
-#include "error.h"
 #include "atoms.h"
 
 using namespace MAPP_NS;

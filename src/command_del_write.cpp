@@ -2,7 +2,7 @@
 #include "error.h"
 #include "write.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

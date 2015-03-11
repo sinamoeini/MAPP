@@ -3,30 +3,30 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "MAPP.h"
-#include "memory.h"
-#include "error.h"
+
 #include "timer.h"
-#include "atoms.h"
 #include "neighbor.h"
 #include "atom_types.h"
 #include "min.h"
-#include "min_styles.h"
+
 #include "clock.h"
-#include "clock_styles.h"
 #include "ff.h"
-#include "ff_styles.h"
 #include "md.h"
-#include "md_styles.h"
 #include "read.h"
-#include "read_styles.h"
 #include "write.h"
+
+#include "clock_styles.h"
+#include "ff_styles.h"
+#include "md_styles.h"
+#include "read_styles.h"
 #include "write_styles.h"
+
+#include "min_styles.h"
 #include "command_styles.h"
-#include <cmath>
-#include <stdio.h>
+
 #define MAPP_VERSION "Beta"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor of the main executer
  --------------------------------------------*/

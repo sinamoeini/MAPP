@@ -8,8 +8,8 @@
 #ifndef __MAPP__ff_lj__
 #define __MAPP__ff_lj__
 #include "ff.h"
-#include "atoms.h"
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     class ForceField_lj : public ForceField{
     private:
         int x_n,f_n,type_n;

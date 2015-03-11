@@ -3,8 +3,7 @@
  Copyright (c) 2014 MIT. All rights reserved.
  --------------------------------------------*/
 #include "atom_types.h"
-#include "memory.h"
-using namespace std;
+
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

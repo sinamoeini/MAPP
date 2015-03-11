@@ -1,7 +1,6 @@
 #ifndef __MAPP__line_search__
 #define __MAPP__line_search__
 
-#include <iostream>
 #include "init.h"
 #include "atoms.h"
 #include "xmath.h"

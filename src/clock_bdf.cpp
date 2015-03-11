@@ -1,5 +1,5 @@
+#include <stdlib.h>
 #include "clock_bdf.h"
-#include "neighbor.h"
 #include "ff.h"
 #include "write.h"
 #include "thermo_dynamics.h"

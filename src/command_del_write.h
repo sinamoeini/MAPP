@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__command_del_write__
 #define __MAPP__command_del_write__
-
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS
 {

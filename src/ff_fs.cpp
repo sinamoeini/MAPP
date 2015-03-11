@@ -2,14 +2,12 @@
  Created by Sina on 01/29/14.
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
-#include <cmath>
+#include <stdlib.h>
 #include "ff_fs.h"
-#include "memory.h"
 #include "neighbor.h"
-#include "atoms.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
  ref:

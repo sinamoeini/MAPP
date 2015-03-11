@@ -3,12 +3,7 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include <stdlib.h>
-#include <stdio.h>
-#include <cstdarg>
-#include <cstdlib>
-#include <mpi.h>
 #include "error.h"
-#include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor of the error handler:

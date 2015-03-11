@@ -4,9 +4,7 @@
  --------------------------------------------*/
 #ifndef __MAPP__ff__
 #define __MAPP__ff__
-#include <iostream>
 #include "init.h"
-#include "vecmath.h"
 #include "atoms.h"
 namespace MAPP_NS {
     class ForceField : protected InitPtrs{

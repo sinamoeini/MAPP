@@ -1,6 +1,5 @@
 #include "timer.h"
 #include "atoms.h"
-#include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor of timer

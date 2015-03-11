@@ -7,7 +7,6 @@ ReadStyle(Read_cfg,cfg)
 #else
 #ifndef __MAPP__read_cfg__
 #define __MAPP__read_cfg__
-#include <iostream>
 #include "atoms.h"
 #include "read.h"
 namespace MAPP_NS {

@@ -1,5 +1,4 @@
 #include "clock.h"
-#include "error.h"
 #include "thermo_dynamics.h"
 #include "atom_types.h"
 using namespace MAPP_NS;

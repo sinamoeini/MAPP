@@ -5,9 +5,7 @@
 
 #ifndef __MAPP__MAPP__
 #define __MAPP__MAPP__
-#include <iostream>
 #include <mpi.h>
-#include <stdio.h>
 // type0 can be only float, double, or long double
 typedef double type0;
 #define MPI_TYPE0 MPI_DOUBLE

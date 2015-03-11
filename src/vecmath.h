@@ -4,14 +4,8 @@
  --------------------------------------------*/
 #ifndef __MAPP__vecmath__
 #define __MAPP__vecmath__
-#include <stdio.h> 
-#include <stdlib.h>
-#include <iostream>
-#include <cstdlib>
-#include "error.h"
 #include "init.h"
-#include "memory.h"
-using namespace std;
+
 namespace MAPP_NS {
     
     template <typename VECTYPE>

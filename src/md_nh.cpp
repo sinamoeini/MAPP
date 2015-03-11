@@ -2,17 +2,11 @@
  Created by Sina on 06/20/13.
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
-#include <cmath>
 #include <stdlib.h>
 #include "md_nh.h"
-#include "memory.h"
 #include "ff.h"
-#include "neighbor.h"
-#include "error.h"
 #include "random.h"
-#include "atoms.h"
 #include "atom_types.h"
-#include "thermo_dynamics.h"
 #include "write.h"
 using namespace MAPP_NS;
 enum {NONE,TAU,XYZ,YZ,ZX,XY};

@@ -5,7 +5,6 @@
 #ifndef __MAPP__min__
 #define __MAPP__min__
 
-#include <iostream>
 #include "init.h"
 #include "atoms.h"
 #include "line_search.h"

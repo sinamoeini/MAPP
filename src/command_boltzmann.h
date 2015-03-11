@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__command_boltzmann__
 #define __MAPP__command_boltzmann__
-
-#include <stdlib.h>
 #include "init.h"
 namespace MAPP_NS
 {

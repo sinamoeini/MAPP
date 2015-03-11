@@ -5,9 +5,8 @@ WriteStyle(Write_cfg,cfg)
 #define __MAPP__write_cfg__
 
 #include "write.h"
-#include "atoms.h"
-#include <iostream>
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     class Write_cfg: public Write
     {
     private:

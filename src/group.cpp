@@ -1,5 +1,4 @@
 #include "group.h"
-#include "memory.h"
 #include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------

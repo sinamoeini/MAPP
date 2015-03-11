@@ -4,11 +4,7 @@
  --------------------------------------------*/
 #ifndef __MAPP__neighbor__
 #define __MAPP__neighbor__
-#include <iostream>
 #include "init.h"
-#include "atoms.h"
-#include "memory.h"
-
 namespace MAPP_NS {
     class Neighbor:protected InitPtrs
     {

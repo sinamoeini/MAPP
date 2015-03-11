@@ -1,4 +1,3 @@
-
 #ifdef FF_Style
     FFStyle(ForceField_meam,meam)
 #else
@@ -7,7 +6,6 @@
 
 #include <iostream>
 #include "ff.h"
-#include "atoms.h"
 namespace MAPP_NS
 {
     class ForceField_meam : public ForceField

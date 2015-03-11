@@ -1,8 +1,7 @@
 #include "command_comm_mode.h"
 #include "atoms.h"
-#include "error.h"
 using namespace MAPP_NS;
-using namespace std;
+
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

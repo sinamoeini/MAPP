@@ -5,9 +5,7 @@
 #ifndef __MAPP__ff_eam__
 #define __MAPP__ff_eam__
 
-#include <iostream>
 #include "ff.h"
-#include "atoms.h"
 namespace MAPP_NS
 {
     class ForceField_eam : public ForceField

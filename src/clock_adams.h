@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__clock_adams__
 #define __MAPP__clock_adams__
-
-#include <stdio.h>
 #include "clock.h"
 namespace MAPP_NS {
     class Clock_adams :public Clock

@@ -1,11 +1,8 @@
-
 #ifdef Min_Style
-MinStyle(Min_lbfgs,l-bfgs)
-
+    MinStyle(Min_lbfgs,l-bfgs)
 #else
 #ifndef __MAPP__min_lbfgs__
 #define __MAPP__min_lbfgs__
-#include <iostream>
 #include "min.h"
 namespace MAPP_NS {
     class Min_lbfgs :public Min

@@ -1,15 +1,6 @@
-//
-//  thermo_dynamics.h
-//  MAPP
-//
-//  Created by Sina on 7/8/14.
-//  Copyright (c) 2014 Li Group/Sina. All rights reserved.
-//
-
 #ifndef __MAPP__thermo_dynamics__
 #define __MAPP__thermo_dynamics__
 
-#include <iostream>
 #include "init.h"
 #include "atoms.h"
 

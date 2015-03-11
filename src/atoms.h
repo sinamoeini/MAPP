@@ -1,16 +1,12 @@
 #ifndef __MAPP__atoms__
 #define __MAPP__atoms__
 
-//swap list growth size
-#define SWAPGROWTH 10
-
-#include <iostream>
-#include <exception>
 #include <typeinfo>
 #include <cmath>
 #include <mpi.h>
 #include "init.h"
 #include "memory.h"
+#define SWAPGROWTH 10
 /*---------------------------------------------------------------------------
    _____   _          __      ___   _____   _       _____   _____
   /  ___/ | |        / /     /   | |  _  \ | |     /  ___/ |_   _|

@@ -3,8 +3,6 @@
 #else
 #ifndef __MAPP__command_step_tally__
 #define __MAPP__command_step_tally__
-
-#include <stdlib.h>
 #include "init.h"
 namespace MAPP_NS
 {

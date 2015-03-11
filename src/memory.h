@@ -1,8 +1,6 @@
 #ifndef __MAPP__memory__
 #define __MAPP__memory__
-#include <iostream>
 #include <exception>
-#include <stdio.h>
 #include "init.h"
 #include "error.h"
 
@@ -16,8 +14,9 @@ __FILE__,__FUNCTION__)
 memory->create(A,d0,d1,#A,__LINE__, \
 __FILE__,__FUNCTION__)
 
-using namespace std;
-namespace MAPP_NS {
+
+namespace MAPP_NS
+{
     class Memory : protected InitPtrs{
     private:
     protected:
@@ -39,7 +38,7 @@ namespace MAPP_NS {
 
     };
 }
-
+using namespace std;
 using namespace MAPP_NS;
 /*--------------------------------------------
  create 1d vector

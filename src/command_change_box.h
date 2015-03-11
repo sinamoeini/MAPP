@@ -3,7 +3,6 @@
 #else
 #ifndef __MAPP__command_change_box__
 #define __MAPP__command_change_box__
-#include <iostream>
 #include "init.h"
 namespace MAPP_NS {
     class Command_change_box: protected InitPtrs

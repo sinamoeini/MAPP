@@ -4,9 +4,8 @@
  --------------------------------------------*/
 #ifndef __MAPP__xmath__
 #define __MAPP__xmath__
-#include <iostream>
 #include "init.h"
-using namespace std;
+
 namespace MAPP_NS
 {
     class XMath: protected InitPtrs

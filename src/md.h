@@ -1,8 +1,5 @@
-
-
 #ifndef __MAPP__md__
 #define __MAPP__md__
-#include <iostream>
 #include "init.h"
 #include "atoms.h"
 #include "thermo_dynamics.h"
