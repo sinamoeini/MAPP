@@ -1,7 +1,6 @@
 #ifdef FF_Style
     FFStyle(ForceField_eam_dmd_hg_0,eam_dmd_hg_0)
 #else
-
 #ifndef __MAPP__ff_eam_dmd_hg_0__
 #define __MAPP__ff_eam_dmd_hg_0__
 #include "ff.h"

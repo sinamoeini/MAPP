@@ -1,5 +1,5 @@
 #ifdef Write_Style
-WriteStyle(Write_cfg,cfg)
+    WriteStyle(Write_cfg,cfg)
 #else
 #ifndef __MAPP__write_cfg__
 #define __MAPP__write_cfg__

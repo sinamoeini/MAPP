@@ -25,4 +25,4 @@ namespace MAPP_NS {
         int find_type_exist(char*);
     };
 }
-#endif /* defined(__MAPP__atom_types__) */
+#endif 

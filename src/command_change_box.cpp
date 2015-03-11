@@ -3,7 +3,6 @@
 #include "xmath.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

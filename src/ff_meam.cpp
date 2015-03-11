@@ -3,7 +3,6 @@
 #include "ff_meam.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-
 enum{FCC,BCC,HCP,DIM,DIAMOND,B1,C11,L12,B2};
 /*--------------------------------------------
  constructor

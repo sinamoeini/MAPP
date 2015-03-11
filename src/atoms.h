@@ -1,6 +1,5 @@
 #ifndef __MAPP__atoms__
 #define __MAPP__atoms__
-
 #include <typeinfo>
 #include <cmath>
 #include <mpi.h>

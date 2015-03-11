@@ -2,7 +2,6 @@
 #include "command_skin.h"
 #include "atoms.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

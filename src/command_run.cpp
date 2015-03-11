@@ -2,7 +2,6 @@
 #include "command_run.h"
 #include "md.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

@@ -134,4 +134,4 @@ namespace MAPP_NS
     };
     
 }
-#endif /* defined(__MAPP__xmath__) */
+#endif 

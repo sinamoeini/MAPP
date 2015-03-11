@@ -1,7 +1,6 @@
 #include "line_search.h"
 #include "ff.h"
 #include "atom_types.h"
-
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

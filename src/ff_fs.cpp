@@ -7,7 +7,6 @@
 #include "neighbor.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
  ref:

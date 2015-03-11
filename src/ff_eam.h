@@ -1,10 +1,8 @@
-
 #ifdef FF_Style
     FFStyle(ForceField_eam,eam)
 #else
 #ifndef __MAPP__ff_eam__
 #define __MAPP__ff_eam__
-
 #include "ff.h"
 namespace MAPP_NS
 {

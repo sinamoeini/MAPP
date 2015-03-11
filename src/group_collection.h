@@ -20,4 +20,4 @@ namespace MAPP_NS
         void del(int);
     };
 }
-#endif /* defined(__MAPP__group_collection__) */
+#endif 

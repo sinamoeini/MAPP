@@ -1,7 +1,5 @@
-
 #include "thermo_dynamics.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  init the quantity
  --------------------------------------------*/
@@ -201,26 +199,6 @@ void ThermoDynamics::tail_print()
         }
 
         fprintf(output,"\n");
-        /*
-        fprintf(output,"run time: %lf "
-            "seconds\n",run_time);
-        fprintf(output,"force: %5.2lf "
-                "%% (%lf seconds)\n"
-                ,force_time/run_time*100.0
-                ,force_time);
-        fprintf(output,"comm + neighbor: %5.2lf "
-                "%% (%lf seconds)\n"
-                ,comm_time/run_time*100.0
-                ,comm_time);
-        fprintf(output,"other: %5.2lf "
-                "%% (%lf seconds)\n"
-                ,(1.0-(comm_time+force_time)/run_time)*100.0
-                ,run_time-comm_time-force_time);
-        
-        fprintf(output,"number of "
-        "neighbor lists created: %d\n"
-        ,atoms->no_neigh_list_created);
-         */
     }
     
 }
@@ -233,55 +211,12 @@ void ThermoDynamics::init()
     hdr_print();
     val_print();
     print_step=step_no+step_tally;
-    /*
-    run_time=-MPI_Wtime();
-    force_time=comm_time=0.0;
-     */
 }
-/*--------------------------------------------
- start force time
- --------------------------------------------*/
-/*
-void ThermoDynamics::start_force_time()
-{
-    force_time-=MPI_Wtime();
-}
- */
-/*--------------------------------------------
- start comm time
- --------------------------------------------*/
-/*
-void ThermoDynamics::start_comm_time()
-{
-    comm_time-=MPI_Wtime();
-}
- */
-/*--------------------------------------------
- stop force time
- --------------------------------------------*/
-/*
-void ThermoDynamics::stop_force_time()
-{
-    force_time+=MPI_Wtime();
-}
- */
-/*--------------------------------------------
- stop comm time
- --------------------------------------------*/
-/*
-void ThermoDynamics::stop_comm_time()
-{
-    comm_time+=MPI_Wtime();
-}
- */
 /*--------------------------------------------
  finish after a run
  --------------------------------------------*/
 void ThermoDynamics::fin()
 {
-    /*
-    run_time+=MPI_Wtime();
-     */
     if (step_no!=print_step-step_tally)
         val_print();
     tail_print();

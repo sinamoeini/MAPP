@@ -2,7 +2,6 @@
 #include "thermo_dynamics.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

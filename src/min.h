@@ -51,4 +51,4 @@ namespace MAPP_NS {
 
 
 }
-#endif /* defined(__MAPP__min__) */
+#endif 

@@ -3,7 +3,6 @@
 #else
 #ifndef __MAPP__command_mode__
 #define __MAPP__command_mode__
-
 #include "init.h"
 namespace MAPP_NS
 {

@@ -4,7 +4,8 @@
 #ifndef __MAPP__clock_fe__
 #define __MAPP__clock_fe__
 #include "clock.h"
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     class Clock_fe :public Clock
     {
     private:

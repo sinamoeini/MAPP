@@ -60,4 +60,4 @@ namespace MAPP_NS
 
 }
 
-#endif /* defined(__MAPP__line_search__) */
+#endif 

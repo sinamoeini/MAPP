@@ -1,5 +1,4 @@
 #include "md.h"
-// #include <stdlib.h>
 using namespace MAPP_NS;
 
 /*--------------------------------------------

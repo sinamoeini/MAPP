@@ -2,7 +2,6 @@
 #include "command_grid.h"
 #include "atoms.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

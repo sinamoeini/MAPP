@@ -3,7 +3,6 @@
 #include "ff_eam.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 
 /*--------------------------------------------

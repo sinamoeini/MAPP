@@ -4,7 +4,6 @@
 #ifndef __MAPP__ff_meam__
 #define __MAPP__ff_meam__
 
-#include <iostream>
 #include "ff.h"
 namespace MAPP_NS
 {

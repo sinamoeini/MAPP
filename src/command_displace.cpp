@@ -1,7 +1,6 @@
 #include "command_displace.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

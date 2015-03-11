@@ -1,7 +1,6 @@
 #include "command_fix.h"
 #include "atom_types.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

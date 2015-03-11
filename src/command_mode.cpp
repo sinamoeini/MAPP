@@ -1,7 +1,6 @@
 #include "command_mode.h"
 #include "atoms.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/

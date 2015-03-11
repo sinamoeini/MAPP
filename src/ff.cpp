@@ -6,7 +6,6 @@
 #include "atom_types.h"
 #include "timer.h"
 using namespace MAPP_NS;
-
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
