@@ -596,7 +596,7 @@ int Atoms::add(int ph,int dim,const char* name)
         char* x0name;
         CREATE1D(x0name,lngth+2);
         sprintf(x0name,"%s_0",name);
-        add<T>(0,dim,x0name);
+        add<T>(1,dim,x0name);
         delete [] x0name;
         return (no_vecs-2);
     }
@@ -1105,17 +1105,17 @@ void AVec_<T>::del(char* mark)
     {
         int icurs,strt,istrt,isize;
         icurs=0;
-        while (mark[icurs]=='1'&&icurs<atoms->natms_ph)
+        while (icurs<atoms->natms_ph&&mark[icurs]=='1')
             icurs++;
         strt=icurs+atoms->natms;
         
         while(icurs<atoms->natms_ph)
         {
-            while (mark[icurs]=='0'&&icurs<atoms->natms_ph)
+            while (icurs<atoms->natms_ph&&mark[icurs]=='0')
                 icurs++;
             istrt=icurs;
             
-            while (mark[icurs]=='1'&&icurs<atoms->natms_ph)
+            while (icurs<atoms->natms_ph&&mark[icurs]=='1')
                 icurs++;
             isize=icurs-istrt;
             istrt+=atoms->natms;

@@ -2828,7 +2828,7 @@ void Atoms::init(class VecLst* list)
     x_0_dim=vectors[1]->dim;
     x_comp=0;
     x_0_comp=0;
-    for(int i=0;i<natms;i++)
+    for(int i=0;i<natms+natms_ph;i++)
     {
         for(int idim=0;idim<dimension;idim++)
             x_0[x_0_comp+idim]=x[x_comp+idim];
@@ -2864,80 +2864,152 @@ void Atoms::update(int box_change
 ,class VecLst* list)
 {
     timer->start(COMM_TIME_mode);
-    type0* x;
-    vectors[0]->ret(x);
-    type0* x_0;
-    vectors[1]->ret(x_0);
+
     
-    int x_dim=vectors[0]->dim;
-    int x_0_dim=vectors[1]->dim;
-    
-    
-    type0 dx;
-    type0 sq_dx;
-    
-    int iatm=0;
-    int check=0;
-    type0 sq_skin=skin*skin;
-    
-    int x_comp=0;
-    int x_0_comp=0;
-    while (iatm<natms&& check==0)
+    if(box_change)
     {
-        sq_dx=0.0;
-        for(int idim=0;idim<dimension;idim++)
-        {
-            dx=x[x_comp+idim]-x_0[x_0_comp+idim];
-            sq_dx+=dx*dx;
-        }
-        if(sq_dx>sq_skin)
-            check=1;
-        
-        iatm++;
-        x_comp+=x_dim;
-        x_0_comp+=x_0_dim;
-    }
-    
-    int check_all;
-    MPI_Allreduce(&check,&check_all,1,
-    MPI_INT,MPI_MAX,world);
-    
-    
-    if(check_all)
-    {
-        x2s(natms);
-        xchng_prtl(list);
-        /*
-        if(atom_mode==TYPE_mode)
-            setup_ph_type(box_change,list);
-        else
-            setup_ph_basic(box_change,list);
-        neighbor->create_list(box_change,1);
-         */
-        /*no need to convert s back to x,
-         the neighbor list takes care of it*/
-        
-        setup_ph_n_neighbor(box_change,list);
-        
-        x_comp=0;
-        x_0_comp=0;
-        
-        vectors[0]->ret(x);
-        vectors[1]->ret(x_0);
-        for(int i=0;i<natms;i++)
-        {
-            for(int idim=0;idim<dimension;idim++)
-                x_0[x_0_comp+idim]=x[x_comp+idim];
-            x_comp+=x_dim;
-            x_0_comp+=x_0_dim;
-        }
-    }
-    else
-    {
+     
         update_ph(list->update_every_ph_vec_list
         ,list->update_every_ph_no_vecs
         ,list->update_every_ph_byte_size);
+        
+        
+        type0* x;
+        type0* x_0;
+        vectors[0]->ret(x);
+        vectors[1]->ret(x_0);
+        
+        int x_dim=vectors[0]->dim;
+        int x_0_dim=vectors[1]->dim;
+        
+        
+        type0 dx;
+        type0 sq_dx;
+        
+        int iatm=0;
+        int check=0;
+        type0 sq_skin=skin*skin;
+        
+        int x_comp=0;
+        int x_0_comp=0;
+        int check_all;
+        
+        while (iatm<natms+natms_ph&& check==0)
+        {
+            sq_dx=0.0;
+            for(int idim=0;idim<dimension;idim++)
+            {
+                dx=x[x_comp+idim]-x_0[x_0_comp+idim];
+                sq_dx+=dx*dx;
+            }
+            if(sq_dx>sq_skin)
+                check=1;
+            
+            iatm++;
+            x_comp+=x_dim;
+            x_0_comp+=x_0_dim;
+        }
+        
+        MPI_Allreduce(&check,&check_all,1,MPI_INT,MPI_MAX,world);
+        
+        if(check_all)
+        {
+            x2s(natms);
+            xchng_prtl(list);
+            
+            setup_ph_n_neighbor(box_change,list);
+            
+            x_comp=0;
+            x_0_comp=0;
+            
+            vectors[0]->ret(x);
+            vectors[1]->ret(x_0);
+            
+            
+            for(int i=0;i<natms+natms_ph;i++)
+            {
+                for(int idim=0;idim<dimension;idim++)
+                    x_0[x_0_comp+idim]=x[x_comp+idim];
+                x_comp+=x_dim;
+                x_0_comp+=x_0_dim;
+            }
+            
+        }        
+        
     }
+    else
+    {
+        type0* x;
+        type0* x_0;
+        vectors[0]->ret(x);
+        vectors[1]->ret(x_0);
+     
+        int x_dim=vectors[0]->dim;
+        int x_0_dim=vectors[1]->dim;
+        
+        
+        type0 dx;
+        type0 sq_dx;
+        
+        int iatm=0;
+        int check=0;
+        type0 sq_skin=skin*skin;
+        
+        int x_comp=0;
+        int x_0_comp=0;
+        int check_all;
+        
+        while (iatm<natms&& check==0)
+        {
+            sq_dx=0.0;
+            for(int idim=0;idim<dimension;idim++)
+            {
+                dx=x[x_comp+idim]-x_0[x_0_comp+idim];
+                sq_dx+=dx*dx;
+            }
+            if(sq_dx>sq_skin)
+                check=1;
+            
+            iatm++;
+            x_comp+=x_dim;
+            x_0_comp+=x_0_dim;
+        }
+
+        MPI_Allreduce(&check,&check_all,1,MPI_INT,MPI_MAX,world);
+        
+        
+        if(check_all)
+        {
+            x2s(natms);
+            xchng_prtl(list);
+            
+            setup_ph_n_neighbor(box_change,list);
+            
+            x_comp=0;
+            x_0_comp=0;
+            
+            vectors[0]->ret(x);
+            vectors[1]->ret(x_0);
+            
+
+            for(int i=0;i<natms;i++)
+            {
+                for(int idim=0;idim<dimension;idim++)
+                    x_0[x_0_comp+idim]=x[x_comp+idim];
+                x_comp+=x_dim;
+                x_0_comp+=x_0_dim;
+            }
+            
+            
+        }
+        else
+        {
+            update_ph(list->update_every_ph_vec_list
+            ,list->update_every_ph_no_vecs
+            ,list->update_every_ph_byte_size);
+        }
+    }
+    
     
     timer->stop(COMM_TIME_mode);
 }
@@ -3428,31 +3500,31 @@ int SwapLst::rectify(char* mark,int* old2new)
         tmp_size=snd_size[iswap];
         icurs=0;
 
-        if(snd_size[iswap])
+        while (icurs<snd_size[iswap]&&del_buff[icurs]=='1')
+            icurs++;
+        istart=icurs;
+        
+        while (icurs<snd_size[iswap])
         {
-            while (del_buff[icurs]=='1'&&icurs<snd_size[iswap])
-                icurs++;
-            istart=icurs;
-            
-            while (icurs<snd_size[iswap])
+            while (icurs<snd_size[iswap]&&del_buff[icurs]=='0')
             {
-                while (del_buff[icurs]=='0'&&icurs<snd_size[iswap])
-                {
-                    tmp_size--;
-                    icurs++;
-                }
-                jstart=icurs;
-                
-                while (del_buff[icurs]=='1'&&icurs<snd_size[iswap])
-                    icurs++;
-                isize=icurs-jstart;
-                
-                if(isize)
-                    memcpy(&snd_list[iswap][istart],&snd_list[iswap][jstart],isize*sizeof(int));
-                istart+=isize;
-                
+                tmp_size--;
+                icurs++;
             }
+            
+            jstart=icurs;
+            
+            while (icurs<snd_size[iswap]&&del_buff[icurs]=='1')
+                icurs++;
+            isize=icurs-jstart;
+            
+            if(isize)
+                memcpy(&snd_list[iswap][istart],&snd_list[iswap][jstart],isize*sizeof(int));
+            istart+=isize;
+            
+            
         }
+
         
         
         

@@ -9,9 +9,8 @@
 #include "atoms.h"
 #include "line_search.h"
 #include "thermo_dynamics.h"
-
-namespace MAPP_NS {
-
+namespace MAPP_NS
+{
     class Min : protected InitPtrs
     {
     private:
@@ -51,4 +50,4 @@ namespace MAPP_NS {
 
 
 }
-#endif 
+#endif
