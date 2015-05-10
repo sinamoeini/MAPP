@@ -2380,7 +2380,7 @@ void ForceField_meam::read_global(char* file_name)
                 else if(lattice[itype][itype]==DIAMOND)
                     re_meam[itype][itype]=atof(param_args[10])*0.25*sqrt(3.0);
 
-                if(re_meam[itype][itype]>0.0)
+                if(re_meam[itype][itype]<0.0)
                     error->abort("re in %s file for %s"
                     " should be greater than 0.0",file_name,param_args[0]);
                 
@@ -2394,10 +2394,11 @@ void ForceField_meam::read_global(char* file_name)
                 ibar_meam[itype]=atoi(param_args[18]);
                 
                 ibar=ibar_meam[itype];
-                if(ibar!=-5 || ibar!=0 || ibar!=1 || ibar!=3 || ibar!=4)
+
+                if(ibar!=-5 && ibar!=0 && ibar!=1 && ibar!=3 && ibar!=4)
                     error->abort("ibar in %s file for %s "
                     "can only be -5 or 0 or 1 or 3 or 4",file_name,param_args[0]);
-                
+
             }
             
             for(int i=0;i<19;i++)
