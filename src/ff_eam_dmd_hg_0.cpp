@@ -4,6 +4,8 @@
 #include "atom_types.h"
 using namespace MAPP_NS;
 #define PI_IN_SQ 0.564189583547756286948079451561
+#define CRD_ENBL 0
+#define DIFF_ENBL 1
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 /*--------------------------------------------
  constructor
@@ -30,7 +32,8 @@ ForceField_eam_dmd_hg_0(MAPP* mapp) : ForceField(mapp)
     
     
     CREATE1D(c_0,no_types);
-    CREATE1D(delta_e,no_types);
+    CREATE1D(f_t,no_types);
+    CREATE1D(Q_nrm,no_types);
     
     c_d_n=atoms->find_exist("c_d");
     
@@ -50,7 +53,8 @@ ForceField_eam_dmd_hg_0::~ForceField_eam_dmd_hg_0()
     if(no_types)
     {
         delete [] c_0;
-        delete [] delta_e;
+        delete [] f_t;
+        delete [] Q_nrm;
     }
     
     
@@ -87,6 +91,18 @@ ForceField_eam_dmd_hg_0::~ForceField_eam_dmd_hg_0()
 void ForceField_eam_dmd_hg_0::
 force_calc(int st_clc,type0* en_st)
 {
+    if(DIFF_ENBL)
+        force_calc_diff(st_clc,en_st);
+    else
+        force_calc_ndiff(st_clc,en_st);
+}
+/*--------------------------------------------
+ force calculation
+ --------------------------------------------*/
+void ForceField_eam_dmd_hg_0::
+force_calc_ndiff(int st_clc,type0* en_st)
+{
+    
     type0* x;
     atoms->vectors[x_n]->ret(x);
     type0* f;
@@ -101,25 +117,25 @@ force_calc(int st_clc,type0* en_st)
     int iatm,jatm;
     
     int icomp,jcomp,istart;
-    type0 dx0,dx1,dx2,rsq,z2p,z2;
+    type0 dx0,dx1,dx2,rsq;
     type0 alpha;
     type0 r=0.0,r_inv=0.0;
     int m;
     type0* coef;
-    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,rtmp;
+    type0 alpha_inv,tmp0,tmp1,rtmp;
     type0 upper,lower;
     type0 fpair,apair;
     
-    type0 p,p2,p3,p4;
+    type0 p,p2,p3,p4,c_iv;
     type0 phi_it_jt_0,phi_it_jt_1,phi_it_jt_2;
     type0 rho_it_jt_0,rho_it_jt_1,rho_it_jt_2;
     type0 rho_jt_it_0,rho_jt_it_1,rho_jt_it_2;
+    type0 a0,a1,a2;
     
     
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
-    
     if(max_pairs<neighbor->no_pairs)
     {
         if(max_pairs)
@@ -136,12 +152,10 @@ force_calc(int st_clc,type0* en_st)
         for(int i=0;i<no_0;i++)
             rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
     }
-    
     nrgy_strss[0]=0.0;
     if (st_clc)
         for (int i=1;i<7;i++)
             nrgy_strss[i]=0.0;
-    
     int natms=atoms->natms;
     for(int i=0;i<natms*no_types;i++) E[i]=0.0;
     
@@ -166,177 +180,115 @@ force_calc(int st_clc,type0* en_st)
                 {
                     for(int jtype=0;jtype<no_types; jtype++)
                     {
-                        alpha=(x[icomp+3+itype]*x[jcomp+3+jtype])/(x[icomp+3+itype]+x[jcomp+3+jtype]);
-                        
-                        if(alpha_min<alpha && alpha<alpha_max)
+                        if(c[no_types*iatm+itype]>=0.0 && c[no_types*jatm+jtype]>=0.0)
                         {
-                            alpha_sq=sqrt(alpha);
-                            inv_alph_sq=1.0/alpha_sq;
-                            upper=(r+rc)*alpha_sq;
-                            lower=(r-rc)*alpha_sq;
+                            alpha=sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
                             
-                            if(lower<xi[no_i-1])
+                            if(alpha<alpha_max)
                             {
-                                phi_it_jt_0=phi_it_jt_1=phi_it_jt_2=0.0;
-                                rho_it_jt_0=rho_it_jt_1=rho_it_jt_2=0.0;
-                                rho_jt_it_0=rho_jt_it_1=rho_jt_it_2=0.0;
+                                alpha_inv=1.0/alpha;
                                 
-                                for(int i=0;i<no_i;i++)
+                                upper=(r+rc)*alpha_inv;
+                                lower=(r-rc)*alpha_inv;
+                                
+                                if(lower<xi[no_i-1])
                                 {
-                                    if(xi[i]>lower && xi[i]<upper)
+                                    phi_it_jt_0=phi_it_jt_1=phi_it_jt_2=0.0;
+                                    rho_it_jt_0=rho_it_jt_1=rho_it_jt_2=0.0;
+                                    rho_jt_it_0=rho_jt_it_1=rho_jt_it_2=0.0;
+                                    
+                                    for(int i=0;i<no_i;i++)
                                     {
-                                        rtmp=r-xi[i]*inv_alph_sq;
-                                        
-                                        p=fabs(rtmp)*dr_inv;
-                                        m=static_cast<int>(p);
-                                        m=MIN(m,nr-2);
-                                        p-=m;
-                                        p=MIN(p,1.0);
-                                        p2=p*p;
-                                        p3=p2*p;
-                                        
-                                        coef=rho_r_arr[type2rho[itype][jtype]][m];
-                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
-                                        if(rtmp<0.0)
-                                            tmp0*=-1.0;
-                                        
-                                        rho_it_jt_0+=wi_0[i]*tmp0;
-                                        rho_it_jt_1+=wi_0[i]*tmp1;
-                                        rho_it_jt_2+=wi_1[i]*tmp1;
-                                        
-                                        if(itype!=jtype)
+                                        if(xi[i]>lower && xi[i]<upper)
                                         {
-                                            coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                            rtmp=r-xi[i]*alpha;
+                                            
+                                            p=fabs(rtmp)*dr_inv;
+                                            m=static_cast<int>(p);
+                                            m=MIN(m,nr-2);
+                                            p-=m;
+                                            p=MIN(p,1.0);
+                                            p2=p*p;
+                                            p3=p2*p;
+                                            coef=rho_r_arr[type2rho[itype][jtype]][m];
                                             tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                            tmp1=coef[6]*p2+coef[5]*p+coef[4];
                                             if(rtmp<0.0)
                                                 tmp0*=-1.0;
+                                            rho_it_jt_0+=wi_0[i]*tmp0;
+                                            rho_it_jt_1+=wi_1[i]*tmp0;
+                                            rho_it_jt_2+=wi_2[i]*tmp0;
+                                            
+                                            if(itype!=jtype)
+                                            {
+                                                coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                                tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                                if(rtmp<0.0)
+                                                    tmp0*=-1.0;
+                                            }
+                                            rho_jt_it_0+=wi_0[i]*tmp0;
+                                            rho_jt_it_1+=wi_1[i]*tmp0;
+                                            rho_jt_it_2+=wi_2[i]*tmp0;
+                                            
+                                            
+                                            coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                            tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                            if(rtmp<0.0)
+                                                tmp0*=-1.0;
+                                            
+                                            phi_it_jt_0+=wi_0[i]*tmp0;
+                                            phi_it_jt_1+=wi_1[i]*tmp0;
+                                            phi_it_jt_2+=wi_2[i]*tmp0;
                                         }
-                                        
-                                        rho_jt_it_0+=wi_0[i]*tmp0;
-                                        rho_jt_it_1+=wi_0[i]*tmp1;
-                                        rho_jt_it_2+=wi_1[i]*tmp1;
-                                        
-                                        
-                                        coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
-                                        if(rtmp<0.0)
-                                            tmp0*=-1.0;
-                                        
-                                        phi_it_jt_0+=wi_0[i]*tmp0;
-                                        phi_it_jt_1+=wi_0[i]*tmp1;
-                                        phi_it_jt_2+=wi_1[i]*tmp1;
+                                    }
+                                    a0=PI_IN_SQ*r_inv;
+                                    a1=a0*r_inv;
+                                    a2=a0*alpha_inv;
+                                    
+                                    rho_it_jt_2*=2.0*a2;
+                                    rho_it_jt_2-=a2*rho_it_jt_0;
+                                    rho_it_jt_1*=-2.0*a2;
+                                    rho_it_jt_1-=a1*rho_it_jt_0;
+                                    rho_it_jt_0*=a0;
+
+                                    rho_jt_it_2*=2.0*a2;
+                                    rho_jt_it_2-=a2*rho_jt_it_0;
+                                    rho_jt_it_1*=-2.0*a2;
+                                    rho_jt_it_1-=a1*rho_jt_it_0;
+                                    rho_jt_it_0*=a0;
+
+                                    phi_it_jt_2*=2.0*a2;
+                                    phi_it_jt_2-=a2*phi_it_jt_0;
+                                    phi_it_jt_1*=-2.0*a2;
+                                    phi_it_jt_1-=a1*phi_it_jt_0;
+                                    phi_it_jt_0*=a0;
+                                    
+                                    
+                                    rho_phi[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_0;
+                                    rho_phi[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_0;
+                                    rho_phi[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_0;
+                                    
+                                    drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_1;
+                                    drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_1;
+                                    drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_1;
+                                    
+                                    drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_2;
+                                    drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_2;
+                                    drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_2;
+                                    
+                                    E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
+                                    
+                                    if (jatm<natms)
+                                    {
+                                        E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                        nrgy_strss[0]+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                    }
+                                    else
+                                    {
+                                        nrgy_strss[0]+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
                                     }
                                 }
-                                
-                                
-                                rho_it_jt_0*=PI_IN_SQ*r_inv;
-                                rho_it_jt_1*=PI_IN_SQ*r_inv;
-                                rho_it_jt_1-=rho_it_jt_0*r_inv;
-                                rho_it_jt_2*=0.5*PI_IN_SQ*r_inv*inv_alph_sq/alpha;
-                                
-                                rho_jt_it_0*=PI_IN_SQ*r_inv;
-                                rho_jt_it_1*=PI_IN_SQ*r_inv;
-                                rho_jt_it_1-=rho_jt_it_0*r_inv;
-                                rho_jt_it_2*=0.5*PI_IN_SQ*r_inv*inv_alph_sq/alpha;
-                                
-                                phi_it_jt_0*=PI_IN_SQ*r_inv;
-                                phi_it_jt_1*=PI_IN_SQ*r_inv;
-                                phi_it_jt_1-=phi_it_jt_0*r_inv;
-                                phi_it_jt_2*=0.5*PI_IN_SQ*r_inv*inv_alph_sq/alpha;
-                                
-                                
-                                rho_phi[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_0;
-                                rho_phi[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_0;
-                                rho_phi[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_0;
-                                
-                                drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_1;
-                                drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_1;
-                                drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_1;
-                                
-                                drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_2;
-                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_2;
-                                drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_2;
-                                
-                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
-                                
-                                if (jatm<natms)
-                                {
-                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
-                                    nrgy_strss[0]+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
-                                else
-                                {
-                                    nrgy_strss[0]+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
                             }
-                        }
-                        else if (alpha_max<=alpha)
-                        {
-                            if(rsq<cut_sq_0)
-                            {
-                                r=sqrt(rsq);
-                                p=r*dr_inv;
-                                m=static_cast<int>(p);
-                                m=MIN(m,nr-2);
-                                p-=m;
-                                p=MIN(p,1.0);
-                                p2=p*p;
-                                p3=p2*p;
-                                
-                                coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                z2p=coef[6]*p2+coef[5]*p+coef[4];
-                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                phi_it_jt_0=z2*r_inv;
-                                phi_it_jt_1=(z2p-z2*r_inv)*r_inv;
-                                
-                                coef=rho_r_arr[type2rho[itype][jtype]][m];
-                                z2p=coef[6]*p2+coef[5]*p+coef[4];
-                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                rho_it_jt_0=z2*r_inv;
-                                rho_it_jt_1=(z2p-z2*r_inv)*r_inv;
-                                
-                                coef=rho_r_arr[type2rho[jtype][itype]][m];
-                                z2p=coef[6]*p2+coef[5]*p+coef[4];
-                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                rho_jt_it_0=z2*r_inv;
-                                rho_jt_it_1=(z2p-z2*r_inv)*r_inv;
-                                
-                                
-                                
-                                rho_phi[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_0;
-                                rho_phi[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_0;
-                                rho_phi[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_0;
-                                
-                                drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_1;
-                                drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_1;
-                                drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_1;
-                                
-                                drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]=0.0;
-                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]=0.0;
-                                drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]]=0.0;
-                                
-                                
-                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
-                                
-                                if (jatm<natms)
-                                {
-                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
-                                    nrgy_strss[0]+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
-                                else
-                                {
-                                    nrgy_strss[0]+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
-                                
-                                
-                            }
+                            
                         }
                     }
                     
@@ -349,42 +301,47 @@ force_calc(int st_clc,type0* en_st)
         }
         
         
+        c_iv=1.0;
         for(int itype=0;itype<no_types; itype++)
         {
-            p=E[iatm*no_types+itype]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nr-2);
-            p-=m;
-            p=MIN(p,1.0);
-            p2=p*p;
-            p3=p2*p;
-            p4=p3*p;
-            coef=F_arr[itype][m];
-            
-            tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-            tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
-            
-            
-            if(E[iatm*no_types+itype]>rho_max)
-                tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
-            
-            E[iatm*no_types+itype]=tmp0;
-            dE[iatm*no_types+itype]=tmp1;
-            
-            nrgy_strss[0]+=c[iatm*no_types+itype]*E[iatm*no_types+itype];
-            
-            nrgy_strss[0]+=kbT*calc_ent(c[iatm*no_types+itype]);
-            
-            nrgy_strss[0]+=1.5*kbT*c[iatm*no_types+itype]*log(x[icomp+3+itype])
-            +c[iatm*no_types+itype]*c_0[itype];
-            
-            f[icomp+3+itype]-=1.5*kbT*c[iatm*no_types+itype]/x[icomp+3+itype];
+            if(c[no_types*iatm+itype]>=0.0)
+            {
+                c_iv-=c[iatm*no_types+itype];
+                p=E[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                
+                
+                if(E[iatm*no_types+itype]>rho_max)
+                    tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
+                
+                E[iatm*no_types+itype]=tmp0;
+                dE[iatm*no_types+itype]=tmp1;
+                
+                
+                nrgy_strss[0]+=c[iatm*no_types+itype]*(tmp0+c_0[itype]
+                 -3.0*kbT*log(x[icomp+3+itype]));
+                
+                nrgy_strss[0]+=kbT*calc_ent(c[iatm*no_types+itype]);
+                
+                f[icomp+3+itype]+=3.0*kbT*c[iatm*no_types+itype]/x[icomp+3+itype];
+            }
         }
+        nrgy_strss[0]+=kbT*calc_ent(c_iv);
         
     }
     
-    atoms->update_ph(dE_n);
     
+    atoms->update_ph(dE_n);
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -403,63 +360,60 @@ force_calc(int st_clc,type0* en_st)
             {
                 for(int jtype=0;jtype<no_types; jtype++)
                 {
-                    
-                    
-                    fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
-                            +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
-                            +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*r_inv;
-                    
-                    apair=-(
-                            drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
-                            +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
-                            +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
-                    ((x[icomp+3+itype]+x[jcomp+3+jtype])*(x[icomp+3+itype]+x[jcomp+3+jtype]));
-                    
-                    
-                    
-                    
-                    if(apair!=0.0 || fpair!=0.0)
+                    if(c[no_types*iatm+itype]>=0.0 && c[no_types*jatm+jtype]>=0.0)
                     {
-                        f[icomp]+=dx0*fpair;
-                        f[icomp+1]+=dx1*fpair;
-                        f[icomp+2]+=dx2*fpair;
-                        f[icomp+3+itype]+=apair*x[jcomp+3+jtype]*x[jcomp+3+jtype];
+                        fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                                +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
+                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*r_inv;
                         
-                        if (jatm<natms)
+                        apair=-(
+                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                                +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
+                                +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
+                        sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
+                        
+                        
+                        
+                        
+                        if(apair!=0.0 || fpair!=0.0)
                         {
-                            f[jcomp]-=dx0*fpair;
-                            f[jcomp+1]-=dx1*fpair;
-                            f[jcomp+2]-=dx2*fpair;
-                            f[jcomp+3+jtype]+=apair*x[icomp+3+itype]*x[icomp+3+itype];
+                            f[icomp]+=dx0*fpair;
+                            f[icomp+1]+=dx1*fpair;
+                            f[icomp+2]+=dx2*fpair;
+                            f[icomp+3+itype]+=apair*x[icomp+3+itype];
                             
-                            if (st_clc)
+                            if (jatm<natms)
                             {
-                                nrgy_strss[1]-=fpair*dx0*dx0;
-                                nrgy_strss[2]-=fpair*dx1*dx1;
-                                nrgy_strss[3]-=fpair*dx2*dx2;
-                                nrgy_strss[4]-=fpair*dx1*dx2;
-                                nrgy_strss[5]-=fpair*dx2*dx0;
-                                nrgy_strss[6]-=fpair*dx0*dx1;
+                                f[jcomp]-=dx0*fpair;
+                                f[jcomp+1]-=dx1*fpair;
+                                f[jcomp+2]-=dx2*fpair;
+                                f[jcomp+3+jtype]+=apair*x[jcomp+3+jtype];
+                                
+                                if (st_clc)
+                                {
+                                    nrgy_strss[1]-=fpair*dx0*dx0;
+                                    nrgy_strss[2]-=fpair*dx1*dx1;
+                                    nrgy_strss[3]-=fpair*dx2*dx2;
+                                    nrgy_strss[4]-=fpair*dx1*dx2;
+                                    nrgy_strss[5]-=fpair*dx2*dx0;
+                                    nrgy_strss[6]-=fpair*dx0*dx1;
+                                }
+                            }
+                            else
+                            {
+                                if (st_clc)
+                                {
+                                    nrgy_strss[1]-=0.5*fpair*dx0*dx0;
+                                    nrgy_strss[2]-=0.5*fpair*dx1*dx1;
+                                    nrgy_strss[3]-=0.5*fpair*dx2*dx2;
+                                    nrgy_strss[4]-=0.5*fpair*dx1*dx2;
+                                    nrgy_strss[5]-=0.5*fpair*dx2*dx0;
+                                    nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                                }
                             }
                         }
-                        else
-                        {
-                            if (st_clc)
-                            {
-                                nrgy_strss[1]-=0.5*fpair*dx0*dx0;
-                                nrgy_strss[2]-=0.5*fpair*dx1*dx1;
-                                nrgy_strss[3]-=0.5*fpair*dx2*dx2;
-                                nrgy_strss[4]-=0.5*fpair*dx1*dx2;
-                                nrgy_strss[5]-=0.5*fpair*dx2*dx0;
-                                nrgy_strss[6]-=0.5*fpair*dx0*dx1;
-                            }
-                        }
-                        
-                        
                     }
-                    
                 }
-                
             }
             istart+=stride;
         }
@@ -476,46 +430,72 @@ force_calc(int st_clc,type0* en_st)
     {
         MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
     }
-    
+
 }
 /*--------------------------------------------
- energy calculation
+ force calculation
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::energy_calc()
+void ForceField_eam_dmd_hg_0::
+force_calc_diff(int st_clc,type0* en_st)
 {
-    type0 en=0.0,en_tot;
     
     type0* x;
     atoms->vectors[x_n]->ret(x);
+    type0* f;
+    atoms->vectors[f_n]->ret(f);
     type0* E;
     atoms->vectors[E_n]->ret(E);
+    type0* dE;
+    atoms->vectors[dE_n]->ret(dE);
     type0* c;
     atoms->vectors[c_n]->ret(c);
     
     int iatm,jatm;
     
-    int icomp,jcomp;
-    type0 dx0,dx1,dx2,rsq,z2;
+    int icomp,jcomp,istart;
+    type0 dx0,dx1,dx2,rsq;
     type0 alpha;
     type0 r=0.0,r_inv=0.0;
     int m;
     type0* coef;
-    type0 alpha_sq,inv_alph_sq,tmp0,tmp1,rtmp;
+    type0 alpha_inv,tmp0,tmp1,rtmp;
     type0 upper,lower;
+    type0 fpair,apair;
     
-    type0 p,p2,p3,p4;
-    type0 phi_it_jt_0;
-    type0 rho_it_jt_0;
-    type0 rho_jt_it_0;
+    type0 p,p2,p3,p4,c_iv;
+    type0 phi_it_jt_0,phi_it_jt_1,phi_it_jt_2;
+    type0 rho_it_jt_0,rho_it_jt_1,rho_it_jt_2;
+    type0 rho_jt_it_0,rho_jt_it_1,rho_jt_it_2;
+    type0 a0;
     
     
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    if(max_pairs<neighbor->no_pairs)
+    {
+        if(max_pairs)
+        {
+            delete [] rho_phi;
+            delete [] drho_phi_dr;
+            delete [] drho_phi_dalpha;
+        }
+        max_pairs=neighbor->no_pairs;
+        int no_0=max_pairs*stride;
+        CREATE1D(rho_phi,no_0);
+        CREATE1D(drho_phi_dr,no_0);
+        CREATE1D(drho_phi_dalpha,no_0);
+        for(int i=0;i<no_0;i++)
+            rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
+    }
+    nrgy_strss[0]=0.0;
+    if (st_clc)
+        for (int i=1;i<7;i++)
+            nrgy_strss[i]=0.0;
     int natms=atoms->natms;
     for(int i=0;i<natms*no_types;i++) E[i]=0.0;
     
+    istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=(3+no_types)*iatm;
@@ -536,140 +516,114 @@ type0 ForceField_eam_dmd_hg_0::energy_calc()
                 {
                     for(int jtype=0;jtype<no_types; jtype++)
                     {
-                        alpha=(x[icomp+3+itype]*x[jcomp+3+jtype])/(x[icomp+3+itype]+x[jcomp+3+jtype]);
-                        
-                        if(alpha_min<alpha && alpha<alpha_max)
+                        if(c[no_types*iatm+itype]>=0.0 && c[no_types*jatm+jtype]>=0.0)
                         {
-                            alpha_sq=sqrt(alpha);
-                            inv_alph_sq=1.0/alpha_sq;
-                            upper=(r+rc)*alpha_sq;
-                            lower=(r-rc)*alpha_sq;
+                            alpha=sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
                             
-                            if(lower<xi[no_i-1])
+                            if(alpha<alpha_max)
                             {
-                                phi_it_jt_0=0.0;
-                                rho_it_jt_0=0.0;
-                                rho_jt_it_0=0.0;
+                                alpha_inv=1.0/alpha;
                                 
-                                for(int i=0;i<no_i;i++)
+                                upper=(r+rc)*alpha_inv;
+                                lower=(r-rc)*alpha_inv;
+                                
+                                if(lower<xi[no_i-1])
                                 {
-                                    if(xi[i]>lower && xi[i]<upper)
+                                    phi_it_jt_0=phi_it_jt_1=phi_it_jt_2=0.0;
+                                    rho_it_jt_0=rho_it_jt_1=rho_it_jt_2=0.0;
+                                    rho_jt_it_0=rho_jt_it_1=rho_jt_it_2=0.0;
+                                    
+                                    for(int i=0;i<no_i;i++)
                                     {
-                                        rtmp=r-xi[i]*inv_alph_sq;
-                                        
-                                        p=fabs(rtmp)*dr_inv;
-                                        m=static_cast<int>(p);
-                                        m=MIN(m,nr-2);
-                                        p-=m;
-                                        p=MIN(p,1.0);
-                                        p2=p*p;
-                                        p3=p2*p;
-                                        
-                                        coef=rho_r_arr[type2rho[itype][jtype]][m];
-                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
-                                        if(rtmp<0.0)
-                                            tmp0*=-1.0;
-                                        
-                                        rho_it_jt_0+=wi_0[i]*tmp0;
-                                        
-                                        
-                                        if(itype!=jtype)
+                                        if(xi[i]>lower && xi[i]<upper)
                                         {
-                                            coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                            rtmp=r-xi[i]*alpha;
+                                            
+                                            p=fabs(rtmp)*dr_inv;
+                                            m=static_cast<int>(p);
+                                            m=MIN(m,nr-2);
+                                            p-=m;
+                                            p=MIN(p,1.0);
+                                            p2=p*p;
+                                            p3=p2*p;
+                                            coef=rho_r_arr[type2rho[itype][jtype]][m];
                                             tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                            tmp1=coef[6]*p2+coef[5]*p+coef[4];
+                                            tmp1=(3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*dr_inv;
                                             if(rtmp<0.0)
                                                 tmp0*=-1.0;
+                                            rho_it_jt_0+=wi_0[i]*tmp0;
+                                            rho_it_jt_1+=wi_0[i]*tmp1;
+                                            rho_it_jt_2+=wi_1[i]*tmp1;
+                                            
+                                            if(itype!=jtype)
+                                            {
+                                                coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                                tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                                tmp1=(3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*dr_inv;
+                                                if(rtmp<0.0)
+                                                    tmp0*=-1.0;
+                                            }
+                                            rho_jt_it_0+=wi_0[i]*tmp0;
+                                            rho_jt_it_1+=wi_0[i]*tmp1;
+                                            rho_jt_it_2+=wi_1[i]*tmp1;
+                                            
+                                            
+                                            coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                            tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                            tmp1=(3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*dr_inv;
+                                            if(rtmp<0.0)
+                                                tmp0*=-1.0;
+                                            
+                                            phi_it_jt_0+=wi_0[i]*tmp0;
+                                            phi_it_jt_1+=wi_0[i]*tmp1;
+                                            phi_it_jt_2+=wi_1[i]*tmp1;
                                         }
+                                    }
+                                    a0=PI_IN_SQ*r_inv;
+                                    rho_it_jt_0*=a0;
+                                    rho_it_jt_1*=a0;
+                                    rho_it_jt_1-=rho_it_jt_0*r_inv;
+                                    rho_it_jt_2*=-a0;
+                                    
+                                    rho_jt_it_0*=a0;
+                                    rho_jt_it_1*=a0;
+                                    rho_jt_it_1-=rho_jt_it_0*r_inv;
+                                    rho_jt_it_2*=-a0;
+                                    
+                                    phi_it_jt_0*=a0;
+                                    phi_it_jt_1*=a0;
+                                    phi_it_jt_1-=phi_it_jt_0*r_inv;
+                                    phi_it_jt_2*=-a0;
+                                    
+                                    
+                                    rho_phi[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_0;
+                                    rho_phi[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_0;
+                                    rho_phi[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_0;
+                                    
+                                    drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_1;
+                                    drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_1;
+                                    drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_1;
+                                    
+                                    drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]=rho_it_jt_2;
+                                    drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]=rho_jt_it_2;
+                                    drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]]=phi_it_jt_2;
+                                    
+                                    E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
+                                    
+                                    if (jatm<natms)
+                                    {
+                                        E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                        nrgy_strss[0]+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
                                         
-                                        rho_jt_it_0+=wi_0[i]*tmp0;
-                                        
-                                        
-                                        
-                                        coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                        tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                        tmp1=coef[6]*p2+coef[5]*p+coef[4];
-                                        if(rtmp<0.0)
-                                            tmp0*=-1.0;
-                                        
-                                        phi_it_jt_0+=wi_0[i]*tmp0;
+                                    }
+                                    else
+                                    {
+                                        nrgy_strss[0]+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
                                         
                                     }
                                 }
-                                
-                                
-                                rho_it_jt_0*=PI_IN_SQ*r_inv;
-                                
-                                
-                                rho_jt_it_0*=PI_IN_SQ*r_inv;
-                                
-                                
-                                phi_it_jt_0*=PI_IN_SQ*r_inv;
-                                
-                                
-                                
-                                
-                                
-                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
-                                
-                                if (jatm<natms)
-                                {
-                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
-                                    en+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
-                                else
-                                {
-                                    en+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
                             }
-                        }
-                        else if (alpha_max<=alpha)
-                        {
-                            if(rsq<cut_sq_0)
-                            {
-                                r=sqrt(rsq);
-                                p=r*dr_inv;
-                                m=static_cast<int>(p);
-                                m=MIN(m,nr-2);
-                                p-=m;
-                                p=MIN(p,1.0);
-                                p2=p*p;
-                                p3=p2*p;
-                                
-                                coef=phi_r_arr[type2phi[itype][jtype]][m];
-                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                phi_it_jt_0=z2*r_inv;
-                                
-                                coef=rho_r_arr[type2rho[itype][jtype]][m];
-                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                rho_it_jt_0=z2*r_inv;
-                                
-                                coef=rho_r_arr[type2rho[jtype][itype]][m];
-                                z2=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-                                rho_jt_it_0=z2*r_inv;
-                                
-                                
-                                
-                                
-                                E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
-                                
-                                if (jatm<natms)
-                                {
-                                    E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
-                                    en+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
-                                else
-                                {
-                                    en+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
-                                    
-                                }
-                                
-                                
-                            }
+                            
                         }
                     }
                     
@@ -678,42 +632,339 @@ type0 ForceField_eam_dmd_hg_0::energy_calc()
             
             
             
+            istart+=stride;
         }
         
         
+        c_iv=1.0;
         for(int itype=0;itype<no_types; itype++)
         {
-            p=E[iatm*no_types+itype]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nr-2);
-            p-=m;
-            p=MIN(p,1.0);
-            p2=p*p;
-            p3=p2*p;
-            p4=p3*p;
-            coef=F_arr[itype][m];
+            if(c[no_types*iatm+itype]>=0.0)
+            {
+                c_iv-=c[iatm*no_types+itype];
+                p=E[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+
+                
+                if(E[iatm*no_types+itype]>rho_max)
+                    tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
+                
+                E[iatm*no_types+itype]=tmp0;
+                dE[iatm*no_types+itype]=tmp1;
+                
+                nrgy_strss[0]+=c[iatm*no_types+itype]*E[iatm*no_types+itype];
+                
+                nrgy_strss[0]+=kbT*calc_ent(c[iatm*no_types+itype]);
+                
+                nrgy_strss[0]-=3.0*kbT*c[iatm*no_types+itype]*log(x[icomp+3+itype])
+                -c[iatm*no_types+itype]*c_0[itype];
+                
+                f[icomp+3+itype]+=3.0*kbT*c[iatm*no_types+itype]/x[icomp+3+itype];
+            }
+        }
+        nrgy_strss[0]+=kbT*calc_ent(c_iv);
+        
+    }
+    
+    
+    atoms->update_ph(dE_n);
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=(3+no_types)*iatm;
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=(3+no_types)*jatm;
             
-            tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-            tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
+            dx0=x[icomp]-x[jcomp];
+            dx1=x[icomp+1]-x[jcomp+1];
+            dx2=x[icomp+2]-x[jcomp+2];
+            r_inv=1.0/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
             
+            for(int itype=0;itype<no_types; itype++)
+            {
+                for(int jtype=0;jtype<no_types; jtype++)
+                {
+                    if(c[no_types*iatm+itype]>=0.0 && c[no_types*jatm+jtype]>=0.0)
+                    {
+                        fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                                +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
+                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*r_inv;
+                        
+                        apair=-(
+                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                                +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
+                                +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
+                        sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
+                        
+                        
+                        
+                        
+                        if(apair!=0.0 || fpair!=0.0)
+                        {
+                            f[icomp]+=dx0*fpair;
+                            f[icomp+1]+=dx1*fpair;
+                            f[icomp+2]+=dx2*fpair;
+                            f[icomp+3+itype]+=apair*x[icomp+3+itype];
+                            
+                            if (jatm<natms)
+                            {
+                                f[jcomp]-=dx0*fpair;
+                                f[jcomp+1]-=dx1*fpair;
+                                f[jcomp+2]-=dx2*fpair;
+                                f[jcomp+3+jtype]+=apair*x[jcomp+3+jtype];
+                                
+                                if (st_clc)
+                                {
+                                    nrgy_strss[1]-=fpair*dx0*dx0;
+                                    nrgy_strss[2]-=fpair*dx1*dx1;
+                                    nrgy_strss[3]-=fpair*dx2*dx2;
+                                    nrgy_strss[4]-=fpair*dx1*dx2;
+                                    nrgy_strss[5]-=fpair*dx2*dx0;
+                                    nrgy_strss[6]-=fpair*dx0*dx1;
+                                }
+                            }
+                            else
+                            {
+                                if (st_clc)
+                                {
+                                    nrgy_strss[1]-=0.5*fpair*dx0*dx0;
+                                    nrgy_strss[2]-=0.5*fpair*dx1*dx1;
+                                    nrgy_strss[3]-=0.5*fpair*dx2*dx2;
+                                    nrgy_strss[4]-=0.5*fpair*dx1*dx2;
+                                    nrgy_strss[5]-=0.5*fpair*dx2*dx0;
+                                    nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+    }
+    if(st_clc)
+    {
+        for(int i=0;i<7;i++)
+            en_st[i]=0.0;
+        
+        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+    }
+    else
+    {
+        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
+    }
+    
+    
+}
+/*--------------------------------------------
+ energy calculation
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::energy_calc()
+{
+    
+    type0 en=0.0,en_tot;
+    
+    type0* x;
+    atoms->vectors[x_n]->ret(x);
+    type0* E;
+    atoms->vectors[E_n]->ret(E);
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    
+    int iatm,jatm;
+    
+    int icomp,jcomp;
+    type0 dx0,dx1,dx2,rsq;
+    type0 alpha;
+    type0 r=0.0,r_inv=0.0;
+    int m;
+    type0* coef;
+    type0 alpha_inv,tmp0,tmp1,rtmp,c_iv;
+    type0 upper,lower;
+    
+    type0 p,p2,p3,p4;
+    type0 phi_it_jt_0;
+    type0 rho_it_jt_0;
+    type0 rho_jt_it_0;
+    type0 a0;
+    
+    
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    int natms=atoms->natms;
+    for(int i=0;i<natms*no_types;i++) E[i]=0.0;
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        
+        icomp=(3+no_types)*iatm;
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=(3+no_types)*jatm;
+            dx0=x[icomp]-x[jcomp];
+            dx1=x[icomp+1]-x[jcomp+1];
+            dx2=x[icomp+2]-x[jcomp+2];
+            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+            if(rsq<cut_sq_mod_0)
+            {
+                r=sqrt(rsq);
+                r_inv=1.0/r;
+                
+                for(int itype=0;itype<no_types; itype++)
+                {
+                    for(int jtype=0;jtype<no_types; jtype++)
+                    {
+                        if(c[no_types*iatm+itype]>=0.0 && c[no_types*jatm+jtype]>=0.0)
+                        {
+                            alpha=sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
+                            
+                            if(alpha<alpha_max)
+                            {
+                                alpha_inv=1.0/alpha;
+                                
+                                upper=(r+rc)*alpha_inv;
+                                lower=(r-rc)*alpha_inv;
+                                
+                                if(lower<xi[no_i-1])
+                                {
+                                    phi_it_jt_0=0.0;
+                                    rho_it_jt_0=0.0;
+                                    rho_jt_it_0=0.0;
+                                    
+                                    for(int i=0;i<no_i;i++)
+                                    {
+                                        if(xi[i]>lower && xi[i]<upper)
+                                        {
+                                            rtmp=r-xi[i]*alpha;
+                                            
+                                            p=fabs(rtmp)*dr_inv;
+                                            m=static_cast<int>(p);
+                                            m=MIN(m,nr-2);
+                                            p-=m;
+                                            p=MIN(p,1.0);
+                                            p2=p*p;
+                                            p3=p2*p;
+                                            
+                                            coef=rho_r_arr[type2rho[itype][jtype]][m];
+                                            tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                            if(rtmp<0.0)
+                                                tmp0*=-1.0;
+                                            
+                                            rho_it_jt_0+=wi_0[i]*tmp0;
+                                            
+                                            
+                                            if(itype!=jtype)
+                                            {
+                                                coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                                tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                                if(rtmp<0.0)
+                                                    tmp0*=-1.0;
+                                            }
+                                            
+                                            rho_jt_it_0+=wi_0[i]*tmp0;
+                                            
+                                            
+                                            
+                                            coef=phi_r_arr[type2phi[itype][jtype]][m];
+                                            tmp0=coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                                            if(rtmp<0.0)
+                                                tmp0*=-1.0;
+                                            
+                                            phi_it_jt_0+=wi_0[i]*tmp0;
+                                            
+                                        }
+                                    }
+                                    
+                                    a0=PI_IN_SQ*r_inv;
+                                    
+                                    rho_it_jt_0*=a0;
+                                    rho_jt_it_0*=a0;
+                                    phi_it_jt_0*=a0;
+                                    
+                                    
+                                    
+                                    E[iatm*no_types+itype]+=c[jatm*no_types+jtype]*rho_jt_it_0;
+                                    
+                                    if (jatm<natms)
+                                    {
+                                        E[jatm*no_types+jtype]+=c[iatm*no_types+itype]*rho_it_jt_0;
+                                        en+=c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                        
+                                    }
+                                    else
+                                    {
+                                        en+=0.5*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*phi_it_jt_0;
+                                        
+                                    }
+                                }
+                            }
+                            
+                        }
+                        
+                    }
+                    
+                }
+            }
             
-            if(E[iatm*no_types+itype]>rho_max)
-                tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
-            
-            E[iatm*no_types+itype]=tmp0;
-            
-            en+=c[iatm*no_types+itype]*E[iatm*no_types+itype];
-            
-            en+=kbT*calc_ent(c[iatm*no_types+itype]);
-            
-            en+=1.5*kbT*c[iatm*no_types+itype]*log(x[icomp+3+itype])
-            +c[iatm*no_types+itype]*c_0[itype];
             
         }
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types; itype++)
+        {
+            if(c[no_types*iatm+itype]>=0.0)
+            {
+                c_iv-=c[no_types*iatm+itype];
+                p=E[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                
+                
+                if(E[iatm*no_types+itype]>rho_max)
+                {
+                    tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                    tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
+                }
+                
+                E[iatm*no_types+itype]=tmp0;
+                
+                en+=c[iatm*no_types+itype]*E[iatm*no_types+itype];
+                
+                en+=kbT*calc_ent(c[iatm*no_types+itype]);
+                
+                en-=3.0*kbT*c[iatm*no_types+itype]*log(x[icomp+3+itype])
+                -c[iatm*no_types+itype]*c_0[itype];
+            }
+        }
+        en+=kbT*calc_ent(c_iv);
         
     }
     
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
+    
     
     return en_tot;
 }
@@ -722,9 +973,9 @@ type0 ForceField_eam_dmd_hg_0::energy_calc()
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::init()
 {
+    
     for (int i=0;i<no_types*(no_types+1)/2;i++)
         cut_sq[i]=cut_sq_mod_0;
-    
     
     x_n=atoms->find("x");
     f_n=atoms->find("f");
@@ -734,12 +985,18 @@ void ForceField_eam_dmd_hg_0::init()
     
     E_n=atoms->add<type0>(1,no_types,"E");
     dE_n=atoms->add<type0>(1,no_types,"dE");
-    ddE_n=atoms->add<type0>(1,no_types,"ddE");
     mu_n=atoms->add<type0>(1,no_types,"mu");
     s_n=atoms->add<type0>(1,no_types,"s");
-    t_n=atoms->add<type0>(1,2*no_types,"t");
-    v_n=atoms->add<type0>(1,2*no_types,"v");
     crd_n=atoms->add<type0>(1,no_types,"crd");
+    if(CRD_ENBL)
+        t_n=atoms->add<type0>(1,2*no_types,"t");
+    else
+        t_n=atoms->add<type0>(1,no_types,"t");
+    
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
+    for(int i=0;i<no_types*atoms->natms;i++)
+        mu[i]=0.0;
     
 }
 /*--------------------------------------------
@@ -747,12 +1004,10 @@ void ForceField_eam_dmd_hg_0::init()
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::fin()
 {
+    atoms->del(t_n);    
     atoms->del(crd_n);
-    atoms->del(v_n);
-    atoms->del(t_n);
     atoms->del(s_n);
     atoms->del(mu_n);
-    atoms->del(ddE_n);
     atoms->del(dE_n);
     atoms->del(E_n);
     
@@ -776,108 +1031,37 @@ void ForceField_eam_dmd_hg_0::fin()
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::coef(int narg,char** arg)
 {
-    type0 kb,T,hbar;
-    if (narg<9)
-        error->abort("ff_coef for ff eam_dmd "
-                     "should at least have 8 arguments");
     
-    
-    rsq_crd=atof(arg[1]);
-    if(rsq_crd<=0.0)
-        error->abort("coordination cutoff for ff eam_dmd "
-                     "should be greater than 0.0");
-    
-    rsq_crd*=rsq_crd;
-    
-    set_weight_abs(atoi(arg[2]));
-    
-    alpha_min=atof(arg[3]);
-    if(alpha_min<=0.0)
-        error->abort("minimum alpha for ff eam_dmd "
-                     "should be greater than 0.0");
-    
-    alpha_max=atof(arg[4]);
-    if(alpha_max<=0.0)
-        error->abort("maximum alpha for ff eam_dmd "
-                     "should be greater than 0.0");
-    
-    if(alpha_max<=alpha_min)
-        error->abort("maximum alpha should be less "
-                     "than minimum alpha for ff eam_dmd");
-    
-    
-    T=atof(arg[5]);
-    if(T<=0.0)
-        error->abort("temperature for ff eam_dmd "
-                     "should be greater than 0.0");
-    
-    
-    kb=8.617332478e-5;
-    hbar=6.5821192815e-16;
-    
-    
-    setup_delta_e(arg[6]);
-    
-    clean_up();
-    
-    if(strcmp(arg[7],"FS")==0)
-    {
-        eam_mode=FINNIS_FL;
-        set_fs(narg-8,&arg[8]);
-    }
-    else if(strcmp(arg[7],"SetFL")==0)
-    {
-        eam_mode=SET_FL;
-        set_setfl(narg-8,&arg[8]);
-    }
-    else if(strcmp(arg[7],"FuncFL")==0)
-    {
-        eam_mode=FUNC_FL;
-        set_funcfl(narg-8,&arg[8]);
-    }
-    else
-        error->abort("unknown file format "
-        "for ff eam_dmd: %s",arg[7]);
-    
-    set_arrays();
-    
-    type0 mass;
-    type0 deb_l;
-    
-    for(int i=0;i<no_types;i++)
-    {
-        mass=atom_types->mass[i];
-        mass*=1.0364269184093291236e-28;
-        deb_l=hbar*hbar*2.0/(mass*kb*T);
-        c_0[i]=1.5*kb*T*(log(deb_l)-1.0);
-    }
-    
-    kbT=kb*T;
-    beta=1.0/kbT;
-    
-    rc=(static_cast<type0>(nr)-1.0)*dr;
-    rho_max=(static_cast<type0>(nrho)-1.0)*drho;
-    cut_sq_0=rc*rc;
-    mod_rc=rc+xi[no_i-1]/sqrt(alpha_min);
-    cut_sq_mod_0=mod_rc*mod_rc;
+    if(narg!=2)
+        error->abort("d");
+    read_file(arg[1]);
     
 }
 /*--------------------------------------------
- read from file and assign DeltaE
+ initiate before a run
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::setup_delta_e(char* file_name)
+void ForceField_eam_dmd_hg_0::read_file(char* file_name)
 {
+    
+    int narg;
+    int tot_no_types,lngth;
+    int icmp;
+    int str_lngth;
+    type0 tmp,alpha_coef=0.0;
+    int tmp_i;
+    
+    
     FILE* fp=NULL;
+    char** arg=NULL;
+    char** file_list=NULL;
+    int* file_chk;
+    int* type_ref;
     char* line;
     CREATE1D(line,MAXCHAR);
-    char** arg=NULL;
-    int narg;
-    int tot_no_types;
-    int* delta_e_chk;
-    CREATE1D(delta_e_chk,no_types);
+    char* strtmp;
+    CREATE1D(strtmp,MAXCHAR);
     
-    for(int i=0;i<no_types;i++)
-        delta_e_chk[i]=0;
+    
     
     if(atoms->my_p_no==0)
     {
@@ -889,7 +1073,7 @@ void ForceField_eam_dmd_hg_0::setup_delta_e(char* file_name)
     narg=0;
     while(narg==0)
     {
-        if(line_read(fp,line)==-1)
+        if(read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",file_name);
         
         narg=mapp->parse_line(line,arg);
@@ -903,7 +1087,7 @@ void ForceField_eam_dmd_hg_0::setup_delta_e(char* file_name)
                      " present in the system",file_name);
     
     
-    int* type_ref;
+    
     CREATE1D(type_ref,tot_no_types);
     for(int ityp=0;ityp<tot_no_types;ityp++)
         type_ref[ityp]=atom_types->find_type_exist(arg[ityp]);
@@ -913,50 +1097,252 @@ void ForceField_eam_dmd_hg_0::setup_delta_e(char* file_name)
     if(narg)
         delete [] arg;
     
+    CREATE1D(file_list,no_types);
+    CREATE1D(file_chk,no_types);
+    for(int i=0;i<no_types;i++)
+        file_chk[i]=0;
+    for(int i=0;i<no_types;i++)
+        f_t[i]=Q_nrm[i]=-1.0;
     
-    for(int itype=0;itype<tot_no_types;itype++)
+    
+    alpha_min=alpha_max=0.0;
+    kbT=-1.0;
+    
+    lngth=read_line(fp,line);
+    while(lngth!=-1)
     {
-        narg=0;
-        while(narg==0)
+        if(sscanf(line,"degree = %d",&tmp_i)==1)
         {
-            if(line_read(fp,line)==-1)
-                error->abort("%s file ended immaturely",file_name);
-            narg=mapp->parse_line(line,arg);
+            alpha_coef=set_weight_abs(tmp_i);
+        }
+        else if(sscanf(line,"alpha_min = %lf",&tmp)==1)
+        {
+            if(tmp<=0.0)
+                error->abort("minimum alpha for ff eam_dmd "
+                             "should be greater than 0.0");
+            alpha_min=tmp;
+        }
+        else if(sscanf(line,"alpha_max = %lf",&tmp)==1)
+        {
+            if(tmp<=0.0)
+                error->abort("maximum alpha for ff eam_dmd "
+                             "should be greater than 0.0");
+            alpha_max=tmp;
+        }
+        else if(sscanf(line,"T = %lf",&tmp)==1)
+        {
+            if(tmp<=0.0)
+                error->abort("temperature for ff eam_dmd "
+                             "should be greater than 0.0");
+            
+            type0 kb=8.617332478e-5;
+            type0 hbar=6.5821192815e-16;
+            type0 mass;
+            type0 deb_l;
+            
+            for(int i=0;i<no_types;i++)
+            {
+                mass=atom_types->mass[i];
+                mass*=1.0364269184093291236e-28;
+                deb_l=hbar*hbar*2.0/(mass*kb*tmp);
+                c_0[i]=1.5*kb*tmp*(log(deb_l)-1.0);
+            }
+            
+            kbT=kb*tmp;
+            beta=1.0/kbT;
+            
+        }
+        else if(sscanf(line,"r_crd = %lf",&tmp)==1)
+        {
+            if(tmp<=0.0)
+                error->abort("coordination cutoff for ff eam_dmd "
+                             "should be greater than 0.0");
+            rsq_crd=tmp*tmp;
+        }
+        else if(sscanf(line,"f_t(%d) = %lf",&icmp,&tmp)==2)
+        {
+            if(icmp<0 || icmp>tot_no_types-1)
+                error->abort("wrong component in %s "
+                             "file for f_t(%d)",file_name,icmp);
+            
+            if(tmp<=0.0)
+                error->abort("f_t(%d) for ff eam_dmd "
+                             "in %s file should be greater than 0.0",icmp,file_name);
+            
+            if(type_ref[icmp]!=-1)
+            {
+                f_t[type_ref[icmp]]=tmp;
+            }
+        }
+        else if(sscanf(line,"Q(%d) = %lf",&icmp,&tmp)==2)
+        {
+            if(icmp<0 || icmp>tot_no_types-1)
+                error->abort("wrong component in %s "
+                             "file for Q(%d)",file_name,icmp);
+            
+            if(tmp<=0.0)
+                error->abort("Q(%d) for ff eam_dmd "
+                             "in %s file should be greater than 0.0",icmp,file_name);
+            
+            if(type_ref[icmp]!=-1)
+            {
+                Q_nrm[type_ref[icmp]]=tmp;
+            }
+        }
+        else if(sscanf(line,"file_format = %s",strtmp)==1)
+        {
+            if(strcmp(strtmp,"FS")==0)
+                eam_mode=FINNIS_FL;
+            else if(strcmp(strtmp,"SetFL")==0)
+                eam_mode=SET_FL;
+            else if(strcmp(strtmp,"FuncFL")==0)
+                eam_mode=FUNC_FL;
+            else
+                error->abort("unknown file format "
+                             "for ff eam_dmd: %s",strtmp);
+        }
+        else if(sscanf(line,"file(%d) = %s",&icmp,strtmp)==2)
+        {
+            if(icmp<0 || icmp>tot_no_types-1)
+                error->abort("wrong component in %s "
+                             "file for file(%d)",file_name,icmp);
+            if(type_ref[icmp]!=-1)
+            {
+                str_lngth=static_cast<int>(strlen(strtmp))+1;
+                CREATE1D(file_list[type_ref[icmp]],str_lngth);
+                memcpy(file_list[type_ref[icmp]],strtmp,str_lngth*sizeof(char));
+            }
         }
         
-        if(narg!=1)
-            error->abort("invalid line in %s file: %s",file_name,line);
-        if(type_ref[itype]!=-1)
-        {
-            delta_e[type_ref[itype]]=atof(arg[0]);
-            delta_e_chk[type_ref[itype]]=1;
-        }
         
-        for(int i=0;i<narg;i++)
-            delete [] arg[i];
-        if(narg)
-            delete [] arg;
+        lngth=read_line(fp,line);
     }
     
     
+    
+    if(no_i==0)
+    {
+        error->abort("degree was not set by %s file ",file_name);
+    }
+    if(kbT==-1.0)
+    {
+        error->abort("T was not set by %s file ",file_name);
+    }
+    /*
+     if(alpha_min==0.0)
+     {
+     error->abort("minimum alpha was not set by %s file ",file_name);
+     }
+     */
+    if(alpha_max==0.0)
+    {
+        error->abort("miximum alpha was not set by %s file ",file_name);
+    }
     for(int i=0;i<no_types;i++)
-        if(delta_e_chk[i]==0)
-            error->abort("delta_e(%s) was not set by %s file "
-                         ,file_name,atom_types->atom_names[i]);
+    {
+        if(f_t[i]==-1.0)
+            error->abort("f_t(%s) was not set by %s file "
+                         ,atom_types->atom_names[i],file_name);
+        if(Q_nrm[i]==-1.0)
+            error->abort("Q(%s) was not set by %s file "
+                         ,atom_types->atom_names[i],file_name);
+    }
+    
+    for(int i=0;i<no_types;i++)
+        Q_nrm[i]/=f_t[i]*sqrt(f_t[i]);
+    
+    
+    if(alpha_max<=alpha_min)
+        error->abort("maximum alpha should be less "
+        "than minimum alpha for ff eam_dmd");
+    
+    
+    int icomp;
+    type0* x;
+    atoms->vectors[0]->ret(x);
+    type0 alpha_bound=alpha_max/sqrt(2.0);
+    int* id;
+    int id_n=atoms->find("id");
+    atoms->vectors[id_n]->ret(id);
+    for(int iatm=0;iatm<atoms->natms;iatm++)
+    {
+        icomp=(3+no_types)*iatm+3;
+        for(int ityp=0;ityp<no_types;ityp++)
+            if(x[icomp+ityp]>=alpha_bound)
+                error->abort("alpha_%d of atomn %d is greater than "
+                "the maximum allowed %lf (alpha_max/sqrt(2.0)) set "
+                "by %s file",ityp,id[iatm],alpha_bound,file_name);
+    }
+    
+    
+    clean_up();
+    
+    if(eam_mode==FINNIS_FL)
+    {
+        if(file_list[0]==0)
+            error->abort("file(%s) was not set by %s file "
+                         ,atom_types->atom_names[0],file_name);
+        
+        set_fs(1,file_list);
+    }
+    else if(eam_mode==SET_FL)
+    {
+        if(file_list[0]==0)
+            error->abort("file(%s) was not set by %s file "
+                         ,atom_types->atom_names[0],file_name);
+        
+        set_setfl(1,file_list);
+    }
+    else if(eam_mode==FUNC_FL)
+    {
+        for(int i=0;i<no_types;i++)
+            if(file_chk[i]==0)
+                error->abort("file(%s) was not set by %s file "
+                             ,atom_types->atom_names[i],file_name);
+        
+        set_funcfl(no_types,file_list);
+    }
+    set_arrays();
+    
+    rc=(static_cast<type0>(nr)-1.0)*dr;
+    rho_max=(static_cast<type0>(nrho)-1.0)*drho;
+    
+    alpha_min=0.0;
+    if(no_i!=1)
+    {
+        if(alpha_max==0.0)
+            alpha_max=alpha_coef*rc;
+        else
+            alpha_max=MIN(alpha_max,alpha_coef*rc);
+    }
+    
+    cut_sq_0=rc*rc;
+    mod_rc=rc+xi[no_i-1]*alpha_max;
+    cut_sq_mod_0=mod_rc*mod_rc;
+    if(rsq_crd>cut_sq_mod_0)
+        error->abort("r_crd set by %s file must be less than %lf",file_name,mod_rc);
+    
+    if(no_types)
+    {
+        for(int i=0;i<no_types;i++)
+            if(file_chk[i])
+                delete [] file_list[i];
+        delete [] file_list;
+        
+        delete [] file_chk;
+        
+    }
     
     delete [] line;
+    delete [] strtmp;
     if(tot_no_types)
         delete [] type_ref;
-    if(no_types)
-        delete [] delta_e_chk;
-    
-    
 }
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
-                                       ,char** file_names)
+,char** file_names)
 {
     if(no_files!=no_types)
         error->abort("for FuncFL mode number of"
@@ -998,7 +1384,7 @@ void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
         }
         
         for(int i=0;i<2;i++)
-            if(line_read(fp,line)==-1)
+            if(read_line(fp,line)==-1)
                 error->abort("%s file ended immaturely",file_names[ityp]);
         
         narg=mapp->parse_line(line,arg);
@@ -1022,7 +1408,7 @@ void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
         
         
         
-        if(line_read(fp,line)==-1)
+        if(read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",file_names[ityp]);
         
         narg=mapp->parse_line(line,arg);
@@ -1057,7 +1443,7 @@ void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
         int ipos=0;
         while (ipos<tot)
         {
-            if(line_read(fp,line)==-1)
+            if(read_line(fp,line)==-1)
                 error->abort("%s file ended immaturely",file_names[ityp]);
             
             narg=mapp->parse_line(line,arg);
@@ -1209,7 +1595,7 @@ void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
  read setfiles
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::set_setfl(int no_files
-                                      ,char** file_names)
+                                        ,char** file_names)
 {
     if(no_files!=1)
         error->abort("for SetFL mode number of"
@@ -1228,7 +1614,7 @@ void ForceField_eam_dmd_hg_0::set_setfl(int no_files
     }
     
     for(int i=0;i<4;i++)
-        if(line_read(fp,line)==-1)
+        if(read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",file_names[0]);
     
     char** arg;
@@ -1267,7 +1653,7 @@ void ForceField_eam_dmd_hg_0::set_setfl(int no_files
         delete [] tmp_type_ref;
     
     
-    if(line_read(fp,line)==-1)
+    if(read_line(fp,line)==-1)
         error->abort("%s file ended immaturely",file_names[0]);
     narg=mapp->parse_line(line,arg);
     
@@ -1298,7 +1684,7 @@ void ForceField_eam_dmd_hg_0::set_setfl(int no_files
     drho_inv=1.0/drho;
     
     
-    if(line_read(fp,line)==-1)
+    if(read_line(fp,line)==-1)
         error->abort("%s file ended immaturely",file_names[0]);
     
     
@@ -1309,7 +1695,7 @@ void ForceField_eam_dmd_hg_0::set_setfl(int no_files
     CREATE1D(tmp,tot);
     while (ipos<tot)
     {
-        if(line_read(fp,line)==-1)
+        if(read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
@@ -1403,8 +1789,9 @@ void ForceField_eam_dmd_hg_0::set_setfl(int no_files
  read setfiles
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::set_fs(int no_files
-                                   ,char** file_names)
+                                     ,char** file_names)
 {
+    
     if(no_files!=1)
         error->abort("one file is needed for eam");
     
@@ -1421,7 +1808,7 @@ void ForceField_eam_dmd_hg_0::set_fs(int no_files
     }
     
     for(int i=0;i<4;i++)
-        if(line_read(fp,line)==-1)
+        if(read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",file_names[0]);
     
     char** arg;
@@ -1462,7 +1849,7 @@ void ForceField_eam_dmd_hg_0::set_fs(int no_files
         delete [] tmp_type_ref;
     
     
-    if(line_read(fp,line)==-1)
+    if(read_line(fp,line)==-1)
         error->abort("%s file ended immaturely",file_names[0]);
     narg=mapp->parse_line(line,arg);
     
@@ -1492,34 +1879,71 @@ void ForceField_eam_dmd_hg_0::set_fs(int no_files
     drho_inv=1.0/drho;
     
     
-    if(line_read(fp,line)==-1)
-        error->abort("%s file ended immaturely",file_names[0]);
     
     
-    int ipos=0;
+    
+    int ipos;
     int tot=tot_no_types*nrho+tot_no_types*tot_no_types*nr
     +tot_no_types*(tot_no_types+1)*nr/2;
+    int tot_loc=nrho+tot_no_types*nr;
+    int ipos_loc;
+    
     type0* tmp;
     CREATE1D(tmp,tot);
-    while (ipos<tot)
+    
+    
+    ipos=0;
+    
+    for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(line_read(fp,line)==-1)
+        if(read_line(fp,line)==-1)
+            error->abort("%s file ended immaturely",file_names[0]);
+        ipos_loc=0;
+        while (ipos_loc<tot_loc)
+        {
+            if(read_line(fp,line)==-1)
+                error->abort("%s file ended immaturely",file_names[0]);
+            
+            narg=mapp->parse_line(line,arg);
+            
+            if(ipos_loc+narg>tot_loc)
+                error->abort("%s file ended immaturely",file_names[0]);
+            
+            for(int i=0;i<narg;i++)
+            {
+                tmp[ipos+ipos_loc]=atof(arg[i]);
+                ipos_loc++;
+                delete [] arg[i];
+            }
+            if(narg)
+                delete [] arg;
+        }
+        ipos+=ipos_loc;
+    }
+    
+    tot_loc=tot_no_types*(tot_no_types+1)*nr/2;
+    ipos_loc=0;
+    while (ipos_loc<tot_loc)
+    {
+        if(read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
         
-        if(ipos+narg>tot)
+        if(ipos_loc+narg>tot_loc)
             error->abort("%s file ended immaturely",file_names[0]);
         
         for(int i=0;i<narg;i++)
         {
-            tmp[ipos]=atof(arg[i]);
-            ipos++;
+            tmp[ipos+ipos_loc]=atof(arg[i]);
+            ipos_loc++;
             delete [] arg[i];
         }
         if(narg)
             delete [] arg;
     }
+    
+    
     
     delete [] line;
     if(atoms->my_p_no==0)
@@ -1597,12 +2021,14 @@ void ForceField_eam_dmd_hg_0::set_fs(int no_files
     delete [] tmp;
     if(tot_no_types)
         delete [] type_ref;
+    
+    
 }
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-int ForceField_eam_dmd_hg_0::line_read(FILE* file
-                                     ,char*& line)
+int ForceField_eam_dmd_hg_0::read_line(FILE* file
+                                       ,char*& line)
 {
     int lenght;
     int eof=0;
@@ -1862,7 +2288,7 @@ void ForceField_eam_dmd_hg_0::set_arrays()
  allocate the arrays
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::interpolate(int n
-                                        ,type0 delta,type0** spline)
+                                          ,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1895,7 +2321,7 @@ void ForceField_eam_dmd_hg_0::interpolate(int n
  interpolate for a single array
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::interpolate(type0* arr
-                                         ,int n,type0 p,int k)
+                                           ,int n,type0 p,int k)
 {
     
     // k_min=0 k_max=n-1
@@ -1950,7 +2376,7 @@ type0 ForceField_eam_dmd_hg_0::interpolate(type0* arr
  allocate the arrays
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::interpolate_m(int n
-                                          ,type0 delta,type0** spline)
+                                            ,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
     spline[1][1]=0.5*(spline[2][0]-spline[0][0]);
@@ -1990,13 +2416,12 @@ void ForceField_eam_dmd_hg_0::interpolate_m(int n
         spline[i][7]=3.0*spline[i][3]/delta;
         spline[i][8]=4.0*spline[i][4]/delta;
     }
-    
 }
 /*--------------------------------------------
  Gaussian-Hermite quadrature weights and
  abscissas for 1 to 14 points
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::set_weight_abs(int n)
+type0 ForceField_eam_dmd_hg_0::set_weight_abs(int n)
 {
     
     if(n<1 || n>14)
@@ -2291,6 +2716,18 @@ void ForceField_eam_dmd_hg_0::set_weight_abs(int n)
         wi_1[i]=wi_0[i]*xi[i];
         wi_2[i]=wi_0[i]*xi[i]*xi[i];
     }
+    
+    if(no_i>1)
+    {
+        type0 min_del=xi[no_i-1]-xi[0];
+        for(int i=1;i<no_i;i++)
+            min_del=MIN(min_del,xi[i]-xi[i-1]);
+        return 2.0/min_del;
+    }
+    else
+    {
+        return -1.0;
+    }
 }
 /*--------------------------------------------
  claculate F and dF and dFF
@@ -2374,10 +2811,37 @@ type0 ForceField_eam_dmd_hg_0::
 mat(type0 fi,type0 crdi,type0 fj,type0 crdj
     ,int itype)
 {
+    
+    /*
+     if(fi>fj)
+     return fi+f_t[itype];
+     else
+     return fj+f_t[itype];
+     */
+    
     if(fi>fj)
-        return fi+delta_e[itype];
+    {
+        if(fi-fj>f_t[itype])
+        {
+            return fi;
+        }
+        else
+        {
+            return fi+Q_nrm[itype]*(f_t[itype]-fi+fj)*sqrt(f_t[itype]-fi+fj);
+        }
+    }
     else
-        return fj+delta_e[itype];
+    {
+        if(fj-fi>f_t[itype])
+        {
+            return fj;
+        }
+        else
+        {
+            return fj+Q_nrm[itype]*(f_t[itype]-fj+fi)*sqrt(f_t[itype]-fj+fi);
+        }
+    }
+    
 }
 /*--------------------------------------------
  dmat(fi,fj)/dfi
@@ -2387,12 +2851,38 @@ dmat0(type0 fi,type0 crdi,type0 fj,type0 crdj
       ,int itype)
 {
     
+    
+    /*
+     if(fi>fj)
+     return 1.0;
+     else
+     return 0.0;
+     */
+    
     if(fi>fj)
-        return 1.0;
+    {
+        if(fi-fj>f_t[itype])
+        {
+            return 1.0;
+        }
+        else
+        {
+            return 1.0-1.5*Q_nrm[itype]*sqrt(f_t[itype]-fi+fj);
+        }
+    }
     else
-        return 0.0;
+    {
+        if(fj-fi>f_t[itype])
+        {
+            return 0.0;
+        }
+        else
+        {
+            return 1.5*Q_nrm[itype]*sqrt(f_t[itype]-fj+fi);
+        }
+    }
+    
 }
-
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
@@ -2408,22 +2898,40 @@ dmat1(type0 fi,type0 crdi,type0 fj,type0 crdj
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::calc_ent(type0 x)
 {
-    if(x<1.0e-8 || 0.99999999<x)
+    type0 ans=x*log(x);
+    if (isnan(ans))
         return 0.0;
-    else
-        return x*log(x)+(1-x)*log(1-x);
-    
+    return ans;
 }
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::c_d_calc()
+type0 ForceField_eam_dmd_hg_0::g_calc(int chk
+,type0 alpha,type0* a,type0* g,type0* en_st)
+{
+    if(CRD_ENBL)
+        return g_calc_crd(chk,alpha,a,g,en_st);
+    else
+        return g_calc_ncrd(chk,alpha,a,g,en_st);
+}
+/*--------------------------------------------
+ claculate F and dF and dFF
+ --------------------------------------------*/
+void ForceField_eam_dmd_hg_0::c_d_calc(int chk,type0* en_st)
+{
+    if(CRD_ENBL)
+        return c_d_calc_crd(chk,en_st);
+    else
+        return c_d_calc_ncrd(chk,en_st);
+}
+/*--------------------------------------------
+ claculate F and dF and dFF
+ --------------------------------------------*/
+void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
 {
     
     type0* x;
     atoms->vectors[x_n]->ret(x);
-    type0* E;
-    atoms->vectors[E_n]->ret(E);
     type0* dE;
     atoms->vectors[dE_n]->ret(dE);
     type0* c;
@@ -2436,8 +2944,9 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
     atoms->vectors[crd_n]->ret(crd);
     
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,p2,p3,p4,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji;
+    type0 p,p2,p3,p4,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji,c_iv,c_jv;
     type0* coef;
+    type0 dx0,dx1,dx2,r_inv,fpair;
     int m;
     int iatm,jatm;
     int icomp,jcomp,istart;
@@ -2447,8 +2956,12 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
     
     
     int natms=atoms->natms;
+    
+    for (int i=0;i<7;i++)
+        nrgy_strss[i]=0.0;
+    
     for(int i=0;i<natms*no_types;i++)
-        c_d[i]=E[i]=0.0;
+        mu[i]=c_d[i]=0.0;
     
     
     istart=0;
@@ -2462,16 +2975,19 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
             jcomp=no_types*jatm;
             for(int itype=0;itype<no_types;itype++)
             {
-                crd[iatm+itype]+=c[jcomp+itype];
-                if(jatm<natms)
-                    crd[jatm+itype]+=c[icomp+itype];
-                
-                
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    E[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    if(jatm<natms)
-                        E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        crd[iatm+itype]+=c[jcomp+jtype];
+                        mu[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                        
+                        if(jatm<natms)
+                        {
+                            crd[jatm+jtype]+=c[icomp+itype];
+                            mu[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        }
+                    }
                 }
             }
             
@@ -2481,25 +2997,28 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
         
         for(int itype=0;itype<no_types; itype++)
         {
-            p=E[iatm*no_types+itype]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nr-2);
-            p-=m;
-            p=MIN(p,1.0);
-            p2=p*p;
-            p3=p2*p;
-            p4=p3*p;
-            coef=F_arr[itype][m];
-            
-            
-            tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-            tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
-            
-            if(E[iatm*no_types+itype]>rho_max)
-                tmp0+=tmp1*(E[icomp+itype]-rho_max);
-            
-            mu[icomp+itype]=E[icomp+itype]=tmp0;
-            dE[icomp+itype]=tmp1;
+            if(c[icomp+itype]>=0.0)
+            {
+                p=mu[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                
+                if(mu[iatm*no_types+itype]>rho_max)
+                    tmp0+=tmp1*(mu[icomp+itype]-rho_max);
+                
+                mu[icomp+itype]=tmp0+c_0[itype]-3.0*kbT*log(x[(3+no_types)*iatm+3+itype]);
+                dE[icomp+itype]=tmp1;
+            }
         }
     }
     
@@ -2511,67 +3030,118 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
     {
         icomp=no_types*iatm;
         
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+            {
+                nrgy_strss[0]+=c[icomp+itype]*mu[icomp+itype]+kbT*calc_ent(c[icomp+itype]);
+                c_iv-=c[icomp+itype];
+            }
+        nrgy_strss[0]+=kbT*calc_ent(c_iv);
+        
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             
             jatm=neighbor_list[iatm][j];
             jcomp=no_types*jatm;
             
+            dx0=x[iatm*(3+no_types)]-x[jatm*(3+no_types)];
+            dx1=x[iatm*(3+no_types)+1]-x[jatm*(3+no_types)+1];
+            dx2=x[iatm*(3+no_types)+2]-x[jatm*(3+no_types)+2];
+            r_inv=1.0/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
+            
             for(int itype=0;itype<no_types;itype++)
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
-                                                    +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
-                    
-                    if(jatm<natms)
-                        mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
-                                                        +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                                         +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                        
+                        if(jatm<natms)
+                            mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                                             +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                        
+                        fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                        *c[icomp+itype]*c[jcomp+jtype]*r_inv;
+                        
+                        if(jatm<natms)
+                        {
+                            nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
+                            *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                            nrgy_strss[1]-=fpair*dx0*dx0;
+                            nrgy_strss[2]-=fpair*dx1*dx1;
+                            nrgy_strss[3]-=fpair*dx2*dx2;
+                            nrgy_strss[4]-=fpair*dx1*dx2;
+                            nrgy_strss[5]-=fpair*dx2*dx0;
+                            nrgy_strss[6]-=fpair*dx0*dx1;
+                        }
+                        else
+                        {
+                            nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
+                            *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                            nrgy_strss[1]-=0.5*fpair*dx0*dx0;
+                            nrgy_strss[2]-=0.5*fpair*dx1*dx1;
+                            nrgy_strss[3]-=0.5*fpair*dx2*dx2;
+                            nrgy_strss[4]-=0.5*fpair*dx1*dx2;
+                            nrgy_strss[5]-=0.5*fpair*dx2*dx0;
+                            nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                        }
+                    }
                 }
             }
             istart+=stride;
         }
-        
-        for(int itype=0;itype<no_types;itype++)
-        {
-            mu[icomp+itype]+=c_0[itype];
-            //fix this part for change of variables
-            mu[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
-        }
-        
     }
     
     atoms->update_ph(mu_n);
-    
-    
     atoms->update_ph(crd_n);
     
     for(iatm=0;iatm<natms;iatm++)
     {
         icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
         for(int j=0;j<neigh_lst_sz[iatm];j++)
         {
             jatm=neigh_lst[iatm][j];
             jcomp=no_types*jatm;
             
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
             for(int itype=0;itype<no_types;itype++)
             {
-                crdi=crd[icomp+itype];
-                crdj=crd[jcomp+itype];
-                fi=mu[icomp+itype];
-                fj=mu[jcomp+itype];
-                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
-                w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
-                w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
-                
-                s_ij=w_ij-w_ji;
-                
-                
-                c_d[icomp+itype]+=s_ij;
-                if(jatm<natms)
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
                 {
-                    c_d[jcomp+itype]-=s_ij;
+                    crdi=crd[icomp+itype];
+                    crdj=crd[jcomp+itype];
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    
+                    exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                    exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    
+                    c_d[icomp+itype]+=s_ij;
+                    if(jatm<natms)
+                    {
+                        c_d[jcomp+itype]-=s_ij;
+                    }
                 }
             }
         }
@@ -2583,8 +3153,239 @@ void ForceField_eam_dmd_hg_0::c_d_calc()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::g_calc(int chk
-,type0 alpha,type0* a,type0* g)
+void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
+{
+    
+    type0* x;
+    atoms->vectors[x_n]->ret(x);
+    type0* dE;
+    atoms->vectors[dE_n]->ret(dE);
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0* c_d;
+    atoms->vectors[c_d_n]->ret(c_d);
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
+
+    
+    type0 fi,fj,exp_fi,exp_fj;
+    type0 p,p2,p3,p4,tmp0,tmp1,s_ij,w_ij,w_ji,c_iv,c_jv;
+    type0* coef;
+    type0 dx0,dx1,dx2,r_inv,fpair;
+    int m;
+    int iatm,jatm;
+    int icomp,jcomp,istart;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    
+    int natms=atoms->natms;
+    
+    if(chk)
+        for (int i=0;i<7;i++)
+            nrgy_strss[i]=0.0;
+    
+    for(int i=0;i<natms*no_types;i++)
+        mu[i]=c_d[i]=0.0;
+    
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        mu[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                        
+                        if(jatm<natms)
+                        {
+                            mu[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        }
+                    }
+                }
+            }
+            
+            istart+=stride;
+            
+        }
+        
+        for(int itype=0;itype<no_types; itype++)
+        {
+            if(c[icomp+itype]>=0.0)
+            {
+                p=mu[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                
+                
+                if(mu[iatm*no_types+itype]>rho_max)
+                    tmp0+=tmp1*(mu[icomp+itype]-rho_max);
+                
+                mu[icomp+itype]=tmp0+c_0[itype]-3.0*kbT*log(x[(3+no_types)*iatm+3+itype]);
+                dE[icomp+itype]=tmp1;
+            }
+        }
+    }
+    
+    atoms->update_ph(dE_n);
+    
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        if(chk)
+        {
+            c_iv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[icomp+itype]>=0.0)
+                {
+                    nrgy_strss[0]+=c[icomp+itype]*mu[icomp+itype]+kbT*calc_ent(c[icomp+itype]);
+                    c_iv-=c[icomp+itype];
+                }
+            nrgy_strss[0]+=kbT*calc_ent(c_iv);
+        }
+        
+
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            dx0=x[iatm*(3+no_types)]-x[jatm*(3+no_types)];
+            dx1=x[iatm*(3+no_types)+1]-x[jatm*(3+no_types)+1];
+            dx2=x[iatm*(3+no_types)+2]-x[jatm*(3+no_types)+2];
+            r_inv=1.0/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                                         +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                        
+                        if(jatm<natms)
+                            mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                                             +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                        
+                        
+                        if(chk)
+                        {
+                            fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                            +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                            +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                            *c[icomp+itype]*c[jcomp+jtype]*r_inv;
+                            if(jatm<natms)
+                            {
+                                nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
+                                *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                                nrgy_strss[1]-=fpair*dx0*dx0;
+                                nrgy_strss[2]-=fpair*dx1*dx1;
+                                nrgy_strss[3]-=fpair*dx2*dx2;
+                                nrgy_strss[4]-=fpair*dx1*dx2;
+                                nrgy_strss[5]-=fpair*dx2*dx0;
+                                nrgy_strss[6]-=fpair*dx0*dx1;
+                            }
+                            else
+                            {
+                                nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
+                                *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                                nrgy_strss[1]-=0.5*fpair*dx0*dx0;
+                                nrgy_strss[2]-=0.5*fpair*dx1*dx1;
+                                nrgy_strss[3]-=0.5*fpair*dx2*dx2;
+                                nrgy_strss[4]-=0.5*fpair*dx1*dx2;
+                                nrgy_strss[5]-=0.5*fpair*dx2*dx0;
+                                nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                            }
+                        }
+
+                    }
+                }
+            }
+            istart+=stride;
+        }
+    }
+    
+    atoms->update_ph(mu_n);
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    
+                    exp_fi=exp(beta*(fi-mat(fi,0.0,fj,0.0,itype)));
+                    exp_fj=exp(beta*(fj-mat(fi,0.0,fj,0.0,itype)));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    
+                    c_d[icomp+itype]+=s_ij;
+                    if(jatm<natms)
+                    {
+                        c_d[jcomp+itype]-=s_ij;
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    
+}
+/*--------------------------------------------
+ claculate F and dF and dFF
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
+,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);
@@ -2592,6 +3393,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
     atoms->vectors[E_n]->ret(E);
     type0* dE;
     atoms->vectors[dE_n]->ret(dE);
+    type0* ddE=E;
     type0* c;
     atoms->vectors[c_n]->ret(c);
     type0* c_d;
@@ -2602,16 +3404,16 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
     atoms->vectors[s_n]->ret(s);
     type0* t;
     atoms->vectors[t_n]->ret(t);
-    type0* v;
-    atoms->vectors[v_n]->ret(v);
     type0* crd;
     atoms->vectors[crd_n]->ret(crd);
+    int v_n=crd_n;
+    type0* v=crd;
     
     type0 inner,ans;
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,p2,p3,p4,tmp0,tmp1,s_ij;
-    type0 w_ij,w_ji,l_ij;
-    type0 crdi,crdj;
+    type0 p,p2,p3,p4,tmp0,tmp1,tmp2,s_ij;
+    type0 w_ij,w_ji;
+    type0 crdi,crdj,c_iv,c_jv;
     type0* coef;
     int m;
     int iatm,jatm;
@@ -2621,12 +3423,18 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     
+    if (chk)
+        for (int i=0;i<7;i++)
+            en_st[i]=nrgy_strss[i]=0.0;
+    
     int natms=atoms->natms;
     for(int i=0;i<natms*no_types;i++)
-        g[i]=E[i]=0.0;
+        crd[i]=c_d[i]=g[i]=E[i]=mu[i]=0.0;
     
     
-    
+    /*
+     beginning of level 1
+     */
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -2638,55 +3446,73 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             jcomp=no_types*jatm;
             for(int itype=0;itype<no_types;itype++)
             {
-                crd[iatm+itype]+=c[jcomp+itype];
-                if(jatm<natms)
-                    crd[jatm+itype]+=c[icomp+itype];
-                
-                
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    E[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    if(jatm<natms)
-                        E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        crd[iatm+itype]+=c[jcomp+jtype];
+                        E[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                        
+                        if(jatm<natms)
+                        {
+                            crd[jatm+jtype]+=c[icomp+itype];
+                            E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        }
+
+                    }
                 }
             }
             
             istart+=stride;
-            
         }
         
+        c_iv=1.0;
         for(int itype=0;itype<no_types; itype++)
         {
-            p=E[iatm*no_types+itype]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nr-2);
-            p-=m;
-            p=MIN(p,1.0);
-            p2=p*p;
-            p3=p2*p;
-            p4=p3*p;
-            coef=F_arr[itype][m];
-            
-            
-            tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
-            tmp1=coef[8]*p3+coef[7]*p2+coef[6]*p+coef[5];
-            
-            if(E[iatm*no_types+itype]>rho_max)
-                tmp0+=tmp1*(E[icomp+itype]-rho_max);
-            
-            mu[icomp+itype]=E[icomp+itype]=tmp0;
-            dE[icomp+itype]=tmp1;
-            
-            //ddE
-            v[2*(icomp+itype)]=(3.0*coef[8]*p2+coef[7]*p+coef[6])*drho_inv;
+            if(c[icomp+itype]>=0.0)
+            {
+                c_iv-=c[icomp+itype];
+                p=E[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                tmp2=(12.0*coef[4]*p2+6.0*coef[3]*p+2.0*coef[2])*drho_inv*drho_inv;
+                
+                if(E[iatm*no_types+itype]>rho_max)
+                {
+                    tmp0+=tmp1*(E[icomp+itype]-rho_max);
+                    tmp2=0.0;
+                }
+                
+                mu[icomp+itype]=tmp0+c_0[itype]-3.0*kbT*log(x[(3+no_types)*iatm+3+itype]);
+                nrgy_strss[0]+=c[icomp+itype]*mu[icomp+itype];
+                nrgy_strss[0]+=kbT*calc_ent(c[icomp+itype]);
+                dE[icomp+itype]=tmp1;
+                ddE[icomp+itype]=tmp2;
+            }
         }
+        if(chk)
+            nrgy_strss[0]+=kbT*calc_ent(c_iv);
     }
+    
+    
+    /*
+     beginning of level 2
+     */
     
     atoms->update_ph(dE_n);
     
-    /*
-     claculate f (n)
-     */
+    type0 r_inv,dx0,dx1,dx2,fpair;
+    
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
@@ -2699,179 +3525,57 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             jatm=neighbor_list[iatm][j];
             jcomp=no_types*jatm;
             
+            dx0=x[iatm*(3+no_types)]-x[jatm*(3+no_types)];
+            dx1=x[iatm*(3+no_types)+1]-x[jatm*(3+no_types)+1];
+            dx2=x[iatm*(3+no_types)+2]-x[jatm*(3+no_types)+2];
+            r_inv=1.0/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
+            
             for(int itype=0;itype<no_types;itype++)
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm+jtype]
-                                                    +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
-                    if(jatm<natms)
-                        mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm+itype]
-                                                        +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int itype=0;itype<no_types;itype++)
-        {
-            mu[icomp+itype]+=c_0[itype];
-            //fix this part for change of variables
-            mu[icomp+itype]+=1.5*kbT*log(x[(3+no_types)*iatm+3+itype]);
-        }
-        
-    }
-    
-    atoms->update_ph(mu_n);
-    
-    for(int i=0;i<natms*no_types;i++)
-    {
-        s[i]=2.0*(c[i]+a[i]);
-        c_d[i]=0.0;
-    }
-    
-    /*
-     claculate s and c_d
-     */
-    
-    atoms->update_ph(crd_n);
-    
-    inner=0.0;
-    for(iatm=0;iatm<natms;iatm++)
-    {
-        icomp=no_types*iatm;
-        for(int j=0;j<neigh_lst_sz[iatm];j++)
-        {
-            jatm=neigh_lst[iatm][j];
-            jcomp=no_types*jatm;
-            
-            for(int itype=0;itype<no_types;itype++)
-            {
-                crdi=crd[icomp+itype];
-                crdj=crd[jcomp+itype];
-                fi=mu[icomp+itype];
-                fj=mu[jcomp+itype];
-                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
-                w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
-                w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
-                
-                s_ij=w_ij-w_ji;
-                
-                s[icomp+itype]-=2.0*alpha*s_ij;
-                c_d[icomp+itype]+=s_ij;
-                if(jatm<natms)
-                {
-                    s[jcomp+itype]+=2.0*alpha*s_ij;
-                    c_d[jcomp+itype]-=s_ij;
-                }
-            }
-        }
-        for(int itype=0;itype<no_types;itype++)
-        {
-            inner+=s[icomp+itype]*s[icomp+itype];
-        }
-    }
-    ans=0.0;
-    MPI_Allreduce(&inner,&ans,1,MPI_TYPE0,MPI_SUM,world);
-    ans*=0.25;
-    
-    
-    if(chk)
-        return ans;
-    
-    
-    atoms->update_ph(s_n);
-    
-    for(int i=0;i<natms*no_types;i++)
-    {
-        v[2*i+1]=t[2*i]=t[2*i+1]=0.0;
-        g[i]=-s[i];
-    }
-    
-    /*
-     claculate t and first part of g
-     */
-    
-    
-    for(iatm=0;iatm<natms;iatm++)
-    {
-        icomp=no_types*iatm;
-        for(int j=0;j<neigh_lst_sz[iatm];j++)
-        {
-            jatm=neigh_lst[iatm][j];
-            jcomp=no_types*jatm;
-            
-            for(int itype=0;itype<no_types;itype++)
-            {
-                
-                s_ij=s[icomp+itype]-s[jcomp+itype];
-                fi=mu[icomp+itype];
-                fj=mu[jcomp+itype];
-                crdi=crd[icomp+itype];
-                crdj=crd[jcomp+itype];
-                
-                exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
-                exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
-                
-                w_ij=-c[icomp+itype]*(1.0-c[jcomp+itype])*exp_fi;
-                w_ji=-c[jcomp+itype]*(1.0-c[icomp+itype])*exp_fj;
-                
-                l_ij=s_ij*(w_ji-w_ij)*dmat1(fi,crdi,fj,crdj,itype);
-                
-                t[2*(icomp+itype)]+=s_ij*(w_ij+(w_ji-w_ij)*dmat0(fi,crdi,fj,crdj,itype));
-                
-                t[2*(icomp+itype)+1]+=l_ij;
-                
-                g[icomp+itype]-=alpha*((1.0-c[jcomp+itype])*exp_fi+c[jcomp+itype]*exp_fj)*s_ij;
-                
-                if(jatm<natms)
-                {
-                    t[2*(jcomp+itype)]-=s_ij*(w_ji+(w_ij-w_ji)*dmat0(fj,crdj,fi,crdi,itype));
-                    
-                    t[2*(jcomp+itype)+1]+=s_ij*(w_ji-w_ij)*dmat1(fj,crdj,fi,crdi,itype);
-                    
-                    g[jcomp+itype]+=alpha*((1.0-c[icomp+itype])*exp_fj+c[icomp+itype]*exp_fi)*s_ij;
-                    
-                }
-            }
-        }
-    }
-    
-    atoms->update_ph(t_n);
-    
-    istart=0;
-    for(iatm=0;iatm<natms;iatm++)
-    {
-        icomp=no_types*iatm;
-        for(int j=0;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            jcomp=no_types*jatm;
-            
-            for(int itype=0;itype<no_types;itype++)
-            {
-                g[icomp+itype]+=alpha*beta*t[2*(jcomp+itype)+1];
-                if(jatm<natms)
-                {
-                    g[jcomp+itype]+=alpha*beta*t[2*(icomp+itype)+1];
-                }
-                
-                
-                for(int jtype=0;jtype<no_types;jtype++)
-                {
-                    
-                    tmp0=rho_phi[istart+type2phi_pair_ij[itype][jtype]]
-                    +rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
-                    +rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype];
-                    tmp0*=beta*alpha;
-                    
-                    v[2*(icomp+itype)+1]+=rho_phi[istart+type2rho_pair_ji[jtype][itype]]*t[2*(jcomp+jtype)];
-                    g[icomp+itype]+=tmp0*t[2*(jcomp+jtype)];
-                    if(jatm<natms)
+                    if(c[jcomp+jtype]>=0.0 && c[icomp+itype]>=0.0)
                     {
-                        v[2*(jcomp+jtype)+1]+=rho_phi[istart+type2rho_pair_ij[itype][jtype]]*t[2*(icomp+itype)];
-                        g[jcomp+jtype]+=tmp0*t[2*(icomp+itype)];
+                        mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                        +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                        
+                        if(jatm<natms)
+                        {
+                            mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                                             +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                        }
+                        
+                        if (chk)
+                        {
+                            fpair=-(drho_phi_dr[istart+type2phi_pair_ij[jtype][itype]]*dE[icomp+itype]
+                                +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                                *c[icomp+itype]*c[jcomp+jtype]*r_inv;
+                            
+                            if(jatm<natms)
+                            {
+                                nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
+                                *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
+                                nrgy_strss[1]-=fpair*dx0*dx0;
+                                nrgy_strss[2]-=fpair*dx1*dx1;
+                                nrgy_strss[3]-=fpair*dx2*dx2;
+                                nrgy_strss[4]-=fpair*dx1*dx2;
+                                nrgy_strss[5]-=fpair*dx2*dx0;
+                                nrgy_strss[6]-=fpair*dx0*dx1;
+                            }
+                            else
+                            {
+                                nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
+                                *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                                nrgy_strss[1]-=0.5*fpair*dx0*dx0;
+                                nrgy_strss[2]-=0.5*fpair*dx1*dx1;
+                                nrgy_strss[3]-=0.5*fpair*dx2*dx2;
+                                nrgy_strss[4]-=0.5*fpair*dx1*dx2;
+                                nrgy_strss[5]-=0.5*fpair*dx2*dx0;
+                                nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                            }
+                            
+                        }
                     }
                 }
             }
@@ -2879,6 +3583,236 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
         }
     }
     
+    /*
+     beginning of level 3
+     */
+    atoms->update_ph(mu_n);
+    atoms->update_ph(crd_n);
+    
+    for(int i=0;i<natms*no_types;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            s[i]=2.0*(c[i]+a[i]);
+        }
+    }
+    
+    inner=0.0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    crdi=crd[icomp+itype];
+                    crdj=crd[jcomp+itype];
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    tmp0=mat(fi,crdi,fj,crdj,itype);
+                    
+                    exp_fi=exp(beta*(fi-tmp0));
+                    exp_fj=exp(beta*(fj-tmp0));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    s[icomp+itype]-=2.0*alpha*s_ij;
+                    c_d[icomp+itype]+=s_ij;
+                    if(jatm<natms)
+                    {
+                        s[jcomp+itype]+=2.0*alpha*s_ij;
+                        c_d[jcomp+itype]-=s_ij;
+                    }
+                }
+            }
+        }
+        for(int itype=0;itype<no_types;itype++)
+        {
+            if(c[icomp+itype]>=0.0)
+                inner+=s[icomp+itype]*s[icomp+itype];
+        }
+    }
+    ans=0.0;
+    MPI_Allreduce(&inner,&ans,1,MPI_TYPE0,MPI_SUM,world);
+    ans*=0.25;
+    ans=sqrt(ans);
+    
+    
+    if(chk)
+        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+    
+    
+    if(chk==0)
+        return ans;
+    
+    /*
+     beginning of level 4
+     */
+    atoms->update_ph(s_n);
+    
+    for(int i=0;i<natms*no_types;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            //attttttt
+            t[2*i]=t[2*i+1]=0.0;
+            g[i]=-s[i];
+        }
+    }
+    
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    s_ij=s[icomp+itype]-s[jcomp+itype];
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    crdi=crd[icomp+itype];
+                    crdj=crd[jcomp+itype];
+                    tmp0=mat(fi,crdi,fj,crdj,itype);
+                    exp_fi=exp(beta*(fi-tmp0));
+                    exp_fj=exp(beta*(fj-tmp0));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    g[icomp+itype]-=alpha*s_ij*c_jv*exp_fi;
+                    t[2*(icomp+itype)]+=s_ij*(w_ij+(w_ji-w_ij)*dmat0(fi,crdi,fj,crdj,itype));
+                    t[2*(icomp+itype)+1]+=s_ij*(w_ji-w_ij)*dmat1(fi,crdi,fj,crdj,itype);
+                    
+                    if(jatm<natms)
+                    {
+                        g[jcomp+itype]+=alpha*s_ij*c_iv*exp_fj;
+                        t[2*(jcomp+itype)]-=s_ij*(w_ji+(w_ij-w_ji)*dmat0(fj,crdj,fi,crdi,itype));
+                        t[2*(jcomp+itype)+1]-=s_ij*(w_ij-w_ji)*dmat1(fj,crdj,fi,crdi,itype);
+                    }
+                    
+                    
+                    
+                    //check it out
+                    for(int jtype=0;jtype<no_types;jtype++)
+                    {
+                        if(c[icomp+jtype]>=0.0 && c[jcomp+jtype]>=0.0)
+                        {
+                            s_ij=s[icomp+jtype]-s[jcomp+jtype];
+                            fi=mu[icomp+jtype];
+                            fj=mu[jcomp+jtype];
+                            crdi=crd[icomp+jtype];
+                            crdj=crd[jcomp+jtype];
+                            tmp0=mat(fi,crdi,fj,crdj,itype);
+                            g[icomp+itype]-=alpha*s_ij*c[jcomp+jtype]*exp(beta*(fj-tmp0));
+                            
+                            if(jatm<natms)
+                            {
+                                g[jcomp+itype]+=alpha*s_ij*c[icomp+jtype]*exp(beta*(fi-tmp0));
+                            }
+                        }
+                    }
+                }
+                
+                
+                
+            }
+        }
+    }
+    
+    /*
+     beginning of level 5
+     */
+    atoms->update_ph(t_n);
+    
+    for(int i=0;i<no_types*natms;i++)
+        v[i]=0.0;
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    g[icomp+itype]+=alpha*beta*t[2*(jcomp+itype)+1];
+                    if(jatm<natms)
+                    {
+                        g[jcomp+itype]+=alpha*beta*t[2*(icomp+itype)+1];
+                    }
+                }
+                
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        tmp0=rho_phi[istart+type2phi_pair_ij[itype][jtype]]
+                        +rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                        +rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype];
+                        tmp0*=beta*alpha;
+                        
+                        v[icomp+itype]+=rho_phi[istart+type2rho_pair_ji[jtype][itype]]*t[2*(jcomp+jtype)];
+                        g[icomp+itype]+=tmp0*t[2*(jcomp+jtype)];
+                        if(jatm<natms)
+                        {
+                            v[jcomp+jtype]+=rho_phi[istart+type2rho_pair_ij[itype][jtype]]*t[2*(icomp+itype)];
+                            g[jcomp+jtype]+=tmp0*t[2*(icomp+itype)];
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        for(int itype=0;itype<no_types;itype++)
+        {
+            v[icomp+itype]*=c[icomp+itype]*ddE[icomp+itype];
+        }
+    }
+    
+    /*
+     beginning of level 6
+     */
     atoms->update_ph(v_n);
     
     istart=0;
@@ -2893,16 +3827,480 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
             {
                 for(int jtype=0;jtype<no_types;jtype++)
                 {
-                    g[icomp+itype]+=alpha*beta*rho_phi[istart+type2rho_pair_ij[itype][jtype]]
-                    *v[2*(jcomp+jtype)]*c[jcomp+jtype]*v[2*(jcomp+jtype)+1];
-                    if(jatm<natms)
-                        g[jcomp+jtype]+=alpha*beta*rho_phi[istart+type2rho_pair_ji[jtype][itype]]
-                        *v[2*(icomp+itype)]*c[icomp+itype]*v[2*(icomp+itype)+1];
+                    if(c[jcomp+jtype]>=0.0 && c[icomp+itype]>=0.0)
+                    {
+                        g[icomp+itype]+=alpha*beta*rho_phi[istart+type2rho_pair_ij[itype][jtype]]
+                        *v[jcomp+jtype];
+                        if(jatm<natms)
+                            g[jcomp+jtype]+=alpha*beta*rho_phi[istart+type2rho_pair_ji[jtype][itype]]
+                            *v[icomp+itype];
+                    }
                 }
             }
-            istart+=no_types*no_types;
+            istart+=stride;
+        }
+        
+    }
+    
+    for(int i=0;i<no_types*natms;i++)
+        if(c[i]>=0.0)
+            g[i]/=2.0*ans;
+    
+    
+    return ans;
+    
+}
+/*--------------------------------------------
+ claculate F and dF and dFF
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
+,type0 alpha,type0* a,type0* g,type0* en_st)
+{
+    type0* x;
+    atoms->vectors[x_n]->ret(x);
+    type0* E;
+    atoms->vectors[E_n]->ret(E);
+    type0* dE;
+    atoms->vectors[dE_n]->ret(dE);
+    type0* ddE=E;
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0* c_d;
+    atoms->vectors[c_d_n]->ret(c_d);
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
+    type0* s;
+    atoms->vectors[s_n]->ret(s);
+    type0* t;
+    atoms->vectors[t_n]->ret(t);
+    int v_n=crd_n;
+    type0* v;
+    atoms->vectors[v_n]->ret(v);
+    
+    type0 inner,ans;
+    type0 fi,fj,exp_fi,exp_fj;
+    type0 p,p2,p3,p4,tmp0,tmp1,tmp2,s_ij;
+    type0 w_ij,w_ji;
+    type0 c_iv,c_jv;
+    type0* coef;
+    int m;
+    int iatm,jatm;
+    int icomp,jcomp,istart;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    
+    if (chk)
+        for (int i=0;i<7;i++)
+            en_st[i]=nrgy_strss[i]=0.0;
+    
+    int natms=atoms->natms;
+    for(int i=0;i<natms*no_types;i++)
+        c_d[i]=g[i]=E[i]=mu[i]=0.0;
+    
+    
+    /*
+     beginning of level 1
+     */
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        E[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                        
+                        if(jatm<natms)
+                        {
+                            E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        }
+                        
+                    }
+                }
+            }
+            
+            istart+=stride;
+        }
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types; itype++)
+        {
+            if(c[icomp+itype]>=0.0)
+            {
+                c_iv-=c[icomp+itype];
+                p=E[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                tmp2=(12.0*coef[4]*p2+6.0*coef[3]*p+2.0*coef[2])*drho_inv*drho_inv;
+                
+                if(E[iatm*no_types+itype]>rho_max)
+                {
+                    tmp0+=tmp1*(E[icomp+itype]-rho_max);
+                    tmp2=0.0;
+                }
+                
+                mu[icomp+itype]=tmp0+c_0[itype]-3.0*kbT*log(x[(3+no_types)*iatm+3+itype]);
+                nrgy_strss[0]+=c[icomp+itype]*mu[icomp+itype];
+                nrgy_strss[0]+=kbT*calc_ent(c[icomp+itype]);
+                dE[icomp+itype]=tmp1;
+                ddE[icomp+itype]=tmp2;
+            }
+        }
+        if(chk)
+            nrgy_strss[0]+=kbT*calc_ent(c_iv);
+    }
+    
+    
+    /*
+     beginning of level 2
+     */
+    
+    atoms->update_ph(dE_n);
+    
+    type0 r_inv,dx0,dx1,dx2,fpair;
+    
+    
+   
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            dx0=x[iatm*(3+no_types)]-x[jatm*(3+no_types)];
+            dx1=x[iatm*(3+no_types)+1]-x[jatm*(3+no_types)+1];
+            dx2=x[iatm*(3+no_types)+2]-x[jatm*(3+no_types)+2];
+            r_inv=1.0/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[jcomp+jtype]>=0.0 && c[icomp+itype]>=0.0)
+                    {
+                        
+                        mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                        +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                        
+                        if(jatm<natms)
+                        {
+                            mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                            +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                        }
+                        
+                        if (chk)
+                        {
+                            fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                    +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                    +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                            *c[icomp+itype]*c[jcomp+jtype]*r_inv;
+                            
+                            if(jatm<natms)
+                            {
+                             
+                                nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
+                                *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
+                                nrgy_strss[1]-=fpair*dx0*dx0;
+                                nrgy_strss[2]-=fpair*dx1*dx1;
+                                nrgy_strss[3]-=fpair*dx2*dx2;
+                                nrgy_strss[4]-=fpair*dx1*dx2;
+                                nrgy_strss[5]-=fpair*dx2*dx0;
+                                nrgy_strss[6]-=fpair*dx0*dx1;
+                            }
+                            else
+                            {
+                                
+                                nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
+                                *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
+                                nrgy_strss[1]-=0.5*fpair*dx0*dx0;
+                                nrgy_strss[2]-=0.5*fpair*dx1*dx1;
+                                nrgy_strss[3]-=0.5*fpair*dx2*dx2;
+                                nrgy_strss[4]-=0.5*fpair*dx1*dx2;
+                                nrgy_strss[5]-=0.5*fpair*dx2*dx0;
+                                nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                            }
+                            
+                        }
+                    }
+                }
+            }
+            istart+=stride;
         }
     }
+    /*
+     beginning of level 3
+     */
+    atoms->update_ph(mu_n);
+    
+    for(int i=0;i<natms*no_types;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            s[i]=2.0*(c[i]+a[i]);
+        }
+    }
+    
+    inner=0.0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    tmp0=mat(fi,0.0,fj,0.0,itype);
+                    
+                    exp_fi=exp(beta*(fi-tmp0));
+                    exp_fj=exp(beta*(fj-tmp0));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    s[icomp+itype]-=2.0*alpha*s_ij;
+                    c_d[icomp+itype]+=s_ij;
+                    if(jatm<natms)
+                    {
+                        s[jcomp+itype]+=2.0*alpha*s_ij;
+                        c_d[jcomp+itype]-=s_ij;
+                    }
+                }
+            }
+        }
+        for(int itype=0;itype<no_types;itype++)
+        {
+            if(c[icomp+itype]>=0.0)
+                inner+=s[icomp+itype]*s[icomp+itype];
+        }
+    }
+    ans=0.0;
+    MPI_Allreduce(&inner,&ans,1,MPI_TYPE0,MPI_SUM,world);
+    ans*=0.25;
+    ans=sqrt(ans);
+    
+    
+    if(chk)
+        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+    
+    
+    
+    if(chk==0)
+        return ans;
+    
+    /*
+     beginning of level 4
+     */
+    atoms->update_ph(s_n);
+    
+    for(int i=0;i<natms*no_types;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            //attttttt
+            t[i]=0.0;
+            g[i]=-s[i];
+        }
+    }
+    
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    s_ij=s[icomp+itype]-s[jcomp+itype];
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    tmp0=mat(fi,0.0,fj,0.0,itype);
+                    exp_fi=exp(beta*(fi-tmp0));
+                    exp_fj=exp(beta*(fj-tmp0));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    g[icomp+itype]-=alpha*s_ij*c_jv*exp_fi;
+                    t[icomp+itype]+=s_ij*(w_ij+(w_ji-w_ij)*dmat0(fi,0,fj,0,itype));
+
+                    
+                    if(jatm<natms)
+                    {
+                        g[jcomp+itype]+=alpha*s_ij*c_iv*exp_fj;
+                        t[jcomp+itype]-=s_ij*(w_ji+(w_ij-w_ji)*dmat0(fj,0.0,fi,0.0,itype));
+                    }
+                    
+                    
+                    
+                    //check it out
+                    for(int jtype=0;jtype<no_types;jtype++)
+                    {
+                        if(c[icomp+jtype]>=0.0 && c[jcomp+jtype]>=0.0)
+                        {
+                            s_ij=s[icomp+jtype]-s[jcomp+jtype];
+                            fi=mu[icomp+jtype];
+                            fj=mu[jcomp+jtype];
+
+                            tmp0=mat(fi,0.0,fj,0.0,itype);
+                            g[icomp+itype]-=alpha*s_ij*c[jcomp+jtype]*exp(beta*(fj-tmp0));
+                            
+                            if(jatm<natms)
+                            {
+                                g[jcomp+itype]+=alpha*s_ij*c[icomp+jtype]*exp(beta*(fi-tmp0));
+                            }
+                        }
+                    }
+                }
+                
+                
+                
+            }
+        }
+    }
+    
+    /*
+     beginning of level 5
+     */
+    atoms->update_ph(t_n);
+    
+    for(int i=0;i<no_types*natms;i++)
+        v[i]=0.0;
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        tmp0=rho_phi[istart+type2phi_pair_ij[itype][jtype]]
+                        +rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                        +rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype];
+                        tmp0*=beta*alpha;
+                        
+                        v[icomp+itype]+=rho_phi[istart+type2rho_pair_ji[jtype][itype]]*t[jcomp+jtype];
+                        g[icomp+itype]+=tmp0*t[jcomp+jtype];
+                        if(jatm<natms)
+                        {
+                            v[jcomp+jtype]+=rho_phi[istart+type2rho_pair_ij[itype][jtype]]*t[icomp+itype];
+                            g[jcomp+jtype]+=tmp0*t[icomp+itype];
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        for(int itype=0;itype<no_types;itype++)
+        {
+            v[icomp+itype]*=c[icomp+itype]*ddE[icomp+itype];
+        }
+    }
+    
+    /*
+     beginning of level 6
+     */
+    atoms->update_ph(v_n);
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[jcomp+jtype]>=0.0 && c[icomp+itype]>=0.0)
+                    {
+                        g[icomp+itype]+=alpha*beta*rho_phi[istart+type2rho_pair_ij[itype][jtype]]
+                        *v[jcomp+jtype];
+                        if(jatm<natms)
+                            g[jcomp+jtype]+=alpha*beta*rho_phi[istart+type2rho_pair_ji[jtype][itype]]
+                            *v[icomp+itype];
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+    }
+    
+    for(int i=0;i<no_types*natms;i++)
+        if(c[i]>=0.0)
+            g[i]/=2.0*ans;
+    
     
     return ans;
     

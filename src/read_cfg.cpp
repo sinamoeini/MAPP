@@ -585,7 +585,7 @@ void Read_cfg::read_atom_dmd()
             if(tmp_buff[i]<=0.0)
                 error->abort("values of alpha vector in %s file should be greater than 0.0",file_name);
         for(int i=3+dmd_no_types;i<3+2*dmd_no_types;i++)
-            if(tmp_buff[i]<0.0 || tmp_buff[i]>1.0)
+            if(tmp_buff[i]<-1.0 || tmp_buff[i]>1.0)
                 error->abort("values of c vector in %s file should be between 0.0 & 1.0",file_name);
         
         add_atom_read_x();

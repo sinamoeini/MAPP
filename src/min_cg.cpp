@@ -54,7 +54,7 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
     
     if(max_iter<0)
         error->abort("max_iter in min cg should be greater than 0");
-    if(energy_tolerance<=0.0)
+    if(energy_tolerance<0.0)
          error->abort("e_tol in min cg should be greater than 0.0");
     
     
@@ -425,6 +425,7 @@ void Min_cg::run()
     }
     else
     {
+        
         atoms->vectors[h_n]->ret(h);
         atoms->vectors[f_n]->ret(f);
         memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
@@ -460,16 +461,18 @@ void Min_cg::run()
                 write->write();
             
             thermo->thermo_print();
+            
             err=line_search->line_min(curr_energy,alpha);
             
             if(err==LS_S)
                 if(prev_energy-curr_energy<energy_tolerance)
                     err=MIN_F_TOLERANCE;
-             
+            
             if(err==LS_S)
                 if(istp+1==max_iter)
                     err=MIN_F_MAX_ITER;
             
+
             atoms->vectors[f_n]->ret(f);
             atoms->vectors[f_prev_n]->ret(f_0);
             atoms->vectors[h_n]->ret(h);
@@ -478,26 +481,23 @@ void Min_cg::run()
                 f[i]=0.0;
             
             
-            forcefield->force_calc_timer(1,nrgy_strss);
             
-            
-            rectify_f(f);
             
             if(thermo->test_prev_step() || err)
             {
+                forcefield->force_calc_timer(1,nrgy_strss);
+                rectify_f(f);
+                
                 thermo->update(pe_idx,nrgy_strss[0]);
                 thermo->update(stress_idx,6,&nrgy_strss[1]);
                 curr_energy=nrgy_strss[0];
             }
             else
             {
-                
                 forcefield->force_calc_timer(0,&curr_energy);
-                
-                
                 rectify_f(f);
             }
-
+            
             if(err)
             {
                 step_no++;

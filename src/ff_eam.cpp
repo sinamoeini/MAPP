@@ -953,35 +953,71 @@ void ForceField_eam::set_fs(int no_files
     drho_inv=1.0/drho;
     
     
-    if(line_read(fp,line)==-1)
-        error->abort("%s file ended immaturely",file_names[0]);
     
     
-    int ipos=0;
+    
+    int ipos;
     int tot=tot_no_types*nrho+tot_no_types*tot_no_types*nr
     +tot_no_types*(tot_no_types+1)*nr/2;
+    int tot_loc=nrho+tot_no_types*nr;
+    int ipos_loc;
+    
     type0* tmp;
     CREATE1D(tmp,tot);
-    while (ipos<tot)
+    
+    
+    ipos=0;
+    
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+    {
+        if(line_read(fp,line)==-1)
+            error->abort("%s file ended immaturely",file_names[0]);
+        ipos_loc=0;
+        while (ipos_loc<tot_loc)
+        {
+            if(line_read(fp,line)==-1)
+                error->abort("%s file ended immaturely",file_names[0]);
+            
+            narg=mapp->parse_line(line,arg);
+            
+            if(ipos_loc+narg>tot_loc)
+                error->abort("%s file ended immaturely",file_names[0]);
+            
+            for(int i=0;i<narg;i++)
+            {
+                tmp[ipos+ipos_loc]=atof(arg[i]);
+                ipos_loc++;
+                delete [] arg[i];
+            }
+            if(narg)
+                delete [] arg;
+        }
+        ipos+=ipos_loc;
+    }
+    
+    tot_loc=tot_no_types*(tot_no_types+1)*nr/2;
+    ipos_loc=0;
+    while (ipos_loc<tot_loc)
     {
         if(line_read(fp,line)==-1)
             error->abort("%s file ended immaturely",file_names[0]);
         
         narg=mapp->parse_line(line,arg);
         
-        if(ipos+narg>tot)
+        if(ipos_loc+narg>tot_loc)
             error->abort("%s file ended immaturely",file_names[0]);
         
         for(int i=0;i<narg;i++)
         {
-            tmp[ipos]=atof(arg[i]);
-            ipos++;
+            tmp[ipos+ipos_loc]=atof(arg[i]);
+            ipos_loc++;
             delete [] arg[i];
         }
         if(narg)
             delete [] arg;
-        
     }
+    
+    
     
     delete [] line;
     if(atoms->my_p_no==0)

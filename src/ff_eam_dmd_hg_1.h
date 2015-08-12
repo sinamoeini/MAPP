@@ -24,7 +24,8 @@ namespace MAPP_NS
         void set_setfl(int,char**);
         void set_funcfl(int,char**);
         void set_fs(int,char**);
-        int line_read(FILE*,char*&);
+        int read_line(FILE*,char*&);
+        void read_file(char*);
         void setup_delta_e(char*);
         
         void allocate();
@@ -50,7 +51,8 @@ namespace MAPP_NS
         type0 cut_sq_mod_0;
         type0 rc,mod_rc,kbT,beta;
         type0* c_0;
-        type0* delta_e;
+        type0* f_t;
+        type0* Q_nrm;
         
         /*--------------------------------------------*/
         
@@ -66,9 +68,8 @@ namespace MAPP_NS
         type0* wi_0;
         type0* wi_1;
         type0* wi_2;
-        type0 alpha_min,alpha_max;
         int no_i;
-        void set_weight_abs(int);
+        type0 set_weight_abs(int);
         void rho_calc(type0,type0,int,int);
         void phi_calc(type0,type0,int,int);
         /*--------------------------------------------*/
@@ -93,8 +94,8 @@ namespace MAPP_NS
         void coef(int,char**);
         
         void create_2nd_neigh_lst();
-        type0 g_calc(int,type0,type0*,type0*);
-        void c_d_calc();
+        type0 g_calc(int,type0,type0*,type0*,type0*);
+        void c_d_calc(int,type0*);
     };
     
     

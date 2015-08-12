@@ -11,8 +11,6 @@ using namespace MAPP_NS;
 Clock_fe::Clock_fe(MAPP* mapp,int narg
                    ,char** arg):Clock(mapp)
 {
-    e_tol=0.0;
-    a_tol=1.0e-6;
     min_del_t=1.0e-12;
     max_del_t=1.0e4;
     if(narg<3)
@@ -36,12 +34,6 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
                 a_tol=atof(arg[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"e_tol")==0)
-            {
-                iarg++;
-                e_tol=atof(arg[iarg]);
-                iarg++;
-            }
             else if(strcmp(arg[iarg],"min_del_t")==0)
             {
                 iarg++;
@@ -62,8 +54,7 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
     
     if(a_tol<=0.0)
         error->abort("a_tol in clock fe should be greater than 0.0");
-    if(e_tol<0.0)
-        error->abort("e_tol in clock fe should be equal or greater than 0.0");
+
     if(min_del_t<=0.0)
         error->abort("min_del_t in clock fe should be greater than 0.0");
     if(max_del_t<=0.0)
@@ -73,13 +64,6 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
     
     
     
-    
-    c_n=atoms->find("c");
-    c_d_n=atoms->find("c_d");
-    
-    int c_dim=atoms->vectors[c_n]->dim;
-    dof_lcl=atoms->natms*c_dim;
-    MPI_Allreduce(&dof_lcl,&dof_tot,1,MPI_INT,MPI_SUM,world);
     
     CREATE1D(y,dof_lcl);
     CREATE1D(dy,dof_lcl);
@@ -103,6 +87,11 @@ Clock_fe::~Clock_fe()
  --------------------------------------------*/
 void Clock_fe::init()
 {
+    old_skin=atoms->skin;
+    old_comm_mode=atoms->comm_mode;
+    atoms->chng_skin(0.0);
+    atoms->comm_mode=COMM_MODE_5;
+    
     int f_n=atoms->find_exist("f");
     if(f_n<0)
         f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
@@ -128,7 +117,7 @@ void Clock_fe::init()
     
     forcefield->create_2nd_neigh_lst_timer();
     forcefield->force_calc_timer(1,nrgy_strss);
-    forcefield->c_d_calc_timer();
+    forcefield->c_d_calc_timer(0,nrgy_strss);
     
     
     thermo->update(fe_idx,nrgy_strss[0]);
@@ -167,6 +156,8 @@ void Clock_fe::fin()
     
     delete vecs_comm;
     
+    atoms->chng_skin(old_skin);
+    atoms->comm_mode=old_comm_mode;
 
 }
 /*--------------------------------------------
@@ -185,10 +176,9 @@ void Clock_fe::run()
     type0* c_d;
     atoms->vectors[c_d_n]->ret(c_d);
     del_t=min_del_t;
-    eq_ratio=1.0;
     int istep=0;
     
-    while (eq_ratio>=1.0 && istep <no_steps)
+    while (istep<no_steps)
     {
         solve(del_t);
         
@@ -201,10 +191,6 @@ void Clock_fe::run()
         
         if(thermo->test_prev_step() || istep+1==no_steps)
         {
-            
-            forcefield->force_calc_timer(1,nrgy_strss);
-            
-            
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,curr_t);
@@ -215,7 +201,7 @@ void Clock_fe::run()
 
         
         
-        forcefield->c_d_calc_timer();
+        forcefield->c_d_calc_timer(1,nrgy_strss);
         
         
         rectify(c_d);
@@ -241,15 +227,18 @@ void Clock_fe::solve(type0& del_t)
     type0* c_d;
     atoms->vectors[c_d_n]->ret(c_d);
     
-    type0 ratio,tot_ratio,tmp0,tmp1,err_lcl;
+    type0 ratio,tot_ratio,tmp0,err_lcl;
     ratio=1.0;
     for(int i=0;i<dof_lcl;i++)
     {
-        tmp0=y[i]+dy[i]*del_t;
-        if(tmp0>1.0)
-            ratio=MIN((1.0-y[i])/(tmp0-y[i]),ratio);
-        else if(tmp0<0.0)
-            ratio=MIN((y[i]-0.0)/(y[i]-tmp0),ratio);
+        if(c[i]>=0.0)
+        {
+            tmp0=y[i]+dy[i]*del_t;
+            if(tmp0>1.0)
+                ratio=MIN((1.0-y[i])/(tmp0-y[i]),ratio);
+            else if(tmp0<0.0)
+                ratio=MIN((y[i]-0.0)/(y[i]-tmp0),ratio);
+        }
     }
     
     MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
@@ -259,14 +248,15 @@ void Clock_fe::solve(type0& del_t)
     while (err>=1.0)
     {
         for(int i=0;i<dof_lcl;i++)
-            c[i]=y[i]+0.5*del_t*dy[i];
+            if(c[i]>=0.0)
+                c[i]=y[i]+0.5*del_t*dy[i];
         
         
         atoms->update_ph(c_n);
         
         
         
-        forcefield->c_d_calc_timer();
+        forcefield->c_d_calc_timer(0,nrgy_strss);
         
         
         rectify(c_d);
@@ -275,8 +265,11 @@ void Clock_fe::solve(type0& del_t)
         err_lcl=0.0;
         for(int i=0;i<dof_lcl;i++)
         {
-            tmp0=c_d[i]-dy[i];
-            err_lcl+=tmp0*tmp0;
+             if(c[i]>=0.0)
+             {
+                 tmp0=c_d[i]-dy[i];
+                 err_lcl+=tmp0*tmp0;
+             }
         }
         err=0.0;
         MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
@@ -288,7 +281,7 @@ void Clock_fe::solve(type0& del_t)
         
         if(err>=1.0)
         {
-            del_t*=0.9/err;
+            ratio=0.9/err;
             if (ratio<=0.5)
                 ratio=0.5;
             del_t*=ratio;
@@ -296,20 +289,14 @@ void Clock_fe::solve(type0& del_t)
         }
     }
 
-    tmp1=0.0;
     for(int i=0;i<dof_lcl;i++)
     {
-        tmp1+=c_d[i]*c_d[i];
-        c[i]=y[i]+del_t*dy[i];
+        if(c[i]>=0.0)
+            c[i]=y[i]+del_t*dy[i];
     }
 
-    
     atoms->update_ph(c_n);
     
-    
-    MPI_Allreduce(&tmp1,&eq_ratio,1,MPI_TYPE0,MPI_SUM,world);
-    eq_ratio=sqrt(eq_ratio/static_cast<type0>(dof_tot))/e_tol;
- 
 
 }
 /*--------------------------------------------

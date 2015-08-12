@@ -9,32 +9,44 @@ namespace MAPP_NS {
     {
     private:
     protected:
-        int order;
-        type0* beta;
-        type0 ave_err;
-        
-        type0 delta_t;
-        VecLst* vecs_comm;
+        // inputs by user
+        int max_step,max_order;
+        type0 min_del_t,max_del_t,initial_del_t,max_t;
         
         
-        type0** y;
-        type0* a;
-        type0* g;
-        type0* c0;
-        type0* g0;
-        type0* h;
-        int c_n,c_d_n;
-        int tot_dim;
-        type0 solve(type0);
-        void line_search();
-        type0 gamma_red,slope;
-        int no_steps;
         
+        
+        
+        // stuff for book keeping
         type0* t;
-        type0* beta_mod;
-        type0 tot_time;
-        void interpolate(type0);
+        type0** dy;
+        type0* y;
         
+        // stuff for coefficients
+        type0 alpha_y;
+        type0* alpha_dy;
+        type0 dalpha_y;
+        type0* dalpha_dy;
+        
+        
+        //stuff for error calculation
+        type0 err_coef_dy,err_coef_y;
+        type0* err_coef;
+        type0* e_n;
+        
+        
+        type0 solve(type0,int,type0&);
+        void interpolate(type0&,int&);
+        void ord_dt(type0&,int&,int,type0);
+        
+        int old_comm_mode;
+        type0 old_skin;
+        
+        
+        
+        type0** xi;
+        type0** wi;
+        void quad(int,type0*,type0*);
         
     public:
         Clock_adams(MAPP *,int,char**);

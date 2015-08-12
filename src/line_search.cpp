@@ -1,6 +1,7 @@
 #include "line_search.h"
 #include "ff.h"
 #include "atom_types.h"
+#define INV_SQ_2 0.7071067811865475
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -245,36 +246,56 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
     type0 min_h;
     type0 min_h_tot=0;
     type0 current_energy,ideal_energy;
+    type0 alpha_min0,alpha_max0;
+    type0* h;
+    atoms->vectors[h_n]->ret(h);
+    int icomp;
     
     if(mapp->mode==DMD_mode)
     {
         type0* x;
         atoms->vectors[0]->ret(x);
-        min_h=INFINITY;
+        min_h=forcefield->alpha_max;
+        alpha_max0=INV_SQ_2*min_h;
+        alpha_min0=forcefield->alpha_min;
         for(int i=0;i<atoms->natms;i++)
+        {
+            icomp=i*(3+atom_types->no_types)+3;
             for(int j=0;j<atom_types->no_types;j++)
-                min_h=MIN(min_h,x[i*(3+atom_types->no_types)+3+j]);
-        MPI_Allreduce(&min_h,&min_h_tot,1,MPI_TYPE0,MPI_MIN,world);
-        min_h_tot*=0.99;
+            {
+                if(h[icomp+j]>0.0)
+                {
+                    min_h=MIN(min_h,alpha_max0-x[icomp+j]);
+                }
+                else if(h[icomp+j]<0.0)
+                {
+                    min_h=MIN(min_h,x[icomp+j]-alpha_min0);
+                }
+                
+            }
+        }
         
-        alpha_min=MIN(alpha_min,min_h_tot);
+        MPI_Allreduce(&min_h,&min_h_tot,1,MPI_TYPE0,MPI_MIN,world);
+        min_h_tot*=0.9999;
+        
+        alpha_max=MIN(alpha_max,min_h_tot);
     }
+    
     
     alph=0.0;
     normalize_h();
     inner=inner_f_h();
-    
     if(inner<=0)
         return LS_F_DOWNHILL;
-    
     max_h=find_max_h();
     if(max_h==0)
         return LS_F_GRAD0;
-    
     alpha_m=MIN(alpha_max,max_h);
     if(alpha_m<=alpha_min)
         return LS_F_ALPHAMIN;
     
+
+
     while (1)
     {
         ideal_energy=nrgy-alpha_m*c*inner;

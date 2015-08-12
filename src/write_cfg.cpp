@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "atom_types.h"
 #include "write_cfg.h"
-
+#define TRESH 0.004
 using namespace MAPP_NS;
 
 /*--------------------------------------------
@@ -10,7 +10,7 @@ using namespace MAPP_NS;
 Write_cfg::Write_cfg(MAPP* mapp,int narg
                      ,char** arg) : Write(mapp)
 {
-    lst_compltd=0;
+    usr_nabled=0;
     sorting=0;
     if(narg<4)
         error->abort("wrong write cfg command");
@@ -30,6 +30,7 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
         CREATE1D(vec_list,no_vecs);
         vec_list[0]=atoms->find("x");
         vec_list[1]=atoms->find("c");
+        c_n=atoms->find("c");
         CREATE1D(vec_name,no_vecs);
         
         lngth=static_cast<int>(strlen((char*)"x"))+1;
@@ -63,6 +64,11 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
         if(strcmp(arg[iarg],"sort")==0)
         {
             sorting=1;
+            iarg++;
+        }
+        else if(strcmp(arg[iarg],"usr")==0)
+        {
+            usr_nabled=1;
             iarg++;
         }
         else
@@ -116,13 +122,16 @@ Write_cfg::Write_cfg(MAPP* mapp,int narg
     
     x_dim=atoms->vectors[0]->dim;
     dim=atoms->dimension;
-
+    if(usr_nabled && mapp->mode==DMD_mode)
+        CREATE1D(clr_r,4);
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Write_cfg::~Write_cfg()
 {
+    if(usr_nabled && mapp->mode==DMD_mode)
+        delete [] clr_r;
     delete [] file_name;
     
     for(int i=0;i<no_vecs;i++)
@@ -134,45 +143,10 @@ Write_cfg::~Write_cfg()
     }
 }
 /*--------------------------------------------
- complete the list
- --------------------------------------------*/
-void Write_cfg::cmplt_lst()
-{
-    for(int i=0;i<no_vecs;i++)
-    {
-        if(vec_list[i]==-1)
-           vec_list[i]=atoms->find(vec_name[i]);
-    }
-    
-    //chek wether two vectors are the same
-    
-    for(int i=0;i<no_vecs;i++)
-        for(int j=i+1;j<no_vecs;j++)
-            if(vec_list[i]==vec_list[j])
-                error->abort("duplicate "
-                "atomic vectos in write "
-                "cfg cannot be the same");
-    
-    tot_dim=0;
-    for(int i=0;i<no_vecs;i++)
-        tot_dim+=atoms->vectors[vec_list[i]]->dim;
-    
-    if(mapp->mode==MD_mode)
-        tot_dim-=atoms->vectors[type_n]->dim;
-    if(sorting)
-        tot_dim-=atoms->vectors[id_n]->dim;
-    
-    lst_compltd=1;
-    
-}
-/*--------------------------------------------
  write file
  --------------------------------------------*/
 void Write_cfg::write_file(int stp)
 {
-    if(lst_compltd==0)
-        cmplt_lst();
-    
     if(mapp->mode==MD_mode)
         write_file_md(stp);
     else
@@ -189,6 +163,7 @@ void Write_cfg::write_file_md(int stp)
     
     
     FILE* fp=NULL;
+    FILE* fp_usr=NULL;
     
     if(atoms->my_p_no==0)
     {
@@ -198,6 +173,14 @@ void Write_cfg::write_file_md(int stp)
         sprintf (filename, "%s.%010d.cfg",file_name,stp);
         fp=fopen(filename,"w");
         delete [] filename;
+        if(usr_nabled)
+        {
+            CREATE1D(filename,MAXCHAR);
+            sprintf (filename, "%s.%010d.usr",file_name,stp);
+            fp_usr=fopen(filename,"w");
+            delete [] filename;
+        }
+
         
         // write the header
         fprintf(fp,"Number of particles = %d\n",atoms->tot_natms);
@@ -255,6 +238,13 @@ void Write_cfg::write_file_md(int stp)
                         for(int j=0;j<no_vecs-2;j++)
                             atoms->vectors[vec_list[j]]->print_dump(fp,sort[i]);
                         fprintf(fp,"\n");
+                        if(usr_nabled)
+                        {
+                            for(int j=0;j<4;j++)
+                                fprintf(fp_usr,"%lf ",atom_types->clr_rad[itype][j]);
+                            fprintf(fp_usr,"\n");
+                        }
+                        
                     }
                 }
             }
@@ -297,12 +287,20 @@ void Write_cfg::write_file_md(int stp)
                         for(int j=0;j<no_vecs-1;j++)
                             atoms->vectors[vec_list[j]]->print_dump(fp,i);
                         fprintf(fp,"\n");
+                        if(usr_nabled)
+                        {
+                            for(int j=0;j<4;j++)
+                                fprintf(fp_usr,"%lf ",atom_types->clr_rad[itype][j]);
+                            fprintf(fp_usr,"\n");
+                        }
                     }
                 }
             }
         }
         
         fclose(fp);
+        if(usr_nabled)
+            fclose(fp_usr);
     }
     
     for(int i=0;i<no_vecs;i++)
@@ -320,7 +318,7 @@ void Write_cfg::write_file_dmd(int stp)
     
     
     FILE* fp=NULL;
-    
+    FILE* fp_usr=NULL;
     if(atoms->my_p_no==0)
     {
         x2s(atoms->tot_natms);
@@ -330,6 +328,13 @@ void Write_cfg::write_file_dmd(int stp)
         fp=fopen(filename,"w");
         delete [] filename;
         
+        if(usr_nabled)
+        {
+            CREATE1D(filename,MAXCHAR);
+            sprintf (filename, "%s.%010d.usr",file_name,stp);
+            fp_usr=fopen(filename,"w");
+            delete [] filename;
+        }
         
         
         // write the header
@@ -377,6 +382,8 @@ void Write_cfg::write_file_dmd(int stp)
                 
             }
             
+            type0* c;
+            atoms->vectors[c_n]->ret_dump(c);
             int* id;
             int tot_natms=atoms->tot_natms;
             atoms->vectors[id_n]->ret_dump(id);
@@ -396,6 +403,13 @@ void Write_cfg::write_file_dmd(int stp)
                 for(int j=0;j<no_vecs-1;j++)
                     atoms->vectors[vec_list[j]]->print_dump(fp,sort[i]);
                 fprintf(fp,"\n");
+                if(usr_nabled)
+                {
+                    find_type(&c[sort[i]*atom_types->no_types],TRESH,clr_r);
+                    for(int j=0;j<3;j++)
+                        fprintf(fp_usr,"%f ",clr_r[j]);
+                    fprintf(fp_usr,"%f\n",clr_r[3]);
+                }
             }
             
             if(tot_natms)
@@ -434,18 +448,29 @@ void Write_cfg::write_file_dmd(int stp)
             for(int itype=0;itype<atom_types->no_types;itype++)
                 fprintf(fp,"%lf \n%s \n",atom_types->mass[itype]
                         ,atom_types->atom_names[itype]);
+            type0* c;
+            atoms->vectors[c_n]->ret_dump(c);
             
             for(int i=0;i<tot_natms;i++)
             {
                 for(int j=0;j<no_vecs;j++)
                     atoms->vectors[vec_list[j]]->print_dump(fp,i);
                 fprintf(fp,"\n");
+                if(usr_nabled)
+                {
+                    find_type(&c[i*atom_types->no_types],TRESH,clr_r);
+                    for(int j=0;j<3;j++)
+                        fprintf(fp_usr,"%f ",clr_r[j]);
+                    fprintf(fp_usr,"%f\n",clr_r[3]);
+                }
             }
             
 
         }
         
         fclose(fp);
+        if(usr_nabled)
+            fclose(fp_usr);
     }
     
     for(int i=0;i<no_vecs;i++)
@@ -485,3 +510,88 @@ void Write_cfg::x2s(int no)
     }
     
 }
+/*--------------------------------------------
+ find a type of atom based on tolerance
+ and other shit it is for dmd mode
+ --------------------------------------------*/
+int Write_cfg::find_type(type0* c
+,type0 tol,type0* clr_r)
+{
+    type0 c_m_eff,rat,c_v=1.0,c_max=0.0;
+    int ityp=-1;
+    
+    for(int i=0;i<atom_types->no_types;i++)
+    {
+        if(c[i]>=0.0)
+        {
+
+            c_v-=c[i];
+            if(ityp==-1)
+            {
+                ityp=i;
+                c_max=c[i];
+            }
+            else
+            {
+                if(c[i]>c_max)
+                {
+                    ityp=i;
+                    c_max=c[i];
+                }
+            }
+        }
+    }
+
+    c_m_eff=1.0-0.5*(1.0+c_v-c_max);
+    
+    if(c_m_eff<tol)
+    {
+        rat=(tol-c_m_eff)/tol;
+        for(int i=0;i<3;i++)
+            clr_r[i]=atom_types->clr_rad[ityp][i]*(1.0-rat)+rat;
+        
+        clr_r[3]=atom_types->clr_rad[ityp][3];
+        return -1;
+    }
+    else
+    {
+        /*
+        for(int i=0;i<3;i++)
+            clr_r[i]=1.0;
+
+        clr_r[3]=atom_types->clr_rad[ityp][3];
+         */
+        for(int i=0;i<4;i++)
+            clr_r[i]=atom_types->clr_rad[ityp][i];
+        return ityp;
+    }
+    
+}
+/*--------------------------------------------
+ init()
+ --------------------------------------------*/
+void Write_cfg::init_indv()
+{
+    for(int i=0;i<no_vecs;i++)
+        vec_list[i]=atoms->find(vec_name[i]);
+    
+    //chek wether two vectors are the same
+    
+    for(int i=0;i<no_vecs;i++)
+        for(int j=i+1;j<no_vecs;j++)
+            if(vec_list[i]==vec_list[j])
+                error->abort("duplicate "
+                             "atomic vectos in write "
+                             "cfg cannot be the same");
+    
+    tot_dim=0;
+    for(int i=0;i<no_vecs;i++)
+        tot_dim+=atoms->vectors[vec_list[i]]->dim;
+    
+    if(mapp->mode==MD_mode)
+        tot_dim-=atoms->vectors[type_n]->dim;
+    if(sorting)
+        tot_dim-=atoms->vectors[id_n]->dim;
+
+}
+

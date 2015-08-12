@@ -10,27 +10,10 @@ namespace MAPP_NS {
     private:
     protected:
         // inputs by user
-        int max_iter,no_steps,max_order;
-        type0 min_gamma,gamma_red,slope;
-        type0 m_tol,a_tol,e_tol;
-        type0 min_del_t,max_del_t,initial_del_t;
-        type0 eq_ratio;
-        
-        // the atomic vectors indices
-        int c_n,c_d_n;
-        // dofs
-        int dof_tot,dof_lcl;
-        
-        //predictor for c
-        type0* y_0;
+        int max_step,max_order;
+        type0 min_del_t,max_del_t,initial_del_t,max_t;
 
-        // stuff for solution
-        type0* a;
-        type0* g0;
-        type0* g;
-        type0* h;
-        type0* c0;
-        type0 beta;
+
         
         // stuff for book keeping
         type0* t;
@@ -42,18 +25,18 @@ namespace MAPP_NS {
         type0* dalpha_y;
         
         //stuff for error calculation
-        type0 err,err_prefac;
         type0* alph_err;
         
         //number of constant steps
         int const_stps;
         
-        type0 solve(type0,int);
-        int interpolate(type0,int);
+        void interpolate(type0&,int&,int);
+
         void ord_dt(type0&,int&,int);
-        type0 fac(int);
-        type0 step_size(type0,int);
-        type0 err_est(int);
+        type0 err_est(int,type0);
+        
+        int old_comm_mode;
+        type0 old_skin;
 
     public:
         Clock_mbdf(MAPP *,int,char**);

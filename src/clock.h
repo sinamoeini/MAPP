@@ -17,6 +17,27 @@ namespace MAPP_NS {
         int cdof_n;
         char* cdof;
         type0* nrgy_strss;
+        
+        // variables & vectors for implicit integrator
+        type0 beta;
+        type0* a;
+        type0* y_0;
+        type0* g;
+        type0* h;
+        type0* g0;
+        type0* c0;
+        
+        // parameters for implicit integrator
+        type0 a_tol,err_prefac;
+        
+        //parameters for the solver
+        int max_iter;
+        type0 m_tol,min_gamma,slope,gamma_red;
+        
+        // the atomic vectors indices
+        int c_n,c_d_n;
+        // dofs
+        int dof_tot,dof_lcl;
     public:
         Clock(MAPP *);
         virtual ~Clock();
@@ -25,6 +46,7 @@ namespace MAPP_NS {
         virtual void init()=0;
         virtual void fin()=0;
         void rectify(type0*);
+        void solve_n_err(type0&,type0&);
         
     };
     

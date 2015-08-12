@@ -21,6 +21,7 @@ Write::~Write()
  --------------------------------------------*/
 void Write::init()
 {
+    init_indv();
     if(last_write_step!=step_no)
     {
         timer->start(WRITE_TIME_mode);
@@ -29,6 +30,8 @@ void Write::init()
         last_write_step=step_no;
     }
     write_step=step_no+write_step_tally;
+
+
 }
 /*--------------------------------------------
  write the file
@@ -48,6 +51,7 @@ void Write::write()
  --------------------------------------------*/
 void Write::fin()
 {
+
     if(last_write_step!=step_no)
     {
         timer->start(WRITE_TIME_mode);
@@ -55,4 +59,5 @@ void Write::fin()
         timer->stop(WRITE_TIME_mode);
     }
     last_write_step=step_no;
+    fin_indv();
 }

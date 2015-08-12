@@ -18,6 +18,8 @@ namespace MAPP_NS {
         void init();
         void write();
         void fin();
+        virtual void init_indv()=0;
+        virtual void fin_indv()=0;
     };
     
 }

@@ -18,11 +18,13 @@ namespace MAPP_NS {
         
         int no_types;
         char** atom_names;
+        type0** clr_rad;
         type0* mass;
         
         int add_type(type0,char*);
         int find_type(char*);
         int find_type_exist(char*);
+        void assign_color_rad(char*,type0*);
     };
 }
 #endif 

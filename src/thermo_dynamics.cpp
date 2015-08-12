@@ -49,8 +49,11 @@ void ThermoQuantity::mod(int lngth)
 ThermoDynamics::ThermoDynamics(MAPP* mapp
 ,int narg,char** args):InitPtrs(mapp)
 {
-    mod_lngth=15;
+    precision=6;
     step_name_lngth=15;
+    
+    mod_lngth=precision+9;
+
     
     
     if(atoms->dimension!=3)
@@ -80,14 +83,18 @@ ThermoDynamics::ThermoDynamics(MAPP* mapp
     step_name[step_name_lngth]='\0';
     
     
-    CREATE1D(qform0,mod_lngth);
-    CREATE1D(qform1,mod_lngth);
-    CREATE1D(sform,mod_lngth);
-    sprintf(qform0," %%.%de ",mod_lngth-8);
-    sprintf(qform1,"%%.%de ",mod_lngth-8);
+    
+    int tmp0=7
+    +static_cast<int>(log(static_cast<type0>(mod_lngth-1))/log(10))
+    +static_cast<int>(log(static_cast<type0>(precision))/log(10));
+
+    int tmp1=7
+    +static_cast<int>(log(static_cast<type0>(step_name_lngth-2))/log(10));
+    
+    CREATE1D(qform,tmp0);
+    CREATE1D(sform,tmp1);
+    sprintf(qform,"%%%d.%de ",mod_lngth-1,precision);
     sprintf(sform," %%0%dd ",step_name_lngth-2);
-    
-    
     
 }
 /*--------------------------------------------
@@ -97,8 +104,7 @@ ThermoDynamics::~ThermoDynamics()
 {
 
     delete [] sform;
-    delete [] qform1;
-    delete [] qform0;
+    delete [] qform;
     delete [] step_name;
     delete [] quantities;
 }
@@ -161,11 +167,7 @@ void ThermoDynamics::val_print()
         for(int i=0;i<no_quantities;i++)
         {
             fprintf(output,"|");
-            if(quantities[i].value>=0)
-                fprintf(output,qform0,quantities[i].value);
-            else
-                fprintf(output,qform1,quantities[i].value);
-            
+            fprintf(output,qform,quantities[i].value);
         }
         fprintf(output,"|\n");
     }

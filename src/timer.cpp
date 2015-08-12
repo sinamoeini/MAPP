@@ -123,3 +123,20 @@ void Timer::print_time_stats()
 
     
 }
+
+/*--------------------------------------------
+ print
+ --------------------------------------------*/
+type0 Timer::tst_start()
+{
+    tst_time=-MPI_Wtime();
+    return 0.0;
+}
+/*--------------------------------------------
+ print
+ --------------------------------------------*/
+type0 Timer::tst_stop()
+{
+    tst_time+=MPI_Wtime();
+    return tst_time;
+}

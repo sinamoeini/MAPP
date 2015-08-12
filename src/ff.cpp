@@ -75,21 +75,21 @@ type0 ForceField::energy_calc_timer()
  
  --------------------------------------------*/
 type0 ForceField::g_calc_timer(int chk
-,type0 alpha,type0* a,type0* g)
+,type0 alpha,type0* a,type0* g,type0* enst)
 {
     type0 en;
     timer->start(FORCE_TIME_mode);
-    en=g_calc_timer(chk,alpha,a,g);
+    en=g_calc(chk,alpha,a,g,enst);
     timer->stop(FORCE_TIME_mode);
     return en;
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceField::c_d_calc_timer()
+void ForceField::c_d_calc_timer(int chk,type0* enst)
 {
     timer->start(FORCE_TIME_mode);
-    c_d_calc();
+    c_d_calc(chk,enst);
     timer->stop(FORCE_TIME_mode);
 }
 /*--------------------------------------------

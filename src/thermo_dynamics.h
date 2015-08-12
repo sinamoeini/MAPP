@@ -32,11 +32,11 @@ namespace MAPP_NS
         void tail_print();
         void val_print();
         
+        int precision;
         int mod_lngth;
         ThermoQuantity* quantities;
         int no_quantities;
-        char* qform0;
-        char* qform1;
+        char* qform;
         char* sform;
     public:
         ThermoDynamics(MAPP*,int,char**);

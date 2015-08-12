@@ -30,14 +30,16 @@ namespace MAPP_NS {
         virtual void force_calc(int,type0*)=0;
         virtual type0 energy_calc()=0;
         virtual void create_2nd_neigh_lst()=0;
-        virtual type0 g_calc(int,type0,type0*,type0*)=0;
-        virtual void c_d_calc()=0;
+        virtual type0 g_calc(int,type0,type0*,type0*,type0*)=0;
+        virtual void c_d_calc(int,type0*)=0;
         
         void force_calc_timer(int,type0*);
         type0 energy_calc_timer();
-        type0 g_calc_timer(int,type0,type0*,type0*);
-        void c_d_calc_timer();
+        type0 g_calc_timer(int,type0,type0*,type0*,type0*);
+        void c_d_calc_timer(int,type0*);
         void create_2nd_neigh_lst_timer();
+        
+        type0 alpha_min,alpha_max;
         
     };
 }

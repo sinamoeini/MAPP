@@ -7394,7 +7394,7 @@ type0 ForceField_eam_dmd_lg_0::calc_ent(type0 x)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd_lg_0::c_d_calc()
+void ForceField_eam_dmd_lg_0::c_d_calc(int chk,type0* en_st)
 {
     
     type0* x;
@@ -7561,7 +7561,7 @@ void ForceField_eam_dmd_lg_0::c_d_calc()
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_lg_0::g_calc(int chk
-                                    ,type0 alpha,type0* a,type0* g)
+,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);

@@ -97,8 +97,8 @@ namespace MAPP_NS
         void coef(int,char**);
         
         void create_2nd_neigh_lst();
-        type0 g_calc(int,type0,type0*,type0*);
-        void c_d_calc();
+        type0 g_calc(int,type0,type0*,type0*,type0*);
+        void c_d_calc(int,type0*);
     };
     
     

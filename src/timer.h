@@ -9,6 +9,7 @@ namespace MAPP_NS {
     private:
         int curr_time_mode;
         int prev_time_mode;
+        type0 tst_time;
     protected:
     public:
         int* level2mode;
@@ -26,6 +27,9 @@ namespace MAPP_NS {
         void init();
         void fin();
         void print_time_stats();
+        
+        type0 tst_start();
+        type0 tst_stop();
         
         Timer(MAPP*);
         ~Timer();
