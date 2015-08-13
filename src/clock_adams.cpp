@@ -505,8 +505,7 @@ void Clock_adams::ord_dt(type0& del_t,int& q
     type0* c;
     atoms->vectors[c_n]->ret(c);
     type0 lo_err_lcl,hi_err_lcl;
-    type0 tmp0,tmp1;
-    type0 k0,k1,l0,l1,c0,c1;    
+    type0 tmp0;
     type0 lo_ratio,hi_ratio,ratio,del_t_tmp0,del_t_tmp1;
     type0 hi_err=0.0,lo_err=0.0;
     int lo_ord_avail=0,hi_ord_avail=0,n;
@@ -520,39 +519,35 @@ void Clock_adams::ord_dt(type0& del_t,int& q
     
     if(hi_ord_avail)
     {
-        n=1+(q+1)/2;
-        k1=0.0;
-        l0=0.0;
-        l1=0.0;
+        type0 a0,a1;
+        type0 c0,c1,c2,tmp1;
+        
+        n=1+(q-1)/2;
+        c0=c1=c2=0.0;
         for(int i=0;i<n;i++)
         {
-            tmp0=tmp1=wi[n-1][i];
+            tmp0=wi[n-1][i];
+            tmp1=wi[n-1][i];
             for(int j=0;j<q-1;j++)
             {
                 tmp0*=t[0]+xi[n-1][i]*del_t-t[j];
-                tmp1*=t[1]+xi[n-1][i]*(t[1]-t[0])-t[j+1];
+                tmp1*=t[1]+xi[n-1][i]*(t[0]-t[1])-t[j+1];
             }
-            l0+=tmp0;
-            l1+=tmp1;
-            k1+=tmp0*(xi[n-1][i]-1.0)
-            *(t[0]+xi[n-1][i]*del_t-t[q-1]);
+            c0+=tmp0;
+            c1+=tmp1;
+            c2+=tmp0*(xi[n-1][i]-1.0)*(t[0]+xi[n-1][i]*del_t-t[q-1]);
         }
-        tmp0=1.0;
-        tmp1=del_t/(t[0]-t[1]);
-        for(int i=0;i<q;i++)
-            tmp0*=tmp1;
 
-        c0=(k0/l0)/((t[0]+del_t-t[q-1])*static_cast<type0>(q+1));
-        c1=-tmp0*(k0/l1)/((t[0]-t[q])*static_cast<type0>(q+1));
-
-        
+        a0=a1=c2/static_cast<type0>(q+1);
+        a0*=1.0/(c0*(t[0]+del_t-t[q-1]));
+        a1*=-del_t/(c1*(t[0]-t[1])*(t[0]-t[q]));
         
         hi_err_lcl=0.0;
         for(int i=0;i<dof_lcl;i++)
         {
             if(c[i]>=0.0)
             {
-                tmp0=c0*(c[i]-y_0[i])-c1*e_n[i];
+                tmp0=a0*(c[i]-y_0[i])+a1*e_n[i];
                 hi_err_lcl+=tmp0*tmp0;
             }
         }
@@ -563,43 +558,39 @@ void Clock_adams::ord_dt(type0& del_t,int& q
     
     if(lo_ord_avail)
     {
+        type0 err_e_n;
+        type0 c0,c1;
+        
         n=1+(q-1)/2;
-        k0=0.0;
+        c0=c1=0.0;
         for(int i=0;i<n;i++)
         {
-            tmp0=wi[n-1][i]*(xi[n-1][i]-1.0);
+            tmp0=wi[n-1][i];
             for(int j=0;j<q-2;j++)
                 tmp0*=t[0]+xi[n-1][i]*del_t-t[j];
-            k0+=tmp0;
+            c0+=tmp0*(xi[n-1][i]-1.0);
+            c1+=tmp0*(t[0]+xi[n-1][i]*del_t-t[q-2]);
         }
+        err_e_n=del_t*c0/c1;
         
-        tmp1=1.0;
-        for(int i=0;i<q-1;i++)
+        for(int i=0;i<q;i++)
         {
-            tmp0=t[i]-t[0]-del_t;
-            for(int j=0;j<q-1;j++)
+            tmp0=1.0;
+            for(int j=0;j<q;j++)
                 if(i!=j)
                     tmp0*=t[i]-t[j];
             
-            err_coef[i]=1.0/tmp0;
-            
-            tmp1*=t[0]+del_t-t[i];
+            err_coef[i]=c0*del_t*del_t/tmp0;
         }
-        err_coef_dy=1.0/tmp1;
-        err_coef_y=0.0;
-        
-        
-        for(int i=0;i<q-1;i++)
-            err_coef[i]*=k0*del_t*del_t;
-        err_coef_dy*=k0*del_t*del_t;
+
         
         lo_err_lcl=0.0;
         for(int i=0;i<dof_lcl;i++)
         {
             if(c[i]>=0.0)
             {
-                tmp0=err_coef_dy*c_d[i];
-                for(int j=0;j<q-1;j++)
+                tmp0=err_e_n*(c[i]-y_0[i]);
+                for(int j=0;j<q;j++)
                     tmp0+=err_coef[j]*dy[j][i];
                 
                 lo_err_lcl+=tmp0*tmp0;

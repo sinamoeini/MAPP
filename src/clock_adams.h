@@ -30,7 +30,6 @@ namespace MAPP_NS {
         
         
         //stuff for error calculation
-        type0 err_coef_dy,err_coef_y;
         type0* err_coef;
         type0* e_n;
         

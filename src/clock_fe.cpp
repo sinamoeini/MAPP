@@ -54,7 +54,6 @@ Clock_fe::Clock_fe(MAPP* mapp,int narg
     
     if(a_tol<=0.0)
         error->abort("a_tol in clock fe should be greater than 0.0");
-
     if(min_del_t<=0.0)
         error->abort("min_del_t in clock fe should be greater than 0.0");
     if(max_del_t<=0.0)
