@@ -293,8 +293,10 @@ int LineSearch_BackTrack::line_min(type0& nrgy,type0& alph)
     alpha_m=MIN(alpha_max,max_h);
     if(alpha_m<=alpha_min)
         return LS_F_ALPHAMIN;
-    
-
+    /*
+    for(int i=0;i<atoms->natms*4;i++)
+        printf("h[%d] %e \n",i,h[i]);
+    */
 
     while (1)
     {

@@ -12,7 +12,6 @@ namespace MAPP_NS {
         // inputs by user
         int max_step,max_order;
         type0 min_del_t,max_del_t,initial_del_t,max_t;
-        
 
         
 

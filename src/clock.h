@@ -17,6 +17,8 @@ namespace MAPP_NS {
         int cdof_n;
         char* cdof;
         type0* nrgy_strss;
+        type0 tot_t;
+
         
         // variables & vectors for implicit integrator
         type0 beta;

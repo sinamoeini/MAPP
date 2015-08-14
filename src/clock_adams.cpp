@@ -290,6 +290,8 @@ void Clock_adams::init()
     t[0]=0.0;
     memcpy(y,c,dof_lcl*sizeof(type0));
     memcpy(dy[0],c_d,dof_lcl*sizeof(type0));
+    
+    tot_t=0.0;
 }
 /*--------------------------------------------
  init
@@ -305,85 +307,6 @@ void Clock_adams::fin()
     
     atoms->chng_skin(old_skin);
     atoms->comm_mode=old_comm_mode;
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void Clock_adams::run()
-{
-    if(max_step==0)
-        return;
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
-    
-    type0* tmp_dy;
-    
-    type0 del_t=initial_del_t,del_t_tmp,max_err;
-    type0 ratio=1.0,cost,err=0.0;
-    int ord=1;
-    int err_chk;
-    int istep;
-    
-    
-    istep=0;
-    while (istep<max_step && t[0]<max_t)
-    {
-        err_chk=1;
-        while (err_chk)
-        {
-            interpolate(del_t,ord);
-            solve_n_err(cost,err);
-            
-            
-            if(err<1.0 && cost<1.0)
-                err_chk=0;
-            
-            if(err_chk)
-            {
-                max_err=MAX(err,cost);
-                ratio=pow(0.5/max_err,1.0/static_cast<type0>(ord+1));
-                
-                del_t_tmp=del_t*ratio;
-                if(del_t_tmp<min_del_t)
-                    del_t=min_del_t;
-                else
-                    del_t=del_t_tmp;
-            }
-        }
-        
-        if(write!=NULL)
-            write->write();
-        thermo->thermo_print();
-        
-        if(thermo->test_prev_step()|| istep==max_step-1 || t[0]+del_t==max_t)
-        {
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,t[0]+del_t);
-        }
-        
-        del_t_tmp=del_t;
-        ord_dt(del_t,ord,istep,err);
-        
-        tmp_dy=dy[max_order-1];
-        for(int i=max_order-1;i>0;i--)
-        {
-            t[i]=t[i-1];
-            dy[i]=dy[i-1];
-        }
-        
-        dy[0]=tmp_dy;
-        t[0]+=del_t_tmp;
-        
-        memcpy(y,c,dof_lcl*sizeof(type0));
-        memcpy(dy[0],c_d,dof_lcl*sizeof(type0));
-        
-        step_no++;
-        istep++;
-    }
-
 }
 /*--------------------------------------------
  init
@@ -668,10 +591,92 @@ void Clock_adams::ord_dt(type0& del_t,int& q
     else
         del_t=del_t_tmp0;
     
-    if(del_t+del_t_tmp1+t[0]>max_t)
-        del_t=max_t-t[0]-del_t_tmp1;
+    if(del_t+del_t_tmp1+tot_t>max_t)
+        del_t=max_t-tot_t-del_t_tmp1;
 }
-
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void Clock_adams::run()
+{
+    if(max_step==0)
+        return;
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0* c_d;
+    atoms->vectors[c_d_n]->ret(c_d);
+    
+    type0* tmp_dy;
+    
+    type0 del_t=initial_del_t,del_t_tmp,max_err;
+    type0 ratio=1.0,cost,err=0.0;
+    int ord=1;
+    int err_chk;
+    int istep;
+    
+    
+    istep=0;
+    while (istep<max_step && tot_t<max_t)
+    {
+        err_chk=1;
+        while (err_chk)
+        {
+            interpolate(del_t,ord);
+            solve_n_err(cost,err);
+            
+            
+            if(err<1.0 && cost<1.0)
+                err_chk=0;
+            
+            if(err_chk)
+            {
+                max_err=MAX(err,cost);
+                ratio=pow(0.5/max_err,1.0/static_cast<type0>(ord+1));
+                
+                if(ratio<=0.5)
+                    ratio=0.5;
+                
+                del_t_tmp=del_t*ratio;
+                if(del_t_tmp<min_del_t)
+                    del_t=min_del_t;
+                else
+                    del_t=del_t_tmp;
+            }
+        }
+        tot_t+=del_t;
+        
+        if(write!=NULL)
+            write->write();
+        thermo->thermo_print();
+        
+        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t==max_t)
+        {
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
+            thermo->update(time_idx,tot_t);
+        }
+        
+        del_t_tmp=del_t;
+        ord_dt(del_t,ord,istep,err);
+        
+        tmp_dy=dy[max_order-1];
+        for(int i=max_order-1;i>0;i--)
+        {
+            t[i]=t[i-1]-del_t_tmp;
+            dy[i]=dy[i-1];
+        }
+        
+        dy[0]=tmp_dy;
+        
+        
+        memcpy(y,c,dof_lcl*sizeof(type0));
+        memcpy(dy[0],c_d,dof_lcl*sizeof(type0));
+        
+        step_no++;
+        istep++;
+    }
+    
+}
 /*--------------------------------------------
  construct a legendre polynomial of degree n
  --------------------------------------------*/
