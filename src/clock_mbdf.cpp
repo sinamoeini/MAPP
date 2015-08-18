@@ -8,7 +8,7 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
-,char** arg):Clock(mapp)
+                       ,char** arg):Clock(mapp)
 {
     max_order=5;
     min_del_t=1.0e-12;
@@ -137,7 +137,7 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
         error->abort("max_del_t in clock bdf should be greater than min_del_t");
     
     
-
+    
     
     CREATE1D(dy,dof_lcl);
     
@@ -145,7 +145,7 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
     CREATE1D(alpha_y,max_order+1);
     CREATE1D(dalpha_y,max_order+1);
     CREATE1D(y,max_order+1);
-    for(int i=0;i<max_order+2;i++)
+    for(int i=0;i<max_order+1;i++)
         CREATE1D(y[i],dof_lcl);
     
     CREATE1D(alph_err,max_order+2);
@@ -165,7 +165,7 @@ Clock_mbdf::~Clock_mbdf()
     delete [] t;
     delete [] alpha_y;
     delete [] dalpha_y;
-
+    
     
     if(dof_lcl)
     {
@@ -204,7 +204,7 @@ void Clock_mbdf::init()
     
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
-
+    
     
     forcefield->create_2nd_neigh_lst_timer();
     forcefield->force_calc_timer(1,nrgy_strss);
@@ -213,7 +213,7 @@ void Clock_mbdf::init()
     thermo->update(fe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
-
+    
     thermo->init();
     
     if(write!=NULL)
@@ -244,7 +244,7 @@ void Clock_mbdf::init()
     memcpy(y[1],c,dof_lcl*sizeof(type0));
     memcpy(dy,c_d,dof_lcl*sizeof(type0));
     
-
+    
 }
 /*--------------------------------------------
  init
@@ -356,7 +356,7 @@ void Clock_mbdf::interpolate(type0& del_t,int& q,int initial_phase)
             else
             {
                 memcpy(y[1],y[0],dof_lcl*sizeof(type0));
-
+                
             }
         }
         
@@ -416,7 +416,7 @@ void Clock_mbdf::ord_dt(type0& del_t,int& q
     
     if(terk_flag)
         terk=err_est(q+1,del_t);
-
+    
     if(terkp1_flag)
         terkp1=err_est(q+2,del_t);
     
@@ -498,7 +498,7 @@ void Clock_mbdf::ord_dt(type0& del_t,int& q
         del_t=min_del_t;
     else
         del_t=del_t_tmp0;
-
+    
     q=tmp_q;
     if(del_t+del_t_tmp1+t[0]>max_t)
         del_t=max_t-t[0]-del_t_tmp1;
@@ -529,7 +529,7 @@ void Clock_mbdf::run()
     initial_phase=1;
     const_stps=0;
     istep=0;
-
+    
     while (istep<max_step && t[0]<max_t)
     {
         err_chk=1;
@@ -575,7 +575,7 @@ void Clock_mbdf::run()
         }
         del_t_tmp=del_t;
         ord_dt(del_t,ord,initial_phase);
-
+        
         tmp_y=y[max_order];
         for(int i=max_order;i>0;i--)
         {
@@ -588,11 +588,11 @@ void Clock_mbdf::run()
         
         memcpy(y[0],c,dof_lcl*sizeof(type0));
         memcpy(dy,c_d,dof_lcl*sizeof(type0));
-
+        
         step_no++;
         istep++;
     }
-
+    
     
 }
 /*--------------------------------------------
@@ -603,8 +603,8 @@ type0 Clock_mbdf::err_est(int q,type0 dt)
     type0 tmp0,tmp1,err_lcl,err;
     type0* c;
     atoms->vectors[c_n]->ret(c);
-
-   
+    
+    
     tmp0=1.0;
     for(int i=0;i<q;i++)
         tmp0*=static_cast<type0>(i+1)*dt;
@@ -623,8 +623,8 @@ type0 Clock_mbdf::err_est(int q,type0 dt)
     for(int i=0;i<q;i++)
         tmp1*=t[0]+dt-t[i];
     alph_err[0]=tmp0/tmp1;
-
-
+    
+    
     err_lcl=0.0;
     for(int i=0;i<dof_lcl;i++)
     {
@@ -641,7 +641,4 @@ type0 Clock_mbdf::err_est(int q,type0 dt)
     return err;
     
 }
-
-
-
 
