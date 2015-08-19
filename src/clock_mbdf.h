@@ -30,9 +30,9 @@ namespace MAPP_NS {
         //number of constant steps
         int const_stps;
         
-        void interpolate(type0&,int&,int);
+        void interpolate(type0&,int&);
 
-        void ord_dt(type0&,int&,int);
+        void ord_dt(type0&,int&);
         type0 err_est(int,type0);
         
         int old_comm_mode;

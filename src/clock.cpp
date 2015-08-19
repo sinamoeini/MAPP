@@ -67,7 +67,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     gamma_red=0.5;
     slope=0.4;
     max_iter=50;
-    m_tol=1.0e-8;
+    m_tol=1.0e-9;
     a_tol=1.0e-6;
     
 }

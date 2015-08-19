@@ -30,13 +30,13 @@ namespace MAPP_NS {
         
         
         //stuff for error calculation
-        type0* err_coef;
         type0* e_n;
         
         
         type0 solve(type0,int,type0&);
         void interpolate(type0&,int&);
-        void ord_dt(type0&,int&,int,type0);
+        void ord_dt(type0&,int&,type0);
+        void ratio_calc(int,type0,type0&,type0&);
         
         int old_comm_mode;
         type0 old_skin;

@@ -3,8 +3,6 @@
 #include "ff.h"
 #include "write.h"
 #include "thermo_dynamics.h"
-//test
-#include "timer.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -151,16 +149,13 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
     
     CREATE1D(alpha_y,max_order);
     CREATE1D(dalpha_y,max_order);
-    CREATE1D(err_coef,max_order);
-    
-    
+
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Clock_bdf::~Clock_bdf()
 {
-    
     for(int i=0;i<max_order;i++)
         if(dof_lcl)
             delete [] y[i];
@@ -171,7 +166,6 @@ Clock_bdf::~Clock_bdf()
         delete [] t;
         delete [] alpha_y;
         delete [] dalpha_y;
-        delete [] err_coef;
     }
     
     if(dof_lcl)
@@ -179,6 +173,213 @@ Clock_bdf::~Clock_bdf()
         delete [] e_n;
         delete [] dy;
     }
+}
+/*--------------------------------------------
+ calculate the coefficients
+ --------------------------------------------*/
+void Clock_bdf::interpolate(type0& del_t,int& q)
+{
+    type0 tmp0,tmp1,c0,c1,c2;
+
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    
+    int idof;
+    int err_chk=1;
+    int err_chk_lcl;
+    
+    while(err_chk)
+    {
+        c0=1.0;
+        c1=c2=0.0;
+        for(int i=1;i<q;i++)
+        {
+            tmp0=del_t/t[i];
+            tmp1=t[i]/del_t;
+            c0*=1.0-tmp0;
+            c1+=tmp0;
+            c2+=1.0/(1.0-tmp1);
+        }
+        alpha_y[0]=c0*(1.0+c1);
+        for(int i=1;i<q;i++)
+        {
+            tmp1=del_t/t[i];
+            tmp0=tmp1*tmp1;
+            for(int j=1;j<q;j++)
+                if(i!=j)
+                    tmp0*=(del_t-t[j])/(t[i]-t[j]);
+            alpha_y[i]=tmp0;
+        }
+        dalpha_y[0]=c0*(c1+c2+c1*c2)/del_t;
+        for(int i=1;i<q;i++)
+            dalpha_y[i]=alpha_y[i]*(2.0+c2-1.0/(1.0-t[i]/del_t))/del_t;
+        
+        
+        alpha_dy=c0*del_t;
+        dalpha_dy=c0*(1.0+c2);
+        
+        beta=del_t/(1.0+c2);
+        
+        err_chk_lcl=0;
+        idof=0;
+        while(idof<dof_lcl && err_chk_lcl==0)
+        {
+            if(c[idof]>=0.0)
+            {
+                a[idof]=beta*dalpha_dy*dy[idof];
+                y_0[idof]=alpha_dy*dy[idof];
+                for(int j=0;j<q;j++)
+                {
+                    a[idof]+=beta*dalpha_y[j]*y[j][idof];
+                    y_0[idof]+=alpha_y[j]*y[j][idof];
+                }
+                
+                a[idof]-=y_0[idof];
+                if(y_0[idof]<0.0 || y_0[idof]>1.0)
+                {
+                    err_chk_lcl=1;
+                }
+            }
+            else
+                y_0[idof]=c[idof];
+            
+            
+            idof++;
+        }
+        
+        MPI_Allreduce(&err_chk_lcl,&err_chk,1,MPI_INT,MPI_MAX,world);
+        if(err_chk)
+        {
+            if(q>1)
+            {
+                q--;
+            }
+            else
+            {
+                del_t*=0.8;
+                del_t=MAX(del_t,min_del_t);
+            }
+        }
+        err_prefac=fabs(-1.0/((1.0+c0)*(1.0+c2)));
+    }
+}
+/*--------------------------------------------
+ find the new del_t and order
+ --------------------------------------------*/
+void Clock_bdf::ord_dt(type0& del_t,int& q
+,type0 err)
+{
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0 lo_ratio,hi_ratio,ratio;
+    
+    ratio=pow(0.5/err,1.0/static_cast<type0>(q+1));
+    ratio_calc(q,del_t,lo_ratio,hi_ratio);
+    
+    if(hi_ratio>lo_ratio && hi_ratio>ratio)
+    {
+        q++;
+        ratio=hi_ratio;
+    }
+    else if(lo_ratio>hi_ratio && lo_ratio>ratio)
+    {
+        q--;
+        ratio=lo_ratio;
+    }
+    
+    if(ratio>=2.0)
+        ratio=2.0;
+    else if(ratio<=0.5)
+        ratio=0.5;
+    else
+        ratio=1.0;
+    
+    del_t=MAX(min_del_t,MIN(ratio*del_t,MIN(max_t-tot_t,max_del_t)));
+    
+    for(int i=0;i<dof_lcl;i++)
+        if(c[i]>=0.0)
+            e_n[i]=c[i]-y_0[i];
+
+}
+/*--------------------------------------------
+ error calculation
+ --------------------------------------------*/
+void Clock_bdf::ratio_calc(int q,type0 del_t,
+type0& lo_ratio,type0& hi_ratio)
+{
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0 lo_err,hi_err,lo_err_lcl,hi_err_lcl;
+    type0 tmp0,tmp1;
+    type0 c0,c2;
+    
+    lo_ratio=hi_ratio=0.0;
+    
+    c0=1.0;
+    c2=0.0;
+    for(int i=1;i<q;i++)
+    {
+        tmp0=del_t/t[i];
+        tmp1=t[i]/del_t;
+        c0*=1.0-tmp0;
+        c2+=1.0/(1.0-tmp1);
+    }
+    
+    
+    if(q>1)
+    {
+        type0 a0;
+        a0=fabs(-1.0/(static_cast<type0>(q-1)*(1.0+c2)*(1.0-t[q-1]/del_t)));
+        
+        lo_err_lcl=0.0;
+        for(int i=0;i<dof_lcl;i++)
+        {
+            if(c[i]>=0.0)
+            {
+                tmp0=c[i];
+                tmp0-=c0*y[0][i];
+                for(int j=1;j<q;j++)
+                    tmp0-=(t[j]/del_t)*alpha_y[j]*y[j][i];
+                
+                lo_err_lcl+=tmp0*tmp0;
+            }
+        }
+        
+        lo_err=0.0;
+        MPI_Allreduce(&lo_err_lcl,&lo_err,1,MPI_TYPE0,MPI_SUM,world);
+        lo_err=sqrt(lo_err/static_cast<type0>(dof_tot))/a_tol;
+        lo_err*=a0;
+        lo_ratio=pow(0.5/lo_err,1.0/static_cast<type0>(q));
+    }
+    
+    if(q<max_order && t[1]!=0.0)
+    {
+        type0 a0,a1;
+        type0 c3;
+        
+        c3=1.0;
+        for(int i=0;i<q-1;i++)
+            c3*=1.0/(1.0-t[1]/t[i+2]);
+        
+        a0=fabs(-(1.0-t[q]/del_t)/(static_cast<type0>((q+1)*(q+2))*(1.0+c0)*(1.0+c2)));
+        a1=c0*(1.0+c0)*del_t*del_t/((1.0+c3)*t[1]*t[q]);
+        
+        hi_err_lcl=0.0;
+        for(int i=0;i<dof_lcl;i++)
+        {
+            if(c[i]>=0.0)
+            {
+                tmp0=c[i]-y_0[i]+a1*e_n[i];
+                hi_err_lcl+=tmp0*tmp0;
+            }
+        }
+        hi_err=0.0;
+        MPI_Allreduce(&hi_err_lcl,&hi_err,1,MPI_TYPE0,MPI_SUM,world);
+        hi_err=sqrt(hi_err/static_cast<type0>(dof_tot))/a_tol;
+        hi_err*=a0;
+        hi_ratio=pow(0.5/hi_err,1.0/static_cast<type0>(q+2));
+    }
+    
 }
 /*--------------------------------------------
  init
@@ -209,10 +410,10 @@ void Clock_bdf::init()
     {
         vecs_comm=new VecLst(mapp,4,0,c_n,c_d_n,id_n);
     }
-
+    
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
-
+    
     
     forcefield->create_2nd_neigh_lst_timer();
     forcefield->force_calc_timer(1,nrgy_strss);
@@ -247,10 +448,11 @@ void Clock_bdf::init()
             initial_del_t=max_t;
     }
     
-    t[0]=0.0;
+    for(int i=0;i<max_order;i++)
+        t[i]=0.0;
     memcpy(y[0],c,dof_lcl*sizeof(type0));
     memcpy(dy,c_d,dof_lcl*sizeof(type0));
-
+    
     tot_t=0.0;
 }
 /*--------------------------------------------
@@ -269,289 +471,6 @@ void Clock_bdf::fin()
     atoms->comm_mode=old_comm_mode;
 }
 /*--------------------------------------------
- calculate the coefficients
- --------------------------------------------*/
-void Clock_bdf::interpolate(type0& del_t,int& q)
-{
-    type0 tmp0,tmp1,k0,k1,k2,k3,k4;
-
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    
-    int idof;
-    int err_chk=1;
-    int err_chk_lcl;
-    
-    while(err_chk)
-    {
-
-        
-        k0=k3=1.0;
-        k1=k2=0.0;
-        k4=2.0/del_t;
-        for(int i=1;i<q;i++)
-        {
-            k3*=-1.0/t[i];
-            tmp0=del_t/t[i];
-            tmp1=tmp0*tmp0;
-            for(int j=1;j<q;j++)
-            {
-                if(i!=j)
-                    tmp1*=(del_t-t[j])/(t[i]-t[j]);
-            }
-            alpha_y[i]=tmp1;
-            
-            k0*=-(del_t-t[i])/t[i];
-            k1-=1.0/t[i];
-            k2+=1.0/(del_t-t[i]);
-        }
-        
-        alpha_y[0]=k0*(1.0-del_t*k1);
-        alpha_dy=k0*del_t;
-        
-        dalpha_dy=k0*(1.0+del_t*k2);
-        dalpha_y[0]=k0*(k2-k1-del_t*k1*k2);
-        
-        for(int i=1;i<q;i++)
-            dalpha_y[i]=alpha_y[i]*(k4+k2-1.0/(del_t-t[i]));
-        
-
-        tmp0=0.0;
-        for(int i=0;i<q;i++)
-            tmp0+=1.0/(del_t-t[i]);
-        beta=1.0/tmp0;
-        
-        err_chk_lcl=0;
-        idof=0;
-        while(idof<dof_lcl && err_chk_lcl==0)
-        {
-            if(c[idof]>=0.0)
-            {
-                a[idof]=beta*dalpha_dy*dy[idof];
-                y_0[idof]=alpha_dy*dy[idof];
-                for(int j=0;j<q;j++)
-                {
-                    a[idof]+=beta*dalpha_y[j]*y[j][idof];
-                    y_0[idof]+=alpha_y[j]*y[j][idof];
-                }
-                
-                a[idof]-=y_0[idof];
-                if(y_0[idof]<0.0 || y_0[idof]>1.0)
-                {
-                    err_chk_lcl=1;
-                }
-            }
-            else
-                y_0[idof]=c[idof];
-            
-            
-            idof++;
-        }
-        
-        MPI_Allreduce(&err_chk_lcl,&err_chk,1,MPI_INT,MPI_MAX,world);
-        
-        if(err_chk)
-        {
-            if(q>1)
-            {
-                q--;
-            }
-            else
-            {
-                del_t*=0.8;
-                del_t=MAX(del_t,min_del_t);
-            }
-        }
-        err_prefac=fabs(-1.0/((del_t*k2+1.0)*(1.0+k0)));
-    }
-
-    
-}
-/*--------------------------------------------
- find the new del_t and order
- --------------------------------------------*/
-void Clock_bdf::ord_dt(type0& del_t,int& q
-,int istep,type0 err)
-{
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0 lo_err_lcl,hi_err_lcl;
-    type0 tmp0,tmp1;   
-    type0 lo_ratio,hi_ratio,ratio,del_t_tmp0,del_t_tmp1;
-    type0 hi_err=0.0,lo_err=0.0;
-    int lo_ord_avail=0,hi_ord_avail=0;
-    
-    
-    if(istep!=0 && q<max_order)
-        hi_ord_avail=1;
-    if(q>1)
-        lo_ord_avail=1;
-    
-    
-    if(hi_ord_avail)
-    {
-        type0 c0,c1,c2,c3;
-        type0 a0,a1;
-        
-        c0=1.0/del_t;
-        c1=-del_t/t[1];
-        c2=c3=1.0;
-        
-        for(int i=1;i<q;i++)
-        {
-            c0+=1.0/(del_t-t[i]);
-            c1*=-(del_t-t[i])/t[i+1];
-            c2*=-(del_t-t[i])/t[i];
-            c3*=-t[i+1]/(t[1]-t[i+1]);
-        }
-        
-        a0=(del_t-t[q])/(del_t*c0*static_cast<type0>((q+1)*(q+2)));
-        a1=a0;
-        a0*=-1.0/(del_t*(1.0+c2));
-        a1*=-c1/(t[1]*(1.0+c3));
-        
-        hi_err_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
-        {
-            if(c[i]>=0.0)
-            {
-                tmp0=a0*(c[i]-y_0[i])+a1*e_n[i];
-                hi_err_lcl+=tmp0*tmp0;
-            }
-        }
-        hi_err=0.0;
-        MPI_Allreduce(&hi_err_lcl,&hi_err,1
-        ,MPI_TYPE0,MPI_SUM,world);
-        hi_err=sqrt(hi_err/static_cast<type0>(dof_tot))/a_tol;
-        
-    }
-    
-    if(lo_ord_avail)
-    {
-        type0 c0;
-        type0 err_dy,err_e_n;
-
-        c0=1.0;
-        tmp0=0.0;
-        for(int i=0;i<q;i++)
-        {
-            c0*=del_t-t[i];
-            tmp0+=1.0/(del_t-t[i]);
-        }
-        tmp0*=-static_cast<type0>(q-1)*(del_t-t[q-1]);
-        err_e_n=1.0/tmp0;
-        c0*=err_e_n;
-        
-        tmp0=1.0;
-        tmp1=0.0;
-        for(int i=1;i<q;i++)
-        {
-            tmp0*=-t[i];
-            tmp1-=1.0/t[i];
-        }
-        err_dy=c0/tmp0;
-        err_coef[0]=-c0*tmp1/tmp0;
-        
-        
-        for(int i=1;i<q;i++)
-        {
-            tmp0=t[i]*t[i];
-            for(int j=1;j<q;j++)
-                if(i!=j)
-                    tmp0*=(t[i]-t[j]);
-            err_coef[i]=c0/tmp0;
-        }
-        
-        
-        lo_err_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
-        {
-            if(c[i]>=0.0)
-            {
-                tmp0=err_e_n*(c[i]-y_0[i]);
-                tmp0+=err_dy*dy[i];
-                for(int j=0;j<q;j++)
-                    tmp0+=err_coef[j]*y[j][i];
-                
-                lo_err_lcl+=tmp0*tmp0;
-            }
-        }
-        
-        lo_err=0.0;
-        MPI_Allreduce(&lo_err_lcl,&lo_err,1,MPI_TYPE0,MPI_SUM,world);
-        lo_err=sqrt(lo_err/static_cast<type0>(dof_tot))/a_tol;
-    }
-    
-    for(int i=0;i<dof_lcl;i++)
-        if(c[i]>=0.0)
-            e_n[i]=c[i]-y_0[i];
-
-    if(hi_ord_avail && lo_ord_avail)
-    {
-        lo_ratio=pow(0.5/lo_err,1.0/static_cast<type0>(q));
-        hi_ratio=pow(0.5/hi_err,1.0/static_cast<type0>(q+2));
-        ratio=pow(0.5/err,1.0/static_cast<type0>(q+1));
-        
-        if(hi_ratio>lo_ratio && hi_ratio>ratio)
-        {
-            q++;
-            ratio=hi_ratio;
-        }
-        else if(lo_ratio>hi_ratio && lo_ratio>ratio)
-        {
-            q--;
-            ratio=lo_ratio;
-        }
-        
-    }
-    else if(hi_ord_avail==1&& lo_ord_avail==0)
-    {
-        hi_ratio=pow(0.5/hi_err,1.0/static_cast<type0>(q+2));
-        ratio=pow(0.5/err,1.0/static_cast<type0>(q+1));
-        
-        if(hi_ratio>ratio)
-        {
-            q++;
-            ratio=hi_ratio;
-        }
-    }
-    else if(hi_ord_avail==0 && lo_ord_avail==1)
-    {
-        lo_ratio=pow(0.5/lo_err,1.0/static_cast<type0>(q));
-        ratio=pow(0.5/err,1.0/static_cast<type0>(q+1));
-        if(lo_ratio>ratio)
-        {
-            q--;
-            ratio=lo_ratio;
-        }
-    }
-    else
-        ratio=pow(0.5/err,1.0/static_cast<type0>(q+1));
-    
-    
-    if(ratio>=2.0)
-        ratio=2.0;
-    else if(ratio<=0.5)
-        ratio=0.5;
-    else
-        ratio=1.0;
-    
-
-    del_t_tmp0=ratio*del_t;
-    del_t_tmp1=del_t;
-    if(del_t_tmp0>max_del_t)
-        del_t=max_del_t;
-    else if (del_t_tmp0<min_del_t)
-        del_t=min_del_t;
-    else
-        del_t=del_t_tmp0;
-    
-    if(del_t+del_t_tmp1+tot_t>max_t)
-        del_t=max_t-tot_t-del_t_tmp1;
-}
-/*--------------------------------------------
  init
  --------------------------------------------*/
 void Clock_bdf::run()
@@ -562,23 +481,23 @@ void Clock_bdf::run()
     atoms->vectors[c_n]->ret(c);
     type0* c_d;
     atoms->vectors[c_d_n]->ret(c_d);
-     
+    
     type0* tmp_y;
     
     type0 del_t=initial_del_t,del_t_tmp,max_err;
     type0 ratio=1.0,cost,err=0.0;
-    int ord=1;
+    int q=1;
     int err_chk;
     int istep;
     
-
+    
     istep=0;
     while (istep<max_step && tot_t<max_t)
     {
         err_chk=1;
         while (err_chk)
         {
-            interpolate(del_t,ord);
+            interpolate(del_t,q);
             solve_n_err(cost,err);
             
             
@@ -589,15 +508,15 @@ void Clock_bdf::run()
             {
                 if(del_t==min_del_t)
                 {
-                    if (ord>1)
-                        ord--;
+                    if (q>1)
+                        q--;
                     else
-                        error->abort("Fucked up");
+                        error->abort("reached minimum order & del_t (%e)",min_del_t);
                 }
                 else
                 {
                     max_err=MAX(err,cost);
-                    ratio=pow(0.5/max_err,1.0/static_cast<type0>(ord+1));
+                    ratio=pow(0.5/max_err,1.0/static_cast<type0>(q+1));
                     
                     if(ratio<=0.5)
                         ratio=0.5;
@@ -608,16 +527,16 @@ void Clock_bdf::run()
                     else
                         del_t=del_t_tmp;
                 }
-
             }
         }
+        
         tot_t+=del_t;
         
         if(write!=NULL)
             write->write();
         thermo->thermo_print();
-
-        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t==max_t)
+        
+        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>max_t)
         {
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -625,8 +544,9 @@ void Clock_bdf::run()
         }
         
         del_t_tmp=del_t;
-        ord_dt(del_t,ord,istep,err);
-        
+ 
+        ord_dt(del_t,q,err);
+
         tmp_y=y[max_order-1];
         for(int i=max_order-1;i>0;i--)
         {
@@ -635,14 +555,11 @@ void Clock_bdf::run()
         }
         
         y[0]=tmp_y;
-
-        
         memcpy(y[0],c,dof_lcl*sizeof(type0));
         memcpy(dy,c_d,dof_lcl*sizeof(type0));
         
         step_no++;
         istep++;
     }
-    
     
 }
