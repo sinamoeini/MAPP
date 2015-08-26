@@ -679,6 +679,8 @@ void ForceField_meam::fin()
 void ForceField_meam::force_calc
 (int st_clc,type0* en_st)
 {
+    if(st_clc==2)
+        error->abort("this forcfield's equation for external stress has not been set");
     nrgy_strss[0]=0.0;
     if (st_clc)
         for (int i=1;i<7;i++)

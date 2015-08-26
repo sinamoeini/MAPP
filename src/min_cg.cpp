@@ -81,10 +81,22 @@ void Min_cg::init()
             if(H_dof[i][j])
                 chng_box=1;
     
-    
     /*
-     make sure the we have all the necessary atomic vecotrs
+     add the tensors for box if necessary
      */
+    
+    if(chng_box)
+    {
+        CREATE2D(h_H,dim,dim);
+        CREATE2D(f_H,dim,dim);
+        CREATE2D(f_H_prev,dim,dim);
+        CREATE2D(H_prev,dim,dim);
+        CREATE2D(B_prev,dim,dim);
+    }
+    
+    
+    /* begining of chekcking if the primary atomic vectors exist */
+    /* if not, add them */
     x_dim=atoms->vectors[0]->dim;
     f_n=atoms->find_exist("f");
     if(f_n<0)
@@ -97,31 +109,16 @@ void Min_cg::init()
     
     id_n=atoms->find("id");
     dof_n=atoms->find_exist("dof");
+    /* end of chekcking if the primary atomic vectors exist */
     
-    /*
-     add the new atomic vectors needed for this min style
-     */
-    
+    /* beginning of adding of the new atomic vectors for this min scheme */
     x_prev_n=atoms->add<type0>(0,x_dim,"x_prev");
     f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
     h_n=atoms->add<type0>(0,x_dim,"h");
-    
-    /*
-     add the tensors for box if necessary
-     */
+    /* end of adding of the new atomic vectors for this min scheme */
 
-    if(chng_box)
-    {
-        CREATE2D(h_H,dim,dim);
-        CREATE2D(f_H,dim,dim);
-        CREATE2D(f_H_prev,dim,dim);
-        CREATE2D(H_prev,dim,dim);
-        CREATE2D(B_prev,dim,dim);
-    }
     
-    /*
-     create the vec list fior this run
-     */
+    /* begining of creating the new VecLst */
     if(dof_n<0)
         vecs_comm=new VecLst(mapp,7,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,id_n);
     else
@@ -134,6 +131,8 @@ void Min_cg::init()
             vecs_comm=new VecLst(mapp,9,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,cdof_n,id_n);
         }
     }
+    /* end of creating the new VecLst */
+    
     /*
      add the update to vec list
      */
@@ -142,6 +141,7 @@ void Min_cg::init()
     /*
      initiate the run
      */
+    atoms->image_flag=1;
     atoms->init(vecs_comm);
 
 
@@ -153,8 +153,10 @@ void Min_cg::init()
     atoms->vectors[f_n]->ret(f);
     for(int i=0;i<x_dim*atoms->natms;i++)
         f[i]=0.0;
-    forcefield->force_calc_timer(1,nrgy_strss);
+    forcefield->force_calc_timer(2,nrgy_strss);
     rectify_f(f);
+    if(chng_box)
+        reg_h_H(f_H);
     
     curr_energy=nrgy_strss[0];
     thermo->update(pe_idx,nrgy_strss[0]);
@@ -166,56 +168,7 @@ void Min_cg::init()
         write->init();
     
 
-    
-    
-    
-    /*
-     create the linesearch
-     */
-
-    line_search=new LineSearch_BackTrack(mapp,vecs_comm);
-    line_search->h_n=h_n;
-    line_search->chng_box=chng_box;
-    
-    if(chng_box)
-    {
-        line_search->h_H=h_H;
-        line_search->f_H=f_H;
-        line_search->H_prev=H_prev;
-        line_search->B_prev=B_prev;
-    }
-    
-    
-    /*
-     if there is box change correct the f vector and assign
-     the projections for H
-     */
-    
-    if(chng_box)
-    {
-        
-        reg_h_H(f_H,atoms->H);
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-                if(H_dof[i][j]==0)
-                    f_H[i][j]=0.0;
-    
-        int icomp=0;
-        
-        for(int i=0;i<atoms->natms;i++)
-        {
-            for(int j=0;j<dim;j++)
-            {
-                f[icomp+j]=f[icomp+j]*atoms->H[j][j];
-                for(int k=j+1;k<dim;k++)
-                    f[icomp+j]+=atoms->H[k][j]*f[icomp+k];
-            }
-            icomp+=x_dim;
-        }
-    }
-
-    
-
+    init_linesearch();
 
 }
 /*--------------------------------------------
@@ -240,301 +193,171 @@ void Min_cg::run()
     type0 f_f0;
     type0 ratio;
     type0 inner;
-    type0** H;
-    type0** B;
     err=LS_S;
    
+    
+    atoms->vectors[f_n]->ret(f);
+    atoms->vectors[h_n]->ret(h);
+    memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
+    
+    inner=0.0;
+    for(int i=0;i<atoms->natms*x_dim;i++)
+        inner+=f[i]*f[i];
+    f0_f0=0.0;
+    MPI_Allreduce(&inner,&f0_f0,1,MPI_TYPE0,MPI_SUM,world);
+    
     if(chng_box)
     {
-        H=atoms->H;
-        B=atoms->B;
-
-        atoms->vectors[f_n]->ret(f);
-        atoms->vectors[h_n]->ret(h);
-        memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
                 h_H[i][j]=f_H[i][j];
         
-        inner=0.0;
-        for(int i=0;i<atoms->natms*x_dim;i++)
-            inner+=f[i]*f[i];
-        f0_f0=0.0;
-        MPI_Allreduce(&inner,&f0_f0,1,MPI_TYPE0,MPI_SUM,world);
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
-                if(H_dof[i][j])
-                    f0_f0+=f_H[i][j]*f_H[i][j];
-        
-        while(err==LS_S)
-        {
-            
-            if(f0_f0==0.0)
-            {
-                err=LS_F_GRAD0;
-                continue;
-            }
-            
-            atoms->vectors[0]->ret(x);
-            atoms->vectors[f_n]->ret(f);
-            atoms->vectors[x_prev_n]->ret(x_0);
-            atoms->vectors[f_prev_n]->ret(f_0);
-            size=atoms->natms*x_dim*sizeof(type0);
-            
-            memcpy(x_0,x,size);
-            memcpy(f_0,f,size);
-            for(int i=0;i<dim;i++)
-            {
-                for(int j=0;j<dim;j++)
-                {
-                    H_prev[i][j]=H[i][j];
-                    B_prev[i][j]=B[i][j];
-                    f_H_prev[i][j]=f_H[i][j];
-                }
-            }
-
-            prev_energy=curr_energy;
-            
-            if(write!=NULL)
-                write->write();
-            
-            thermo->thermo_print();
-            err=line_search->line_min(curr_energy,alpha);
-            if(err==LS_S)
-                if(prev_energy-curr_energy<energy_tolerance)
-                    err=MIN_F_TOLERANCE;
-            if(err==LS_S)
-                if(istp+1==max_iter)
-                    err=MIN_F_MAX_ITER;
-            
-            atoms->vectors[f_n]->ret(f);
-            
-            for(int i=0;i<x_dim*atoms->natms;i++)
-                f[i]=0.0;
-            
-            
-            forcefield->force_calc_timer(1,nrgy_strss);
-            
-            
-            rectify_f(f);
-            
-            if(thermo->test_prev_step() || err)
-            {
-                thermo->update(pe_idx,nrgy_strss[0]);
-                thermo->update(stress_idx,6,&nrgy_strss[1]);
-            }
-            
-            if(err)
-                continue;
-            
-            reg_h_H(f_H,atoms->H);
-
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                    if(H_dof[i][j]==0)
-                        f_H[i][j]=0.0;
-            
-            atoms->vectors[f_n]->ret(f);
-
-            int icomp=0;
-            
-            //change f to fractional coordinates
-            for(int i=0;i<atoms->natms;i++)
-            {
-                for(int j=0;j<dim;j++)
-                {
-                    f[icomp+j]=f[icomp+j]*H[j][j];
-                    for(int k=j+1;k<dim;k++)
-                        f[icomp+j]+=H[k][j]*f[icomp+k];
-                }
-                icomp+=x_dim;
-            }
-            
-            
-            atoms->vectors[h_n]->ret(h);
-            atoms->vectors[f_prev_n]->ret(f_0);
-            inner=0.0;
-            for(int i=0;i<x_dim*atoms->natms;i++)
-                inner+=f[i]*f[i];
-            
-            f_f=0.0;
-            MPI_Allreduce(&inner,&f_f,1,MPI_TYPE0,MPI_SUM,world);
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                    if(H_dof[i][j])
-                        f_f+=f_H[i][j]*f_H[i][j];
-            
-            inner=0.0;
-            for(int i=0;i<x_dim*atoms->natms;i++)
-                inner+=f[i]*f_0[i];
-            f_f0=0.0;
-            MPI_Allreduce(&inner,&f_f0,1,MPI_TYPE0,MPI_SUM,world);
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                    if(H_dof[i][j])
-                        f_f0+=f_H_prev[i][j]*f_H[i][j];
-            
-            ratio=(f_f-f_f0)/(f0_f0);
-            
-            inner=0.0;
-            
-            for(int i=0;i<x_dim*atoms->natms;i++)
-            {
-                h[i]*=ratio;
-                h[i]+=f[i];
-                inner+=h[i]*f[i];
-            }
-            
-            MPI_Allreduce(&inner,&f_h,1,MPI_TYPE0,MPI_SUM,world);
-            
-            for(int i=0;i<dim;i++)
-            {
-                for(int j=0;j<dim;j++)
-                {
-                    if(H_dof[i][j])
-                    {
-                        h_H[i][j]*=ratio;
-                        h_H[i][j]+=f_H[i][j];
-                        f_h+=h_H[i][j]*f_H[i][j];
-                    }
-                }
-            }
-            
-            
-            if(f_h<0.0)
-            {
-                memcpy(h,f,size);
-                
-                for(int i=0;i<dim;i++)
-                {
-                    for(int j=0;j<dim;j++)
-                    {
-                        if(H_dof[i][j])
-                        {
-                            h_H[i][j]=f_H[i][j];
-                        }
-                    }
-                }
-            }
-            
-            f0_f0=f_f;
-            istp++;
-            step_no++;
-        }
-        
+                f0_f0+=f_H[i][j]*f_H[i][j];
     }
-    else
+    
+    
+    while(err==LS_S)
     {
         
-        atoms->vectors[h_n]->ret(h);
+        if(f0_f0==0.0)
+        {
+            err=LS_F_GRAD0;
+            continue;
+        }
+        
+        atoms->vectors[0]->ret(x);
         atoms->vectors[f_n]->ret(f);
-        memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
+        atoms->vectors[x_prev_n]->ret(x_0);
+        atoms->vectors[f_prev_n]->ret(f_0);
+        size=atoms->natms*x_dim*sizeof(type0);
+        
+        memcpy(x_0,x,size);
+        memcpy(f_0,f,size);
+        
+        if(chng_box)
+        {
+            for(int i=0;i<dim;i++)
+                for(int j=0;j<dim;j++)
+                {
+                    H_prev[i][j]=atoms->H[i][j];
+                    B_prev[i][j]=atoms->B[i][j];
+                    f_H_prev[i][j]=f_H[i][j];
+                }
+        }
+        
+        
+        prev_energy=curr_energy;
+        
+        if(write!=NULL)
+            write->write();
+        
+        thermo->thermo_print();
+        
+        err=ls->line_min(curr_energy,alpha,1);
+        if(err!=LS_S)
+            continue;
+        
+        if(prev_energy-curr_energy<energy_tolerance)
+            err=MIN_S_TOLERANCE;
+        
+        if(istp+1==max_iter)
+            err=MIN_F_MAX_ITER;
         
         atoms->vectors[f_n]->ret(f);
+        for(int i=0;i<x_dim*atoms->natms;i++)
+            f[i]=0.0;
+        forcefield->force_calc_timer(2,nrgy_strss);
+        rectify_f(f);
+        if(chng_box)
+            reg_h_H(f_H);
+        
+        if(thermo->test_prev_step() || err)
+        {
+            thermo->update(pe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
+        }
+        
+        istp++;
+        step_no++;
+        
+        if(err)
+            continue;
+
+        
+        atoms->vectors[h_n]->ret(h);
+        atoms->vectors[f_prev_n]->ret(f_0);
         inner=0.0;
         for(int i=0;i<x_dim*atoms->natms;i++)
             inner+=f[i]*f[i];
-        f0_f0=0.0;
-        MPI_Allreduce(&inner,&f0_f0,1,MPI_TYPE0,MPI_SUM,world);
         
-        while(err==LS_S)
+        f_f=0.0;
+        MPI_Allreduce(&inner,&f_f,1,MPI_TYPE0,MPI_SUM,world);
+        if(chng_box)
         {
-            
-            if(f0_f0==0.0)
-            {
-                err=LS_F_GRAD0;
-                continue;
-            }
-            
-            atoms->vectors[0]->ret(x);
-            atoms->vectors[f_n]->ret(f);
-            atoms->vectors[x_prev_n]->ret(x_0);
-            atoms->vectors[f_prev_n]->ret(f_0);
-            size=atoms->natms*x_dim*sizeof(type0);
-            
-            memcpy(x_0,x,size);
-            memcpy(f_0,f,size);
-            
-            prev_energy=curr_energy;
-            
-            if(write!=NULL)
-                write->write();
-            
-            thermo->thermo_print();
-            
-            err=line_search->line_min(curr_energy,alpha);
-            
-            if(err==LS_S)
-                if(prev_energy-curr_energy<energy_tolerance)
-                    err=MIN_F_TOLERANCE;
-            
-            if(err==LS_S)
-                if(istp+1==max_iter)
-                    err=MIN_F_MAX_ITER;
-            
-
-            atoms->vectors[f_n]->ret(f);
-            atoms->vectors[f_prev_n]->ret(f_0);
-            atoms->vectors[h_n]->ret(h);
-            
-            for(int i=0;i<x_dim*atoms->natms;i++)
-                f[i]=0.0;
-            
-            
-            
-            
-            if(thermo->test_prev_step() || err)
-            {
-                forcefield->force_calc_timer(1,nrgy_strss);
-                rectify_f(f);
-                
-                thermo->update(pe_idx,nrgy_strss[0]);
-                thermo->update(stress_idx,6,&nrgy_strss[1]);
-                curr_energy=nrgy_strss[0];
-            }
-            else
-            {
-                forcefield->force_calc_timer(0,&curr_energy);
-                rectify_f(f);
-            }
-            
-            if(err)
-            {
-                step_no++;
-                continue;
-            }
-            inner=0.0;
-            for(int i=0;i<x_dim*atoms->natms;i++)
-                inner+=f[i]*f[i];
-            f_f=0.0;
-            MPI_Allreduce(&inner,&f_f,1,MPI_TYPE0,MPI_SUM,world);
-            
-            inner=0.0;
-            for(int i=0;i<x_dim*atoms->natms;i++)
-                inner+=f[i]*f_0[i];
-            f_f0=0.0;
-            MPI_Allreduce(&inner,&f_f0,1,MPI_TYPE0,MPI_SUM,world);
-            
-            ratio=(f_f-f_f0)/(f0_f0);
-            
-            inner=0.0;
-            for(int i=0;i<x_dim*atoms->natms;i++)
-            {
-                h[i]*=ratio;
-                h[i]+=f[i];
-                inner+=h[i]*f[i];
-            }
-            MPI_Allreduce(&inner,&f_h,1,MPI_TYPE0,MPI_SUM,world);
-            if(f_h<0.0)
-                memcpy(h,f,size);
-            
-            f0_f0=f_f;
-            istp++;
-            step_no++;
-            
+            for(int i=0;i<dim;i++)
+                for(int j=0;j<dim;j++)
+                    f_f+=f_H[i][j]*f_H[i][j];
         }
+
+        
+        inner=0.0;
+        for(int i=0;i<x_dim*atoms->natms;i++)
+            inner+=f[i]*f_0[i];
+        f_f0=0.0;
+        MPI_Allreduce(&inner,&f_f0,1,MPI_TYPE0,MPI_SUM,world);
+        if(chng_box)
+        {
+            for(int i=0;i<dim;i++)
+                for(int j=0;j<dim;j++)
+                    f_f0+=f_H_prev[i][j]*f_H[i][j];
+        }
+
+        ratio=(f_f-f_f0)/(f0_f0);
+        
+        inner=0.0;
+        
+        for(int i=0;i<x_dim*atoms->natms;i++)
+        {
+            h[i]*=ratio;
+            h[i]+=f[i];
+            inner+=h[i]*f[i];
+        }
+        
+        MPI_Allreduce(&inner,&f_h,1,MPI_TYPE0,MPI_SUM,world);
+        
+        if(chng_box)
+        {
+            for(int i=0;i<dim;i++)
+                for(int j=0;j<dim;j++)
+                {
+                    h_H[i][j]*=ratio;
+                    h_H[i][j]+=f_H[i][j];
+                    f_h+=h_H[i][j]*f_H[i][j];
+                }
+        }
+
+        
+        
+        if(f_h<0.0)
+        {
+            memcpy(h,f,size);
+            
+            if(chng_box)
+            {
+                for(int i=0;i<dim;i++)
+                    for(int j=0;j<dim;j++)
+                    {
+                        h_H[i][j]=f_H[i][j];
+                    }
+            }
+        }
+        
+        f0_f0=f_f;
+
     }
-    
+
    
 }
 /*--------------------------------------------
@@ -542,7 +365,6 @@ void Min_cg::run()
  --------------------------------------------*/
 void Min_cg::fin()
 {
-    delete line_search;
     if(write!=NULL)
         write->fin();
     thermo->fin();

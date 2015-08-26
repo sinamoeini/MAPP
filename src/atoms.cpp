@@ -36,6 +36,7 @@ Atoms::Atoms(MAPP* mapp)
     no_vecs=0;
     no_types=0;
     
+    image_flag=0;
     
     CREATE2D(H,dimension,dimension);
     CREATE2D(B,dimension,dimension);
@@ -2836,6 +2837,23 @@ void Atoms::init(class VecLst* list)
         x_0_comp+=x_0_dim;
     }
     
+    if(image_flag)
+    {
+        CREATE1D(image,dimension*natms_ph);
+        x_comp=natms*x_dim;
+        for(int i=0;i<natms_ph;i++)
+        {
+            for(int j=0;j<dimension;j++)
+            {
+                tmp=0.0;
+                for(int k=0;k<dimension;k++)
+                    tmp+=B[k][j]*x[x_comp+k];
+                image[i*3+j]=floor(tmp);
+            }
+            x_comp+=x_dim;
+        }
+    }
+    
     timer->stop(COMM_TIME_mode);
 
 }
@@ -2844,6 +2862,12 @@ void Atoms::init(class VecLst* list)
  --------------------------------------------*/
 void Atoms::fin()
 {
+    if(image_flag && natms_ph)
+    {
+        delete [] image;
+        image_flag=0;
+    }
+    
     neighbor->fin();
     forcefield->fin();
     timer->fin();
@@ -2914,6 +2938,9 @@ void Atoms::update(int box_change
         
         if(check_all)
         {
+            if(image_flag && natms_ph)
+                delete [] image;
+                
             x2s(natms);
             xchng_prtl(list);
             
@@ -2932,6 +2959,24 @@ void Atoms::update(int box_change
                     x_0[x_0_comp+idim]=x[x_comp+idim];
                 x_comp+=x_dim;
                 x_0_comp+=x_0_dim;
+            }
+            
+            if(image_flag)
+            {
+                type0 tmp;
+                CREATE1D(image,dimension*natms_ph);
+                x_comp=natms*x_dim;
+                for(int i=0;i<natms_ph;i++)
+                {
+                    for(int j=0;j<dimension;j++)
+                    {
+                        tmp=0.0;
+                        for(int k=0;k<dimension;k++)
+                            tmp+=B[k][j]*x[x_comp+k];
+                        image[i*3+j]=floor(tmp);
+                    }
+                    x_comp+=x_dim;
+                }
             }
             
         }        
@@ -2980,6 +3025,9 @@ void Atoms::update(int box_change
         
         if(check_all)
         {
+            if(image_flag && natms_ph)
+                delete [] image;
+            
             x2s(natms);
             xchng_prtl(list);
             
@@ -3000,7 +3048,23 @@ void Atoms::update(int box_change
                 x_0_comp+=x_0_dim;
             }
             
-            
+            if(image_flag)
+            {
+                type0 tmp;
+                CREATE1D(image,dimension*natms_ph);
+                x_comp=natms*x_dim;
+                for(int i=0;i<natms_ph;i++)
+                {
+                    for(int j=0;j<dimension;j++)
+                    {
+                        tmp=0.0;
+                        for(int k=0;k<dimension;k++)
+                            tmp+=B[k][j]*x[x_comp+k];
+                        image[i*3+j]=floor(tmp);
+                    }
+                    x_comp+=x_dim;
+                }
+            }
         }
         else
         {

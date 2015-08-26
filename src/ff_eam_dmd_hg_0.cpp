@@ -389,7 +389,7 @@ force_calc_ndiff(int st_clc,type0* en_st)
                                 f[jcomp+2]-=dx2*fpair;
                                 f[jcomp+3+jtype]+=apair*x[jcomp+3+jtype];
                                 
-                                if (st_clc)
+                                if (st_clc==1)
                                 {
                                     nrgy_strss[1]-=fpair*dx0*dx0;
                                     nrgy_strss[2]-=fpair*dx1*dx1;
@@ -401,7 +401,7 @@ force_calc_ndiff(int st_clc,type0* en_st)
                             }
                             else
                             {
-                                if (st_clc)
+                                if (st_clc==1)
                                 {
                                     nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                                     nrgy_strss[2]-=0.5*fpair*dx1*dx1;
@@ -409,6 +409,15 @@ force_calc_ndiff(int st_clc,type0* en_st)
                                     nrgy_strss[4]-=0.5*fpair*dx1*dx2;
                                     nrgy_strss[5]-=0.5*fpair*dx2*dx0;
                                     nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                                }
+                                else if (st_clc==2)
+                                {
+                                    nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
+                                    nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
+                                    nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx2;
+                                    nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx1;
+                                    nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx0;
+                                    nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx0;
                                 }
                             }
                         }
@@ -725,7 +734,7 @@ force_calc_diff(int st_clc,type0* en_st)
                                 f[jcomp+2]-=dx2*fpair;
                                 f[jcomp+3+jtype]+=apair*x[jcomp+3+jtype];
                                 
-                                if (st_clc)
+                                if (st_clc==1)
                                 {
                                     nrgy_strss[1]-=fpair*dx0*dx0;
                                     nrgy_strss[2]-=fpair*dx1*dx1;
@@ -737,7 +746,7 @@ force_calc_diff(int st_clc,type0* en_st)
                             }
                             else
                             {
-                                if (st_clc)
+                                if (st_clc==1)
                                 {
                                     nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                                     nrgy_strss[2]-=0.5*fpair*dx1*dx1;
@@ -745,6 +754,15 @@ force_calc_diff(int st_clc,type0* en_st)
                                     nrgy_strss[4]-=0.5*fpair*dx1*dx2;
                                     nrgy_strss[5]-=0.5*fpair*dx2*dx0;
                                     nrgy_strss[6]-=0.5*fpair*dx0*dx1;
+                                }
+                                else if (st_clc==2)
+                                {
+                                    nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
+                                    nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
+                                    nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx2;
+                                    nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx1;
+                                    nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx0;
+                                    nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx0;
                                 }
                             }
                         }

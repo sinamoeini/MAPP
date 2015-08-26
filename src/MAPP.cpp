@@ -12,12 +12,14 @@
 #include "clock.h"
 #include "ff.h"
 #include "md.h"
+#include "ls.h"
 #include "read.h"
 #include "write.h"
 
 #include "clock_styles.h"
 #include "ff_styles.h"
 #include "md_styles.h"
+#include "ls_styles.h"
 #include "read_styles.h"
 #include "write_styles.h"
 
@@ -55,6 +57,7 @@ MAPP(int narg,char** args,MPI_Comm communicator)
     
     forcefield=NULL;
     md=NULL;
+    ls=NULL;
     min=NULL;
     clock=NULL;
     write=NULL;
@@ -114,6 +117,9 @@ MAPP::~MAPP()
     
     if(output!=stdout)
         fclose(output);
+    
+    if(ls!=NULL)
+        delete ls;
     
     if(write!=NULL)
         delete write;
@@ -227,6 +233,7 @@ void MAPP::command(char* command)
     else if(strcmp(args[0],"min")==0) min_style(narg,args);
     else if(strcmp(args[0],"clock")==0) clock_style(narg,args);
     else if(strcmp(args[0],"md")==0) md_style(narg,args);
+    else if(strcmp(args[0],"ls")==0) ls_style(narg,args);
     else if(strcmp(args[0],"write")==0) write_style(narg,args);
     else command_style(narg,args);
     
@@ -260,6 +267,31 @@ void MAPP::ff_style(int narg,char** args)
                      ,args[1]);
     
     #undef FF_Style
+}
+/*--------------------------------------------
+ differnt forcefield styles
+ --------------------------------------------*/
+void MAPP::ls_style(int narg,char** args)
+{
+    if(narg<2)
+        error->abort("wrong command: %s",args[0]);
+    
+    if(ls!=NULL)
+        delete ls;
+    
+    #define LS_Style
+    #define LSStyle(class_name,style_name)     \
+    else if(strcmp(args[1],#style_name)==0)    \
+    ls=new class_name(this,narg,args);
+    
+    //different forcefileds
+    if(0){}
+    #include "ls_styles.h"
+    else
+        error->abort("unknown line search: %s"
+                     ,args[1]);
+    
+    #undef LS_Style
 }
 /*--------------------------------------------
  differnt minimization styles

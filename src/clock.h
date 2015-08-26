@@ -7,6 +7,8 @@ namespace MAPP_NS {
     {
     private:
         int ns_alloc;
+        type0 epsilon;
+        type0 golden;
     protected:
         VecLst* vecs_comm;
 
@@ -50,6 +52,7 @@ namespace MAPP_NS {
         void rectify(type0*);
         void solve_n_err(type0&,type0&);
         
+
     };
     
     

@@ -573,7 +573,7 @@ force_calc(int st_clc,type0* en_st)
                         
                         nrgy_strss[0]+=dr_phi*dr_phi*
                         (mat_k_1[curs]+mat_k_2[curs]*r+mat_k_3[curs]*rsq);
-                        if (st_clc)
+                        if (st_clc==1)
                         {
                             nrgy_strss[1]-=phi_coef*dx0*dx0;
                             nrgy_strss[2]-=phi_coef*dx1*dx1;
@@ -587,7 +587,7 @@ force_calc(int st_clc,type0* en_st)
                     {
                         nrgy_strss[0]+=0.5*dr_phi*dr_phi*
                         (mat_k_1[curs]+mat_k_2[curs]*r+mat_k_3[curs]*rsq);
-                        if (st_clc)
+                        if (st_clc==1)
                         {
                             nrgy_strss[1]-=0.5*phi_coef*dx0*dx0;
                             nrgy_strss[2]-=0.5*phi_coef*dx1*dx1;
@@ -596,10 +596,19 @@ force_calc(int st_clc,type0* en_st)
                             nrgy_strss[5]-=0.5*phi_coef*dx2*dx0;
                             nrgy_strss[6]-=0.5*phi_coef*dx0*dx1;
                         }
+                        else if (st_clc==2)
+                        {
+                            nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*phi_coef*dx0;
+                            nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*phi_coef*dx1;
+                            nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*phi_coef*dx2;
+                            nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*phi_coef*dx1;
+                            nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*phi_coef*dx0;
+                            nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*phi_coef*dx0;
+                        }
                     }
                 }
             }
-            
+        
             istart++;
         }
         
@@ -646,7 +655,7 @@ force_calc(int st_clc,type0* en_st)
                     f[jcomp+1]-=dx1*rho_coef;
                     f[jcomp+2]-=dx2*rho_coef;
                     
-                    if (st_clc)
+                    if (st_clc==1)
                     {
                         nrgy_strss[1]-=rho_coef*dx0*dx0;
                         nrgy_strss[2]-=rho_coef*dx1*dx1;
@@ -658,7 +667,7 @@ force_calc(int st_clc,type0* en_st)
                 }
                 else
                 {
-                    if (st_clc)
+                    if (st_clc==1)
                     {
                         nrgy_strss[1]-=0.5*rho_coef*dx0*dx0;
                         nrgy_strss[2]-=0.5*rho_coef*dx1*dx1;
@@ -666,6 +675,15 @@ force_calc(int st_clc,type0* en_st)
                         nrgy_strss[4]-=0.5*rho_coef*dx1*dx2;
                         nrgy_strss[5]-=0.5*rho_coef*dx2*dx0;
                         nrgy_strss[6]-=0.5*rho_coef*dx0*dx1;
+                    }
+                    else if (st_clc==2)
+                    {
+                        nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*rho_coef*dx0;
+                        nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*rho_coef*dx1;
+                        nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*rho_coef*dx2;
+                        nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*rho_coef*dx1;
+                        nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*rho_coef*dx0;
+                        nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*rho_coef*dx0;
                     }
                 }
                 

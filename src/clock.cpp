@@ -9,6 +9,8 @@ using namespace MAPP_NS;
 Clock::Clock(MAPP* mapp):InitPtrs(mapp)
 {
     ns_alloc=0;
+    epsilon=numeric_limits<type0>::epsilon();
+    golden=0.5+0.5*sqrt(5.0);
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before clock");
@@ -106,7 +108,8 @@ void Clock::rectify(type0* f)
  init
  --------------------------------------------*/
 void Clock::solve_n_err(type0& cost,type0& err)
-{type0* c;
+{
+    type0* c;
     atoms->vectors[c_n]->ret(c);
     type0* c_d;
     atoms->vectors[c_d_n]->ret(c_d);
@@ -305,4 +308,3 @@ void Clock::solve_n_err(type0& cost,type0& err)
 
     cost=curr_cost/(m_tol*static_cast<type0>(dof_tot));
 }
-

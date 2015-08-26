@@ -192,7 +192,7 @@ force_calc(int st_clc,type0* en_st)
                     f[jcomp]-=ft*dx0;
                     f[jcomp+1]-=ft*dx1;
                     f[jcomp+2]-=ft*dx2;
-                    if (st_clc)
+                    if (st_clc==1)
                     {
                         nrgy_strss[1]-=ft*dx0*dx0;
                         nrgy_strss[2]-=ft*dx1*dx1;
@@ -207,7 +207,7 @@ force_calc(int st_clc,type0* en_st)
                 {
                     nrgy_strss[0]+=2.0*eps*(sig12-sig6)
                     +offset[curs]*0.5;
-                    if (st_clc)
+                    if (st_clc==1)
                     {
                         nrgy_strss[1]-=0.5*ft*dx0*dx0;
                         nrgy_strss[2]-=0.5*ft*dx1*dx1;
@@ -215,6 +215,15 @@ force_calc(int st_clc,type0* en_st)
                         nrgy_strss[4]-=0.5*ft*dx1*dx2;
                         nrgy_strss[5]-=0.5*ft*dx2*dx0;
                         nrgy_strss[6]-=0.5*ft*dx0*dx1;
+                    }
+                    else if (st_clc==2)
+                    {
+                        nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*ft*dx0;
+                        nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*ft*dx1;
+                        nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*ft*dx2;
+                        nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*ft*dx1;
+                        nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*ft*dx0;
+                        nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*ft*dx0;
                     }
                 }
             }

@@ -23,6 +23,7 @@ namespace MAPP_NS{
         atoms(ptr->atoms),
         neighbor(ptr->neighbor),
         atom_types(ptr->atom_types),
+        ls(ptr->ls),
         output(ptr->output),
         write(ptr->write),
         step_no(ptr->step_no),
@@ -39,6 +40,7 @@ namespace MAPP_NS{
         Neighbor*& neighbor;
         Atoms*& atoms;
         AtomTypes*& atom_types;
+        LineSearch*& ls;
         FILE*& output;
         Write*& write;
         int& step_no;

@@ -52,4 +52,8 @@ prep:
 	for i in `ls write_*.h` ;do \
 	echo \#include \"$$i\" >>write_styles.h; \
 	done; \
+        rm -rf ls_styles.h; \
+        for i in `ls ls_*.h` ;do \
+        echo \#include \"$$i\" >>ls_styles.h; \
+        done; \
 	cd ..

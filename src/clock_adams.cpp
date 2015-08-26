@@ -253,7 +253,7 @@ void Clock_adams::quad(int n,type0* x,type0* w)
         dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
     }
     
-    tol=1.0e-14;
+    tol=numeric_limits<type0>::epsilon();
     ord=m;
     icurs=n-1;
     a=p_coef[m-1];

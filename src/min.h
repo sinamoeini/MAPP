@@ -7,7 +7,7 @@
 
 #include "init.h"
 #include "atoms.h"
-#include "line_search.h"
+#include "ls.h"
 #include "thermo_dynamics.h"
 namespace MAPP_NS
 {
@@ -17,7 +17,6 @@ namespace MAPP_NS
         int ns_alloc;
     protected:
         VecLst* vecs_comm;
-        LineSearch* line_search;
         int chng_box;
         int dim;
         int err;
@@ -33,7 +32,14 @@ namespace MAPP_NS
         int id_n;
         int c_type_n;
         
-        void reg_h_H(type0**,type0**);
+        
+
+        
+        
+        
+        void reg_h_H(type0**);
+        
+        void init_linesearch();
     public:
         Min(MAPP *);
         virtual ~Min();
@@ -44,7 +50,18 @@ namespace MAPP_NS
         void rectify_f(type0*);
         int max_iter;
         type0 energy_tolerance;
+
         int** H_dof;
+        
+        int x_dim;
+        
+        int f_n,h_n;
+        type0** f_H;
+        type0** h_H;
+        
+        int x_prev_n;
+        type0** H_prev;
+        type0** B_prev;
 
     };
 

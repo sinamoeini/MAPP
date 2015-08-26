@@ -3,6 +3,7 @@
  Copyright (c) 2014 MIT. All rights reserved.
  --------------------------------------------*/
 #include "min.h"
+#include "ls_bt.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
@@ -73,20 +74,25 @@ void Min::print_error()
         if(atoms->my_p_no==0)
             fprintf(output,"line search failed: gradient is zero\n");
     }
-    else if(err==LS_F_ALPHAMIN)
+    else if(err==LS_MIN_ALPHA)
     {
         if(atoms->my_p_no==0)
             fprintf(output,"line search failed: reached minimum alpha\n");
+    }
+    else if (err==MIN_S_TOLERANCE)
+    {
+        if(atoms->my_p_no==0)
+            fprintf(output,"minimization finished: energy tolerance reached\n");
     }
     else if (err==MIN_F_MAX_ITER)
     {
         if(atoms->my_p_no==0)
             fprintf(output,"minimization finished: maximum iteration reached\n");
     }
-    else if (err==MIN_F_TOLERANCE)
+    else if (err==B_F_DOWNHILL)
     {
         if(atoms->my_p_no==0)
-            fprintf(output,"minimization finished: energy tolerance reached\n");
+            fprintf(output,"bracketing failed: not downhill direction\n");
     }
     
 }
@@ -104,46 +110,53 @@ void Min::rectify_f(type0* f)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Min::reg_h_H(type0** T,type0** H)
+void Min::reg_h_H(type0** T)
 {
-
-    T[0][1]=T[0][2]=T[1][2]=0.0;
-    T[0][0]=(-(H[1][1]*H[2][2]*nrgy_strss[1])
-    +H[1][0]*H[2][2]*nrgy_strss[6]+H[1][1]*H[2][0]
-    *nrgy_strss[5]-H[1][0]*H[2][1]*nrgy_strss[5])/
-    (H[0][0]*H[1][1]*H[2][2]);
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            T[i][j]=0.0;
     
-    T[1][0]=(-2.0*H[1][1]*H[2][2]*nrgy_strss[6]
-    +H[1][0]*H[2][2]*nrgy_strss[2]+H[1][1]*H[2][1]
-    *nrgy_strss[5]+H[1][1]*H[2][0]*nrgy_strss[4]
-    -H[1][0]*H[2][1]*nrgy_strss[4])/(H[0][0]*H[1][1]*H[2][2]);
-    
-    T[1][1]=(H[1][0]*H[2][2]*nrgy_strss[6]-H[0][0]
-    *H[2][2]*nrgy_strss[2]-H[1][0]*H[2][1]*nrgy_strss[5]
-    +H[0][0]*H[2][1]*nrgy_strss[4])/(H[0][0]*H[1][1]*H[2][2]);
-    
-    T[2][0]=(H[2][1]*H[2][1]*nrgy_strss[5]-2.0*H[1][1]
-    *H[2][2]*nrgy_strss[5]+H[1][0]*H[2][2]*nrgy_strss[4]
-    +H[1][1]*H[2][0]*nrgy_strss[3]-H[2][1]*(H[2][2]
-    *nrgy_strss[6]+H[1][0]*nrgy_strss[3]))
-    /(H[0][0]*H[1][1]*H[2][2]);
-    
-    T[2][1]=(H[2][0]*H[2][2]*nrgy_strss[6]-H[2][0]
-    *H[2][1]*nrgy_strss[5]+H[1][0]*H[2][2]*nrgy_strss[5]
-    -2*H[0][0]*H[2][2]*nrgy_strss[4]+H[0][0]*H[2][1]
-    *nrgy_strss[3])/(H[0][0]*H[1][1]*H[2][2]);
-    
-    T[2][2]=(H[1][1]*H[2][0]*nrgy_strss[5]-H[1][0]
-    *H[2][1]*nrgy_strss[5]+H[0][0]*H[2][1]*nrgy_strss[4]
-    -H[0][0]*H[1][1]*nrgy_strss[3])/(H[0][0]*H[1][1]*H[2][2]);
-
-    
-    
-    
-    
-    
-    
-    
+    if(H_dof[0][0])
+        T[0][0]=nrgy_strss[1];
+    if(H_dof[1][1])
+        T[1][1]=nrgy_strss[2];
+    if(H_dof[2][2])
+        T[2][2]=nrgy_strss[3];
+    if(H_dof[2][1])
+        T[2][1]=nrgy_strss[4];
+    if(H_dof[2][0])
+        T[2][0]=nrgy_strss[5];
+    if(H_dof[1][0])
+        T[1][0]=nrgy_strss[6];
 }
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Min::init_linesearch()
+{
+    //ls=new LineSearch_goldensection(mapp);
+    if(ls==NULL)
+    {
+        char** arg=NULL;
+        ls=new LineSearch_backtrack(mapp,0,arg);
+    }
+    ls->vecs_comm=vecs_comm;
+    
+    ls->dim=dim;
+    ls->x_dim=x_dim;
 
+    ls->x_prev_n=x_prev_n;
+    ls->h_n=h_n;
+    ls->f_n=f_n;
+    ls->chng_box=chng_box;
+    ls->nrgy_strss=nrgy_strss;
+
+    if(chng_box)
+    {
+        ls->h_H=h_H;
+        ls->f_H=f_H;
+        ls->H_prev=H_prev;
+        ls->B_prev=B_prev;
+    }
+}
 

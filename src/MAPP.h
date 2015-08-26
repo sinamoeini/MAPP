@@ -33,6 +33,7 @@ namespace MAPP_NS {
         class ThermoDynamics* thermo;
         class Write* write;
         class Clock* clock;
+        class LineSearch* ls;
         FILE* output;
         
         FILE* input_file;
@@ -47,6 +48,7 @@ namespace MAPP_NS {
         void min_style(int,char**);
         void ff_style(int,char**);
         void md_style(int,char**);
+        void ls_style(int,char**);
         void clock_style(int,char**);
         void read_style(int,char**);
         void write_style(int,char**);

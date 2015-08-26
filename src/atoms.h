@@ -442,7 +442,12 @@ namespace MAPP_NS
         /* end of box box properties */
         /*---------------------------*/
         
-        
+        /*-------------------*/
+        /* begining of image */
+        int image_flag;
+        type0* image;
+        /* end of image */
+        /*--------------*/
         /*------------------------------------------*/
         /* begining of processor related properties */
 
