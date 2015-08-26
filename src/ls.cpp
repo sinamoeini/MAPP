@@ -222,9 +222,10 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 {
     type0 u,fu,r,q,ulim;
     
-    //b=sqrt(epsilon*fabs(fa/dfa));
     b=epsilon*fabs(fa/dfa);
-    //b=max_a*1.0e-16;
+    if(b>max_a)
+        b=max_a*epsilon;
+    
     fb=energy(b);
     r=b;
     u=b+r;
@@ -241,19 +242,6 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
     
     if(fb>fa)
     {
-        /*
-        type0 u=0.5*b;
-        
-        while(fb>fa && u>a)
-        {
-            b=u;
-            fb=energy(b);
-            u*=0.5;
-        }
-        
-        if(fb>=fa || b==a)
-            return B_F_DOWNHILL;
-        */
         return B_F_DOWNHILL;
     }
     
@@ -304,7 +292,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         }
         else if(u>c)
         {
-            u=MAX(u,ulim);
+            u=MIN(u,ulim);
             fu=energy(u);
             
             a=b;

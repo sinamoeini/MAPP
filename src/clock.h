@@ -42,6 +42,15 @@ namespace MAPP_NS {
         int c_n,c_d_n;
         // dofs
         int dof_tot,dof_lcl;
+        
+        inline type0 cost_func(type0);
+        int line_search_gs(type0&,type0&,type0);
+        int line_search_bt(type0&,type0&,type0);
+        //int test(type0,type0,type0);
+        
+        void rectify(type0*);
+        void solve_n_err(type0&,type0&);
+        type0 prev_val;
     public:
         Clock(MAPP *);
         virtual ~Clock();
@@ -49,9 +58,9 @@ namespace MAPP_NS {
         virtual void run()=0;
         virtual void init()=0;
         virtual void fin()=0;
-        void rectify(type0*);
-        void solve_n_err(type0&,type0&);
         
+
+
 
     };
     

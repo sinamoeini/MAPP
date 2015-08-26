@@ -41,7 +41,6 @@ namespace MAPP_NS
         void init_manip(type0&,type0&,type0&);
         
         
-        
         XMath* xmath;
     public:
         type0** H_prev;
