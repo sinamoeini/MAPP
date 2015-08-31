@@ -56,30 +56,38 @@ int LineSearch_goldensection::line_min(type0& nrgy
     type0 fa,fb,fc;
     type0 max_a,h_norm;
     type0 x0,x1,x2,x3,f1,f2;
-    type0 r,q;
-    type0 f_h;
-    r=golden-1.0;
-    q=2.0-golden;
+    type0 dfa;
+    type0 gold,cgold;
     
-    init_manip(f_h,h_norm,max_a);
+    gold=0.61803399;
+    cgold=0.38196601;
+    
+    init_manip(dfa,h_norm,max_a);
+    
+    
+    if(max_a==0.0 && dfa==0.0)
+        return LS_F_GRAD0;
+    
+    if(dfa>=0.0)
+        return LS_F_DOWNHILL;
     
     a=0.0;
     fa=nrgy;
     
-    int chk_bracket=bracket(f_h,max_a,a,b,c,fa,fb,fc);
+    int chk_bracket=bracket(dfa,max_a,a,b,c,fa,fb,fc);
     if(chk_bracket!=B_S)
     {
-        nrgy=energy(0.0);
+        reset();
         return chk_bracket;
     }
     
     x0=a;
     x3=c;
     
-    if(fabs(c-b)>fabs(b-a))
+    if(c-b>b-a)
     {
         x1=b;
-        x2=b+q*(c-b);
+        x2=b+cgold*(c-b);
         
         f1=fb;
         f2=energy(x2);
@@ -87,7 +95,7 @@ int LineSearch_goldensection::line_min(type0& nrgy
     }
     else
     {
-        x1=b+q*(a-b);
+        x1=b+cgold*(a-b);
         x2=b;
         
         f1=energy(x1);
@@ -96,13 +104,14 @@ int LineSearch_goldensection::line_min(type0& nrgy
     }
     
     
-    while(fabs(x3-x0)>tol*(fabs(x1)+fabs(x2)))
+    
+    while(x3-x0>tol*(x1+x2))
     {
         if(f2<f1)
         {
             x0=x1;
             x1=x2;
-            x2=r*x2+q*x3;
+            x2=gold*x2+cgold*x3;
             
             f1=f2;
             f2=energy(x2);
@@ -112,7 +121,7 @@ int LineSearch_goldensection::line_min(type0& nrgy
         {
             x3=x2;
             x2=x1;
-            x1=r*x1+q*x0;
+            x1=gold*x1+cgold*x0;
             f2=f1;
             f1=energy(x1);
             calc=1;
@@ -133,5 +142,7 @@ int LineSearch_goldensection::line_min(type0& nrgy
         nrgy=f2;
         alpha=x2;
     }
+
+    prev_val=-dfa*alpha;
     return LS_S;
 }

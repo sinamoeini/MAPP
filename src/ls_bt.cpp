@@ -71,17 +71,16 @@ int LineSearch_backtrack::line_min(type0& nrgy
 {
     
     type0 max_a,h_norm;
-    type0 f_h;
-    
+    type0 dfa,init_energy;
     type0 current_energy,ideal_energy;
     
+    init_energy=nrgy;
     
-    
-    init_manip(f_h,h_norm,max_a);
-    if(max_a==0.0 && f_h==0.0)
+    init_manip(dfa,h_norm,max_a);
+    if(max_a==0.0 && dfa==0.0)
         return LS_F_GRAD0;
     
-    if(f_h<=0.0)
+    if(dfa>=0.0)
         return LS_F_DOWNHILL;
     
     if(init_flag==0)
@@ -90,15 +89,15 @@ int LineSearch_backtrack::line_min(type0& nrgy
     }
     else if(init_flag==1)
     {
-        if(prev_val!=0.0 && f_h>0.0)
-            max_a=MIN(max_a,prev_val/f_h);
-        prev_val=f_h;
+        if(prev_val>0.0 && dfa<0.0)
+            max_a=MIN(max_a,-prev_val/dfa);
+        prev_val=-dfa;
     }
     else if(init_flag==2)
     {
-        if(prev_val!=0.0 && f_h>0.0)
-            max_a=MIN(max_a,MIN(1.0,2.02*(prev_val-nrgy)/f_h));
-        prev_val=nrgy;
+        if(prev_val>0.0 && dfa<0.0)
+            max_a=MIN(max_a,MIN(1.0,2.02*(prev_val+nrgy)/dfa));
+        prev_val=-nrgy;
     }
     
     if(max_a<=min_alpha)
@@ -108,7 +107,7 @@ int LineSearch_backtrack::line_min(type0& nrgy
     alpha=max_a;
     while (1)
     {
-        ideal_energy=nrgy-alpha*c*f_h;
+        ideal_energy=nrgy+alpha*c*dfa;
         current_energy=energy(alpha);
         
         if(current_energy<=ideal_energy)
@@ -122,10 +121,9 @@ int LineSearch_backtrack::line_min(type0& nrgy
         
         if(alpha<=min_alpha)
         {
-            nrgy=energy(0.0);
+            nrgy=init_energy;
+            reset();
             return LS_MIN_ALPHA;
         }
     }
-    
-    
 }

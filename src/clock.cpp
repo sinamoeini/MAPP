@@ -72,6 +72,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     max_iter=50;
     m_tol=1.0e-9;
     a_tol=1.0e-6;
+    ls_mode=LS_GS;
     
 }
 /*--------------------------------------------
@@ -116,11 +117,11 @@ void Clock::solve_n_err(type0& cost,type0& err)
     atoms->vectors[c_d_n]->ret(c_d);
     
     type0 gamma;
-    type0 inner,tmp0;
+    type0 inner0,inner1,tmp0;
     type0 err_lcl;
     type0 ratio;
     type0 g0_g0,g_g,g_g0,g_h;
-    type0 curr_cost,init_cost;
+    type0 curr_cost;
     int iter,line_search_succ;
     prev_val=-1.0;
     
@@ -137,12 +138,12 @@ void Clock::solve_n_err(type0& cost,type0& err)
     memcpy(h,g,dof_lcl*sizeof(type0));
     
     /* calculate g.h g_0.g_0 */
-    inner=0.0;
+    inner0=0.0;
     for(int i=0;i<dof_lcl;i++)
         if(c[i]>=0.0)
-            inner+=g[i]*g[i];
+            inner0+=g[i]*g[i];
     g0_g0=0.0;
-    MPI_Allreduce(&inner,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&inner0,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
     g_h=g0_g0;
 
     iter=0;
@@ -157,36 +158,32 @@ void Clock::solve_n_err(type0& cost,type0& err)
         
         /* do the line search here */
         gamma=0.0;
-        init_cost=curr_cost;
-
-        line_search_succ=line_search_gs(gamma,curr_cost,g_h);
-        
+        if(ls_mode==LS_GS)
+            line_search_succ=line_search_gs(gamma,curr_cost,g_h);
+        else if(ls_mode==LS_BT)
+            line_search_succ=line_search_bt(gamma,curr_cost,g_h);
 
         /* after a successful line search */
-        if(curr_cost<=m_tol*static_cast<type0>(dof_tot) || line_search_succ==0)
+        if(curr_cost<=m_tol*static_cast<type0>(dof_tot)
+        || line_search_succ==0)
             continue;
-        
-
        
         curr_cost=forcefield->g_calc_timer(1,beta,a,g,nrgy_strss);
 
         rectify(g);
 
-        /* calculate g_1.g_0 */
-        inner=0.0;
+        /* calculate g_1.g_0 & g_1.g_1 */
+        inner0=inner1=0.0;
         for(int i=0;i<dof_lcl;i++)
             if(c[i]>=0.0)
-                inner+=g[i]*g0[i];
-        g_g0=0.0;
-        MPI_Allreduce(&inner,&g_g0,1,MPI_TYPE0,MPI_SUM,world);
-        
-        /* calculate g_1.g_1 */
-        inner=0.0;
-        for(int i=0;i<dof_lcl;i++)
-            if(c[i]>=0.0)
-                inner+=g[i]*g[i];
-        g_g=0.0;
-        MPI_Allreduce(&inner,&g_g,1,MPI_TYPE0,MPI_SUM,world);
+            {
+                inner0+=g[i]*g0[i];
+                inner1+=g[i]*g[i];
+            }
+
+        MPI_Allreduce(&inner0,&g_g0,1,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(&inner1,&g_g,1,MPI_TYPE0,MPI_SUM,world);
+
         
         /* calculate (g_1.g_1-g_1.g_0)/g_0.g_0 */
         ratio=(g_g-g_g0)/g0_g0;
@@ -195,18 +192,17 @@ void Clock::solve_n_err(type0& cost,type0& err)
         g0_g0=g_g;
         
         /* calculate g_h */
-        inner=0.0;
+        inner0=0.0;
         for(int i=0;i<dof_lcl;i++)
         {
             if(c[i]>=0.0)
             {
                 h[i]*=ratio;
                 h[i]+=g[i];
-                inner+=h[i]*g[i];
+                inner0+=h[i]*g[i];
             }
         }
-        g_h=0.0;
-        MPI_Allreduce(&inner,&g_h,1,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(&inner0,&g_h,1,MPI_TYPE0,MPI_SUM,world);
         
         /* if g_h is negative start from the begining */
         if(g_h<0.0)
@@ -280,20 +276,14 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
         {
             h_norm_lcl+=h[i]*h[i];
             if(h[i]>0.0)
-            {
                 a=MIN((1.0-c0[i])/h[i],a);
-            }
             else if(h[i]<0.0)
-            {
                 a=MIN((0.0-c0[i])/h[i],a);
-            }
-            
-            
         }
     }
     
     MPI_Allreduce(&a,&max_a,1,MPI_TYPE0,MPI_MIN,world);
-    MPI_Allreduce(&h_norm,&h_norm_lcl,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
     max_a*=0.999;
     /* end of finding the maximum gamma */
 
@@ -507,11 +497,11 @@ int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
     {
         if(INITIAL_STEP_MODE==1)
         {
-            u=MIN(max_a,prev_val/dfa0);
+            u=MIN(max_a,-prev_val/dfa0);
         }
         else if (INITIAL_STEP_MODE==2)
         {
-            u=MIN(max_a,2.0*(fa0-prev_val)/dfa0);
+            u=MIN(max_a,-2.0*(fa0-prev_val)/dfa0);
             prev_val=fa0;
         }
         else
@@ -535,7 +525,7 @@ int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
         a0=a;
         fa0=curr_cost;
         if(INITIAL_STEP_MODE==1)
-            prev_val=a0*dfa0;
+            prev_val=-a0*dfa0;
         return 1;
     }
 

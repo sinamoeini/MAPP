@@ -77,7 +77,7 @@ void Min::print_error()
     else if(err==LS_MIN_ALPHA)
     {
         if(atoms->my_p_no==0)
-            fprintf(output,"line search failed: reached minimum alpha\n");
+            fprintf(output,"line search failed: minimum alpha reached\n");
     }
     else if (err==MIN_S_TOLERANCE)
     {
@@ -93,6 +93,11 @@ void Min::print_error()
     {
         if(atoms->my_p_no==0)
             fprintf(output,"bracketing failed: not downhill direction\n");
+    }
+    else if (err==B_F_MAX_ALPHA)
+    {
+        if(atoms->my_p_no==0)
+            fprintf(output,"bracketing failed: maximum alpha reached\n");
     }
     
 }
@@ -150,6 +155,7 @@ void Min::init_linesearch()
     ls->f_n=f_n;
     ls->chng_box=chng_box;
     ls->nrgy_strss=nrgy_strss;
+    ls->prev_val=-1.0;
 
     if(chng_box)
     {

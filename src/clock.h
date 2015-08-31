@@ -3,6 +3,12 @@
 #include "init.h"
 #include "atoms.h"
 namespace MAPP_NS {
+    enum
+    {
+        LS_BT,
+        LS_GS
+    };
+    
     class Clock : protected InitPtrs
     {
     private:
@@ -17,6 +23,7 @@ namespace MAPP_NS {
         int stress_idx;
         int time_idx;
         int cdof_n;
+        int ls_mode;
         char* cdof;
         type0* nrgy_strss;
         type0 tot_t;

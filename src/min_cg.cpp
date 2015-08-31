@@ -217,7 +217,6 @@ void Min_cg::run()
                 f0_f0+=f_H[i][j]*f_H[i][j];
     }
     
-    
     while(err==LS_S)
     {
         
@@ -256,6 +255,7 @@ void Min_cg::run()
         thermo->thermo_print();
         
         err=ls->line_min(curr_energy,alpha,1);
+
         if(err!=LS_S)
             continue;
         
@@ -269,6 +269,7 @@ void Min_cg::run()
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
         forcefield->force_calc_timer(2,nrgy_strss);
+
         rectify_f(f);
         if(chng_box)
             reg_h_H(f_H);
@@ -300,7 +301,6 @@ void Min_cg::run()
                 for(int j=0;j<dim;j++)
                     f_f+=f_H[i][j]*f_H[i][j];
         }
-
         
         inner=0.0;
         for(int i=0;i<x_dim*atoms->natms;i++)
@@ -342,6 +342,7 @@ void Min_cg::run()
         
         if(f_h<0.0)
         {
+            size=atoms->natms*x_dim*sizeof(type0);
             memcpy(h,f,size);
             
             if(chng_box)

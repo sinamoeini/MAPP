@@ -16,9 +16,11 @@ LineSearch::LineSearch(MAPP* mapp)
     prev_val=0.0;
     golden=0.5+0.5*sqrt(5.0);
     epsilon=numeric_limits<type0>::epsilon();
-    
+    epsilon_3_4=pow(epsilon,0.75);
     if(atoms->dimension!=3)
         xmath=new XMath(mapp);
+    
+    prev_val=-1.0;
     
 }
 /*--------------------------------------------
@@ -104,13 +106,12 @@ type0 LineSearch::energy(type0 alpha,type0& drev)
     for(int i=0;i<dim*(dim+1)/2+1;i++)
         nrgy_strss[i]=0.0;
     
-    forcefield->force_calc(chng_box*2,nrgy_strss);
+    forcefield->force_calc(2,nrgy_strss);
     
     drev_lcl=0.0;
     for(int i=0;i<atoms->natms*x_dim;i++)
         drev_lcl+=f[i]*h[i];
     MPI_Allreduce(&drev_lcl,&drev,1,MPI_TYPE0,MPI_SUM,world);
-    drev*=-1.0;
     
     if(chng_box && dim==3)
     {
@@ -121,52 +122,55 @@ type0 LineSearch::energy(type0 alpha,type0& drev)
         +h_H[2][0]*nrgy_strss[5]
         +h_H[1][0]*nrgy_strss[5];
     }
+    drev*=-1.0;
     
     return nrgy_strss[0];
 }
 /*--------------------------------------------
  find maximum h
  --------------------------------------------*/
-void LineSearch::init_manip(type0& f_h,type0& h_norm,type0& max_a)
+void LineSearch::init_manip(type0& dfa,type0& h_norm,type0& max_a)
 {
     type0* h;
     atoms->vectors[h_n]->ret(h);
     type0* f;
     atoms->vectors[f_n]->ret(f);
     type0 max_a_lcl=max_dx;
-    type0 h_norm_lcl,f_h_lcl;
+    type0 h_norm_lcl,dfa_lcl;
     
     h_norm_lcl=0.0;
-    f_h_lcl=0.0;
+    dfa_lcl=0.0;
     for(int i=0;i<atoms->natms*x_dim;i++)
     {
         h_norm_lcl+=h[i]*h[i];
-        f_h_lcl+=h[i]*f[i];
+        dfa_lcl+=h[i]*f[i];
     }
     
     MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(&f_h_lcl,&f_h,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&dfa_lcl,&dfa,1,MPI_TYPE0,MPI_SUM,world);
     if(chng_box)
     {
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
             {
                 h_norm+=h_H[i][j]*h_H[i][j];
-                f_h+=h_H[i][j]*f_H[i][j];
+                dfa+=h_H[i][j]*f_H[i][j];
             }
     }
     
+    dfa*=-1.0;
+
     if(h_norm==0.0)
     {
         max_a=0.0;
-        f_h=0.0;
+        dfa=0.0;
         return;
     }
     
-    if(f_h<=0.0)
+    if(dfa>=0.0)
     {
         max_a=0.0;
-        f_h=-1.0;
+        dfa=1.0;
         return;
     }
     
@@ -212,7 +216,7 @@ void LineSearch::init_manip(type0& f_h,type0& h_norm,type0& max_a)
                 if(h_H[i][j]!=0.0)
                     max_a=MIN(max_a,0.999*fabs(max_dx/h_H[i][j]));
     }
-    
+
 }
 /*--------------------------------------------
  bracketing routine
@@ -220,30 +224,43 @@ void LineSearch::init_manip(type0& f_h,type0& h_norm,type0& max_a)
 int LineSearch::bracket(type0 dfa,type0 max_a,type0& a,
 type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 {
-    type0 u,fu,r,q,ulim;
     
-    b=epsilon*fabs(fa/dfa);
+    type0 u,fu,r,q,ulim;
+    int uphill_iter=100,iter;
+
+    if(prev_val>0.0)
+        b=-1.0e-3*(prev_val/dfa);
+    else
+    {
+        b=epsilon*fabs(fa/dfa);
+    }
+    
     if(b>max_a)
         b=max_a*epsilon;
+
+    r=u=b;
+    b=0.0;
+    fb=fa;
+    iter=uphill_iter;
     
-    fb=energy(b);
-    r=b;
-    u=b+r;
-    while(fb==fa && u<max_a)
+
+    while(fb>=fa && u<max_a && iter)
     {
+        fu=energy(u);
+        if(fa<=fu)
+            iter--;
+        else
+            iter=uphill_iter;
         b=u;
-        fb=energy(b);
+        fb=fu;
         u+=r;
     }
     
-    
-    if(u>max_a && fb==fa)
+    if(u>max_a && fb>=fa)
         return B_F_MAX_ALPHA;
     
     if(fb>fa)
-    {
         return B_F_DOWNHILL;
-    }
     
     fc=fb;
     while (fb>=fc)
@@ -257,7 +274,6 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         
         if(fc>fb)
             continue;
-        
         
         ulim=MIN(b+(golden+2.0)*(b-a),max_a);
         
@@ -305,7 +321,6 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
             
             if(fu>fc)
             {
-                
                 return B_S;
             }
         }
@@ -320,4 +335,58 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
     }
     
     return B_S;
+}
+/*--------------------------------------------
+ reset to initial position
+ --------------------------------------------*/
+void LineSearch::reset()
+{
+    type0* x;
+    type0* x_prev;
+    atoms->vectors[0]->ret(x);
+    atoms->vectors[x_prev_n]->ret(x_prev);
+    
+    memcpy(x,x_prev,atoms->natms*x_dim*sizeof(type0));
+    
+    if(chng_box)
+    {
+        type0** H=atoms->H;
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+            {
+                H[i][j]=H_prev[i][j];
+            }
+        
+        if(dim==3)
+            M3INV_TRI_LOWER(atoms->H,atoms->B);
+        else
+            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
+    }
+    
+    atoms->update(chng_box,vecs_comm);
+}
+
+/*--------------------------------------------
+ reset to initial position
+ --------------------------------------------*/
+void LineSearch::test(type0 fa,type0 dfa,type0 max_a)
+{
+    int no=100;
+    type0 frac=1.0e-9*max_a;
+    type0 dfu,fu,u=0.0;
+
+
+    printf("dfa %e \n",dfa);
+    printf("u fu u*dfa\n");
+    
+    
+    for(int i=0;i<no;i++)
+    {
+        fu=energy(u,dfu);
+        printf("%32.30lf %32.30lf %32.30lf  %32.30lf \n",u,fu-fa,u*dfa,dfu);
+        u+=frac;
+    }
+    error->abort("");
+    
+    
 }

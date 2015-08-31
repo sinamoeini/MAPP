@@ -249,13 +249,13 @@ force_calc_ndiff(int st_clc,type0* en_st)
                                     rho_it_jt_1*=-2.0*a2;
                                     rho_it_jt_1-=a1*rho_it_jt_0;
                                     rho_it_jt_0*=a0;
-
+                                    
                                     rho_jt_it_2*=2.0*a2;
                                     rho_jt_it_2-=a2*rho_jt_it_0;
                                     rho_jt_it_1*=-2.0*a2;
                                     rho_jt_it_1-=a1*rho_jt_it_0;
                                     rho_jt_it_0*=a0;
-
+                                    
                                     phi_it_jt_2*=2.0*a2;
                                     phi_it_jt_2-=a2*phi_it_jt_0;
                                     phi_it_jt_1*=-2.0*a2;
@@ -309,7 +309,7 @@ force_calc_ndiff(int st_clc,type0* en_st)
                 c_iv-=c[iatm*no_types+itype];
                 p=E[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
@@ -329,7 +329,7 @@ force_calc_ndiff(int st_clc,type0* en_st)
                 
                 
                 nrgy_strss[0]+=c[iatm*no_types+itype]*(tmp0+c_0[itype]
-                 -3.0*kbT*log(x[icomp+3+itype]));
+                                                       -3.0*kbT*log(x[icomp+3+itype]));
                 
                 nrgy_strss[0]+=kbT*calc_ent(c[iatm*no_types+itype]);
                 
@@ -439,7 +439,7 @@ force_calc_ndiff(int st_clc,type0* en_st)
     {
         MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
     }
-
+    
 }
 /*--------------------------------------------
  force calculation
@@ -653,17 +653,17 @@ force_calc_diff(int st_clc,type0* en_st)
                 c_iv-=c[iatm*no_types+itype];
                 p=E[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
                 p3=p2*p;
                 p4=p3*p;
                 coef=F_arr[itype][m];
-
+                
                 tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
                 tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
-
+                
                 
                 if(E[iatm*no_types+itype]>rho_max)
                     tmp0+=tmp1*(E[iatm*no_types+itype]-rho_max);
@@ -950,7 +950,7 @@ type0 ForceField_eam_dmd_hg_0::energy_calc()
                 c_iv-=c[no_types*iatm+itype];
                 p=E[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
@@ -1022,7 +1022,7 @@ void ForceField_eam_dmd_hg_0::init()
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::fin()
 {
-    atoms->del(t_n);    
+    atoms->del(t_n);
     atoms->del(crd_n);
     atoms->del(s_n);
     atoms->del(mu_n);
@@ -1272,7 +1272,7 @@ void ForceField_eam_dmd_hg_0::read_file(char* file_name)
     
     if(alpha_max<=alpha_min)
         error->abort("maximum alpha should be less "
-        "than minimum alpha for ff eam_dmd");
+                     "than minimum alpha for ff eam_dmd");
     
     
     int icomp;
@@ -1288,8 +1288,8 @@ void ForceField_eam_dmd_hg_0::read_file(char* file_name)
         for(int ityp=0;ityp<no_types;ityp++)
             if(x[icomp+ityp]>=alpha_bound)
                 error->abort("alpha_%d of atomn %d is greater than "
-                "the maximum allowed %lf (alpha_max/sqrt(2.0)) set "
-                "by %s file",ityp,id[iatm],alpha_bound,file_name);
+                             "the maximum allowed %lf (alpha_max/sqrt(2.0)) set "
+                             "by %s file",ityp,id[iatm],alpha_bound,file_name);
     }
     
     
@@ -1360,7 +1360,7 @@ void ForceField_eam_dmd_hg_0::read_file(char* file_name)
  read setfiles
  --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
-,char** file_names)
+                                         ,char** file_names)
 {
     if(no_files!=no_types)
         error->abort("for FuncFL mode number of"
@@ -2925,7 +2925,7 @@ type0 ForceField_eam_dmd_hg_0::calc_ent(type0 x)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::g_calc(int chk
-,type0 alpha,type0* a,type0* g,type0* en_st)
+                                      ,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     if(CRD_ENBL)
         return g_calc_crd(chk,alpha,a,g,en_st);
@@ -3019,7 +3019,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
             {
                 p=mu[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
@@ -3184,7 +3184,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
     atoms->vectors[c_d_n]->ret(c_d);
     type0* mu;
     atoms->vectors[mu_n]->ret(mu);
-
+    
     
     type0 fi,fj,exp_fi,exp_fj;
     type0 p,p2,p3,p4,tmp0,tmp1,s_ij,w_ij,w_ji,c_iv,c_jv;
@@ -3243,7 +3243,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
             {
                 p=mu[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
@@ -3285,7 +3285,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
             nrgy_strss[0]+=kbT*calc_ent(c_iv);
         }
         
-
+        
         
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
@@ -3315,8 +3315,8 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
                         if(chk)
                         {
                             fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
-                            +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
-                            +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                                    +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                    +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
                             *c[icomp+itype]*c[jcomp+jtype]*r_inv;
                             if(jatm<natms)
                             {
@@ -3341,7 +3341,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
                                 nrgy_strss[6]-=0.5*fpair*dx0*dx1;
                             }
                         }
-
+                        
                     }
                 }
             }
@@ -3403,7 +3403,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
-,type0 alpha,type0* a,type0* g,type0* en_st)
+                                          ,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);
@@ -3476,7 +3476,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
                             crd[jatm+jtype]+=c[icomp+itype];
                             E[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
                         }
-
+                        
                     }
                 }
             }
@@ -3492,7 +3492,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
                 c_iv-=c[icomp+itype];
                 p=E[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
@@ -3555,7 +3555,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
                     if(c[jcomp+jtype]>=0.0 && c[icomp+itype]>=0.0)
                     {
                         mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
-                                        +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                                                         +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
                         
                         if(jatm<natms)
                         {
@@ -3566,9 +3566,9 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
                         if (chk)
                         {
                             fpair=-(drho_phi_dr[istart+type2phi_pair_ij[jtype][itype]]*dE[icomp+itype]
-                                +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
-                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                                *c[icomp+itype]*c[jcomp+jtype]*r_inv;
+                                    +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                    +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                            *c[icomp+itype]*c[jcomp+jtype]*r_inv;
                             
                             if(jatm<natms)
                             {
@@ -3872,7 +3872,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
-,type0 alpha,type0* a,type0* g,type0* en_st)
+                                           ,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);
@@ -3958,7 +3958,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
                 c_iv-=c[icomp+itype];
                 p=E[iatm*no_types+itype]*drho_inv;
                 m=static_cast<int>(p);
-                m=MIN(m,nr-2);
+                m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
                 p2=p*p;
@@ -3998,7 +3998,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
     type0 r_inv,dx0,dx1,dx2,fpair;
     
     
-   
+    
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -4023,12 +4023,12 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
                     {
                         
                         mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
-                        +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                                                         +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
                         
                         if(jatm<natms)
                         {
                             mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
-                            +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                                                             +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
                         }
                         
                         if (chk)
@@ -4040,7 +4040,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
                             
                             if(jatm<natms)
                             {
-                             
+                                
                                 nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
                                 *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
                                 nrgy_strss[1]-=fpair*dx0*dx0;
@@ -4199,7 +4199,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
                     
                     g[icomp+itype]-=alpha*s_ij*c_jv*exp_fi;
                     t[icomp+itype]+=s_ij*(w_ij+(w_ji-w_ij)*dmat0(fi,0,fj,0,itype));
-
+                    
                     
                     if(jatm<natms)
                     {
@@ -4217,7 +4217,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
                             s_ij=s[icomp+jtype]-s[jcomp+jtype];
                             fi=mu[icomp+jtype];
                             fj=mu[jcomp+jtype];
-
+                            
                             tmp0=mat(fi,0.0,fj,0.0,itype);
                             g[icomp+itype]-=alpha*s_ij*c[jcomp+jtype]*exp(beta*(fj-tmp0));
                             

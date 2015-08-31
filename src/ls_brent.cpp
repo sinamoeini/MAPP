@@ -75,25 +75,30 @@ int LineSearch_brent::line_min(type0& nrgy
     type0 fa,fb,fc;
     type0 max_a,h_norm;
     type0 cgold,gold;
-    type0 f_h;
+    type0 dfa;
     type0 ax,bx,cx;
     type0 d=0.0,etemp,fu,fv,fw,fx;
     type0 r,q,p,tol1,tol2,u,v,w,x,xm;
     type0 e=0.0;
     u=fu=0.0;
     
-    gold=golden-1.0;
-    cgold=2.0-golden;
+    gold=0.61803399;
+    cgold=0.38196601;
     
-    init_manip(f_h,h_norm,max_a);
+    init_manip(dfa,h_norm,max_a);
+    if(max_a==0.0 && dfa==0.0)
+        return LS_F_GRAD0;
+    
+    if(dfa>=0.0)
+        return LS_F_DOWNHILL;
     
     a=0.0;
     fa=nrgy;
     
-    int chk_bracket=bracket(f_h,max_a,a,b,c,fa,fb,fc);
+    int chk_bracket=bracket(dfa,max_a,a,b,c,fa,fb,fc);
     if(chk_bracket!=B_S)
     {
-        nrgy=energy(0.0);
+        reset();
         return chk_bracket;
     }
 
@@ -117,6 +122,7 @@ int LineSearch_brent::line_min(type0& nrgy
         
         if(fabs(x-xm)<=(tol2-0.5*(b-a)))
         {
+            energy(x);
             nrgy=fx;
             alpha=x;
             return  LS_S;
@@ -226,6 +232,7 @@ int LineSearch_brent::line_min(type0& nrgy
     
     alpha=u;
     nrgy=fu;
+    prev_val=-dfa*alpha;
     return LS_S;
 }
 

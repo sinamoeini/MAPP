@@ -27,10 +27,10 @@ namespace MAPP_NS
     protected:
         
         type0 epsilon;
+        type0 epsilon_3_4;
+        
         type0 max_dx;
         type0 golden;
-        
-        type0 prev_val;
         
         type0 energy(type0);
         type0 energy(type0,type0&);
@@ -39,7 +39,7 @@ namespace MAPP_NS
         int bracket(type0,type0,type0&,type0&,type0&,type0&,type0&,type0&);
         
         void init_manip(type0&,type0&,type0&);
-        
+        void reset();
         
         XMath* xmath;
     public:
@@ -59,12 +59,13 @@ namespace MAPP_NS
         int x_dim;
         int chng_box;
         
+        type0 prev_val;
         
         LineSearch(MAPP*);
         virtual ~LineSearch()=0;
         virtual int line_min(type0&,type0&,int)=0;
         
-        
+        void test(type0,type0,type0);
     };
 
 }
