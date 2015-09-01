@@ -181,7 +181,7 @@ force_calc(int st_clc,type0* en_st)
         }
         p=rho[iatm]*drho_inv;
         m=static_cast<int> (p);
-        m=MIN(m,nr-2);
+        m=MIN(m,nrho-2);
         p-=m;
         p=MIN(p,1.0);
         itype=type[iatm];
@@ -352,7 +352,7 @@ type0 ForceField_eam::energy_calc()
         
         p=rho[iatm]*drho_inv;
         m=static_cast<int>(p);
-        m=MIN(m,nr-2);
+        m=MIN(m,nrho-2);
         p-=m;
         p=MIN(p,1.0);
         itype=type[iatm];
