@@ -342,76 +342,13 @@ void Read_cfg::set_box()
     
     if (M3DET(H_x)==0.0)
         error->abort("determinant of H in %s file is 0.0",file_name);
-    type0 det;
     
     XMath* xmath= new XMath(mapp);
     xmath->square2lo_tri(H_x,atoms->H);
     delete xmath;
     
     M3EQV(atoms->H,H_x);
-    M3INV(atoms->H,atoms->B,det);
-    
-
-    /*
-    type0** Ht;
-    CREATE2D(Ht,3,3);
-    type0* sq;
-    type0* b;
-    CREATE1D(sq,3);
-    CREATE1D(b,3);
-    type0 babs;
-    type0 tmp;
-    for (int i=0;i<3;i++)
-    {
-        sq[i]=0.0;
-        for (int j=0;j<3;j++)
-        {
-            sq[i]+=H_x[i][j]*H_x[i][j];
-            Ht[i][j]=0.0;
-        }
-    }
-    
-    Ht[0][0]=sqrt(sq[0]);
-    
-    for (int i=0;i<3;i++)
-        Ht[1][0]+=H_x[0][i]*H_x[1][i];
-    Ht[1][0]/=Ht[0][0];
-    
-    Ht[1][1]=sqrt(sq[1]-Ht[1][0]*Ht[1][0]);
-    
-    for (int i=0;i<3;i++)
-        Ht[2][0]+=H_x[0][i]*H_x[2][i];
-    
-    Ht[2][0]/=Ht[0][0];
-    
-    
-    b[0]=H_x[0][1]*H_x[1][2]-H_x[0][2]*H_x[1][1];
-    b[1]=H_x[0][2]*H_x[1][0]-H_x[0][0]*H_x[1][2];
-    b[2]=H_x[0][0]*H_x[1][1]-H_x[0][1]*H_x[1][0];
-    babs=sqrt(b[0]*b[0]+b[1]*b[1]+b[2]*b[2]);
-    b[0]/=babs;
-    b[1]/=babs;
-    b[2]/=babs;
-    
-    for (int i=0;i<3;i++)
-        Ht[2][2]+=H_x[2][i]*b[i];
-    tmp=sq[2]-Ht[2][2]*Ht[2][2]-Ht[2][0]*Ht[2][0];
-    if(tmp>0.0)
-        Ht[2][1]=sqrt(tmp);
-    else
-        Ht[2][1]=0.0;
-    
-    delete [] b;
-    delete [] sq;
-    
-    M3EQV(Ht,atoms->H);
-    M3EQV(Ht,H_x);
-    M3INV(atoms->H,atoms->B,det);
-    
-    for(int i=0;i<3;i++)
-        delete [] Ht[i];
-    delete [] Ht;
-     */
+    M3INV_TRI_LOWER(atoms->H,atoms->B);
     
 }
 /*--------------------------------------------

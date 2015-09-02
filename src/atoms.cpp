@@ -2846,10 +2846,14 @@ void Atoms::init(class VecLst* list)
             for(int j=0;j<dimension;j++)
             {
                 tmp=0.0;
-                for(int k=0;k<dimension;k++)
+                for(int k=j;k<dimension;k++)
                     tmp+=B[k][j]*x[x_comp+k];
                 image[i*3+j]=floor(tmp);
             }
+            /*
+            printf("%d %22.20lf %22.20lf %22.20lf %4.1lf %4.1lf %4.1lf\n",i,x[x_comp],x[x_comp+1],x[x_comp+2],
+                   image[i*3],image[i*3+1],image[i*3+2]);
+             */
             x_comp+=x_dim;
         }
     }

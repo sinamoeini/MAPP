@@ -230,9 +230,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 
     b=MIN(1.e-2*max_a,-epsilon_3_4/dfa);
 
-    
-    if(b>max_a)
-        b=max_a*epsilon;
+    //test(fa,dfa,max_a);
     
     r=u=b;
     b=0.0;
@@ -352,17 +350,12 @@ void LineSearch::reset()
     
     if(chng_box)
     {
-        type0** H=atoms->H;
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
             {
-                H[i][j]=H_prev[i][j];
+                atoms->H[i][j]=H_prev[i][j];
+                atoms->B[i][j]=B_prev[i][j];
             }
-        
-        if(dim==3)
-            M3INV_TRI_LOWER(atoms->H,atoms->B);
-        else
-            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
     }
     
     atoms->update(chng_box,vecs_comm);
