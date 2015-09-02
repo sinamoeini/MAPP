@@ -8,7 +8,7 @@ namespace MAPP_NS {
     class Min_cg : public Min {
     private:
     protected:
-        int f_prev_n;        
+        int f_prev_n;
         
         type0** f_H_prev;
     public:

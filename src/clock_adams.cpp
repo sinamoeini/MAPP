@@ -172,6 +172,7 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
         }
     }
     delete xmath;
+    
 }
 /*--------------------------------------------
  destructor

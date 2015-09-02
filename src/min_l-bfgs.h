@@ -12,9 +12,6 @@ namespace MAPP_NS {
         int f_prev_n;
         
         int m_it;
-        int x_dim;
-        int f_n;
-        int h_n;
         int* s_list;
         int* y_list;
         

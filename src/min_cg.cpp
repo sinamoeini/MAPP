@@ -257,7 +257,11 @@ void Min_cg::run()
         err=ls->line_min(curr_energy,alpha,1);
 
         if(err!=LS_S)
+        {
+            thermo->update(pe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
             continue;
+        }
         
         if(prev_energy-curr_energy<energy_tolerance)
             err=MIN_S_TOLERANCE;
