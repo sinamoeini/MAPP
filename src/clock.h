@@ -58,6 +58,7 @@ namespace MAPP_NS {
         void rectify(type0*);
         void solve_n_err(type0&,type0&);
         type0 prev_val;
+        int pre_cond;
     public:
         Clock(MAPP *);
         virtual ~Clock();

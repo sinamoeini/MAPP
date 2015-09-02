@@ -709,13 +709,14 @@ force_calc_diff(int st_clc,type0* en_st)
                     {
                         fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
                                 +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
-                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]*r_inv;
+                                +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
+                                *c[iatm*no_types+itype]*c[jatm*no_types+jtype]*r_inv;
                         
-                        apair=-(
-                                drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
+                        apair=-(drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]
                                 +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]
-                                +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
-                        sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
+                                +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])
+                                *c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
+                                sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
                         
                         
                         
@@ -727,14 +728,14 @@ force_calc_diff(int st_clc,type0* en_st)
                             f[icomp+2]+=dx2*fpair;
                             f[icomp+3+itype]+=apair*x[icomp+3+itype];
                             
-                            if (jatm<natms)
+                            if(jatm<natms)
                             {
                                 f[jcomp]-=dx0*fpair;
                                 f[jcomp+1]-=dx1*fpair;
                                 f[jcomp+2]-=dx2*fpair;
                                 f[jcomp+3+jtype]+=apair*x[jcomp+3+jtype];
                                 
-                                if (st_clc==1)
+                                if(st_clc==1)
                                 {
                                     nrgy_strss[1]-=fpair*dx0*dx0;
                                     nrgy_strss[2]-=fpair*dx1*dx1;
@@ -746,7 +747,7 @@ force_calc_diff(int st_clc,type0* en_st)
                             }
                             else
                             {
-                                if (st_clc==1)
+                                if(st_clc==1)
                                 {
                                     nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                                     nrgy_strss[2]-=0.5*fpair*dx1*dx1;
@@ -755,7 +756,7 @@ force_calc_diff(int st_clc,type0* en_st)
                                     nrgy_strss[5]-=0.5*fpair*dx2*dx0;
                                     nrgy_strss[6]-=0.5*fpair*dx0*dx1;
                                 }
-                                else if (st_clc==2)
+                                else if(st_clc==2)
                                 {
                                     nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
                                     nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
@@ -3089,7 +3090,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
                         if(jatm<natms)
                         {
                             nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
-                            *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                            *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
                             nrgy_strss[1]-=fpair*dx0*dx0;
                             nrgy_strss[2]-=fpair*dx1*dx1;
                             nrgy_strss[3]-=fpair*dx2*dx2;
@@ -3100,7 +3101,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
                         else
                         {
                             nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
-                            *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                            *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
                             nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                             nrgy_strss[2]-=0.5*fpair*dx1*dx1;
                             nrgy_strss[3]-=0.5*fpair*dx2*dx2;
@@ -3321,7 +3322,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
                             if(jatm<natms)
                             {
                                 nrgy_strss[0]+=c[icomp+itype]*c[jcomp+jtype]
-                                *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                                *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
                                 nrgy_strss[1]-=fpair*dx0*dx0;
                                 nrgy_strss[2]-=fpair*dx1*dx1;
                                 nrgy_strss[3]-=fpair*dx2*dx2;
@@ -3332,7 +3333,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
                             else
                             {
                                 nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
-                                *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                                *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
                                 nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                                 nrgy_strss[2]-=0.5*fpair*dx1*dx1;
                                 nrgy_strss[3]-=0.5*fpair*dx2*dx2;
@@ -3403,7 +3404,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
-                                          ,type0 alpha,type0* a,type0* g,type0* en_st)
+,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);
@@ -3584,7 +3585,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
                             else
                             {
                                 nrgy_strss[0]+=0.5*c[icomp+itype]*c[jcomp+jtype]
-                                *rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                                *rho_phi[istart+type2phi_pair_ij[itype][jtype]];
                                 nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                                 nrgy_strss[2]-=0.5*fpair*dx1*dx1;
                                 nrgy_strss[3]-=0.5*fpair*dx2*dx2;
@@ -3872,7 +3873,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
-                                           ,type0 alpha,type0* a,type0* g,type0* en_st)
+,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);

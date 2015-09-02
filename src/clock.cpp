@@ -73,6 +73,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     m_tol=1.0e-9;
     a_tol=1.0e-6;
     ls_mode=LS_GS;
+    pre_cond=1;
     
 }
 /*--------------------------------------------
@@ -125,10 +126,14 @@ void Clock::solve_n_err(type0& cost,type0& err)
     int iter,line_search_succ;
     prev_val=-1.0;
     
-    /* beginning of pre-conditioning */
-    memcpy(c,y_0,dof_lcl*sizeof(type0));
-    atoms->update_ph(c_n);
-    /* end of pre-conditioning */
+    if(pre_cond)
+    {
+        /* beginning of pre-conditioning */
+        memcpy(c,y_0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
+        /* end of pre-conditioning */
+    }
+
     
     /* find the steepest descent direction and cost */
     curr_cost=forcefield->g_calc_timer(1,beta,a,g,nrgy_strss);
@@ -266,7 +271,7 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
     
     calc=0;
     a2=0.0;
-
+    
     /* beginning of finding the maximum gamma */
     a=numeric_limits<type0>::infinity();
     h_norm_lcl=0.0;
@@ -285,8 +290,17 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
     MPI_Allreduce(&a,&max_a,1,MPI_TYPE0,MPI_MIN,world);
     MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
     max_a*=0.999;
-    /* end of finding the maximum gamma */
 
+    if(max_a<epsilon)
+    {
+        type0* c;
+        atoms->vectors[c_n]->ret(c);
+        memcpy(c,c0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
+        return 0;
+    }
+    /* end of finding the maximum gamma */
+    
     /* beginning of bracketing minimum */
     a0=0.0;
     a1=epsilon/sqrt(h_norm);
@@ -414,7 +428,7 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
     
     tol=sqrt(2.0*epsilon);
 
-    while(fabs(x3-x0)>tol*(fabs(x1)+fabs(x2)))
+    while(fabs(x3-x0)>tol*(fabs(x1)+fabs(x2)) && x3-x0>epsilon)
     {
         if(f2<f1)
         {
@@ -486,6 +500,15 @@ int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
     
     MPI_Allreduce(&a,&max_a,1,MPI_TYPE0,MPI_MIN,world);
     max_a*=0.999;
+    
+    if(max_a<numeric_limits<type0>::epsilon())
+    {
+        type0* c;
+        atoms->vectors[c_n]->ret(c);
+        memcpy(c,c0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
+        return 0;
+    }
     /* end of finding the maximum gamma */
     
     

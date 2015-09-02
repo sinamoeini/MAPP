@@ -6,7 +6,7 @@ LineSearch_goldensection::
 LineSearch_goldensection(MAPP* mapp,int narg,char** arg)
 :LineSearch(mapp)
 {
-    tol=sqrt(2.0*epsilon);
+    tol=sqrt(epsilon);
     
     if(narg>2)
     {
@@ -105,7 +105,7 @@ int LineSearch_goldensection::line_min(type0& nrgy
     
     
     
-    while(x3-x0>tol*(x1+x2))
+    while(x3-x0>tol*(x1+x2) && x3-x0>epsilon)
     {
         if(f2<f1)
         {

@@ -95,14 +95,16 @@ int LineSearch_brent::line_min(type0& nrgy
     a=0.0;
     fa=nrgy;
     
+    
+    
+    
     int chk_bracket=bracket(dfa,max_a,a,b,c,fa,fb,fc);
     if(chk_bracket!=B_S)
     {
         reset();
         return chk_bracket;
     }
-
-
+    
     
     ax=a;
     bx=b;
@@ -122,10 +124,12 @@ int LineSearch_brent::line_min(type0& nrgy
         
         if(fabs(x-xm)<=(tol2-0.5*(b-a)))
         {
-            energy(x);
+            if(u!=x)
+                energy(x);
             nrgy=fx;
             alpha=x;
-            return  LS_S;
+            prev_val=alpha;
+            return LS_S;
         }
         
         if(fabs(e)>tol1)
@@ -146,14 +150,13 @@ int LineSearch_brent::line_min(type0& nrgy
                     e=(a-x);
                 else
                     e=b-x;
-                
                 d=cgold*e;
             }
             else
             {
                 d=p/q;
                 u=x+d;
-                if (u-a < tol2 || b-u < tol2)
+                if (u-a<tol2 || b-u<tol2)
                 {
                     if(xm-x>=0.0)
                         d=fabs(tol1);
@@ -229,10 +232,15 @@ int LineSearch_brent::line_min(type0& nrgy
             }
         }
     }
+
     
-    alpha=u;
-    nrgy=fu;
-    prev_val=-dfa*alpha;
+    if(u!=x)
+        energy(x);
+    nrgy=fx;
+    alpha=x;
+    
+    prev_val=alpha;
+    
     return LS_S;
 }
 

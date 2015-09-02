@@ -226,18 +226,14 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 {
     
     type0 u,fu,r,q,ulim;
-    int uphill_iter=100,iter;
+    int uphill_iter=4,iter;
 
-    if(prev_val>0.0)
-        b=-1.0e-3*(prev_val/dfa);
-    else
-    {
-        b=epsilon*fabs(fa/dfa);
-    }
+    b=MIN(1.e-2*max_a,-epsilon_3_4/dfa);
+
     
     if(b>max_a)
         b=max_a*epsilon;
-
+    
     r=u=b;
     b=0.0;
     fb=fa;
@@ -260,7 +256,9 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         return B_F_MAX_ALPHA;
     
     if(fb>fa)
+    {
         return B_F_DOWNHILL;
+    }
     
     fc=fb;
     while (fb>=fc)
@@ -268,7 +266,11 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         
         c=b+golden*(b-a);
         if(c>=max_a)
-            return B_F_MAX_ALPHA;
+        {
+            c=max_a;
+            fc=energy(c);
+            return B_S;
+        }
         
         fc=energy(c);
         
@@ -372,9 +374,8 @@ void LineSearch::reset()
 void LineSearch::test(type0 fa,type0 dfa,type0 max_a)
 {
     int no=100;
-    type0 frac=1.0e-9*max_a;
+    type0 frac=1.0e-2*max_a;
     type0 dfu,fu,u=0.0;
-
 
     printf("dfa %e \n",dfa);
     printf("u fu u*dfa\n");
@@ -383,10 +384,10 @@ void LineSearch::test(type0 fa,type0 dfa,type0 max_a)
     for(int i=0;i<no;i++)
     {
         fu=energy(u,dfu);
-        printf("%32.30lf %32.30lf %32.30lf  %32.30lf \n",u,fu-fa,u*dfa,dfu);
+        printf("%22.20lf %22.20lf %22.20lf  %22.20lf \n",u,fu-fa,u*dfa,dfu);
         u+=frac;
     }
-    error->abort("");
+    //error->abort("");
     
     
 }

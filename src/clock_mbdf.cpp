@@ -567,7 +567,7 @@ void Clock_mbdf::run()
             write->write();
         thermo->thermo_print();
         
-        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>max_t)
+        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
         {
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
