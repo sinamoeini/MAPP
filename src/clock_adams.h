@@ -13,10 +13,7 @@ namespace MAPP_NS {
         int max_step,max_order;
         type0 min_del_t,max_del_t,initial_del_t,max_t;
         
-        
-        
-        
-        
+
         // stuff for book keeping
         type0* t;
         type0** dy;
@@ -44,9 +41,7 @@ namespace MAPP_NS {
         
         
         type0** xi;
-        type0** wi;
-        void quad(int,type0*,type0*);
-        
+        type0** wi;        
     public:
         Clock_adams(MAPP *,int,char**);
         ~Clock_adams();

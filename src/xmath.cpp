@@ -257,6 +257,317 @@ void XMath::invert_lower_triangle(type0** A,type0** Ainv,int dim)
     
 }
 /*--------------------------------------------
+ construct a legendre polynomial of degree n
+ --------------------------------------------*/
+void XMath::quadrature_lg(int n,type0* x,type0* w)
+{
+    int m=n/2+1;
+    int iter,ord,icurs,jcurs;
+    int max_iter=50;
+    type0 a,u0,inv_u0,f,up,df,tmp0,tol;
+    type0 ii,jj,del_u0;
+    type0* p_coef;
+    type0* dp_coef;
+    CREATE1D(p_coef,m);
+    CREATE1D(dp_coef,m);
+    
+    up=0.0;
+    for(int i=0;i<m;i++)
+        p_coef[i]=dp_coef[i]=0.0;
+    
+    p_coef[0]=1.0;
+    
+    for(int i=1;i<n+1;i++)
+    {
+        ii=static_cast<type0>(i);
+        if(i%2==0)
+        {
+            m=i/2+1;
+            p_coef[m-1]=(2.0-1.0/ii)*p_coef[m-2];
+            for(int j=m-2;j>0;j--)
+            {
+                jj=static_cast<type0>(j);
+                p_coef[j]*=-(2.0*jj+1)/ii;
+                p_coef[j]+=(1.0+(2*jj-1.0)/ii)*p_coef[j-1];
+            }
+            p_coef[0]*=-1.0/ii;
+        }
+        else
+        {
+            m=(i+1)/2;
+            for(int j=0;j<m-1;j++)
+            {
+                jj=static_cast<type0>(j);
+                p_coef[j]*=1.0+2.0*jj/ii;
+                p_coef[j]-=2.0*(jj+1.0)*p_coef[j+1]/ii;
+            }
+            //2.0-1.0/ii=(1+2*(m-1)/i)
+            p_coef[m-1]*=2.0-1.0/ii;
+        }
+    }
+    
+    m=n/2+1;
+    
+    for(int i=1;i<m;i++)
+    {
+        dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
+    }
+    
+    tol=numeric_limits<type0>::epsilon();
+    ord=m;
+    icurs=n-1;
+    a=p_coef[m-1];
+    
+    for(int i=0;i<m;i++)
+        p_coef[i]/=a;
+    for(int i=1;i<m;i++)
+        dp_coef[i-1]/=a;
+    
+    while (ord>1)
+    {
+        u0=1.0;
+        f=1.0;
+        del_u0=0.0;
+        iter=max_iter;
+        while (abs(f)>tol && iter)
+        {
+            u0+=del_u0;
+            df=f=0.0;
+            tmp0=1.0;
+            for(int j=0;j<ord-1;j++)
+            {
+                f+=p_coef[j]*tmp0;
+                df+=dp_coef[j]*tmp0;
+                tmp0*=u0;
+            }
+            f+=p_coef[ord-1]*tmp0;
+            del_u0=-f/df;
+            iter--;
+        }
+        
+        x[icurs]=sqrt(u0);
+        
+        inv_u0=1.0/u0;
+        p_coef[0]*=-inv_u0;
+        for(int i=1;i<ord-1;i++)
+        {
+            p_coef[i]*=-inv_u0;
+            p_coef[i]+=inv_u0*p_coef[i-1];
+            dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
+        }
+        
+        ord--;
+        icurs--;
+    }
+    delete [] p_coef;
+    delete [] dp_coef;
+    
+    
+    if(n%2==0)
+    {
+        icurs++;
+        jcurs=icurs-1;
+        for(int i=icurs;i<n;i++)
+        {
+            tmp0=a;
+            for(int j=icurs;j<n;j++)
+            {
+                if(i!=j)
+                    tmp0*=x[i]*x[i]-x[j]*x[j];
+                else
+                    tmp0*=x[i]+x[j];
+            }
+            w[i]=2.0/(tmp0*tmp0*(1.0-x[i]*x[i]));
+            w[jcurs]=w[i];
+            x[jcurs]=-x[i];
+            jcurs--;
+        }
+    }
+    else
+    {
+        x[icurs]=0.0;
+        icurs++;
+        tmp0=a;
+        for(int i=icurs;i<n;i++)
+            tmp0*=-x[i]*x[i];
+        w[icurs-1]=2.0/(tmp0*tmp0);
+        
+        jcurs=icurs-2;
+        for(int i=icurs;i<n;i++)
+        {
+            tmp0=a*x[i];
+            for(int j=icurs;j<n;j++)
+            {
+                if(i!=j)
+                    tmp0*=x[i]*x[i]-x[j]*x[j];
+                else
+                    tmp0*=x[i]+x[j];
+            }
+            w[i]=2.0/(tmp0*tmp0*(1.0-x[i]*x[i]));
+            w[jcurs]=w[i];
+            x[jcurs]=-x[i];
+            jcurs--;
+        }
+    }
+}
+/*--------------------------------------------
+ construct a legendre polynomial of degree n
+ --------------------------------------------*/
+void XMath::quadrature_hg(int n,type0* x,type0* w)
+{
+    int m=n/2+1;
+    int iter,ord,icurs;
+    int max_iter=50;
+    type0 a,u0,inv_u0,f,up,df,tmp0,tol,tmp1;
+    type0 ii,del_u0;
+
+    
+    type0* p_1;
+    type0* p_2;
+    type0* p_coef;
+    type0* dp_coef;
+
+    CREATE1D(p_1,m);
+    CREATE1D(p_2,m);
+    CREATE1D(p_coef,m);
+    CREATE1D(dp_coef,m);
+    
+    up=0.0;
+    for(int i=0;i<m;i++)
+        p_1[i]=p_2[i]=p_coef[i]=dp_coef[i]=0.0;
+    
+    p_1[0]=1.0;
+    p_coef[0]=1.0;
+
+    
+    
+    for(int i=1;i<n+1;i++)
+    {
+        ii=static_cast<type0>(i);
+        m=i/2+1;
+        if(i%2==0)
+        {
+            for(int j=0;j<m;j++)
+                p_coef[j]=-2.0*(ii-1.0)*p_2[j];
+            for(int j=1;j<m;j++)
+                p_coef[j]+=2.0*p_1[j-1];
+        }
+        else
+        {
+            for(int j=0;j<m;j++)
+                p_coef[j]=2.0*p_1[j]-2.0*(ii-1.0)*p_2[j];
+        }
+        
+        for(int j=0;j<m;j++)
+        {
+            p_2[j]=p_1[j];
+            p_1[j]=p_coef[j];
+        }
+    }
+    
+    m=n/2+1;
+
+    
+    for(int i=1;i<m;i++)
+    {
+        dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
+    }
+    
+    tol=numeric_limits<type0>::epsilon();
+    ord=m;
+    icurs=n/2;
+    if(n%2==1)
+    {
+        x[icurs]=0.0;
+        icurs++;
+    }
+    
+    a=p_coef[m-1];
+    
+    for(int i=0;i<m;i++)
+        p_coef[i]/=a;
+    for(int i=1;i<m;i++)
+        dp_coef[i-1]/=a;
+    
+    
+
+    while (ord>1)
+    {
+        u0=0.0;
+        f=1.0;
+        del_u0=0.0;
+        iter=max_iter;
+        while(abs(f)>tol && iter)
+        {
+            u0+=del_u0;
+            df=f=0.0;
+            tmp0=1.0;
+            for(int j=0;j<ord-1;j++)
+            {
+                f+=p_coef[j]*tmp0;
+                df+=dp_coef[j]*tmp0;
+                tmp0*=u0;
+            }
+            f+=p_coef[ord-1]*tmp0;
+            del_u0=-f/df;
+            iter--;
+        }
+        
+        x[icurs]=sqrt(u0);
+        
+        tmp0=1.0;
+        tmp1=0.0;
+        for(int i=0;i<m;i++)
+        {
+            tmp1+=p_2[i]*tmp0;
+            tmp0*=u0;
+        }
+        
+        if(n%2==0)
+            tmp1*=sqrt(u0);
+        
+        w[icurs]=1.0/(tmp1*tmp1);
+        
+        
+        inv_u0=1.0/u0;
+        p_coef[0]*=-inv_u0;
+        for(int i=1;i<ord-1;i++)
+        {
+            p_coef[i]*=-inv_u0;
+            p_coef[i]+=inv_u0*p_coef[i-1];
+            dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
+        }
+        
+        ord--;
+        icurs++;
+    }
+    
+    tmp0=sqrt(M_PI)/static_cast<type0>(n);
+    for(int i=0;i<n-1;i++)
+    {
+        tmp0*=static_cast<type0>(2*(i+1));
+    }
+    if(n%2==1)
+    {
+        w[n/2]=tmp0/(p_2[0]*p_2[0]);
+    }
+
+
+    for(int i=0;i<n/2;i++)
+    {
+        icurs--;
+        w[icurs]*=tmp0;
+        w[i]=w[icurs];
+        x[i]=-x[icurs];
+    }
+    
+    delete [] p_1;
+    delete [] p_2;
+    delete [] p_coef;
+    delete [] dp_coef;
+
+}
+/*--------------------------------------------
  constructor
  --------------------------------------------*/
 SPARSE::

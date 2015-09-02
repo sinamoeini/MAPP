@@ -3,6 +3,7 @@
 #include "ff.h"
 #include "write.h"
 #include "thermo_dynamics.h"
+#include "xmath.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -158,8 +159,19 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
         CREATE1D(xi[i],i+1);
         CREATE1D(wi[i],i+1);
     }
+    
+    XMath* xmath= new XMath(mapp);
     for(int i=0;i<n;i++)
-        quad(i+1,xi[i],wi[i]);
+    {
+        xmath->quadrature_lg(i+1,xi[i],wi[i]);
+        for(int j=0;j<i+1;j++)
+        {
+            xi[i][j]*=0.5;
+            xi[i][j]+=0.5;
+            wi[i][j]*=0.5;
+        }
+    }
+    delete xmath;
 }
 /*--------------------------------------------
  destructor
@@ -195,167 +207,6 @@ Clock_adams::~Clock_adams()
         delete [] xi;
         delete [] wi;
     }
-}
-/*--------------------------------------------
- construct a legendre polynomial of degree n
- --------------------------------------------*/
-void Clock_adams::quad(int n,type0* x,type0* w)
-{
-    int m=n/2+1;
-    int err_chk,ord,icurs,jcurs;
-    type0 a,u0,inv_u0,f,up,df,tmp0,tol;
-    type0 ii,jj;
-    type0* p_coef;
-    type0* dp_coef;
-    
-    CREATE1D(p_coef,m);
-    CREATE1D(dp_coef,m);
-    
-    up=0.0;
-    for(int i=0;i<m;i++)
-        p_coef[i]=dp_coef[i]=0.0;
-    
-    p_coef[0]=1.0;
-    
-    for(int i=1;i<n+1;i++)
-    {
-        ii=static_cast<type0>(i);
-        if(i%2==0)
-        {
-            m=i/2+1;
-            p_coef[m-1]=(2.0-1.0/ii)*p_coef[m-2];
-            for(int j=m-2;j>0;j--)
-            {
-                jj=static_cast<type0>(j);
-                p_coef[j]*=-(2.0*jj+1)/ii;
-                p_coef[j]+=(1.0+(2*jj-1.0)/ii)*p_coef[j-1];
-            }
-            p_coef[0]*=-1.0/ii;
-        }
-        else
-        {
-            m=(i+1)/2;
-            for(int j=0;j<m-1;j++)
-            {
-                jj=static_cast<type0>(j);
-                p_coef[j]*=1.0+2.0*jj/ii;
-                p_coef[j]-=2.0*(jj+1.0)*p_coef[j+1]/ii;
-            }
-            //2.0-1.0/ii=(1+2*(m-1)/i)
-            p_coef[m-1]*=2.0-1.0/ii;
-        }
-    }
-    
-    m=n/2+1;
-    
-    for(int i=1;i<m;i++)
-    {
-        dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
-    }
-    
-    tol=numeric_limits<type0>::epsilon();
-    ord=m;
-    icurs=n-1;
-    a=p_coef[m-1];
-    
-    for(int i=0;i<m;i++)
-        p_coef[i]/=a;
-    for(int i=1;i<m;i++)
-        dp_coef[i-1]/=a;
-    
-    while (ord>1)
-    {
-        u0=1.0;
-        err_chk=1;
-        while (err_chk)
-        {
-            df=f=0.0;
-            tmp0=1.0;
-            for(int j=0;j<ord-1;j++)
-            {
-                f+=p_coef[j]*tmp0;
-                df+=dp_coef[j]*tmp0;
-                tmp0*=u0;
-            }
-            f+=p_coef[ord-1]*tmp0;
-            if(abs(f)<tol)
-                err_chk=0;
-            if(err_chk)
-                u0-=f/df;
-        }
-        
-        x[icurs]=sqrt(u0);
-        
-        inv_u0=1.0/u0;
-        p_coef[0]*=-inv_u0;
-        for(int i=1;i<ord-1;i++)
-        {
-            p_coef[i]*=-inv_u0;
-            p_coef[i]+=inv_u0*p_coef[i-1];
-            dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
-        }
-        
-        ord--;
-        icurs--;
-    }
-    delete [] p_coef;
-    delete [] dp_coef;
-    
-    
-    if(n%2==0)
-    {
-        icurs++;
-        jcurs=icurs-1;
-        for(int i=icurs;i<n;i++)
-        {
-            tmp0=a;
-            for(int j=icurs;j<n;j++)
-            {
-                if(i!=j)
-                    tmp0*=x[i]*x[i]-x[j]*x[j];
-                else
-                    tmp0*=x[i]+x[j];
-            }
-            w[i]=2.0/(tmp0*tmp0*(1.0-x[i]*x[i]));
-            w[jcurs]=w[i];
-            x[jcurs]=-x[i];
-            jcurs--;
-        }
-    }
-    else
-    {
-        x[icurs]=0.0;
-        icurs++;
-        tmp0=a;
-        for(int i=icurs;i<n;i++)
-            tmp0*=-x[i]*x[i];
-        w[icurs-1]=2.0/(tmp0*tmp0);
-        
-        jcurs=icurs-2;
-        for(int i=icurs;i<n;i++)
-        {
-            tmp0=a*x[i];
-            for(int j=icurs;j<n;j++)
-            {
-                if(i!=j)
-                    tmp0*=x[i]*x[i]-x[j]*x[j];
-                else
-                    tmp0*=x[i]+x[j];
-            }
-            w[i]=2.0/(tmp0*tmp0*(1.0-x[i]*x[i]));
-            w[jcurs]=w[i];
-            x[jcurs]=-x[i];
-            jcurs--;
-        }
-    }
-    
-    for(int i=0;i<n;i++)
-    {
-        x[i]*=0.5;
-        x[i]+=0.5;
-        w[i]*=0.5;
-    }
-    
 }
 /*--------------------------------------------
  init

@@ -24,6 +24,8 @@ namespace MAPP_NS
         // return the list of all possible groups of integers that their products are equal to specific number
         int fac(int,int,int**&);
         void square2lo_tri(type0**,type0**);
+        void quadrature_lg(int,type0*,type0*);
+        void quadrature_hg(int,type0*,type0*);
 
     };
     
