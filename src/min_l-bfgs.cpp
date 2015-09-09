@@ -8,10 +8,10 @@
  Algorithm 7.4 & 7.5 Equation (7.20)
  
  with respect to notations in Nocedal:
- new_y_i=-y_i
- new_rho_i=-rho_i
- new_alpha_i=-alpha_i
- new_beta=-beta
+ new_y_i=y_i
+ new_rho_i=rho_i
+ new_alpha_i=alpha_i
+ new_beta=beta
  --------------------------------------------*/
 #include <stdlib.h>
 #include "min_l-bfgs.h"
@@ -74,6 +74,11 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
                 H_dof[icmp][jcmp]=1;
             iarg++;
         }
+        else if(!strcmp(arg[iarg],"affine"))
+        {
+            affine=1;
+            iarg++;
+        }
         else
             error->abort("unknown keyword for min l-bfgs: %s",arg[iarg]);
     }
@@ -124,10 +129,7 @@ void Min_lbfgs::init()
             CREATE2D(H_y[i],dim,dim);
             CREATE2D(H_s[i],dim,dim);
         }
-        
-        CREATE1D(H_s_y_list,m_it);
-        for(int i=0;i<m_it;i++)
-            H_s_y_list[i]=i;
+
     }
     
     CREATE1D(rho,m_it);
@@ -138,7 +140,6 @@ void Min_lbfgs::init()
     
     /* begining of chekcking if the primary atomic vectors exist */
     /* if not, add them */
-    x_dim=atoms->vectors[0]->dim;
     f_n=atoms->find_exist("f");
     if(f_n<0)
         f_n=atoms->add<type0>(0,x_dim,"f");
@@ -221,7 +222,6 @@ void Min_lbfgs::init()
     /*
      initiate the run
      */
-    atoms->image_flag=1;
     atoms->init(vecs_comm);
     
     
@@ -233,8 +233,8 @@ void Min_lbfgs::init()
     atoms->vectors[f_n]->ret(f);
     for(int i=0;i<x_dim*atoms->natms;i++)
         f[i]=0.0;
-    forcefield->force_calc_timer(2,nrgy_strss);
-    rectify_f(f);
+    forcefield->force_calc_timer(2+affine,nrgy_strss);
+    rectify(f);
     if(chng_box)
         reg_h_H(f_H);
     
@@ -269,19 +269,20 @@ void Min_lbfgs::run()
     type0* h;
     type0* tmp_vec0;
     type0* tmp_vec1;
-    type0 inner;
-    type0 tot_inner;
     type0 prev_energy;
-    type0 inner_tmp;
-    type0 tot_inner_tmp;
-    type0 ratio=1.0;
-    type0 alpha_m;
-    int s_list_tmp,y_list_tmp,s_y_list_tmp=0;
+    type0 alpha_m,beta,gamma;
+    type0 inner0_lcl,inner1_lcl,inner0,inner1;
+    int s_list_tmp,y_list_tmp;
+    type0** H_y_tmp=NULL;
+    type0** H_s_tmp=NULL;
+    
+    
     int k_it=0;
     int size;
     int istp=0;
-    err=LS_S;
     
+    gamma=1.0;
+    err=LS_S;
     
     while(err==LS_S)
     {
@@ -317,75 +318,73 @@ void Min_lbfgs::run()
         /* beginning of determining new h & h_H */
         
         /* level 0 */
-        for(int i=k_it-1;i>-1;i--)
+        for(int i=0;i<k_it;i++)
         {
             
             atoms->vectors[s_list[i]]->ret(tmp_vec0);
-            inner=0.0;
+            inner0_lcl=0.0;
             for(int j=0;j<atoms->natms*x_dim;j++)
-                inner+=h[j]*tmp_vec0[j];
+                inner0_lcl+=h[j]*tmp_vec0[j];
             
-            alpha[i]=0.0;
-            MPI_Allreduce(&inner,&(alpha[i]),1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(&inner0_lcl,&inner0,1,MPI_TYPE0,MPI_SUM,world);
             
             if(chng_box)
             {
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        alpha[i]+=h_H[j][k]*H_s[H_s_y_list[i]][j][k];
+                        inner0+=h_H[j][k]*H_s[i][j][k];
             }
             
             
-            alpha[i]*=rho[i];
+            alpha[i]=-rho[i]*inner0;
             
             atoms->vectors[y_list[i]]->ret(tmp_vec0);
             for(int j=0;j<atoms->natms*x_dim;j++)
-                h[j]-=alpha[i]*tmp_vec0[j];
+                h[j]+=alpha[i]*tmp_vec0[j];
             
             if(chng_box)
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        h_H[j][k]-=alpha[i]*H_y[H_s_y_list[i]][j][k];
+                        h_H[j][k]+=alpha[i]*H_y[i][j][k];
             
         }
         
         /* level 1 */
         for(int j=0;j<atoms->natms*x_dim;j++)
-            h[j]*=ratio;
+            h[j]*=gamma;
         
         if(chng_box)
             for(int j=0;j<dim;j++)
                 for(int k=0;k<dim;k++)
                     if(H_dof[j][k])
-                        h_H[j][k]*=ratio;
+                        h_H[j][k]*=gamma;
         
         /* level 2 */
-        for(int i=0;i<k_it;i++)
+        for(int i=k_it-1;i>-1;i--)
         {
             
             atoms->vectors[y_list[i]]->ret(tmp_vec0);
-            inner=0.0;
+            inner0_lcl=0.0;
             for(int j=0;j<atoms->natms*x_dim;j++)
-                inner+=h[j]*tmp_vec0[j];
+                inner0_lcl+=h[j]*tmp_vec0[j];
             
-            tot_inner=0.0;
-            MPI_Allreduce(&inner,&tot_inner,1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(&inner0_lcl,&inner0,1,MPI_TYPE0,MPI_SUM,world);
             
             if(chng_box)
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        tot_inner+=h_H[j][k]*H_y[H_s_y_list[i]][j][k];
+                        inner0+=h_H[j][k]*H_y[i][j][k];
             
-            tot_inner*=rho[i];
+            beta=-rho[i]*inner0;
             
             atoms->vectors[s_list[i]]->ret(tmp_vec0);
             for(int j=0;j<atoms->natms*x_dim;j++)
-                h[j]-=(tot_inner+alpha[i])*tmp_vec0[j];
+                h[j]-=(alpha[i]-beta)*tmp_vec0[j];
             
             if(chng_box)
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        h_H[j][k]-=(tot_inner+alpha[i])*H_s[H_s_y_list[i]][j][k];
+                        h_H[j][k]-=(alpha[i]-beta)*H_s[i][j][k];
             
         }
         
@@ -400,7 +399,11 @@ void Min_lbfgs::run()
         
         thermo->thermo_print();
         
+        if(affine) prepare_affine_h(x_0,h);
         err=ls->line_min(curr_energy,alpha_m,0);
+        atoms->vectors[h_n]->ret(h);
+        if(affine) rectify(h);
+        
         if(err!=LS_S)
         {
             thermo->update(pe_idx,nrgy_strss[0]);
@@ -421,8 +424,8 @@ void Min_lbfgs::run()
         atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
-        forcefield->force_calc_timer(2,nrgy_strss);
-        rectify_f(f);
+        forcefield->force_calc_timer(2+affine,nrgy_strss);
+        rectify(f);
         if(chng_box)
             reg_h_H(f_H);
         /* end of calculating new f & f_H */
@@ -445,92 +448,93 @@ void Min_lbfgs::run()
         /* beginning of storing vectors & calculating ration for the next step */
         if(m_it)
         {
-            if(k_it==m_it)
+            
+            s_list_tmp=s_list[m_it-1];
+            y_list_tmp=y_list[m_it-1];
+            if(chng_box)
             {
-                s_list_tmp=s_list[0];
-                y_list_tmp=y_list[0];
-                if(chng_box)
-                    s_y_list_tmp=H_s_y_list[0];
-                
-                for(int i=0;i<m_it-1;i++)
-                {
-                    s_list[i]=s_list[i+1];
-                    y_list[i]=y_list[i+1];
-                    if(chng_box)
-                        H_s_y_list[i]=H_s_y_list[i+1];
-                    rho[i]=rho[i+1];
-                }
-                s_list[m_it-1]=s_list_tmp;
-                y_list[m_it-1]=y_list_tmp;
-                if(chng_box)
-                    H_s_y_list[m_it-1]=s_y_list_tmp;
-                
+                H_s_tmp=H_s[m_it-1];
+                H_y_tmp=H_y[m_it-1];
             }
-            else
+            
+            for(int i=m_it-1;i>0;i--)
+            {
+                s_list[i]=s_list[i-1];
+                y_list[i]=y_list[i-1];
+                if(chng_box)
+                {
+                    H_s[i]=H_s[i-1];
+                    H_y[i]=H_y[i-1];
+                }
+                rho[i]=rho[i-1];
+            }
+            s_list[0]=s_list_tmp;
+            y_list[0]=y_list_tmp;
+            if(chng_box)
+            {
+                H_s[0]=H_s_tmp;
+                H_y[0]=H_y_tmp;
+            }
+            
+            if(k_it!=m_it)
                 k_it++;
             
-            
             atoms->vectors[0]->ret(x);
-            atoms->vectors[f_n]->ret(f);
-            atoms->vectors[h_n]->ret(h);
             atoms->vectors[x_prev_n]->ret(x_0);
+            atoms->vectors[f_n]->ret(f);
             atoms->vectors[f_prev_n]->ret(f_0);
-            atoms->vectors[s_list[k_it-1]]->ret(tmp_vec0);
-            atoms->vectors[y_list[k_it-1]]->ret(tmp_vec1);
+            atoms->vectors[s_list[0]]->ret(tmp_vec0);
+            atoms->vectors[y_list[0]]->ret(tmp_vec1);
             
-            inner=0.0;
-            inner_tmp=0.0;
+            inner0_lcl=0.0;
+            inner1_lcl=0.0;
             for(int i=0;i<x_dim*atoms->natms;i++)
             {
-                tmp_vec0[i]=alpha_m*h[i];
-                tmp_vec1[i]=f[i]-f_0[i];
-                inner+=tmp_vec0[i]*tmp_vec1[i];
-                inner_tmp+=tmp_vec1[i]*tmp_vec1[i];
+                tmp_vec0[i]=x[i]-x_0[i];
+                tmp_vec1[i]=f_0[i]-f[i];
+                inner0_lcl+=tmp_vec0[i]*tmp_vec1[i];
+                inner1_lcl+=tmp_vec1[i]*tmp_vec1[i];
             }
-            tot_inner=0.0;
-            MPI_Allreduce(&inner,&tot_inner,1,MPI_TYPE0,MPI_SUM,world);
-            tot_inner_tmp=0.0;
-            MPI_Allreduce(&inner_tmp,&tot_inner_tmp,1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(&inner0_lcl,&inner0,1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(&inner1_lcl,&inner1,1,MPI_TYPE0,MPI_SUM,world);
             
             if(chng_box)
                 for(int i=0;i<dim;i++)
                     for(int j=0;j<dim;j++)
                     {
-                        H_s[H_s_y_list[k_it-1]][i][j]=alpha_m*h_H[i][j];
-                        H_y[H_s_y_list[k_it-1]][i][j]=f_H[i][j]-f_H_prev[i][j];
-                        tot_inner+=H_s[H_s_y_list[k_it-1]][i][j]*H_y[H_s_y_list[k_it-1]][i][j];
-                        tot_inner_tmp+=H_s[H_s_y_list[k_it-1]][i][j]*H_s[H_s_y_list[k_it-1]][i][j];
+                        H_s[0][i][j]=atoms->H[i][j]-H_prev[i][j];
+                        H_y[0][i][j]=f_H_prev[i][j]-f_H[i][j];
+                        inner0+=H_s[0][i][j]*H_y[0][i][j];
+                        inner1+=H_s[0][i][j]*H_s[0][i][j];
                     }
-            
-            ratio=-tot_inner/tot_inner_tmp;
-            rho[k_it-1]=1.0/tot_inner;
+            gamma=inner0/inner1;
+            rho[0]=1.0/inner0;
         }
         else
         {
+            atoms->vectors[0]->ret(x);
+            atoms->vectors[x_prev_n]->ret(x_0);
             atoms->vectors[f_n]->ret(f);
-            atoms->vectors[h_n]->ret(h);
             atoms->vectors[f_prev_n]->ret(f_0);
-            inner=0.0;
-            inner_tmp=0.0;
+            inner0_lcl=0.0;
+            inner1_lcl=0.0;
             for(int i=0;i<x_dim*atoms->natms;i++)
             {
-                inner+=(alpha_m*h[i])*(f[i]-f_0[i]);
-                inner_tmp+=(f[i]-f_0[i])*(f[i]-f_0[i]);
+                inner0_lcl+=(x[i]-x_0[i])*(f_0[i]-f[i]);
+                inner1_lcl+=(f_0[i]-f[i])*(f_0[i]-f[i]);
             }
-            tot_inner=0.0;
-            MPI_Allreduce(&inner,&tot_inner,1,MPI_TYPE0,MPI_SUM,world);
-            tot_inner_tmp=0.0;
-            MPI_Allreduce(&inner_tmp,&tot_inner_tmp,1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(&inner0_lcl,&inner0,1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(&inner1_lcl,&inner1,1,MPI_TYPE0,MPI_SUM,world);
             
             if(chng_box)
                 for(int i=0;i<dim;i++)
                     for(int j=0;j<dim;j++)
                     {
-                        tot_inner+=alpha_m*h_H[i][j]*(f_H[i][j]-f_H_prev[i][j]);
-                        tot_inner_tmp+=(f_H[i][j]-f_H_prev[i][j])*(f_H[i][j]-f_H_prev[i][j]);
+                        inner0+=(atoms->H[i][j]-H_prev[i][j])*(f_H_prev[i][j]-f_H[i][j]);
+                        inner1+=(f_H_prev[i][j]-f_H[i][j])*(f_H_prev[i][j]-f_H[i][j]);
                     }
             
-            ratio=-tot_inner/tot_inner_tmp;
+            gamma=inner0/inner1;
         }
         /* end of storing vectors & calculating ration for the next step */
         
@@ -566,9 +570,6 @@ void Min_lbfgs::fin()
         }
         delete [] H_y;
         delete [] H_s;
-        
-        if(m_it)
-            delete [] H_s_y_list;
         
     }
     

@@ -36,7 +36,7 @@ ForceField(MAPP* mapp) : InitPtrs(mapp)
         ns_alloc=1;
     }
 
-    
+    image_size=0;
 }
 /*--------------------------------------------
  destructor
@@ -50,6 +50,8 @@ ForceField::~ForceField()
     }
     if(ns_alloc)
         delete [] nrgy_strss;
+    if(image_size)
+        delete [] image;
 }
 /*--------------------------------------------
  
@@ -57,7 +59,19 @@ ForceField::~ForceField()
 void ForceField::force_calc_timer(int chk,type0* enst)
 {
     timer->start(FORCE_TIME_mode);
-    force_calc(chk,enst);
+    if(chk==2) image_calc();
+    if(chk==3)
+    {
+        force_calc(1,enst);
+        type0** B=atoms->B;
+        enst[1]=-(enst[1]*B[0][0]+enst[6]*B[1][0]+enst[5]*B[2][0]);
+        enst[2]=-(enst[2]*B[1][1]+enst[4]*B[2][1]);
+        enst[3]=-(enst[3]*B[2][2]);
+        enst[4]=-(enst[4]*B[2][2]);
+        enst[6]=-(enst[6]*B[1][1]+enst[5]*B[2][1]);
+        enst[5]=-(enst[5]*B[2][2]);
+    }
+    else force_calc(chk,enst);
     timer->stop(FORCE_TIME_mode);
 }
 /*--------------------------------------------
@@ -100,6 +114,66 @@ void ForceField::create_2nd_neigh_lst_timer()
     timer->start(FORCE_TIME_mode);
     create_2nd_neigh_lst();
     timer->stop(FORCE_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceField::image_calc()
+{
+    int tot_natms=atoms->natms+atoms->natms_ph;
+    int dimension=atoms->dimension;
+    int x_dim=atoms->vectors[0]->dim;
+    int icurs=0;
+    int icurs_img=0;
+    type0* x;
+    type0* xtmp;
+    type0** H=atoms->H;
+    atoms->vectors[0]->ret(x);
+    
+
+    int new_size=dimension*(tot_natms);
+    if(new_size>image_size)
+    {
+        if(image_size)
+            delete [] image;
+        
+        CREATE1D(image,new_size);
+        image_size=new_size;
+    }
+    
+    
+    CREATE1D(xtmp,dimension);
+    
+    for(int i=0;i<tot_natms;i++)
+    {
+        for(int j=0;j<dimension;j++)
+            xtmp[j]=x[icurs+j];
+        
+        for(int j=dimension-1;j>-1;j--)
+        {
+            image[icurs_img+j]=0.0;
+            while(xtmp[j]<0.0)
+            {
+                for(int k=0;k<j+1;k++)
+                    xtmp[k]+=H[j][k];
+                
+                image[icurs_img+j]--;
+            }
+            
+            while(xtmp[j]>=H[j][j])
+            {
+                for(int k=0;k<j+1;k++)
+                    xtmp[k]-=H[j][k];
+                
+                image[icurs_img+j]++;
+            }
+        }
+      
+        icurs_img+=dimension;
+        icurs+=x_dim;
+    }
+    if(dimension)
+        delete [] xtmp;
 }
 
 

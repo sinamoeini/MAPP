@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "atom_types.h"
 #include "write_cfg.h"
-#define TRESH 0.004
+#define TRESH 0.00005
 using namespace MAPP_NS;
 
 /*--------------------------------------------
@@ -547,8 +547,10 @@ int Write_cfg::find_type(type0* c
     if(c_m_eff<tol)
     {
         rat=(tol-c_m_eff)/tol;
+        
+        rat=c_m_eff/tol;
         for(int i=0;i<3;i++)
-            clr_r[i]=atom_types->clr_rad[ityp][i]*(1.0-rat)+rat;
+            clr_r[i]=atom_types->clr_rad[ityp][i]*rat+1.0-rat;
         
         clr_r[3]=atom_types->clr_rad[ityp][3];
         return -1;

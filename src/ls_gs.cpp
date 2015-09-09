@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "ls_gs.h"
 /*--------------------------------------------
  constructor

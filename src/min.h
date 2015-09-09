@@ -32,14 +32,9 @@ namespace MAPP_NS
         int id_n;
         int c_type_n;
         
-        
-
-        
-        
-        
-        void reg_h_H(type0**);
-        
+        void reg_h_H(type0**);        
         void init_linesearch();
+        void prepare_affine_h(type0*,type0*);
     public:
         Min(MAPP *);
         virtual ~Min();
@@ -47,11 +42,13 @@ namespace MAPP_NS
         virtual void run()=0;
         virtual void init()=0;
         virtual void fin()=0;
-        void rectify_f(type0*);
+        void rectify(type0*);
         int max_iter;
+        int affine;
         type0 energy_tolerance;
 
         int** H_dof;
+        type0** N;
         
         int x_dim;
         

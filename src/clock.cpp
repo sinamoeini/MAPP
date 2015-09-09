@@ -2,6 +2,7 @@
 #include "thermo_dynamics.h"
 #include "atom_types.h"
 #include "ff.h"
+#include <limits>
 #define INITIAL_STEP_MODE 1
 using namespace MAPP_NS;
 /*--------------------------------------------

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "ls_brent.h"
 /*--------------------------------------------
  constructor

@@ -20,7 +20,6 @@ namespace MAPP_NS {
         
         type0*** H_y;
         type0*** H_s;
-        int* H_s_y_list;
         type0** f_H_prev;
     public:
         Min_lbfgs(MAPP *,int,char**);

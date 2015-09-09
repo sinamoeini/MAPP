@@ -2,6 +2,7 @@
 #include "ff.h"
 #include "clock.h"
 #include "atom_types.h"
+#include <limits>
 #define INV_SQ_2 0.7071067811865475
 #define TINY 1.0e-15
 #define TINY_INV 1.0e15
@@ -61,7 +62,7 @@ type0 LineSearch::energy(type0 alpha)
         else
             xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
     }
-    
+
     atoms->update(chng_box,vecs_comm);
     return forcefield->energy_calc_timer();
 }
@@ -106,11 +107,12 @@ type0 LineSearch::energy(type0 alpha,type0& drev)
     for(int i=0;i<dim*(dim+1)/2+1;i++)
         nrgy_strss[i]=0.0;
     
-    forcefield->force_calc(2,nrgy_strss);
+    forcefield->force_calc(2+affine,nrgy_strss);
     
     drev_lcl=0.0;
-    for(int i=0;i<atoms->natms*x_dim;i++)
-        drev_lcl+=f[i]*h[i];
+    if(affine==0)
+        for(int i=0;i<atoms->natms*x_dim;i++)
+            drev_lcl+=f[i]*h[i];
     MPI_Allreduce(&drev_lcl,&drev,1,MPI_TYPE0,MPI_SUM,world);
     
     if(chng_box && dim==3)
@@ -145,7 +147,6 @@ void LineSearch::init_manip(type0& dfa,type0& h_norm,type0& max_a)
         h_norm_lcl+=h[i]*h[i];
         dfa_lcl+=h[i]*f[i];
     }
-    
     MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
     MPI_Allreduce(&dfa_lcl,&dfa,1,MPI_TYPE0,MPI_SUM,world);
     if(chng_box)
@@ -224,20 +225,16 @@ void LineSearch::init_manip(type0& dfa,type0& h_norm,type0& max_a)
 int LineSearch::bracket(type0 dfa,type0 max_a,type0& a,
 type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 {
-    
     type0 u,fu,r,q,ulim;
     int uphill_iter=4,iter;
 
     b=MIN(1.e-2*max_a,-epsilon_3_4/dfa);
-
-    //test(fa,dfa,max_a);
     
     r=u=b;
     b=0.0;
     fb=fa;
     iter=uphill_iter;
     
-
     while(fb>=fa && u<max_a && iter)
     {
         fu=energy(u);
@@ -254,9 +251,8 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         return B_F_MAX_ALPHA;
     
     if(fb>fa)
-    {
         return B_F_DOWNHILL;
-    }
+    
     
     fc=fb;
     while (fb>=fc)
@@ -364,11 +360,12 @@ void LineSearch::reset()
 /*--------------------------------------------
  reset to initial position
  --------------------------------------------*/
+/*
 void LineSearch::test(type0 fa,type0 dfa,type0 max_a)
 {
     int no=100;
-    type0 frac=1.0e-2*max_a;
-    type0 dfu,fu,u=0.0;
+    type0 frac=0.00005*1.0e-2*max_a;
+    type0 fu,u=0.0;
 
     printf("dfa %e \n",dfa);
     printf("u fu u*dfa\n");
@@ -376,11 +373,10 @@ void LineSearch::test(type0 fa,type0 dfa,type0 max_a)
     
     for(int i=0;i<no;i++)
     {
-        fu=energy(u,dfu);
-        printf("%22.20lf %22.20lf %22.20lf  %22.20lf \n",u,fu-fa,u*dfa,dfu);
+        fu=energy(u);
+        printf("%22.20lf %22.20lf %22.20lf \n",u,fu-fa,u*dfa);
         u+=frac;
     }
-    //error->abort("");
-    
     
 }
+*/

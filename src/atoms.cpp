@@ -36,7 +36,6 @@ Atoms::Atoms(MAPP* mapp)
     no_vecs=0;
     no_types=0;
     
-    image_flag=0;
     
     CREATE2D(H,dimension,dimension);
     CREATE2D(B,dimension,dimension);
@@ -1109,7 +1108,7 @@ void Atoms::post_setup_ph_1(class VecLst* list)
             if(neighbor_list[iatm][i]>natms-1)
                 neighbor_list[iatm][i]
                 =old2new[neighbor_list[iatm][i]-natms];
-    
+
     /*
      6. assign the correct natms_ph
      */
@@ -1128,7 +1127,7 @@ class VecLst* list)
     if(comm_mode==COMM_MODE_0)
     {
         setup_ph_0(list);
-        
+
         neighbor->create_list(box_chng,1);
     }
     else if(comm_mode==COMM_MODE_1)
@@ -1146,6 +1145,7 @@ class VecLst* list)
         setup_ph_0(list);
         
         post_setup_ph_0(list);
+        
         neighbor->create_list(box_chng,1);
     }
     else if(comm_mode==COMM_MODE_3)
@@ -1163,6 +1163,7 @@ class VecLst* list)
         setup_ph_1(list);
         
         post_setup_ph_0(list);
+        
         neighbor->create_list(box_chng,1);
     }
     else if(comm_mode==COMM_MODE_5)
@@ -2816,6 +2817,7 @@ void Atoms::init(class VecLst* list)
         
     }
     
+
     neighbor->init();
     setup_ph_n_neighbor(1,list);
 
@@ -2836,7 +2838,7 @@ void Atoms::init(class VecLst* list)
         x_comp+=x_dim;
         x_0_comp+=x_0_dim;
     }
-    
+    /*
     if(image_flag)
     {
         CREATE1D(image,dimension*natms_ph);
@@ -2850,14 +2852,10 @@ void Atoms::init(class VecLst* list)
                     tmp+=B[k][j]*x[x_comp+k];
                 image[i*3+j]=floor(tmp);
             }
-            /*
-            printf("%d %22.20lf %22.20lf %22.20lf %4.1lf %4.1lf %4.1lf\n",i,x[x_comp],x[x_comp+1],x[x_comp+2],
-                   image[i*3],image[i*3+1],image[i*3+2]);
-             */
             x_comp+=x_dim;
         }
     }
-    
+    */
     timer->stop(COMM_TIME_mode);
 
 }
@@ -2866,12 +2864,6 @@ void Atoms::init(class VecLst* list)
  --------------------------------------------*/
 void Atoms::fin()
 {
-    if(image_flag && natms_ph)
-    {
-        delete [] image;
-        image_flag=0;
-    }
-    
     neighbor->fin();
     forcefield->fin();
     timer->fin();
@@ -2942,8 +2934,6 @@ void Atoms::update(int box_change
         
         if(check_all)
         {
-            if(image_flag && natms_ph)
-                delete [] image;
                 
             x2s(natms);
             xchng_prtl(list);
@@ -2964,25 +2954,6 @@ void Atoms::update(int box_change
                 x_comp+=x_dim;
                 x_0_comp+=x_0_dim;
             }
-            
-            if(image_flag)
-            {
-                type0 tmp;
-                CREATE1D(image,dimension*natms_ph);
-                x_comp=natms*x_dim;
-                for(int i=0;i<natms_ph;i++)
-                {
-                    for(int j=0;j<dimension;j++)
-                    {
-                        tmp=0.0;
-                        for(int k=0;k<dimension;k++)
-                            tmp+=B[k][j]*x[x_comp+k];
-                        image[i*3+j]=floor(tmp);
-                    }
-                    x_comp+=x_dim;
-                }
-            }
-            
         }        
         
     }
@@ -3029,8 +3000,6 @@ void Atoms::update(int box_change
         
         if(check_all)
         {
-            if(image_flag && natms_ph)
-                delete [] image;
             
             x2s(natms);
             xchng_prtl(list);
@@ -3050,24 +3019,6 @@ void Atoms::update(int box_change
                     x_0[x_0_comp+idim]=x[x_comp+idim];
                 x_comp+=x_dim;
                 x_0_comp+=x_0_dim;
-            }
-            
-            if(image_flag)
-            {
-                type0 tmp;
-                CREATE1D(image,dimension*natms_ph);
-                x_comp=natms*x_dim;
-                for(int i=0;i<natms_ph;i++)
-                {
-                    for(int j=0;j<dimension;j++)
-                    {
-                        tmp=0.0;
-                        for(int k=0;k<dimension;k++)
-                            tmp+=B[k][j]*x[x_comp+k];
-                        image[i*3+j]=floor(tmp);
-                    }
-                    x_comp+=x_dim;
-                }
             }
         }
         else

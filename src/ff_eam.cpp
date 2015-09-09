@@ -149,6 +149,15 @@ force_calc(int st_clc,type0* en_st)
                         nrgy_strss[5]-=fpair*dx2*dx0;
                         nrgy_strss[6]-=fpair*dx0*dx1;
                     }
+                    else if(st_clc==2)
+                    {
+                        nrgy_strss[1]-=fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                        nrgy_strss[2]-=fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                        nrgy_strss[3]-=fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[4]-=fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[5]-=fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[6]-=fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
+                    }
                 }
                 else
                 {
@@ -164,12 +173,12 @@ force_calc(int st_clc,type0* en_st)
                     }
                     else if(st_clc==2)
                     {
-                        nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
-                        nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
-                        nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx2;
-                        nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx1;
-                        nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx0;
-                        nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx0;
+                        nrgy_strss[1]-=0.5*fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                        nrgy_strss[2]-=0.5*fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                        nrgy_strss[3]-=0.5*fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[4]-=0.5*fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[5]-=0.5*fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[6]-=0.5*fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
                     }
                 }
                 
@@ -235,6 +244,15 @@ force_calc(int st_clc,type0* en_st)
                         nrgy_strss[5]-=fpair*dx2*dx0;
                         nrgy_strss[6]-=fpair*dx0*dx1;
                     }
+                    else if(st_clc==2)
+                    {
+                        nrgy_strss[1]-=fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                        nrgy_strss[2]-=fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                        nrgy_strss[3]-=fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[4]-=fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[5]-=fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[6]-=fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
+                    }
                 }
                 else
                 {
@@ -247,14 +265,14 @@ force_calc(int st_clc,type0* en_st)
                         nrgy_strss[5]-=0.5*fpair*dx2*dx0;
                         nrgy_strss[6]-=0.5*fpair*dx0*dx1;
                     }
-                    else if (st_clc==2)
+                    else if(st_clc==2)
                     {
-                        nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
-                        nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
-                        nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx2;
-                        nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx1;
-                        nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx0;
-                        nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx0;
+                        nrgy_strss[1]-=0.5*fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                        nrgy_strss[2]-=0.5*fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                        nrgy_strss[3]-=0.5*fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[4]-=0.5*fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[5]-=0.5*fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                        nrgy_strss[6]-=0.5*fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
                     }
                 }
             }

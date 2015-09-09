@@ -2,6 +2,7 @@
 #include "min_cg.h"
 #include "ff.h"
 #include "write.h"
+#include "atom_types.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -48,6 +49,11 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
                 H_dof[icmp][jcmp]=1;
             iarg++;
         }
+        else if(!strcmp(arg[iarg],"affine"))
+        {
+            affine=1;
+            iarg++;
+        }
         else
             error->abort("unknown keyword for min cg: %s",arg[iarg]);
     }
@@ -56,7 +62,6 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
         error->abort("max_iter in min cg should be greater than 0");
     if(energy_tolerance<0.0)
          error->abort("e_tol in min cg should be greater than 0.0");
-    
     
 }
 /*--------------------------------------------
@@ -68,6 +73,7 @@ Min_cg::~Min_cg()
     for(int i=0;i<dim;i++)
         delete [] H_dof[i];
     delete [] H_dof;
+
 }
 /*--------------------------------------------
  init before a run
@@ -97,7 +103,6 @@ void Min_cg::init()
     
     /* begining of chekcking if the primary atomic vectors exist */
     /* if not, add them */
-    x_dim=atoms->vectors[0]->dim;
     f_n=atoms->find_exist("f");
     if(f_n<0)
         f_n=atoms->add<type0>(0,x_dim,"f");
@@ -141,7 +146,6 @@ void Min_cg::init()
     /*
      initiate the run
      */
-    atoms->image_flag=1;
     atoms->init(vecs_comm);
 
 
@@ -153,8 +157,8 @@ void Min_cg::init()
     atoms->vectors[f_n]->ret(f);
     for(int i=0;i<x_dim*atoms->natms;i++)
         f[i]=0.0;
-    forcefield->force_calc_timer(2,nrgy_strss);
-    rectify_f(f);
+    forcefield->force_calc_timer(2+affine,nrgy_strss);
+    rectify(f);
     if(chng_box)
         reg_h_H(f_H);
     
@@ -231,6 +235,7 @@ void Min_cg::run()
         atoms->vectors[x_prev_n]->ret(x_0);
         atoms->vectors[f_prev_n]->ret(f_0);
         size=atoms->natms*x_dim*sizeof(type0);
+
         
         memcpy(x_0,x,size);
         memcpy(f_0,f,size);
@@ -254,14 +259,18 @@ void Min_cg::run()
         
         thermo->thermo_print();
         
+        if(affine) prepare_affine_h(x_0,h);
         err=ls->line_min(curr_energy,alpha,1);
-
+        atoms->vectors[h_n]->ret(h);
+        if(affine) rectify(h);
+        
         if(err!=LS_S)
         {
             thermo->update(pe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             continue;
         }
+        
         
         if(prev_energy-curr_energy<energy_tolerance)
             err=MIN_S_TOLERANCE;
@@ -272,9 +281,10 @@ void Min_cg::run()
         atoms->vectors[f_n]->ret(f);
         for(int i=0;i<x_dim*atoms->natms;i++)
             f[i]=0.0;
-        forcefield->force_calc_timer(2,nrgy_strss);
-
-        rectify_f(f);
+        forcefield->force_calc_timer(2+affine,nrgy_strss);
+        
+        
+        rectify(f);
         if(chng_box)
             reg_h_H(f_H);
         

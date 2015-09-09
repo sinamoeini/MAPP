@@ -58,14 +58,15 @@ namespace MAPP_NS
         int dim;
         int x_dim;
         int chng_box;
+        int affine;
         
         type0 prev_val;
         
         LineSearch(MAPP*);
-        virtual ~LineSearch()=0;
+        virtual ~LineSearch();
         virtual int line_min(type0&,type0&,int)=0;
         
-        void test(type0,type0,type0);
+        //void test(type0,type0,type0);
     };
 
 }

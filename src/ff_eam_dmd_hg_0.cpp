@@ -112,6 +112,8 @@ force_calc_ndiff(int st_clc,type0* en_st)
     atoms->vectors[E_n]->ret(E);
     type0* dE;
     atoms->vectors[dE_n]->ret(dE);
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
     type0* c;
     atoms->vectors[c_n]->ret(c);
     
@@ -150,9 +152,11 @@ force_calc_ndiff(int st_clc,type0* en_st)
         CREATE1D(rho_phi,no_0);
         CREATE1D(drho_phi_dr,no_0);
         CREATE1D(drho_phi_dalpha,no_0);
-        for(int i=0;i<no_0;i++)
-            rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
     }
+    
+    for(int i=0;i<max_pairs*stride;i++)
+        rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
+    
     nrgy_strss[0]=0.0;
     if (st_clc)
         for (int i=1;i<7;i++)
@@ -330,7 +334,9 @@ force_calc_ndiff(int st_clc,type0* en_st)
                 
                 
                 nrgy_strss[0]+=c[iatm*no_types+itype]*(tmp0+c_0[itype]
-                                                       -3.0*kbT*log(x[icomp+3+itype]));
+                -3.0*kbT*log(x[icomp+3+itype]));
+                
+                mu[iatm*no_types+itype]=tmp0-3.0*kbT*log(x[icomp+3+itype]);
                 
                 nrgy_strss[0]+=kbT*calc_ent(c[iatm*no_types+itype]);
                 
@@ -373,7 +379,12 @@ force_calc_ndiff(int st_clc,type0* en_st)
                                 +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
                         sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
                         
+                        mu[iatm*no_types+itype]+=c[jatm*no_types+jtype]*(drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]
+                        +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]);
                         
+                        if(jatm<natms)
+                            mu[jatm*no_types+jtype]+=c[iatm*no_types+itype]*(drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]
+                            +drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]);
                         
                         
                         if(apair!=0.0 || fpair!=0.0)
@@ -383,14 +394,14 @@ force_calc_ndiff(int st_clc,type0* en_st)
                             f[icomp+2]+=dx2*fpair;
                             f[icomp+3+itype]+=apair*x[icomp+3+itype];
                             
-                            if (jatm<natms)
+                            if(jatm<natms)
                             {
                                 f[jcomp]-=dx0*fpair;
                                 f[jcomp+1]-=dx1*fpair;
                                 f[jcomp+2]-=dx2*fpair;
                                 f[jcomp+3+jtype]+=apair*x[jcomp+3+jtype];
                                 
-                                if (st_clc==1)
+                                if(st_clc==1)
                                 {
                                     nrgy_strss[1]-=fpair*dx0*dx0;
                                     nrgy_strss[2]-=fpair*dx1*dx1;
@@ -399,10 +410,19 @@ force_calc_ndiff(int st_clc,type0* en_st)
                                     nrgy_strss[5]-=fpair*dx2*dx0;
                                     nrgy_strss[6]-=fpair*dx0*dx1;
                                 }
+                                else if(st_clc==2)
+                                {
+                                    nrgy_strss[1]-=fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                                    nrgy_strss[2]-=fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                                    nrgy_strss[3]-=fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[4]-=fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[5]-=fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[6]-=fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
+                                }
                             }
                             else
                             {
-                                if (st_clc==1)
+                                if(st_clc==1)
                                 {
                                     nrgy_strss[1]-=0.5*fpair*dx0*dx0;
                                     nrgy_strss[2]-=0.5*fpair*dx1*dx1;
@@ -411,14 +431,14 @@ force_calc_ndiff(int st_clc,type0* en_st)
                                     nrgy_strss[5]-=0.5*fpair*dx2*dx0;
                                     nrgy_strss[6]-=0.5*fpair*dx0*dx1;
                                 }
-                                else if (st_clc==2)
+                                else if(st_clc==2)
                                 {
-                                    nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
-                                    nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
-                                    nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx2;
-                                    nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx1;
-                                    nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx0;
-                                    nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx0;
+                                    nrgy_strss[1]-=0.5*fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                                    nrgy_strss[2]-=0.5*fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                                    nrgy_strss[3]-=0.5*fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[4]-=0.5*fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[5]-=0.5*fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[6]-=0.5*fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
                                 }
                             }
                         }
@@ -457,6 +477,8 @@ force_calc_diff(int st_clc,type0* en_st)
     atoms->vectors[E_n]->ret(E);
     type0* dE;
     atoms->vectors[dE_n]->ret(dE);
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
     type0* c;
     atoms->vectors[c_n]->ret(c);
     
@@ -495,9 +517,11 @@ force_calc_diff(int st_clc,type0* en_st)
         CREATE1D(rho_phi,no_0);
         CREATE1D(drho_phi_dr,no_0);
         CREATE1D(drho_phi_dalpha,no_0);
-        for(int i=0;i<no_0;i++)
-            rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
     }
+    
+    for(int i=0;i<max_pairs*stride;i++)
+        rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
+    
     nrgy_strss[0]=0.0;
     if (st_clc)
         for (int i=1;i<7;i++)
@@ -679,6 +703,8 @@ force_calc_diff(int st_clc,type0* en_st)
                 nrgy_strss[0]-=3.0*kbT*c[iatm*no_types+itype]*log(x[icomp+3+itype])
                 -c[iatm*no_types+itype]*c_0[itype];
                 
+                mu[iatm*no_types+itype]=tmp0-3.0*kbT*log(x[icomp+3+itype]);
+                
                 f[icomp+3+itype]+=3.0*kbT*c[iatm*no_types+itype]/x[icomp+3+itype];
             }
         }
@@ -686,8 +712,8 @@ force_calc_diff(int st_clc,type0* en_st)
         
     }
     
-    
     atoms->update_ph(dE_n);
+    
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -719,8 +745,12 @@ force_calc_diff(int st_clc,type0* en_st)
                                 *c[iatm*no_types+itype]*c[jatm*no_types+jtype]/
                                 sqrt(x[icomp+3+itype]*x[icomp+3+itype]+x[jcomp+3+jtype]*x[jcomp+3+jtype]);
                         
+                        mu[iatm*no_types+itype]+=c[jatm*no_types+jtype]*(drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]
+                        +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jatm*no_types+jtype]);
                         
-                        
+                        if(jatm<natms)
+                            mu[jatm*no_types+jtype]+=c[iatm*no_types+itype]*(drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]]
+                            +drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[iatm*no_types+itype]);
                         
                         if(apair!=0.0 || fpair!=0.0)
                         {
@@ -745,6 +775,15 @@ force_calc_diff(int st_clc,type0* en_st)
                                     nrgy_strss[5]-=fpair*dx2*dx0;
                                     nrgy_strss[6]-=fpair*dx0*dx1;
                                 }
+                                else if(st_clc==2)
+                                {
+                                    nrgy_strss[1]-=fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                                    nrgy_strss[2]-=fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                                    nrgy_strss[3]-=fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[4]-=fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[5]-=fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[6]-=fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
+                                }
                             }
                             else
                             {
@@ -759,12 +798,12 @@ force_calc_diff(int st_clc,type0* en_st)
                                 }
                                 else if(st_clc==2)
                                 {
-                                    nrgy_strss[1]-=0.5*atoms->image[(jatm-natms)*3]*fpair*dx0;
-                                    nrgy_strss[2]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx1;
-                                    nrgy_strss[3]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx2;
-                                    nrgy_strss[4]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx1;
-                                    nrgy_strss[5]-=0.5*atoms->image[(jatm-natms)*3+2]*fpair*dx0;
-                                    nrgy_strss[6]-=0.5*atoms->image[(jatm-natms)*3+1]*fpair*dx0;
+                                    nrgy_strss[1]-=0.5*fpair*dx0*(image[3*jatm]-image[3*iatm]);
+                                    nrgy_strss[2]-=0.5*fpair*dx1*(image[3*jatm+1]-image[3*iatm+1]);
+                                    nrgy_strss[3]-=0.5*fpair*dx2*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[4]-=0.5*fpair*dx1*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[5]-=0.5*fpair*dx0*(image[3*jatm+2]-image[3*iatm+2]);
+                                    nrgy_strss[6]-=0.5*fpair*dx0*(image[3*jatm+1]-image[3*iatm+1]);
                                 }
                             }
                         }
@@ -784,9 +823,7 @@ force_calc_diff(int st_clc,type0* en_st)
     else
     {
         MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-    }
-    
-    
+    }    
 }
 /*--------------------------------------------
  energy calculation
@@ -984,7 +1021,6 @@ type0 ForceField_eam_dmd_hg_0::energy_calc()
     }
     
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
-    
     
     return en_tot;
 }

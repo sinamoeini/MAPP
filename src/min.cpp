@@ -19,6 +19,7 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
     
     chng_box=0;
     dim=atoms->dimension;
+    x_dim=atoms->vectors[0]->dim;
     err=LS_S;
     
     char** args;
@@ -41,13 +42,15 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
     // default values 
     max_iter=10000;
     energy_tolerance=1.0e-8;
-    
+    affine=0;
+
     int dim=atoms->dimension;
     if(dim)
     {
         CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
         ns_alloc=1;
     }
+    CREATE2D(N,dim,dim);
 }
 /*--------------------------------------------
  constructor
@@ -57,6 +60,10 @@ Min::~Min()
     delete thermo;
     if(ns_alloc)
         delete [] nrgy_strss;
+    for(int i=0;i<dim;i++)
+        delete [] N[i];
+    if(dim)
+        delete [] N;
 }
 /*--------------------------------------------
  error messages
@@ -99,18 +106,40 @@ void Min::print_error()
         if(atoms->my_p_no==0)
             fprintf(output,"bracketing failed: maximum alpha reached\n");
     }
-    
+
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Min::rectify_f(type0* f)
+void Min::rectify(type0* a)
 {
-    if(dof_n==-1)
+    if(dof_n==-1 && affine==0)
         return;
-    atoms->vectors[dof_n]->ret(dof);
-    int tot=(atoms->natms)*(atoms->vectors[0]->dim);
-    for(int i=0;i<tot;i++) if(dof[i]==1) f[i]=0.0;
+    else if(dof_n!=-1 && affine==0)
+    {
+        atoms->vectors[dof_n]->ret(dof);
+        for(int i=0;i<atoms->natms*x_dim;i++)
+            if(dof[i]==1) a[i]=0.0;
+    }
+    else if(dof_n==-1 && affine)
+    {
+        for(int i=0;i<atoms->natms;i++)
+            for(int j=0;j<dim;j++)
+                a[i*x_dim+j]=0.0;
+    }
+    else if(dof_n!=-1 && affine)
+    {
+        atoms->vectors[dof_n]->ret(dof);
+        for(int i=0;i<atoms->natms;i++)
+        {
+            for(int j=0;j<dim;j++)
+                a[i*x_dim+j]=0.0;
+            for(int j=dim;j<x_dim;j++)
+                if(dof[i*x_dim+j]==1) a[i*x_dim+j]=0.0;
+        }
+
+    }
+
 }
 /*--------------------------------------------
  
@@ -133,13 +162,13 @@ void Min::reg_h_H(type0** T)
         T[2][0]=nrgy_strss[5];
     if(H_dof[1][0])
         T[1][0]=nrgy_strss[6];
+
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 void Min::init_linesearch()
 {
-    //ls=new LineSearch_goldensection(mapp);
     if(ls==NULL)
     {
         char** arg=NULL;
@@ -156,6 +185,7 @@ void Min::init_linesearch()
     ls->chng_box=chng_box;
     ls->nrgy_strss=nrgy_strss;
     ls->prev_val=-1.0;
+    ls->affine=affine;
 
     if(chng_box)
     {
@@ -163,6 +193,30 @@ void Min::init_linesearch()
         ls->f_H=f_H;
         ls->H_prev=H_prev;
         ls->B_prev=B_prev;
+    }
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Min::prepare_affine_h(type0* x,type0* h)
+{
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+        {
+            N[i][j]=0.0;
+            if(chng_box)
+                for(int k=0;k<dim;k++)
+                    N[i][j]+=B_prev[j][k]*h_H[k][i];
+        }
+    
+    for(int iatm=0;iatm<atoms->natms;iatm++)
+    {
+        for(int j=0;j<dim;j++)
+        {
+            h[iatm*x_dim+j]=0.0;
+            for(int k=0;k<dim;k++)
+                h[iatm*x_dim+j]+=N[j][k]*x[iatm*x_dim+k];
+        }
     }
 }
 

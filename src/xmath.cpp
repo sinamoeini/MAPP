@@ -4,7 +4,7 @@
  --------------------------------------------*/
 #include "xmath.h"
 #include "atoms.h"
-
+#include <limits>
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

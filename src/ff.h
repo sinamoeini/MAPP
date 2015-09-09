@@ -15,6 +15,10 @@ namespace MAPP_NS {
         
     protected:
         type0* nrgy_strss;
+        type0* image;
+        int image_size;
+        void image_calc();
+        
     public:
         ForceField(MAPP *);
         virtual ~ForceField();
