@@ -60,6 +60,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
     
     CREATE1D(y_0,dof_lcl);
+    CREATE1D(y_1,dof_lcl);
     CREATE1D(a,dof_lcl);
     CREATE1D(g,dof_lcl);
     CREATE1D(g0,dof_lcl);
@@ -71,8 +72,8 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     gamma_red=0.5;
     slope=0.4;
     max_iter=50;
-    m_tol=1.0e-9;
-    a_tol=1.0e-6;
+    m_tol=sqrt(numeric_limits<type0>::epsilon());
+    a_tol=sqrt(numeric_limits<type0>::epsilon());
     ls_mode=LS_GS;
     pre_cond=1;
     
@@ -85,6 +86,7 @@ Clock::~Clock()
     if(dof_lcl)
     {
         delete [] y_0;
+        delete [] y_1;
         delete [] a;
         delete [] g;
         delete [] g0;
@@ -127,10 +129,17 @@ void Clock::solve_n_err(type0& cost,type0& err)
     int iter,line_search_succ;
     prev_val=-1.0;
     
-    if(pre_cond)
+    if(pre_cond==1)
     {
         /* beginning of pre-conditioning */
         memcpy(c,y_0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
+        /* end of pre-conditioning */
+    }
+    else if(pre_cond==2)
+    {
+        /* beginning of pre-conditioning */
+        memcpy(c,y_1,dof_lcl*sizeof(type0));
         atoms->update_ph(c_n);
         /* end of pre-conditioning */
     }

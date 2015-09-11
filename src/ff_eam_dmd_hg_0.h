@@ -90,6 +90,9 @@ namespace MAPP_NS
         
         void force_calc_diff(int,type0*);
         void force_calc_ndiff(int,type0*);
+        
+        type0 c_dd_norm_crd();
+        type0 c_dd_norm_ncrd();
     public:
         ForceField_eam_dmd_hg_0(MAPP *);
         ~ForceField_eam_dmd_hg_0();
@@ -101,6 +104,7 @@ namespace MAPP_NS
         
         void create_2nd_neigh_lst();
         type0 g_calc(int,type0,type0*,type0*,type0*);
+        type0 c_dd_norm();
         void c_d_calc(int,type0*);
     };
     

@@ -2693,6 +2693,16 @@ void ForceField_eam_dmd_hg_0::c_d_calc(int chk,type0* en_st)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::c_dd_norm()
+{
+    if(CRD_ENBL)
+        return c_dd_norm_crd();
+    else
+        return c_dd_norm_ncrd();
+}
+/*--------------------------------------------
+ claculate F and dF and dFF
+ --------------------------------------------*/
 void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
 {
     
@@ -3313,7 +3323,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
                         
                         if (chk)
                         {
-                            fpair=-(drho_phi_dr[istart+type2phi_pair_ij[jtype][itype]]*dE[icomp+itype]
+                            fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
                                     +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
                                     +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
                             *c[icomp+itype]*c[jcomp+jtype]*r_inv;
@@ -4071,3 +4081,694 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
     return ans;
     
 }
+/*--------------------------------------------
+ calculate norm of d^2c/dt^2
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::c_dd_norm_crd()
+{
+    type0* x;
+    atoms->vectors[x_n]->ret(x);
+    type0* dE;
+    atoms->vectors[dE_n]->ret(dE);
+    type0* ddE;
+    atoms->vectors[E_n]->ret(ddE);
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0* s;
+    atoms->vectors[s_n]->ret(s);
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
+    type0* crd;
+    atoms->vectors[crd_n]->ret(crd);
+    type0* t;
+    atoms->vectors[t_n]->ret(t);
+    
+    type0 fi,fj,exp_fi,exp_fj,norm_lcl,norm;
+    type0 p,p2,p3,p4,tmp0,tmp1,tmp2,s_ij,crdi,crdj,w_ij,w_ji,c_iv,c_jv;
+    type0* coef;
+    int m;
+    int iatm,jatm;
+    int icomp,jcomp,istart;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    
+    int natms=atoms->natms;
+    
+    
+    for(int i=0;i<natms*no_types;i++)
+        mu[i]=s[i]=0.0;
+    
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        crd[iatm+itype]+=c[jcomp+jtype];
+                        mu[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                        
+                        if(jatm<natms)
+                        {
+                            crd[jatm+jtype]+=c[icomp+itype];
+                            mu[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        }
+                    }
+                }
+            }
+            
+            istart+=stride;
+            
+        }
+        
+        for(int itype=0;itype<no_types; itype++)
+        {
+            if(c[icomp+itype]>=0.0)
+            {
+                p=mu[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nrho-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                tmp2=(12.0*coef[4]*p2+6.0*coef[3]*p+2.0*coef[2])*drho_inv*drho_inv;
+                
+                if(mu[iatm*no_types+itype]>rho_max)
+                {
+                    tmp0+=tmp1*(mu[icomp+itype]-rho_max);
+                    tmp2=0.0;
+                }
+                
+                mu[icomp+itype]=tmp0+c_0[itype]-3.0*kbT*log(x[(3+no_types)*iatm+3+itype]);
+                dE[icomp+itype]=tmp1;
+                ddE[icomp+itype]=tmp2;
+            }
+        }
+    }
+    
+    atoms->update_ph(dE_n);
+    
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                            +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                        
+                        if(jatm<natms)
+                            mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+
+                    }
+                }
+            }
+            istart+=stride;
+        }
+    }
+    
+    atoms->update_ph(mu_n);
+    atoms->update_ph(crd_n);
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    crdi=crd[icomp+itype];
+                    crdj=crd[jcomp+itype];
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    
+                    exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                    exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    
+                    s[icomp+itype]+=s_ij;
+                    if(jatm<natms)
+                    {
+                        s[jcomp+itype]-=s_ij;
+                    }
+                }
+            }
+        }
+    }
+
+    atoms->update_ph(s_n);
+    
+    for(int i=0;i<2*natms*no_types;i++)
+        t[i]=0.0;
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        
+                        t[2*(icomp+itype)]+=rho_phi[istart+type2rho_pair_ji[jtype][itype]]*s[jcomp+jtype];
+                        t[2*(icomp+itype)+1]+=s[jcomp+jtype];
+
+                        if(jatm<natms)
+                        {
+                            t[2*(jcomp+jtype)]+=rho_phi[istart+type2rho_pair_ij[itype][jtype]]*s[icomp+itype];
+                            t[2*(jcomp+jtype)+1]+=s[icomp+itype];
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                t[2*(icomp+itype)]*=c[icomp+itype]*ddE[icomp+itype];
+    }
+    
+    atoms->update_ph(t_n);
+    
+    
+    for(int i=0;i<natms*no_types;i++)
+        ddE[i]=0.0;
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        
+                         tmp0=rho_phi[istart+type2phi_pair_ij[itype][jtype]]
+                         +rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                         +rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype];
+
+                        ddE[icomp+itype]+=tmp0*s[jcomp+jtype]+t[2*(jcomp+jtype)]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        
+                        if(jatm<natms)
+                        {
+                            ddE[jcomp+jtype]+=tmp0*s[icomp+itype]+t[2*(icomp+itype)]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+    }
+    atoms->update_ph(E_n);
+    
+    
+    for(int i=0;i<natms*no_types;i++)
+        dE[i]=0.0;
+    
+    norm_lcl=0.0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    crdi=crd[icomp+itype];
+                    crdj=crd[jcomp+itype];
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    
+                    exp_fi=exp(beta*(fi-mat(fi,crdi,fj,crdj,itype)));
+                    exp_fj=exp(beta*(fj-mat(fi,crdi,fj,crdj,itype)));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    
+                    tmp0=(s[jcomp+itype]*c[icomp+itype]-s[icomp+itype]*c_jv)*exp_fi
+                    -(s[icomp+itype]*c[jcomp+itype]-s[jcomp+itype]*c_iv)*exp_fj;
+                    
+                    tmp0+=beta*(ddE[icomp+itype]*w_ij-ddE[jcomp+itype]*w_ji);
+                    
+                    tmp0+=-beta*(w_ij-w_ji)*(t[2*(icomp+itype)+1]*dmat1(fi,crdi,fj,crdj,itype)
+                    +t[2*(jcomp+itype)+1]*dmat1(fj,crdj,fi,crdi,itype)
+                    +ddE[icomp+itype]*dmat0(fi,crdi,fj,crdj,itype)
+                    +ddE[jcomp+itype]*dmat0(fj,crdj,fi,crdi,itype));
+                    
+                    
+                    dE[icomp+itype]+=tmp0;
+                    if(jatm<natms)
+                    {
+                        dE[jcomp+itype]-=tmp0;
+                    }
+                }
+            }
+        }
+        
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                norm_lcl+=dE[icomp+itype]*dE[icomp+itype];
+    }
+    
+    MPI_Allreduce(&norm_lcl,&tmp0,1,MPI_TYPE0,MPI_SUM,world);
+    norm=sqrt(tmp0);
+    
+    return norm;
+    
+}
+/*--------------------------------------------
+ calculate norm of d^2c/dt^2
+ --------------------------------------------*/
+type0 ForceField_eam_dmd_hg_0::c_dd_norm_ncrd()
+{
+    type0* x;
+    atoms->vectors[x_n]->ret(x);
+    type0* dE;
+    atoms->vectors[dE_n]->ret(dE);
+    type0* ddE;
+    atoms->vectors[E_n]->ret(ddE);
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    type0* s;
+    atoms->vectors[s_n]->ret(s);
+    type0* mu;
+    atoms->vectors[mu_n]->ret(mu);
+    type0* t;
+    atoms->vectors[t_n]->ret(t);
+    
+    type0 fi,fj,exp_fi,exp_fj,norm_lcl,norm;
+    type0 p,p2,p3,p4,tmp0,tmp1,tmp2,s_ij,w_ij,w_ji,c_iv,c_jv;
+    type0* coef;
+    int m;
+    int iatm,jatm;
+    int icomp,jcomp,istart;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    
+    int natms=atoms->natms;
+    
+    
+    for(int i=0;i<natms*no_types;i++)
+        mu[i]=s[i]=0.0;
+    
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        mu[icomp+itype]+=c[jcomp+jtype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                        
+                        if(jatm<natms)
+                        {
+                            mu[jcomp+jtype]+=c[icomp+itype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        }
+                    }
+                }
+            }
+            
+            istart+=stride;
+            
+        }
+        
+        for(int itype=0;itype<no_types; itype++)
+        {
+            if(c[icomp+itype]>=0.0)
+            {
+                p=mu[iatm*no_types+itype]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nrho-2);
+                p-=m;
+                p=MIN(p,1.0);
+                p2=p*p;
+                p3=p2*p;
+                p4=p3*p;
+                coef=F_arr[itype][m];
+                
+                
+                tmp0=coef[4]*p4+coef[3]*p3+coef[2]*p2+coef[1]*p+coef[0];
+                tmp1=(4.0*coef[4]*p3+3.0*coef[3]*p2+2.0*coef[2]*p+coef[1])*drho_inv;
+                tmp2=(12.0*coef[4]*p2+6.0*coef[3]*p+2.0*coef[2])*drho_inv*drho_inv;
+                
+                if(mu[iatm*no_types+itype]>rho_max)
+                {
+                    tmp0+=tmp1*(mu[icomp+itype]-rho_max);
+                    tmp2=0.0;
+                }
+                
+                mu[icomp+itype]=tmp0+c_0[itype]-3.0*kbT*log(x[(3+no_types)*iatm+3+itype]);
+                dE[icomp+itype]=tmp1;
+                ddE[icomp+itype]=tmp2;
+            }
+        }
+    }
+    
+    atoms->update_ph(dE_n);
+    
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        mu[icomp+itype]+=c[jcomp+jtype]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype]
+                                +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
+                        
+                        if(jatm<natms)
+                            mu[jcomp+jtype]+=c[icomp+itype]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                                +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
+                        
+                    }
+                }
+            }
+            istart+=stride;
+        }
+    }
+    
+    atoms->update_ph(mu_n);
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    
+                    exp_fi=exp(beta*(fi-mat(fi,0,fj,0,itype)));
+                    exp_fj=exp(beta*(fj-mat(fi,0,fj,0,itype)));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    
+                    s[icomp+itype]+=s_ij;
+                    if(jatm<natms)
+                    {
+                        s[jcomp+itype]-=s_ij;
+                    }
+                }
+            }
+        }
+    }
+    
+    atoms->update_ph(s_n);
+    
+    for(int i=0;i<natms*no_types;i++)
+        t[i]=0.0;
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        
+                        t[icomp+itype]+=rho_phi[istart+type2rho_pair_ji[jtype][itype]]*s[jcomp+jtype];
+                        
+                        if(jatm<natms)
+                        {
+                            t[jcomp+jtype]+=rho_phi[istart+type2rho_pair_ij[itype][jtype]]*s[icomp+itype];
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                t[icomp+itype]*=c[icomp+itype]*ddE[icomp+itype];
+    }
+    
+    atoms->update_ph(t_n);
+    
+    
+    for(int i=0;i<natms*no_types;i++)
+        ddE[i]=0.0;
+    
+    istart=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jcomp=no_types*jatm;
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                for(int jtype=0;jtype<no_types;jtype++)
+                {
+                    if(c[icomp+itype]>=0.0 && c[jcomp+jtype]>=0.0)
+                    {
+                        
+                        tmp0=rho_phi[istart+type2phi_pair_ij[itype][jtype]]
+                        +rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[icomp+itype]
+                        +rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jcomp+jtype];
+                        
+                        ddE[icomp+itype]+=tmp0*s[jcomp+jtype]+t[jcomp+jtype]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        
+                        if(jatm<natms)
+                        {
+                            ddE[jcomp+jtype]+=tmp0*s[icomp+itype]+t[icomp+itype]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                            
+                        }
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+    }
+    atoms->update_ph(E_n);
+    
+    
+    for(int i=0;i<natms*no_types;i++)
+        dE[i]=0.0;
+    
+    norm_lcl=0.0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        icomp=no_types*iatm;
+        
+        c_iv=1.0;
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                c_iv-=c[icomp+itype];
+        
+        for(int j=0;j<neigh_lst_sz[iatm];j++)
+        {
+            jatm=neigh_lst[iatm][j];
+            jcomp=no_types*jatm;
+            
+            c_jv=1.0;
+            for(int itype=0;itype<no_types;itype++)
+                if(c[jcomp+itype]>=0.0)
+                    c_jv-=c[jcomp+itype];
+            
+            for(int itype=0;itype<no_types;itype++)
+            {
+                if(c[icomp+itype]>=0.0 && c[jcomp+itype]>=0.0)
+                {
+
+                    fi=mu[icomp+itype];
+                    fj=mu[jcomp+itype];
+                    
+                    
+                    exp_fi=exp(beta*(fi-mat(fi,0,fj,0,itype)));
+                    exp_fj=exp(beta*(fj-mat(fi,0,fj,0,itype)));
+                    w_ij=-c[icomp+itype]*c_jv*exp_fi;
+                    w_ji=-c[jcomp+itype]*c_iv*exp_fj;
+                    
+                    s_ij=w_ij-w_ji;
+                    
+                    
+                    tmp0=(s[jcomp+itype]*c[icomp+itype]-s[icomp+itype]*c_jv)*exp_fi
+                    -(s[icomp+itype]*c[jcomp+itype]-s[jcomp+itype]*c_iv)*exp_fj;
+                    
+                    tmp0+=beta*(ddE[icomp+itype]*w_ij-ddE[jcomp+itype]*w_ji);
+                    
+                    tmp0+=-beta*(w_ij-w_ji)*(
+                    +ddE[icomp+itype]*dmat0(fi,0,fj,0,itype)
+                    +ddE[jcomp+itype]*dmat0(fj,0,fi,0,itype));
+                    
+                    
+                    dE[icomp+itype]+=tmp0;
+                    if(jatm<natms)
+                    {
+                        dE[jcomp+itype]-=tmp0;
+                    }
+                }
+            }
+        }
+        
+        for(int itype=0;itype<no_types;itype++)
+            if(c[icomp+itype]>=0.0)
+                norm_lcl+=dE[icomp+itype]*dE[icomp+itype];
+    }
+    
+    MPI_Allreduce(&norm_lcl,&tmp0,1,MPI_TYPE0,MPI_SUM,world);
+    norm=sqrt(tmp0);
+    
+    return norm;
+    
+}
+
+
+
+

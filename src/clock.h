@@ -33,10 +33,12 @@ namespace MAPP_NS {
         type0 beta;
         type0* a;
         type0* y_0;
+        type0* y_1;
         type0* g;
         type0* h;
         type0* g0;
         type0* c0;
+        
         
         // parameters for implicit integrator
         type0 a_tol,err_prefac;

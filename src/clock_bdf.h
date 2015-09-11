@@ -11,7 +11,7 @@ namespace MAPP_NS {
     protected:
         // inputs by user
         int max_step,max_order;
-        type0 min_del_t,max_del_t,initial_del_t,max_t;
+        type0 min_del_t,initial_del_t,max_t;
 
         
         // stuff for book keeping
@@ -36,7 +36,8 @@ namespace MAPP_NS {
         
         int old_comm_mode;
         type0 old_skin;
-        
+        inline void fail_stp_adj(type0,type0&,int&);
+        inline void init_stp_adj(type0&);        
     public:
         Clock_bdf(MAPP *,int,char**);
         ~Clock_bdf();

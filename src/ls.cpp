@@ -228,7 +228,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
     type0 u,fu,r,q,ulim;
     int uphill_iter=4,iter;
 
-    b=MIN(1.e-2*max_a,-epsilon_3_4/dfa);
+    b=MIN(1.0e-2*max_a,-epsilon_3_4/dfa);
     
     r=u=b;
     b=0.0;

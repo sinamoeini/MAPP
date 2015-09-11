@@ -11,7 +11,7 @@ namespace MAPP_NS {
     protected:
         // inputs by user
         int max_step,max_order;
-        type0 min_del_t,max_del_t,initial_del_t,max_t;
+        type0 min_del_t,initial_del_t,max_t;
         
 
         // stuff for book keeping
@@ -38,10 +38,10 @@ namespace MAPP_NS {
         int old_comm_mode;
         type0 old_skin;
         
-        
-        
         type0** xi;
-        type0** wi;        
+        type0** wi;
+        inline void fail_stp_adj(type0,type0&,int&);
+        inline void init_stp_adj(type0&);
     public:
         Clock_adams(MAPP *,int,char**);
         ~Clock_adams();

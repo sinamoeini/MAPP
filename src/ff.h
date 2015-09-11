@@ -36,6 +36,7 @@ namespace MAPP_NS {
         virtual void create_2nd_neigh_lst()=0;
         virtual type0 g_calc(int,type0,type0*,type0*,type0*)=0;
         virtual void c_d_calc(int,type0*)=0;
+        virtual type0 c_dd_norm()=0;
         
         void force_calc_timer(int,type0*);
         type0 energy_calc_timer();

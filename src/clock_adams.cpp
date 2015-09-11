@@ -13,8 +13,7 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
 {
     
     max_order=12;
-    min_del_t=1.0e-12;
-    max_del_t=1.0e4;
+    min_del_t=numeric_limits<type0>::epsilon();
     initial_del_t=-1.0;
     max_t=1.0e7;
     
@@ -80,12 +79,6 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
                 min_del_t=atof(arg[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"max_del_t")==0)
-            {
-                iarg++;
-                max_del_t=atof(arg[iarg]);
-                iarg++;
-            }
             else if(strcmp(arg[iarg],"initial_del_t")==0)
             {
                 iarg++;
@@ -123,8 +116,6 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
         error->abort("a_tol in clock bdf should be greater than 0.0");
     if(min_del_t<=0.0)
         error->abort("min_del_t in clock bdf should be greater than 0.0");
-    if(max_del_t<=0.0)
-        error->abort("max_del_t in clock bdf should be greater than 0.0");
     if(max_t<=0.0)
         error->abort("max_t in clock bdf should be greater than 0.0");
     
@@ -133,10 +124,6 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
         error->abort("max_t in clock bdf should be greater than initial_del_t");
     if(min_del_t>max_t)
         error->abort("max_t in clock bdf should be greater than min_del_t");
-    if(max_del_t>max_t)
-        error->abort("max_t in clock bdf should be greater than max_del_t");
-    if(min_del_t>=max_del_t)
-        error->abort("max_del_t in clock bdf should be greater than min_del_t");
     
     
     CREATE1D(y_0,dof_lcl);
@@ -328,30 +315,53 @@ void Clock_adams::ord_dt(type0& del_t,int& q
 {
     type0* c;
     atoms->vectors[c_n]->ret(c);
-    type0 lo_ratio,hi_ratio,ratio;
+    type0 lo_r,hi_r,r;
 
-    ratio=pow(0.5/err,1.0/static_cast<type0>(q+1));
-    ratio_calc(q,del_t,lo_ratio,hi_ratio);
+    r=pow(0.5/err,1.0/static_cast<type0>(q+1));
+    ratio_calc(q,del_t,lo_r,hi_r);
     
-    if(hi_ratio>lo_ratio && hi_ratio>ratio)
+    if(hi_r>lo_r && hi_r>r)
     {
         q++;
-        ratio=hi_ratio;
+        r=hi_r;
     }
-    else if(lo_ratio>hi_ratio && lo_ratio>ratio)
+    else if(lo_r>hi_r && lo_r>r)
     {
         q--;
-        ratio=lo_ratio;
+        r=lo_r;
     }
     
-    if(ratio>=2.0)
-        ratio=2.0;
-    else if(ratio<=0.5)
-        ratio=0.5;
+    if(r>=2.0)
+        r=2.0;
+    else if(r<=0.5)
+        r=0.5;
     else
-        ratio=1.0;
+        r=1.0;
     
-    del_t=MAX(min_del_t,MIN(ratio*del_t,MIN(max_t-tot_t,max_del_t)));
+    if(r*del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=2.0*min_del_t;
+        }
+        else
+        {
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+            {
+                del_t*=r;
+            }
+        }
+    }
+        
+    for(int i=0;i<dof_lcl;i++)
+        if(c[i]>=0.0)
+            e_n[i]=c[i]-y_0[i];
 }
 /*--------------------------------------------
  find the new del_t and order
@@ -461,6 +471,7 @@ type0& lo_ratio,type0& hi_ratio)
         hi_err=sqrt(hi_err/static_cast<type0>(dof_tot))/a_tol;
         hi_err*=a0;
         hi_ratio=pow(0.5/hi_err,1.0/static_cast<type0>(q+2));
+        
     }
     
 }
@@ -512,30 +523,21 @@ void Clock_adams::init()
     
     atoms->vectors[c_n]->ret(c);
     atoms->vectors[c_d_n]->ret(c_d);
-    
     rectify(c_d);
+    tot_t=0.0;
+    
     if(initial_del_t<0.0)
     {
-        type0 sum,sum_lcl;
-        sum_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
-            if(c[i]!=-1.0)
-                sum_lcl+=c_d[i]*c_d[i];
-        sum=0.0;
-        MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
-        sum=sqrt(sum/static_cast<type0>(dof_tot));
-        initial_del_t=MAX(a_tol/sum,min_del_t);
-        initial_del_t=MIN(initial_del_t,max_del_t);
-        if(initial_del_t>max_t)
-            initial_del_t=max_t;
+        type0 sum=forcefield->c_dd_norm()/sqrt(static_cast<type0>(dof_tot));
+        initial_del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*max_t);
     }
+    
+    init_stp_adj(initial_del_t);
     
     for(int i=0;i<max_order;i++)
         t[i]=0.0;
     memcpy(y,c,dof_lcl*sizeof(type0));
     memcpy(dy[0],c_d,dof_lcl*sizeof(type0));
-    
-    tot_t=0.0;
 }
 /*--------------------------------------------
  init
@@ -566,8 +568,8 @@ void Clock_adams::run()
     
     type0* tmp_dy;
     
-    type0 del_t=initial_del_t,del_t_tmp,max_err;
-    type0 ratio=1.0,cost,err=0.0;
+    type0 del_t=initial_del_t,del_t_tmp;
+    type0 cost,err=0.0;
     int q=1;
     int err_chk;
     int istep;
@@ -585,31 +587,8 @@ void Clock_adams::run()
             
             if(err<1.0 && cost<1.0)
                 err_chk=0;
-            
             if(err_chk)
-            {
-                if(del_t==min_del_t)
-                {
-                    if (q>1)
-                        q--;
-                    else
-                        error->abort("reached minimum order & del_t (%e)",min_del_t);
-                }
-                else
-                {
-                    max_err=MAX(err,cost);
-                    ratio=pow(0.5/max_err,1.0/static_cast<type0>(q+1));
-                    
-                    if(ratio<=0.5)
-                        ratio=0.5;
-                    
-                    del_t_tmp=del_t*ratio;
-                    if(del_t_tmp<min_del_t)
-                        del_t=min_del_t;
-                    else
-                        del_t=del_t_tmp;
-                }
-            }
+                fail_stp_adj(MAX(cost,err),del_t,q);
         }
         
         tot_t+=del_t;
@@ -642,6 +621,64 @@ void Clock_adams::run()
         
         step_no++;
         istep++;
+    }
+    
+}
+/*--------------------------------------------
+ step addjustment after failure
+ --------------------------------------------*/
+inline void Clock_adams::fail_stp_adj(type0 err,type0& del_t,int& q)
+{
+    if(max_t-tot_t<=2.0*min_del_t)
+    {
+        if(q>1)
+            q--;
+        else
+            error->abort("reached minimum order & del_t (%e)",del_t);
+    }
+    else
+    {
+        if(del_t==min_del_t)
+        {
+            if(q>1)
+                q--;
+            else
+                error->abort("reached minimum order & del_t (%e)",del_t);
+        }
+        else
+        {
+            type0 r=pow(0.5/err,1.0/static_cast<type0>(q+1));
+            r=MAX(r,0.5);
+            
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+                del_t*=r;
+        }
+    }
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+inline void Clock_adams::init_stp_adj(type0& del_t)
+{
+    if(del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=max_t-tot_t;
+        }
+        else
+        {
+            if(del_t<min_del_t)
+                del_t=min_del_t;
+            else if(del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+        }
     }
     
 }

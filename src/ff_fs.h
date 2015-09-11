@@ -48,6 +48,7 @@ namespace MAPP_NS {
 
         void create_2nd_neigh_lst(){};
         type0 g_calc(int,type0,type0*,type0*,type0*){return 0.0;};
+        type0 c_dd_norm(){return 0.0;};
         void c_d_calc(int,type0*){};
     };
 }
