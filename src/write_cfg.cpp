@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "atom_types.h"
 #include "write_cfg.h"
-#define TRESH 0.00005
+#define TRESH 0.005
 using namespace MAPP_NS;
 
 /*--------------------------------------------

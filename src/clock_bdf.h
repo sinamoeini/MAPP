@@ -36,8 +36,10 @@ namespace MAPP_NS {
         
         int old_comm_mode;
         type0 old_skin;
+        void allocate();
+        void deallocate();
         inline void fail_stp_adj(type0,type0&,int&);
-        inline void init_stp_adj(type0&);        
+        inline void init_stp_adj(type0&);
     public:
         Clock_bdf(MAPP *,int,char**);
         ~Clock_bdf();

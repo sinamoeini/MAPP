@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits>
 #include "clock_adams.h"
 #include "ff.h"
 #include "write.h"
@@ -126,17 +127,7 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
         error->abort("max_t in clock bdf should be greater than min_del_t");
     
     
-    CREATE1D(y_0,dof_lcl);
-    CREATE1D(e_n,dof_lcl);
-    CREATE1D(y,dof_lcl);
-    
-    CREATE1D(t,max_order);
-    CREATE1D(dy,max_order);
-    for(int i=0;i<max_order;i++)
-        CREATE1D(dy[i],dof_lcl);
-    
-    CREATE1D(alpha_dy,max_order);
-    CREATE1D(dalpha_dy,max_order);
+
     
     int n=1+max_order/2;
     CREATE1D(xi,n);
@@ -166,6 +157,57 @@ Clock_adams::Clock_adams(MAPP* mapp,int narg
  --------------------------------------------*/
 Clock_adams::~Clock_adams()
 {
+
+    int n=1+max_order/2;
+    for(int i=0;i<n;i++)
+    {
+        delete [] xi[i];
+        delete [] wi[i];
+    }
+    if(n)
+    {
+        delete [] xi;
+        delete [] wi;
+    }
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void Clock_adams::allocate()
+{
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    
+    int c_dim=atoms->vectors[c_n]->dim;
+    dof_lcl=atoms->natms*c_dim;
+    
+    int tmp_dof=dof_lcl;
+    for(int idof=0;idof<dof_lcl;idof++)
+        if(c[idof]<0)
+            tmp_dof--;
+    
+    MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
+    
+    CREATE1D(y_0,dof_lcl);
+    CREATE1D(e_n,dof_lcl);
+    CREATE1D(y,dof_lcl);
+    
+    CREATE1D(t,max_order);
+    CREATE1D(dy,max_order);
+    for(int i=0;i<max_order;i++)
+        CREATE1D(dy[i],dof_lcl);
+    
+    CREATE1D(alpha_dy,max_order);
+    CREATE1D(dalpha_dy,max_order);
+    
+
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void Clock_adams::deallocate()
+{
+
     for(int i=0;i<max_order;i++)
         if(dof_lcl)
             delete [] dy[i];
@@ -184,18 +226,19 @@ Clock_adams::~Clock_adams()
         delete [] y;
     }
     
-    int n=1+max_order/2;
-    for(int i=0;i<n;i++)
+    
+    if(dof_lcl)
     {
-        delete [] xi[i];
-        delete [] wi[i];
-    }
-    if(n)
-    {
-        delete [] xi;
-        delete [] wi;
+        delete [] y_0;
+        delete [] y_1;
+        delete [] a;
+        delete [] g;
+        delete [] g0;
+        delete [] c0;
+        delete [] h;
     }
 }
+
 /*--------------------------------------------
  init
  --------------------------------------------*/
@@ -506,7 +549,7 @@ void Clock_adams::init()
     
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
-    
+    allocate();
     
     forcefield->create_2nd_neigh_lst_timer();
     forcefield->force_calc_timer(1,nrgy_strss);
@@ -548,6 +591,7 @@ void Clock_adams::fin()
     if(write!=NULL)
         write->fin();
     thermo->fin();
+    deallocate();
     atoms->fin();
     delete vecs_comm;
     

@@ -121,7 +121,6 @@ void Min_cg::init()
     f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
     h_n=atoms->add<type0>(0,x_dim,"h");
     /* end of adding of the new atomic vectors for this min scheme */
-
     
     /* begining of creating the new VecLst */
     if(dof_n<0)
@@ -147,7 +146,6 @@ void Min_cg::init()
      initiate the run
      */
     atoms->init(vecs_comm);
-
 
     /*
      do the first force calculatation for 
@@ -380,6 +378,7 @@ void Min_cg::run()
  --------------------------------------------*/
 void Min_cg::fin()
 {
+    
     if(write!=NULL)
         write->fin();
     thermo->fin();

@@ -40,6 +40,8 @@ namespace MAPP_NS {
         
         type0** xi;
         type0** wi;
+        void allocate();
+        void deallocate();
         inline void fail_stp_adj(type0,type0&,int&);
         inline void init_stp_adj(type0&);
     public:

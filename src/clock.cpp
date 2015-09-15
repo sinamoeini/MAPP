@@ -46,26 +46,6 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     c_n=atoms->find("c");
     c_d_n=atoms->find("c_d");
     
-    int c_dim=atoms->vectors[c_n]->dim;
-    dof_lcl=atoms->natms*c_dim;
-    
-    int* c;
-    atoms->vectors[c_n]->ret(c);
-    
-    int tmp_dof=dof_lcl;
-    for(int idof=0;idof<dof_lcl;idof++)
-        if(c[idof]<0)
-            tmp_dof--;
-    
-    MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
-    
-    CREATE1D(y_0,dof_lcl);
-    CREATE1D(y_1,dof_lcl);
-    CREATE1D(a,dof_lcl);
-    CREATE1D(g,dof_lcl);
-    CREATE1D(g0,dof_lcl);
-    CREATE1D(c0,dof_lcl);
-    CREATE1D(h,dof_lcl);
     
     //defaults for solver
     min_gamma=0.0;
@@ -74,7 +54,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     max_iter=50;
     m_tol=sqrt(numeric_limits<type0>::epsilon());
     a_tol=sqrt(numeric_limits<type0>::epsilon());
-    ls_mode=LS_GS;
+    ls_mode=LS_BT;
     pre_cond=1;
     
 }
@@ -83,21 +63,10 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
  --------------------------------------------*/
 Clock::~Clock()
 {
-    if(dof_lcl)
-    {
-        delete [] y_0;
-        delete [] y_1;
-        delete [] a;
-        delete [] g;
-        delete [] g0;
-        delete [] c0;
-        delete [] h;
-    }
     delete thermo;
     if(ns_alloc)
         delete [] nrgy_strss;
 }
-
 /*--------------------------------------------
  rectify
  --------------------------------------------*/
@@ -172,11 +141,15 @@ void Clock::solve_n_err(type0& cost,type0& err)
         
         
         /* do the line search here */
+        
         gamma=0.0;
+        //test(gamma,curr_cost,-g_h);
         if(ls_mode==LS_GS)
             line_search_succ=line_search_gs(gamma,curr_cost,g_h);
         else if(ls_mode==LS_BT)
             line_search_succ=line_search_bt(gamma,curr_cost,g_h);
+        else if(ls_mode==LS_BRENT)
+            line_search_succ=line_search_brent(gamma,curr_cost,g_h);
 
         /* after a successful line search */
         if(curr_cost<=m_tol*static_cast<type0>(dof_tot)
@@ -247,7 +220,7 @@ void Clock::solve_n_err(type0& cost,type0& err)
     err=sqrt(err/static_cast<type0>(dof_tot))/a_tol;
     err*=err_prefac;
 
-    
+
     cost=curr_cost/(m_tol*static_cast<type0>(dof_tot));
     
 }
@@ -273,17 +246,20 @@ inline type0 Clock::cost_func(type0 gamma)
 int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 h_norm_lcl,h_norm;
-    type0 a,max_a;
+    type0 max_a_lcl,max_a;
     type0 a1,fa1,a2,fa2;
     type0 r,q,ulim,u,fu;
     type0 tol,x0,x1,x2,x3,f1,f2;
     int calc;
-    
+    int max_iter_ls;
+
+    max_iter_ls=20;
     calc=0;
     a2=0.0;
+
     
     /* beginning of finding the maximum gamma */
-    a=numeric_limits<type0>::infinity();
+    max_a_lcl=numeric_limits<type0>::infinity();
     h_norm_lcl=0.0;
     for(int i=0;i<dof_lcl;i++)
     {
@@ -291,13 +267,13 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
         {
             h_norm_lcl+=h[i]*h[i];
             if(h[i]>0.0)
-                a=MIN((1.0-c0[i])/h[i],a);
+                max_a_lcl=MIN((1.0-c0[i])/h[i],max_a_lcl);
             else if(h[i]<0.0)
-                a=MIN((0.0-c0[i])/h[i],a);
+                max_a_lcl=MIN((0.0-c0[i])/h[i],max_a_lcl);
         }
     }
     
-    MPI_Allreduce(&a,&max_a,1,MPI_TYPE0,MPI_MIN,world);
+    MPI_Allreduce(&max_a_lcl,&max_a,1,MPI_TYPE0,MPI_MIN,world);
     MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
     max_a*=0.999;
 
@@ -438,7 +414,7 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
     
     tol=sqrt(2.0*epsilon);
 
-    while(fabs(x3-x0)>tol*(fabs(x1)+fabs(x2)) && x3-x0>epsilon)
+    while(fabs(x3-x0)>tol*(fabs(x1)+fabs(x2)) && x3-x0>epsilon && max_iter_ls)
     {
         if(f2<f1)
         {
@@ -459,6 +435,8 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
             f1=cost_func(x1);
             calc=1;
         }
+        
+        max_iter_ls--;
     }
     
     /* end of golden section */
@@ -478,6 +456,291 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
         a0=x2;
     }
 
+    return 1;
+}
+/*--------------------------------------------
+ given the direction h do the lin seach
+ --------------------------------------------*/
+int Clock::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
+{
+    type0 h_norm_lcl,h_norm;
+    type0 max_a_lcl,max_a;
+    type0 a1,fa1,a2,fa2;
+    type0 r,q,ulim,u,fu;
+    type0 tol;
+    type0 ax,bx,cx,p;
+    type0 x,w,v,fx,fw,fv,xm,tol1,tol2,zeps,e,etemp,d,cgold;
+    int max_iter_ls;
+    int calc;
+    
+    zeps=tol=epsilon;
+    cgold=0.38196601;
+    max_iter_ls=20;
+    e=0.0;
+    d=0.0;
+    calc=0;
+    a2=0.0;
+    
+    /* beginning of finding the maximum gamma */
+    max_a_lcl=numeric_limits<type0>::infinity();
+    h_norm_lcl=0.0;
+    for(int i=0;i<dof_lcl;i++)
+    {
+        if(c0[i]>=0.0)
+        {
+            h_norm_lcl+=h[i]*h[i];
+            if(h[i]>0.0)
+                max_a_lcl=MIN((1.0-c0[i])/h[i],max_a_lcl);
+            else if(h[i]<0.0)
+                max_a_lcl=MIN((0.0-c0[i])/h[i],max_a_lcl);
+        }
+    }
+    
+    MPI_Allreduce(&max_a_lcl,&max_a,1,MPI_TYPE0,MPI_MIN,world);
+    MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
+    max_a*=0.999;
+    
+    if(max_a<epsilon)
+    {
+        type0* c;
+        atoms->vectors[c_n]->ret(c);
+        memcpy(c,c0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
+        return 0;
+    }
+    /* end of finding the maximum gamma */
+    
+    /* beginning of bracketing minimum */
+    a0=0.0;
+    a1=epsilon/sqrt(h_norm);
+    if(a1>max_a)
+        a1=max_a*epsilon;
+    
+    fa1=fa0;
+    u=r=a1;
+    while(fa1==fa0 && u<max_a)
+    {
+        a1=u;
+        fa1=cost_func(a1);
+        u+=r;
+    }
+    
+    if(fa1>fa0)
+    {
+        type0* c;
+        atoms->vectors[c_n]->ret(c);
+        memcpy(c,c0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
+        return 0;
+    }
+    
+    fa2=fa1;
+    while (fa2<=fa1)
+    {
+        a2=a1+golden*(a1-a0);
+        if(a2>max_a)
+        {
+            type0* c;
+            atoms->vectors[c_n]->ret(c);
+            memcpy(c,c0,dof_lcl*sizeof(type0));
+            atoms->update_ph(c_n);
+            return 0;
+        }
+        fa2=cost_func(a2);
+        
+        if(fa2>fa1)
+            continue;
+        ulim=MIN(a1+(golden+2.0)*(a1-a0),max_a);
+        
+        r=(a1-a0)*(fa1-fa2);
+        q=(a1-a2)*(fa1-fa0);
+        
+        u=0.5*a1+(a2*q-a0*r)/(2.0*(q-r));
+        
+        if(a1<u && u<a2)
+        {
+            fu=cost_func(u);
+            if(fu<fa2)
+            {
+                a0=a1;
+                a1=u;
+                fa0=fa1;
+                fa1=fu;
+            }
+            else if(fu>fa1)
+            {
+                a2=u;
+                fa2=fu;
+            }
+            else
+            {
+                a0=a1;
+                a1=a2;
+                
+                fa0=fa1;
+                fa1=fa2;
+            }
+            
+        }
+        else if (a2<u)
+        {
+            u=MIN(u,ulim);
+            fu=cost_func(u);
+            
+            a0=a1;
+            a1=a2;
+            a2=u;
+            
+            fa0=fa1;
+            fa1=fa2;
+            fa2=fu;
+            
+        }
+        else
+        {
+            a0=a1;
+            a1=a2;
+            
+            fa0=fa1;
+            fa1=fa2;
+        }
+    }
+    /* end of bracketing minimum */
+    
+    /* beginning of brent */
+    ax=a0;
+    bx=a1;
+    cx=a2;
+    
+    a0=ax;
+    a1=cx;
+    
+    x=w=v=bx;
+    fx=fw=fv=fa1;
+    
+    for(int iter=0;iter<max_iter_ls;iter++)
+    {
+        xm=0.5*(a0+a1);
+        tol1=tol*fabs(x)+zeps;
+        tol2=2.0*tol1;
+        
+        if(fabs(x-xm)<=(tol2-0.5*(a1-a0)))
+        {
+            if(u!=x)
+                cost_func(x);
+            fa0=fx;
+            a0=x;
+            return 1;
+        }
+        
+        if(fabs(e)>tol1)
+        {
+            r=(x-w)*(fx-fv);
+            q=(x-v)*(fx-fw);
+            p=(x-v)*q-(x-w)*r;
+            q=2.0*(q-r);
+            if(q>0.0) p=-p;
+            q=fabs(q);
+            etemp=e;
+            e=d;
+            if(fabs(p)>=fabs(0.5*q*etemp)
+               || p<=q*(a0-x)
+               || p>=q*(a1-x))
+            {
+                if(x>=xm)
+                    e=(a0-x);
+                else
+                    e=a1-x;
+                d=cgold*e;
+            }
+            else
+            {
+                d=p/q;
+                u=x+d;
+                if (u-a0<tol2 || a1-u<tol2)
+                {
+                    if(xm-x>=0.0)
+                        d=fabs(tol1);
+                    else
+                        d=-fabs(tol1);
+                }
+            }
+        }
+        else
+        {
+            if(x>=xm)
+                e=(a0-x);
+            else
+                e=a1-x;
+            
+            d=cgold*e;
+        }
+        
+        if(fabs(d)>=tol1)
+        {
+            u=x+d;
+        }
+        else
+        {
+            if(d>=0.0)
+            {
+                u=x+fabs(tol1);
+            }
+            else
+            {
+                u=x-fabs(tol1);
+            }
+        }
+        
+        fu=cost_func(u);
+        
+        if(fu<=fx)
+        {
+            if(u>=x)
+                a0=x;
+            else
+                a1=x;
+            
+            v=w;
+            w=x;
+            x=u;
+            
+            fv=fw;
+            fw=fx;
+            fx=fu;
+        }
+        else
+        {
+            if(u<x)
+                a0=u;
+            else
+                a1=u;
+            
+            if(fu<=fw
+               || w==x)
+            {
+                v=w;
+                w=u;
+                fv=fw;
+                fw=fu;
+            }
+            else if(fu<=fv
+                    || v==x
+                    || v==w)
+            {
+                v=u;
+                fv=fu;
+            }
+        }
+    }
+    
+    
+    if(u!=x)
+        cost_func(x);
+    fa0=fx;
+    a0=x;
+    
+    /* beginning of brent */
     return 1;
 }
 /*--------------------------------------------
@@ -572,12 +835,13 @@ int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
-/*
 int Clock::test(type0 a0,type0 fa0,type0 dfa0)
 {
     type0 u,a,max_a;
-    int no=1000;
+    int no=100;
     type0 frac;
+    type0* c_d;
+    atoms->vectors[c_d_n]->ret(c_d);
     
     a=numeric_limits<type0>::infinity();
     
@@ -599,21 +863,26 @@ int Clock::test(type0 a0,type0 fa0,type0 dfa0)
     }
     
     MPI_Allreduce(&a,&max_a,1,MPI_TYPE0,MPI_MIN,world);
+    max_a=MIN(max_a,-1.1*fa0/dfa0);
     max_a*=0.999;
     
-    frac=1.0e-2*max_a/static_cast<type0>(no);
-    u=0.0;
-    printf("fa0 %24.22lf dfa0 %24.22lf\n",fa0,dfa0);
-    for(int i=0;i<no;i++)
+    if(max_a>1.0e-9)
     {
-        printf("%24.22lf %24.22lf %24.22lf\n",u,cost_func(u)-fa0,u*dfa0);
-        u+=frac;
+
+        frac=max_a/static_cast<type0>(no);
+        u=0.0;
+        printf("fa0 %24.22lf dfa0 %24.22lf max_a %e\n",fa0,dfa0,max_a);
+        
+        for(int i=0;i<no;i++)
+        {
+            printf("%e %e %e\n",u,cost_func(u)-fa0,u*dfa0);
+            u+=frac;
+        }
+        
+        type0* c;
+        atoms->vectors[c_n]->ret(c);
+        memcpy(c,c0,dof_lcl*sizeof(type0));
+        atoms->update_ph(c_n);
     }
-    
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    memcpy(c,c0,dof_lcl*sizeof(type0));
-    atoms->update_ph(c_n);
-    
     return 0;
-}*/
+}

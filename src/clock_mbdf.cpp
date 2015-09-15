@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits>
 #include "clock_mbdf.h"
 #include "ff.h"
 #include "write.h"
@@ -126,6 +127,45 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
     
     
     
+
+    
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+Clock_mbdf::~Clock_mbdf()
+{
+    
+
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void Clock_mbdf::allocate()
+{
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    
+    int c_dim=atoms->vectors[c_n]->dim;
+    dof_lcl=atoms->natms*c_dim;
+    
+    int tmp_dof=dof_lcl;
+    for(int idof=0;idof<dof_lcl;idof++)
+        if(c[idof]<0)
+            tmp_dof--;
+    
+    MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
+    
+    CREATE1D(y_0,dof_lcl);
+    CREATE1D(y_1,dof_lcl);
+    CREATE1D(a,dof_lcl);
+    CREATE1D(g,dof_lcl);
+    CREATE1D(g0,dof_lcl);
+    CREATE1D(c0,dof_lcl);
+    CREATE1D(h,dof_lcl);
+    
+    
+    
     CREATE1D(dy,dof_lcl);
     
     CREATE1D(t,max_order+1);
@@ -136,12 +176,11 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int narg
         CREATE1D(y[i],dof_lcl);
     
     CREATE1D(alph_err,max_order+2);
-    
 }
 /*--------------------------------------------
- destructor
+ init
  --------------------------------------------*/
-Clock_mbdf::~Clock_mbdf()
+void Clock_mbdf::deallocate()
 {
     
     for(int i=0;i<max_order+1;i++)
@@ -158,6 +197,18 @@ Clock_mbdf::~Clock_mbdf()
     if(dof_lcl)
     {
         delete [] dy;
+    }
+    
+    
+    if(dof_lcl)
+    {
+        delete [] y_0;
+        delete [] y_1;
+        delete [] a;
+        delete [] g;
+        delete [] g0;
+        delete [] c0;
+        delete [] h;
     }
 }
 /*--------------------------------------------
@@ -192,6 +243,7 @@ void Clock_mbdf::init()
     
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
+    allocate();
     
     
     forcefield->create_2nd_neigh_lst_timer();
@@ -222,11 +274,11 @@ void Clock_mbdf::init()
         sum=0.0;
         MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
         sum=sqrt(sum/static_cast<type0>(dof_tot));
-        initial_del_t=MIN(0.5*a_tol/sum,1.0e-3*max_t);
+        initial_del_t=MIN(2.0*a_tol/sum,1.0e-3*max_t);
     }
-    
+
     init_stp_adj(initial_del_t);
-    
+    printf("%e\n",initial_del_t);
 
     for(int i=0;i<max_order+1;i++)
         t[i]=0.0;
@@ -247,6 +299,7 @@ void Clock_mbdf::fin()
     if(write!=NULL)
         write->fin();
     thermo->fin();
+    deallocate();
     atoms->fin();
     delete vecs_comm;
     

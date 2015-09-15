@@ -72,7 +72,8 @@ namespace MAPP_NS
         void rho_calc(type0,type0,int,int);
         void phi_calc(type0,type0,int,int);
         /*--------------------------------------------*/
-        type0 r_crd,rsq_crd;
+        type0* rsq_crd;
+        type0 max_rsq_crd;
         int** neigh_lst;
         int* neigh_lst_sz;
         int neigh_lst_sz_sz;

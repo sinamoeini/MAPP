@@ -6,7 +6,8 @@ namespace MAPP_NS {
     enum
     {
         LS_BT,
-        LS_GS
+        LS_GS,
+        LS_BRENT
     };
     
     class Clock : protected InitPtrs
@@ -55,7 +56,8 @@ namespace MAPP_NS {
         inline type0 cost_func(type0);
         int line_search_gs(type0&,type0&,type0);
         int line_search_bt(type0&,type0&,type0);
-        //int test(type0,type0,type0);
+        int line_search_brent(type0&,type0&,type0);
+        int test(type0,type0,type0);
         
         void rectify(type0*);
         void solve_n_err(type0&,type0&);

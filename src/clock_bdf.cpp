@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits>
 #include "clock_bdf.h"
 #include "ff.h"
 #include "write.h"
@@ -10,7 +11,7 @@ using namespace MAPP_NS;
 Clock_bdf::Clock_bdf(MAPP* mapp,int narg
 ,char** arg):Clock(mapp)
 {
-
+    
     max_order=6;
     min_del_t=numeric_limits<type0>::epsilon();
     initial_del_t=-1.0;
@@ -124,6 +125,45 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
     if(min_del_t>max_t)
         error->abort("max_t in clock bdf should be greater than min_del_t");
 
+
+
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+Clock_bdf::~Clock_bdf()
+{
+
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void Clock_bdf::allocate()
+{
+    type0* c;
+    atoms->vectors[c_n]->ret(c);
+    
+    int c_dim=atoms->vectors[c_n]->dim;
+    dof_lcl=atoms->natms*c_dim;
+    
+    int tmp_dof=dof_lcl;
+    for(int idof=0;idof<dof_lcl;idof++)
+        if(c[idof]<0.0)
+        {
+            tmp_dof--;
+        }
+    
+    MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
+    
+    CREATE1D(y_0,dof_lcl);
+    CREATE1D(y_1,dof_lcl);
+    CREATE1D(a,dof_lcl);
+    CREATE1D(g,dof_lcl);
+    CREATE1D(g0,dof_lcl);
+    CREATE1D(c0,dof_lcl);
+    CREATE1D(h,dof_lcl);
+    
+    
     CREATE1D(y_0,dof_lcl);
     CREATE1D(e_n,dof_lcl);
     CREATE1D(dy,dof_lcl);
@@ -135,12 +175,11 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
     
     CREATE1D(alpha_y,max_order);
     CREATE1D(dalpha_y,max_order);
-
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_bdf::~Clock_bdf()
+void Clock_bdf::deallocate()
 {
     for(int i=0;i<max_order;i++)
         if(dof_lcl)
@@ -158,6 +197,18 @@ Clock_bdf::~Clock_bdf()
     {
         delete [] e_n;
         delete [] dy;
+    }
+    
+    
+    if(dof_lcl)
+    {
+        delete [] y_0;
+        delete [] y_1;
+        delete [] a;
+        delete [] g;
+        delete [] g0;
+        delete [] c0;
+        delete [] h;
     }
 }
 /*--------------------------------------------
@@ -418,6 +469,7 @@ void Clock_bdf::init()
     
     vecs_comm->add_update(0);
     atoms->init(vecs_comm);
+    allocate();
     
     
     forcefield->create_2nd_neigh_lst_timer();
@@ -460,6 +512,7 @@ void Clock_bdf::fin()
     if(write!=NULL)
         write->fin();
     thermo->fin();
+    deallocate();
     atoms->fin();
     delete vecs_comm;
     
@@ -493,9 +546,40 @@ void Clock_bdf::run()
         err_chk=1;
         while (err_chk)
         {
+            /*
+            if(1)
+            {
+                int* id;
+                atoms->vectors[atoms->find("id")]->ret(id);
+                type0* ccc;
+                atoms->vectors[atoms->find("c")]->ret(ccc);
+                int dd=atoms->vectors[atoms->find("c")]->dim;
+                
+                for(int i=0;i<atoms->natms;i++)
+                    if(id[i]==2)
+                        printf("c[%d,%d] %73.67e %d %73.67e\n",id[i],1,ccc[i*dd+1],q,del_t);
+            }
+             */
             interpolate(del_t,q);
+            /*
+            if(1)
+            {
+                int* id;
+                atoms->vectors[atoms->find("id")]->ret(id);
+                type0* ccc;
+                atoms->vectors[atoms->find("c")]->ret(ccc);
+                int dd=atoms->vectors[atoms->find("c")]->dim;
+                
+                for(int i=0;i<atoms->natms;i++)
+                    if(id[i]==2)
+                        printf("y[%d,%d] %73.67e index %d\n",id[i],1,y_0[i*dd+1],i*dd+1);
+            }
+             */
             solve_n_err(cost,err);
-            
+            /*
+            if(atoms->my_p_no==0)
+                printf("istep %d err %e  cost %e\n",istep,err,cost);
+             */
             
             if(err<1.0 && cost<1.0)
                 err_chk=0;
