@@ -1,12 +1,12 @@
 #ifdef FF_Style
-    FFStyle(ForceField_eam_dmd_hg_0,eam_dmd_hg_0)
+    FFStyle(ForceField_eam_dmd,eam_dmd)
 #else
 #ifndef __MAPP__ff_eam_dmd_hg_0__
 #define __MAPP__ff_eam_dmd_hg_0__
 #include "ff.h"
 namespace MAPP_NS
 {
-    class ForceField_eam_dmd_hg_0 : public ForceField
+    class ForceField_eam_dmd : public ForceField
     {
     private:
         int no_types;
@@ -95,8 +95,8 @@ namespace MAPP_NS
         type0 c_dd_norm_crd();
         type0 c_dd_norm_ncrd();
     public:
-        ForceField_eam_dmd_hg_0(MAPP *);
-        ~ForceField_eam_dmd_hg_0();
+        ForceField_eam_dmd(MAPP *);
+        ~ForceField_eam_dmd();
         void force_calc(int,type0*);
         type0 energy_calc();
         void init();

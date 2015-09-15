@@ -278,8 +278,7 @@ void Clock_mbdf::init()
     }
 
     init_stp_adj(initial_del_t);
-    printf("%e\n",initial_del_t);
-
+    
     for(int i=0;i<max_order+1;i++)
         t[i]=0.0;
     
@@ -338,9 +337,10 @@ void Clock_mbdf::run()
         err_chk=1;
         while (err_chk)
         {
+
             interpolate(initial_phase,const_stps,del_t,q);
             solve_n_err(cost,err);
-
+            
             if(err<1.0 && cost<1.0)
                 err_chk=0;
             

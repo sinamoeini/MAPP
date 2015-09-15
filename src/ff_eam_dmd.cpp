@@ -1,19 +1,19 @@
 #include <stdlib.h>
-#include "ff_eam_dmd_hg_0.h"
+#include "ff_eam_dmd.h"
 #include "neighbor.h"
 #include "atom_types.h"
 #include "xmath.h"
 using namespace MAPP_NS;
 #define PI_IN_SQ 0.564189583547756286948079451561
 #define CRD_ENBL 0
-#define OLD_NEIGH 0
+#define OLD_NEIGH 1
 #define DIFF_ENBL 1
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ForceField_eam_dmd_hg_0::
-ForceField_eam_dmd_hg_0(MAPP* mapp) : ForceField(mapp)
+ForceField_eam_dmd::
+ForceField_eam_dmd(MAPP* mapp) : ForceField(mapp)
 {
     if(mapp->mode!=DMD_mode)
         error->abort("ff eam_dmd works only "
@@ -51,7 +51,7 @@ ForceField_eam_dmd_hg_0(MAPP* mapp) : ForceField(mapp)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-ForceField_eam_dmd_hg_0::~ForceField_eam_dmd_hg_0()
+ForceField_eam_dmd::~ForceField_eam_dmd()
 {
     if(no_types)
     {
@@ -92,7 +92,7 @@ ForceField_eam_dmd_hg_0::~ForceField_eam_dmd_hg_0()
 /*--------------------------------------------
  force calculation
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::
+void ForceField_eam_dmd::
 force_calc(int st_clc,type0* en_st)
 {
     if(DIFF_ENBL)
@@ -103,7 +103,7 @@ force_calc(int st_clc,type0* en_st)
 /*--------------------------------------------
  force calculation
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::
+void ForceField_eam_dmd::
 force_calc_ndiff(int st_clc,type0* en_st)
 {
     
@@ -468,7 +468,7 @@ force_calc_ndiff(int st_clc,type0* en_st)
 /*--------------------------------------------
  force calculation
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::
+void ForceField_eam_dmd::
 force_calc_diff(int st_clc,type0* en_st)
 {
     
@@ -831,7 +831,7 @@ force_calc_diff(int st_clc,type0* en_st)
 /*--------------------------------------------
  energy calculation
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::energy_calc()
+type0 ForceField_eam_dmd::energy_calc()
 {
     
     type0 en=0.0,en_tot;
@@ -1030,7 +1030,7 @@ type0 ForceField_eam_dmd_hg_0::energy_calc()
 /*--------------------------------------------
  init before running
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::init()
+void ForceField_eam_dmd::init()
 {
     
     for (int i=0;i<no_types*(no_types+1)/2;i++)
@@ -1061,7 +1061,7 @@ void ForceField_eam_dmd_hg_0::init()
 /*--------------------------------------------
  fin after running
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::fin()
+void ForceField_eam_dmd::fin()
 {
     atoms->del(t_n);
     atoms->del(crd_n);
@@ -1088,7 +1088,7 @@ void ForceField_eam_dmd_hg_0::fin()
  mass conversion from amu to eVs^2/A^2:
  1.0364269184093291236e-28
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::coef(int narg,char** arg)
+void ForceField_eam_dmd::coef(int narg,char** arg)
 {
     
     if (narg!=2)
@@ -1101,7 +1101,7 @@ void ForceField_eam_dmd_hg_0::coef(int narg,char** arg)
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::read_file(char* file_name)
+void ForceField_eam_dmd::read_file(char* file_name)
 {
     
     int narg;
@@ -1416,7 +1416,7 @@ void ForceField_eam_dmd_hg_0::read_file(char* file_name)
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
+void ForceField_eam_dmd::set_funcfl(int no_files
 ,char** file_names)
 {
     if(no_files!=no_types)
@@ -1669,7 +1669,7 @@ void ForceField_eam_dmd_hg_0::set_funcfl(int no_files
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::set_setfl(int no_files
+void ForceField_eam_dmd::set_setfl(int no_files
                                         ,char** file_names)
 {
     if(no_files!=1)
@@ -1863,7 +1863,7 @@ void ForceField_eam_dmd_hg_0::set_setfl(int no_files
 /*--------------------------------------------
  read setfiles
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::set_fs(int no_files
+void ForceField_eam_dmd::set_fs(int no_files
 ,char** file_names)
 {
     
@@ -2102,7 +2102,7 @@ void ForceField_eam_dmd_hg_0::set_fs(int no_files
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-int ForceField_eam_dmd_hg_0::read_line(FILE* file
+int ForceField_eam_dmd::read_line(FILE* file
 ,char*& line)
 {
     int lenght;
@@ -2127,7 +2127,7 @@ int ForceField_eam_dmd_hg_0::read_line(FILE* file
 /*--------------------------------------------
  clean up the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::clean_up()
+void ForceField_eam_dmd::clean_up()
 {
     if(allocated==0)
         return;
@@ -2211,7 +2211,7 @@ void ForceField_eam_dmd_hg_0::clean_up()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::allocate()
+void ForceField_eam_dmd::allocate()
 {
     int no_types=atom_types->no_types;
     
@@ -2329,7 +2329,7 @@ void ForceField_eam_dmd_hg_0::allocate()
 /*--------------------------------------------
  set the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::set_arrays()
+void ForceField_eam_dmd::set_arrays()
 {
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
     {
@@ -2360,7 +2360,7 @@ void ForceField_eam_dmd_hg_0::set_arrays()
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::interpolate(int n
+void ForceField_eam_dmd::interpolate(int n
 ,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
@@ -2387,7 +2387,7 @@ void ForceField_eam_dmd_hg_0::interpolate(int n
 /*--------------------------------------------
  interpolate for a single array
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::interpolate(type0* arr
+type0 ForceField_eam_dmd::interpolate(type0* arr
 ,int n,type0 p,int k)
 {
     
@@ -2442,7 +2442,7 @@ type0 ForceField_eam_dmd_hg_0::interpolate(type0* arr
 /*--------------------------------------------
  allocate the arrays
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::interpolate_m(int n
+void ForceField_eam_dmd::interpolate_m(int n
 ,type0 delta,type0** spline)
 {
     spline[0][1]=spline[1][0]-spline[0][0];
@@ -2480,7 +2480,7 @@ void ForceField_eam_dmd_hg_0::interpolate_m(int n
  Gaussian-Hermite quadrature weights and
  abscissas for 1 to 14 points
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::set_weight_abs(int n)
+type0 ForceField_eam_dmd::set_weight_abs(int n)
 {
     
     if(n<1)
@@ -2530,7 +2530,7 @@ type0 ForceField_eam_dmd_hg_0::set_weight_abs(int n)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::create_2nd_neigh_lst()
+void ForceField_eam_dmd::create_2nd_neigh_lst()
 {
     if(OLD_NEIGH)
     {
@@ -2690,7 +2690,7 @@ void ForceField_eam_dmd_hg_0::create_2nd_neigh_lst()
  this fucntion should be symmetric wrt fi &
  fj
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::
+type0 ForceField_eam_dmd::
 mat(type0 fi,type0 crdi,type0 fj,type0 crdj
     ,int itype)
 {
@@ -2722,7 +2722,7 @@ mat(type0 fi,type0 crdi,type0 fj,type0 crdj
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::
+type0 ForceField_eam_dmd::
 dmat0(type0 fi,type0 crdi,type0 fj,type0 crdj
       ,int itype)
 {
@@ -2754,7 +2754,7 @@ dmat0(type0 fi,type0 crdi,type0 fj,type0 crdj
 /*--------------------------------------------
  dmat(fi,fj)/dfi
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::
+type0 ForceField_eam_dmd::
 dmat1(type0 fi,type0 crdi,type0 fj,type0 crdj
 ,int itype)
 {
@@ -2764,7 +2764,7 @@ dmat1(type0 fi,type0 crdi,type0 fj,type0 crdj
 /*--------------------------------------------
  return M_{ij}^{\alpha}
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::calc_ent(type0 x)
+type0 ForceField_eam_dmd::calc_ent(type0 x)
 {
     type0 ans=x*log(x);
     if (isnan(ans))
@@ -2774,7 +2774,7 @@ type0 ForceField_eam_dmd_hg_0::calc_ent(type0 x)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::g_calc(int chk
+type0 ForceField_eam_dmd::g_calc(int chk
 ,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     if(CRD_ENBL)
@@ -2785,7 +2785,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc(int chk
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::c_d_calc(int chk,type0* en_st)
+void ForceField_eam_dmd::c_d_calc(int chk,type0* en_st)
 {
     if(CRD_ENBL)
         return c_d_calc_crd(chk,en_st);
@@ -2795,7 +2795,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc(int chk,type0* en_st)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::c_dd_norm()
+type0 ForceField_eam_dmd::c_dd_norm()
 {
     if(CRD_ENBL)
         return c_dd_norm_crd();
@@ -2805,7 +2805,7 @@ type0 ForceField_eam_dmd_hg_0::c_dd_norm()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
+void ForceField_eam_dmd::c_d_calc_crd(int chk,type0* en_st)
 {
     
     type0* x;
@@ -3081,7 +3081,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_crd(int chk,type0* en_st)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
+void ForceField_eam_dmd::c_d_calc_ncrd(int chk,type0* en_st)
 {
     
     type0* x;
@@ -3355,7 +3355,7 @@ void ForceField_eam_dmd_hg_0::c_d_calc_ncrd(int chk,type0* en_st)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
+type0 ForceField_eam_dmd::g_calc_crd(int chk
 ,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
@@ -3566,6 +3566,8 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
         {
             s[i]=2.0*(c[i]+a[i]);
         }
+        else
+            s[i]=0.0;
     }
     
     if(OLD_NEIGH)
@@ -3904,7 +3906,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_crd(int chk
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
+type0 ForceField_eam_dmd::g_calc_ncrd(int chk
 ,type0 alpha,type0* a,type0* g,type0* en_st)
 {
     type0* x;
@@ -4114,6 +4116,8 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
         {
             s[i]=2.0*(c[i]+a[i]);
         }
+        else
+            s[i]=0.0;
     }
     if(OLD_NEIGH)
     {
@@ -4236,8 +4240,6 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
     if(chk)
         MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
     
-    
-    
     if(chk==0)
         return ans;
     
@@ -4353,7 +4355,8 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
             }
         }
     }
-     
+    
+    
     /*
      beginning of level 5
      */
@@ -4444,7 +4447,7 @@ type0 ForceField_eam_dmd_hg_0::g_calc_ncrd(int chk
 /*--------------------------------------------
  calculate norm of d^2c/dt^2
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::c_dd_norm_crd()
+type0 ForceField_eam_dmd::c_dd_norm_crd()
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);
@@ -4906,7 +4909,7 @@ type0 ForceField_eam_dmd_hg_0::c_dd_norm_crd()
 /*--------------------------------------------
  calculate norm of d^2c/dt^2
  --------------------------------------------*/
-type0 ForceField_eam_dmd_hg_0::c_dd_norm_ncrd()
+type0 ForceField_eam_dmd::c_dd_norm_ncrd()
 {
     type0* x;
     atoms->vectors[x_n]->ret(x);

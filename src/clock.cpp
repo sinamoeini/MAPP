@@ -118,6 +118,9 @@ void Clock::solve_n_err(type0& cost,type0& err)
     curr_cost=forcefield->g_calc_timer(1,beta,a,g,nrgy_strss);
     rectify(g);
     
+
+    
+    
     /* set the first trajectory */
     memcpy(h,g,dof_lcl*sizeof(type0));
     
