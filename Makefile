@@ -1,10 +1,10 @@
 SHELL 	    = /bin/bash
 SRC         = src/
 PROGRAMS    = main
-CC          = mpic++
+CC          = mpic++ 
 OBJ         = obj/
 MAKEFILE    = Makefile
-CFLAGS      = -O3
+CFLAGS      = -std=c++0x -O3
 LIBS        = 
 INCLUDES    = 
         
