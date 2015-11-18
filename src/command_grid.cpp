@@ -1,17 +1,19 @@
 #include <stdlib.h>
 #include "command_grid.h"
 #include "atoms.h"
+#include "error.h"
+#include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_grid::Command_grid(MAPP* mapp,int narg
+Command_grid::Command_grid(MAPP* mapp,int nargs
 ,char** args):InitPtrs(mapp)
 {
     int dimension=atoms->dimension;
-    if(narg!=dimension+1)
+    if(nargs!=dimension+1)
         error->abort("grid command needs "
-        "%d arguements",dimension);
+        "%darguments",dimension);
     
     int* n;
     CREATE1D(n,dimension);
@@ -34,7 +36,8 @@ Command_grid::Command_grid(MAPP* mapp,int narg
         "number of processors should be equal "
         "to the product of arguments");
 
-    atoms->man_grid_proc(n);
+    atoms->man_grid(n);
+
     
     if(dimension)
         delete [] n;

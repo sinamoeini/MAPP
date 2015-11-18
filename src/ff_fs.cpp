@@ -6,6 +6,8 @@
 #include "ff_fs.h"
 #include "neighbor.h"
 #include "atom_types.h"
+#include "error.h"
+#include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
@@ -21,45 +23,16 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 ForceField_fs::
-ForceField_fs(MAPP* mapp) : ForceField(mapp)
+ForceField_fs(MAPP* mapp):ForceFieldMD(mapp)
 {
     if(mapp->mode!=MD_mode)
         error->abort("ff fs works only "
         "for md mode");
     max_pairs=0;
-    
-    int no_types=atom_types->no_types;
-    CREATE2D(mat_t_1,no_types,no_types);
-    CREATE2D(mat_t_2,no_types,no_types);
-    CREATE1D(mat_A,no_types);
-    for(int i=0;i<no_types;i++)
-    {
-        for(int j=0;j<no_types;j++)
-            mat_t_1[i][j]=mat_t_2[i][j]=0.0;
-        mat_A[i]=0.0;
-    }
-        
-    
-    int size=static_cast<int>((no_types+2)*(no_types+1)/2);
-    
+    no_types=0;
     arr_size=0;
-    size=no_types*(no_types+1)/2;
-    GROW(cut_phi,arr_size,size);
-    GROW(cut_rho,arr_size,size);
-    
-    GROW(mat_k_1,arr_size,size);
-    GROW(mat_k_2,arr_size,size);
-    GROW(mat_k_3,arr_size,size);
-    
 
     
-    
-    for(int i=0;i<size;i++)
-        cut_phi[i]=cut_rho[i]
-        =mat_k_1[i]=mat_k_2[i]=mat_k_3[i];
-    
-    
-    arr_size=size;
     
 }
 /*--------------------------------------------
@@ -67,9 +40,9 @@ ForceField_fs(MAPP* mapp) : ForceField(mapp)
  --------------------------------------------*/
 ForceField_fs::~ForceField_fs()
 {
-    if(atom_types->no_types)
+    if(no_types)
     {
-        for(int i=0;i<atom_types->no_types;i++)
+        for(int i=0;i<no_types;i++)
         {
             delete [] mat_t_1[i];
             delete [] mat_t_2[i];
@@ -77,17 +50,16 @@ ForceField_fs::~ForceField_fs()
         
         delete [] mat_t_1;
         delete [] mat_t_2;
-        
         delete [] mat_A;
-        
+    }
+    
+    if(arr_size)
+    {
         delete [] cut_phi;
         delete [] cut_rho;
-        
         delete [] mat_k_1;
         delete [] mat_k_2;
         delete [] mat_k_3;
-        
-
     }
     
 
@@ -95,13 +67,68 @@ ForceField_fs::~ForceField_fs()
 /*--------------------------------------------
  read the force field file 
  --------------------------------------------*/
-void ForceField_fs::coef(int narg,char** arg)
+void ForceField_fs::coef(int nargs,char** args)
 {
-    if (narg!=2)
+    if (nargs!=2)
         error->abort("wrong coeff command "
         "for Finnis-Sinclair Force Field");
     
-    read_file(arg[1]);
+    cut_off_alloc();
+    if(no_types!=atom_types->no_types)
+    {
+        for(int i=0;i<no_types;i++)
+        {
+            delete [] mat_t_1[i];
+            delete [] mat_t_2[i];
+        }
+        
+        if(no_types)
+        {
+            delete [] mat_t_1;
+            delete [] mat_t_2;
+            delete [] mat_A;
+        }
+
+        no_types=atom_types->no_types;
+        CREATE2D(mat_t_1,no_types,no_types);
+        CREATE2D(mat_t_2,no_types,no_types);
+        CREATE1D(mat_A,no_types);
+        for(int i=0;i<no_types;i++)
+        {
+            for(int j=0;j<no_types;j++)
+                mat_t_1[i][j]=mat_t_2[i][j]=0.0;
+            mat_A[i]=0.0;
+        }
+    }
+    
+    if(arr_size!=no_types*(no_types+1)/2)
+    {
+        if(arr_size)
+        {
+            delete [] cut_phi;
+            delete [] cut_rho;
+            delete [] mat_k_1;
+            delete [] mat_k_2;
+            delete [] mat_k_3;
+        }
+
+        
+        arr_size=no_types*(no_types+1)/2;
+        CREATE1D(cut_phi,arr_size);
+        CREATE1D(cut_rho,arr_size);
+        CREATE1D(mat_k_1,arr_size);
+        CREATE1D(mat_k_2,arr_size);
+        CREATE1D(mat_k_3,arr_size);
+        
+        for(int i=0;i<arr_size;i++)
+            cut_phi[i]=cut_rho[i]
+            =mat_k_1[i]=mat_k_2[i]=mat_k_3[i];
+    }
+
+    read_file(args[1]);
+    
+    for(int i=0;i<arr_size;i++)
+        cut_sq[i]=MAX(cut_phi[i]*cut_phi[i],cut_rho[i]*cut_rho[i]);
 }
 /*--------------------------------------------
  initiate before a run
@@ -138,9 +165,9 @@ void ForceField_fs::read_file(char* file_name)
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    int lngth;
     char** args=NULL;
-    int narg;
+    int args_cpcty=0;
+    int nargs;
     int no_types_file;
     
     for(int i=0;i<no_types;i++)
@@ -154,7 +181,7 @@ void ForceField_fs::read_file(char* file_name)
         k1_chk[i]=k2_chk[i]=k3_chk[i]=r_c_phi_chk[i]=r_c_rho_chk[i]=0;
 
 
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
         fp=fopen(file_name,"r");
         if(fp==NULL)
@@ -167,161 +194,151 @@ void ForceField_fs::read_file(char* file_name)
      atomic types in the file
      */
    
-    lngth=read_line(fp,line);
-    narg=0;
-    while(narg==0)
-    {
-
-        if(lngth!=-1)
-            narg=mapp->parse_line(line,args);
-        else
-            error->abort("%s file ended immaturely",file_name);
-        
-        lngth=read_line(fp,line);
-    }
-   
-    if(narg<no_types)
+    nargs=0;
+    while(nargs==0 && mapp->read_line(fp,line) !=-1)
+        nargs=mapp->parse_line(line,args,args_cpcty);
+    
+    if(nargs==0)
+        error->abort("%s file ended immaturely",file_name);
+    
+    if(nargs<no_types)
         error->abort("the number of atoms in %s file"
         " is less than the number of atom types present in the system",file_name);
     
-    no_types_file=narg;
+    no_types_file=nargs;
     
     
 
     CREATE1D(type_ref,no_types);
 
     for(int i=0;i<no_types_file;i++)
-    {
         type_ref[i]=atom_types->find_type_exist(args[i]);
-    }
-    
-    for(int i=0;i<narg;i++)
-        delete [] args[i];
-    if(narg)
+
+    if(args_cpcty)
         delete [] args;
     
     
     //lngth=read_line(fp,line);
     int icmp,jcmp,curs;
     type0 tmp;
-    while(lngth!=-1)
+    while(mapp->read_line(fp,line)!=-1)
     {
-        if(lngth>1)
-        {
-            if(sscanf(line,"A(%d) = %lf",&icmp,&tmp)==2)
-            {
-                if(type_ref[icmp]!=-1)
-                {
-                    A_chk[type_ref[icmp]]=1;
-                    mat_A[type_ref[icmp]]=tmp;
-                }
-            }
-            else if(sscanf(line,"t1(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for t1(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for t1(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    t1_chk[type_ref[icmp]][type_ref[jcmp]]=1;
-                    mat_t_1[type_ref[icmp]][type_ref[jcmp]]=tmp;
-                }
-            }
-            else if(sscanf(line,"t2(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for t2(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for t2(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    t2_chk[type_ref[icmp]][type_ref[jcmp]]=1;
-                    mat_t_2[type_ref[icmp]][type_ref[jcmp]]=tmp;
-                }
-            }
-            else if(sscanf(line,"k1(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for k1(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for k1(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    k1_chk[curs]=1;
-                    mat_k_1[curs]=tmp;
-                }
-            }
-            else if(sscanf(line,"k2(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for k2(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for k2(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    k2_chk[curs]=1;
-                    mat_k_2[curs]=tmp;
-                }
-            }
-            else if(sscanf(line,"k3(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for k3(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for k3(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    k3_chk[curs]=1;
-                    mat_k_3[curs]=tmp;
-                }
-            }
-            else if(sscanf(line,"r_c_phi(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    if(tmp<=0.0)
-                        error->abort("r_c_phi(%d,%d) in %s "
-                        "file should be greater than 0.0",file_name,icmp,jcmp);
-                    
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    r_c_phi_chk[curs]=1;
-                    cut_phi[curs]=tmp;
-                }
-            }
-            else if(sscanf(line,"r_c_rho(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for r_c_rho(%d,%d)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for r_c_rho(%d,%d)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    if(tmp<=0.0)
-                    error->abort("r_c_rho(%d,%d) in %s "
-                    "file should be greater than 0.0",file_name,icmp,jcmp);
-                    
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    r_c_rho_chk[curs]=1;
-                    cut_rho[curs]=tmp;
-                }
-            }
-            else
-                error->abort("invalid line in %s file: %s",file_name,line);
-        }
+        if(mapp->hash_remover(line)==0)
+            continue;
         
-        lngth=read_line(fp,line);
+        if(sscanf(line,"A(%d) = %lf",&icmp,&tmp)==2)
+        {
+            if(type_ref[icmp]!=-1)
+            {
+                A_chk[type_ref[icmp]]=1;
+                mat_A[type_ref[icmp]]=tmp;
+            }
+        }
+        else if(sscanf(line,"t1(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for t1(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for t1(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                t1_chk[type_ref[icmp]][type_ref[jcmp]]=1;
+                mat_t_1[type_ref[icmp]][type_ref[jcmp]]=tmp;
+            }
+        }
+        else if(sscanf(line,"t2(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for t2(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for t2(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                t2_chk[type_ref[icmp]][type_ref[jcmp]]=1;
+                mat_t_2[type_ref[icmp]][type_ref[jcmp]]=tmp;
+            }
+        }
+        else if(sscanf(line,"k1(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for k1(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for k1(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                k1_chk[curs]=1;
+                mat_k_1[curs]=tmp;
+            }
+        }
+        else if(sscanf(line,"k2(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for k2(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for k2(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                k2_chk[curs]=1;
+                mat_k_2[curs]=tmp;
+            }
+        }
+        else if(sscanf(line,"k3(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for k3(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for k3(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                k3_chk[curs]=1;
+                mat_k_3[curs]=tmp;
+            }
+        }
+        else if(sscanf(line,"r_c_phi(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                if(tmp<=0.0)
+                    error->abort("r_c_phi(%d,%d) in %s "
+                                 "file should be greater than 0.0",file_name,icmp,jcmp);
+                
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                r_c_phi_chk[curs]=1;
+                cut_phi[curs]=tmp;
+            }
+        }
+        else if(sscanf(line,"r_c_rho(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for r_c_rho(%d,%d)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for r_c_rho(%d,%d)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                if(tmp<=0.0)
+                    error->abort("r_c_rho(%d,%d) in %s "
+                                 "file should be greater than 0.0",file_name,icmp,jcmp);
+                
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                r_c_rho_chk[curs]=1;
+                cut_rho[curs]=tmp;
+            }
+        }
+        else
+            error->abort("invalid line in %s file: %s",file_name,line);
     }
     
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
         fclose(fp);
+    
+     delete [] line;
     
     /*
      check wether all the values are set or not
@@ -393,55 +410,16 @@ void ForceField_fs::read_file(char* file_name)
     }
     
     if(no_types_file)
-        delete [] type_ref;
-    
-    delete [] line;
-}
-/*--------------------------------------------
- initiate before a run
- --------------------------------------------*/
-int ForceField_fs::read_line(FILE* file,char*& line)
-{
-    int lenght;
-    int eof=0;
-    if(atoms->my_p_no==0)
-        if(feof(file))
-            eof=-1;
-    MPI_Bcast(&eof,1,MPI_INT,0,world);
-    if(eof==-1)
-        return -1;
-    
-    if(atoms->my_p_no==0)
-    {
-        char* n_line;
-        fgets(line,MAXCHAR,file);
-        mapp->hash_remover(line,n_line);
-        delete [] line;
-        line =n_line;
-        lenght=static_cast<int>(strlen(line))+1;
-    }
-    MPI_Bcast(&lenght,1,MPI_INT,0,world);
-    MPI_Bcast(line,lenght,MPI_CHAR,0,world);
-    
-    return lenght;
+        delete [] type_ref;    
 }
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
 void ForceField_fs::init()
-{    
-    for (int i=0;i<arr_size;i++)
-        cut_sq[i]=MAX(cut_phi[i]*cut_phi[i],cut_rho[i]*cut_rho[i]);
-    
-    
-    
-    x_n=atoms->find("x");
-    f_n=atoms->find("f");
-    type_n=atoms->find("type");
-
+{
     neighbor->pair_wise=1;
     
-    rho_n=atoms->add<type0>(1,1,"rho");
+    rho_ptr=new Vec<type0>(atoms,1);
 }
 /*--------------------------------------------
  after a run
@@ -455,7 +433,7 @@ void ForceField_fs::fin()
         max_pairs=0;
     }
     
-    atoms->del(rho_n);
+    delete rho_ptr;
 }
 /*--------------------------------------------
  force and energy calculation
@@ -479,19 +457,16 @@ force_calc(int st_clc,type0* en_st)
     }
 
     
-    type0* x;
-    atoms->vectors[x_n]->ret(x);
-    type0* f;
-    atoms->vectors[f_n]->ret(f);
-    type0* rho;
-    atoms->vectors[rho_n]->ret(rho);
-    int* type;
-    atoms->vectors[type_n]->ret(type);
+    type0* x=mapp->x->begin();
+    type0* f=mapp->f->begin();
+    type0* rho=rho_ptr->begin();
+    md_type* type=mapp->type->begin();
+    
     
     int iatm,jatm;
     
     int itype,jtype,curs,icomp,jcomp;
-    type0 dx0,dx1,dx2,rsq;
+    type0 dx0,dx1,dx2,rsq,en;
     type0 dr_rho,dr_phi,r,rho_coef,phi_coef,r_inv,rho_sqd;
     
     int** neighbor_list=neighbor->neighbor_list;
@@ -499,7 +474,7 @@ force_calc(int st_clc,type0* en_st)
     
     nrgy_strss[0]=0.0;
     if (st_clc)
-        for (int i=1;i<7;i++)
+        for(int i=1;i<7;i++)
             nrgy_strss[i]=0.0;
     
     int istart;
@@ -559,61 +534,36 @@ force_calc(int st_clc,type0* en_st)
                     +dr_phi*dr_phi*(mat_k_2[curs]+2.0*mat_k_3[curs]*r);
                     phi_coef*=-r_inv;
                     
+                    en=dr_phi*dr_phi*
+                    (mat_k_1[curs]+mat_k_2[curs]*r+mat_k_3[curs]*rsq);
                     
                     f[icomp]+=dx0*phi_coef;
                     f[icomp+1]+=dx1*phi_coef;
                     f[icomp+2]+=dx2*phi_coef;
                     
-                    
-                    if(jatm<natms)
+                    if(jatm<natms || st_clc==2)
                     {
                         f[jcomp]-=dx0*phi_coef;
                         f[jcomp+1]-=dx1*phi_coef;
                         f[jcomp+2]-=dx2*phi_coef;
-                        
-                        nrgy_strss[0]+=dr_phi*dr_phi*
-                        (mat_k_1[curs]+mat_k_2[curs]*r+mat_k_3[curs]*rsq);
-                        if (st_clc==1)
-                        {
-                            nrgy_strss[1]-=phi_coef*dx0*dx0;
-                            nrgy_strss[2]-=phi_coef*dx1*dx1;
-                            nrgy_strss[3]-=phi_coef*dx2*dx2;
-                            nrgy_strss[4]-=phi_coef*dx1*dx2;
-                            nrgy_strss[5]-=phi_coef*dx2*dx0;
-                            nrgy_strss[6]-=phi_coef*dx0*dx1;
-                        }
-                        else if(st_clc==2)
-                        {
-                            nrgy_strss[1]-=phi_coef*dx0*(image[3*jatm]-image[3*iatm]);
-                            nrgy_strss[2]-=phi_coef*dx1*(image[3*jatm+1]-image[3*iatm+1]);
-                            nrgy_strss[3]-=phi_coef*dx2*(image[3*jatm+2]-image[3*iatm+2]);
-                            nrgy_strss[4]-=phi_coef*dx1*(image[3*jatm+2]-image[3*iatm+2]);
-                            nrgy_strss[5]-=phi_coef*dx0*(image[3*jatm+2]-image[3*iatm+2]);
-                            nrgy_strss[6]-=phi_coef*dx0*(image[3*jatm+1]-image[3*iatm+1]);
-                        }
                     }
-                    else
+                    
+                    if(jatm>=natms)
                     {
-                        nrgy_strss[0]+=0.5*dr_phi*dr_phi*
-                        (mat_k_1[curs]+mat_k_2[curs]*r+mat_k_3[curs]*rsq);
-                        if (st_clc==1)
-                        {
-                            nrgy_strss[1]-=0.5*phi_coef*dx0*dx0;
-                            nrgy_strss[2]-=0.5*phi_coef*dx1*dx1;
-                            nrgy_strss[3]-=0.5*phi_coef*dx2*dx2;
-                            nrgy_strss[4]-=0.5*phi_coef*dx1*dx2;
-                            nrgy_strss[5]-=0.5*phi_coef*dx2*dx0;
-                            nrgy_strss[6]-=0.5*phi_coef*dx0*dx1;
-                        }
-                        else if(st_clc==2)
-                        {
-                            nrgy_strss[1]-=0.5*phi_coef*dx0*(image[3*jatm]-image[3*iatm]);
-                            nrgy_strss[2]-=0.5*phi_coef*dx1*(image[3*jatm+1]-image[3*iatm+1]);
-                            nrgy_strss[3]-=0.5*phi_coef*dx2*(image[3*jatm+2]-image[3*iatm+2]);
-                            nrgy_strss[4]-=0.5*phi_coef*dx1*(image[3*jatm+2]-image[3*iatm+2]);
-                            nrgy_strss[5]-=0.5*phi_coef*dx0*(image[3*jatm+2]-image[3*iatm+2]);
-                            nrgy_strss[6]-=0.5*phi_coef*dx0*(image[3*jatm+1]-image[3*iatm+1]);
-                        }
+                        phi_coef*=0.5;
+                        en*=0.5;
+                    }
+                    
+                    nrgy_strss[0]+=en;
+                    
+                    if (st_clc)
+                    {
+                        nrgy_strss[1]-=phi_coef*dx0*dx0;
+                        nrgy_strss[2]-=phi_coef*dx1*dx1;
+                        nrgy_strss[3]-=phi_coef*dx2*dx2;
+                        nrgy_strss[4]-=phi_coef*dx1*dx2;
+                        nrgy_strss[5]-=phi_coef*dx2*dx0;
+                        nrgy_strss[6]-=phi_coef*dx0*dx1;
                     }
                 }
             }
@@ -633,7 +583,7 @@ force_calc(int st_clc,type0* en_st)
         }
     }
     
-    atoms->update_ph(rho_n);
+    atoms->update(rho_ptr);
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
@@ -654,59 +604,31 @@ force_calc(int st_clc,type0* en_st)
                 
                 rho_coef=drhoi_dr[istart]*rho[iatm]
                 +drhoj_dr[istart]*rho[jatm];
+                
                 f[icomp]+=dx0*rho_coef;
                 f[icomp+1]+=dx1*rho_coef;
                 f[icomp+2]+=dx2*rho_coef;
                 
-                if(jatm<natms)
+                if(jatm<natms || st_clc==2)
                 {
                     f[jcomp]-=dx0*rho_coef;
                     f[jcomp+1]-=dx1*rho_coef;
                     f[jcomp+2]-=dx2*rho_coef;
-                    
-                    if (st_clc==1)
-                    {
-                        nrgy_strss[1]-=rho_coef*dx0*dx0;
-                        nrgy_strss[2]-=rho_coef*dx1*dx1;
-                        nrgy_strss[3]-=rho_coef*dx2*dx2;
-                        nrgy_strss[4]-=rho_coef*dx1*dx2;
-                        nrgy_strss[5]-=rho_coef*dx2*dx0;
-                        nrgy_strss[6]-=rho_coef*dx0*dx1;
-                    }
-                    else if(st_clc==2)
-                    {
-                        nrgy_strss[1]-=rho_coef*dx0*(image[3*jatm]-image[3*iatm]);
-                        nrgy_strss[2]-=rho_coef*dx1*(image[3*jatm+1]-image[3*iatm+1]);
-                        nrgy_strss[3]-=rho_coef*dx2*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[4]-=rho_coef*dx1*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[5]-=rho_coef*dx0*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[6]-=rho_coef*dx0*(image[3*jatm+1]-image[3*iatm+1]);
-                    }
-                }
-                else
-                {
-                    if (st_clc==1)
-                    {
-                        nrgy_strss[1]-=0.5*rho_coef*dx0*dx0;
-                        nrgy_strss[2]-=0.5*rho_coef*dx1*dx1;
-                        nrgy_strss[3]-=0.5*rho_coef*dx2*dx2;
-                        nrgy_strss[4]-=0.5*rho_coef*dx1*dx2;
-                        nrgy_strss[5]-=0.5*rho_coef*dx2*dx0;
-                        nrgy_strss[6]-=0.5*rho_coef*dx0*dx1;
-                    }
-                    else if(st_clc==2)
-                    {
-                        nrgy_strss[1]-=0.5*rho_coef*dx0*(image[3*jatm]-image[3*iatm]);
-                        nrgy_strss[2]-=0.5*rho_coef*dx1*(image[3*jatm+1]-image[3*iatm+1]);
-                        nrgy_strss[3]-=0.5*rho_coef*dx2*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[4]-=0.5*rho_coef*dx1*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[5]-=0.5*rho_coef*dx0*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[6]-=0.5*rho_coef*dx0*(image[3*jatm+1]-image[3*iatm+1]);
-                    }
                 }
                 
+                if(jatm>=natms)
+                    rho_coef*=0.5;
+                
+                if(st_clc)
+                {
+                    nrgy_strss[1]-=rho_coef*dx0*dx0;
+                    nrgy_strss[2]-=rho_coef*dx1*dx1;
+                    nrgy_strss[3]-=rho_coef*dx2*dx2;
+                    nrgy_strss[4]-=rho_coef*dx1*dx2;
+                    nrgy_strss[5]-=rho_coef*dx2*dx0;
+                    nrgy_strss[6]-=rho_coef*dx0*dx1;
+                }
             }
-            
             istart++;
 
         }
@@ -733,12 +655,9 @@ force_calc(int st_clc,type0* en_st)
  --------------------------------------------*/
 type0 ForceField_fs::energy_calc()
 {
-    type0* x;
-    atoms->vectors[x_n]->ret(x);
-    type0* rho;
-    atoms->vectors[rho_n]->ret(rho);
-    int* type;
-    atoms->vectors[type_n]->ret(type);
+    type0* x=mapp->x->begin();
+    type0* rho=rho_ptr->begin();
+    md_type* type=mapp->type->begin();
     
     int natms=atoms->natms;
     int iatm,jatm;

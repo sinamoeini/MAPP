@@ -6,11 +6,11 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Command_step_tally::Command_step_tally(MAPP* mapp,
-int narg,char** args):InitPtrs(mapp)
+int nargs,char** args):InitPtrs(mapp)
 {
-    if(narg!=2)
+    if(nargs!=2)
         error->abort("step_tally command "
-        "needs 2 arguements");
+        "needs 2arguments");
     
     step_tally=atoi(args[1]);
     

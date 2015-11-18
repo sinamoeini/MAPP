@@ -6,6 +6,8 @@
 #include "ff_lj.h"
 #include "neighbor.h"
 #include "atom_types.h"
+#include "memory.h"
+#include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  Fisher-Sinclair (FS) potential
@@ -21,21 +23,14 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 ForceField_lj::
-ForceField_lj(MAPP* mapp) : ForceField(mapp)
+ForceField_lj(MAPP* mapp):ForceFieldMD(mapp)
 {
     if(mapp->mode!=MD_mode)
         error->abort("ff lj works only "
         "for md mode");
     
-    arr_size=shift=0;
-    int no_types=atom_types->no_types;
-    
-    int size=no_types*(no_types+1)/2;
-    CREATE1D(sigma,size);
-    CREATE1D(epsilon,size);
-    CREATE1D(offset,size);
-    arr_size=size;
-    
+    shift=0;
+    arr_size=0;
 }
 /*--------------------------------------------
  destructor
@@ -53,78 +48,44 @@ ForceField_lj::~ForceField_lj()
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void ForceField_lj::coef(int narg,char** arg)
+void ForceField_lj::coef(int nargs,char** args)
 {
-    //itype jtype epsilon sigma cuttoff
     
-    if (narg!=6)
-        error->abort("wrong coeff command for LJ FF");
+    if (nargs!=2)
+        error->abort("wrong coeff command "
+        "for lj Force Field");
     
-    int ityp=atom_types->find_type(arg[1]);
-    int jtyp=atom_types->find_type(arg[2]);
-    int curs=COMP(ityp,jtyp);
-    type0 skin=atoms->skin;
-    
-    
-    type0 eps=epsilon[curs]=atof(arg[3]);
-    type0 sig=sigma[curs]=atof(arg[4]);
-    type0 cut=atof(arg[5]);
-
-    if (eps<0.0)
+    cut_off_alloc();
+    int no_types=atom_types->no_types;
+    if(arr_size!=no_types*(no_types+1)/2)
     {
-        error->abort("LJ Epsilon cannot be smaller than zero");
-    }
-    if (sig<0.0)
-    {
-        error->abort("LJ Sigma cannot be smaller than zero");
-    }
-    if (cut<0.0)
-    {
-        error->abort("LJ cutoff cannot be smaller than zero");
-    }
-    
-    cut_sq[curs]=cut*cut;
-    cut_sk_sq[curs]=(cut+skin)*(cut+skin);
-    if(shift)
-    {
-        type0 sig2=sig*sig/(cut*cut);
-        type0 sig6=sig2*sig2*sig2;
-        type0 sig12=sig6*sig6;
+        if(arr_size)
+        {
+            delete [] sigma;
+            delete [] epsilon;
+            delete [] offset;
+        }
         
-        offset[curs]=-4.0*eps*(sig12-sig6);
-    }
-    else
-    {
-        offset[curs]=0.0;
+        arr_size=no_types*(no_types+1)/2;
+        CREATE1D(sigma,arr_size);
+        CREATE1D(epsilon,arr_size);
+        CREATE1D(offset,arr_size);
     }
     
-
+    read_file(args[1]);
 }
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
 void ForceField_lj::init()
 {
-    // dummy line to illustrate that
-    // cut_sq has to be definitely
-    // assigned in init()
-    for (int i=0;i<arr_size;i++)
-        cut_sq[i]=cut_sq[i];
-    
-    
-    x_n=atoms->find("x");
-    f_n=atoms->find("f");
-    type_n=atoms->find("type");
-    
     neighbor->pair_wise=1;
-
 }
 /*--------------------------------------------
  after a run
  --------------------------------------------*/
 void ForceField_lj::fin()
 {
-    
 }
 /*--------------------------------------------
  force and energy calculation
@@ -132,26 +93,22 @@ void ForceField_lj::fin()
 void ForceField_lj::
 force_calc(int st_clc,type0* en_st)
 {
-
-    type0* x;
-    atoms->vectors[x_n]->ret(x);
-    type0* f;
-    atoms->vectors[f_n]->ret(f);
-    int* type;
-    atoms->vectors[type_n]->ret(type);
+    type0* x=mapp->x->begin();
+    type0* f=mapp->f->begin();
+    md_type* type=mapp->type->begin();
 
     int natms=atoms->natms;
     int iatm,jatm;
     int itype,jtype,curs,icomp,jcomp;
     type0 dx0,dx1,dx2,rsq,sig,eps,csq;
-    type0 sig2,sig6,sig12,ft;
+    type0 sig2,sig6,sig12,fpair,en;
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     nrgy_strss[0]=0.0;
     if (st_clc)
-        for (int i=1;i<7;i++)
+        for(int i=1;i<7;i++)
             nrgy_strss[i]=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
@@ -179,64 +136,38 @@ force_calc(int st_clc,type0* en_st)
                 sig6=sig2*sig2*sig2;
                 sig12=sig6*sig6;
                 
-                ft=24.0*eps*(2.0*sig12-sig6)/rsq;
+                fpair=24.0*eps*(2.0*sig12-sig6)/rsq;
+                en=4.0*eps*(sig12-sig6)
+                +offset[curs];
                 
-                
-                f[icomp]+=ft*dx0;
-                f[icomp+1]+=ft*dx1;
-                f[icomp+2]+=ft*dx2;
-                if(jatm<natms)
+                f[icomp]+=fpair*dx0;
+                f[icomp+1]+=fpair*dx1;
+                f[icomp+2]+=fpair*dx2;
+                if(jatm<natms || st_clc==2)
                 {
-                    nrgy_strss[0]+=4.0*eps*(sig12-sig6)
-                    +offset[curs];
-                    f[jcomp]-=ft*dx0;
-                    f[jcomp+1]-=ft*dx1;
-                    f[jcomp+2]-=ft*dx2;
-                    if (st_clc==1)
-                    {
-                        nrgy_strss[1]-=ft*dx0*dx0;
-                        nrgy_strss[2]-=ft*dx1*dx1;
-                        nrgy_strss[3]-=ft*dx2*dx2;
-                        nrgy_strss[4]-=ft*dx1*dx2;
-                        nrgy_strss[5]-=ft*dx2*dx0;
-                        nrgy_strss[6]-=ft*dx0*dx1;
-                    }
-                    else if(st_clc==2)
-                    {
-                        nrgy_strss[1]-=ft*dx0*(image[3*jatm]-image[3*iatm]);
-                        nrgy_strss[2]-=ft*dx1*(image[3*jatm+1]-image[3*iatm+1]);
-                        nrgy_strss[3]-=ft*dx2*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[4]-=ft*dx1*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[5]-=ft*dx0*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[6]-=ft*dx0*(image[3*jatm+1]-image[3*iatm+1]);
-                    }
-                    
+                    f[jcomp]-=fpair*dx0;
+                    f[jcomp+1]-=fpair*dx1;
+                    f[jcomp+2]-=fpair*dx2;
                 }
-                else
+
+               
+                if(jatm>=natms)
                 {
-                    nrgy_strss[0]+=2.0*eps*(sig12-sig6)
-                    +offset[curs]*0.5;
-                    if (st_clc==1)
-                    {
-                        nrgy_strss[1]-=0.5*ft*dx0*dx0;
-                        nrgy_strss[2]-=0.5*ft*dx1*dx1;
-                        nrgy_strss[3]-=0.5*ft*dx2*dx2;
-                        nrgy_strss[4]-=0.5*ft*dx1*dx2;
-                        nrgy_strss[5]-=0.5*ft*dx2*dx0;
-                        nrgy_strss[6]-=0.5*ft*dx0*dx1;
-                    }
-                    else if(st_clc==2)
-                    {
-                        nrgy_strss[1]-=0.5*ft*dx0*(image[3*jatm]-image[3*iatm]);
-                        nrgy_strss[2]-=0.5*ft*dx1*(image[3*jatm+1]-image[3*iatm+1]);
-                        nrgy_strss[3]-=0.5*ft*dx2*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[4]-=0.5*ft*dx1*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[5]-=0.5*ft*dx0*(image[3*jatm+2]-image[3*iatm+2]);
-                        nrgy_strss[6]-=0.5*ft*dx0*(image[3*jatm+1]-image[3*iatm+1]);
-                    }
+                    fpair*=0.5;
+                    en*=0.5;
+                }
+                nrgy_strss[0]+=en;
+                
+                if (st_clc)
+                {
+                    nrgy_strss[1]-=fpair*dx0*dx0;
+                    nrgy_strss[2]-=fpair*dx1*dx1;
+                    nrgy_strss[3]-=fpair*dx2*dx2;
+                    nrgy_strss[4]-=fpair*dx1*dx2;
+                    nrgy_strss[5]-=fpair*dx2*dx0;
+                    nrgy_strss[6]-=fpair*dx0*dx1;
                 }
             }
-            
         }
     }
     
@@ -260,11 +191,8 @@ force_calc(int st_clc,type0* en_st)
  --------------------------------------------*/
 type0 ForceField_lj::energy_calc()
 {
-
-    type0* x;
-    atoms->vectors[x_n]->ret(x);
-    int* type;
-    atoms->vectors[type_n]->ret(type);
+    type0* x=mapp->x->begin();
+    md_type* type=mapp->type->begin();
     
     int natms=atoms->natms;
     int iatm,jatm;
@@ -318,17 +246,13 @@ type0 ForceField_lj::energy_calc()
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     return en_tot;
 }
-
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
 void ForceField_lj::read_file(char* file_name)
 {
     int no_types=atom_types->no_types;
-    
     int* type_ref;
-
-    
     int* eps_chk;
     int* sigma_chk;
     int* r_c_chk;
@@ -342,9 +266,9 @@ void ForceField_lj::read_file(char* file_name)
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    int lngth;
     char** args=NULL;
-    int narg;
+    int nargs;
+    int args_cpcty=0;
     int no_types_file;
     
 
@@ -352,7 +276,7 @@ void ForceField_lj::read_file(char* file_name)
         eps_chk[i]=sigma_chk[i]=eps_chk[i]=0;
     
     
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
         fp=fopen(file_name,"r");
         if(fp==NULL)
@@ -365,107 +289,96 @@ void ForceField_lj::read_file(char* file_name)
      atomic types in the file
      */
     
-    lngth=read_line(fp,line);
-    narg=0;
-    while(narg==0)
-    {
-        if(lngth!=-1)
-            narg=mapp->parse_line(line,args);
-        else
-            error->abort("%s file ended immaturely",file_name);
-        
-        lngth=read_line(fp,line);
-    }
+    nargs=0;
+    while(nargs==0 && mapp->read_line(fp,line) !=-1)
+        nargs=mapp->parse_line(line,args,args_cpcty);
+
+    if(nargs==0)
+        error->abort("%s file ended immaturely",file_name);
     
-    if(narg<no_types)
+    
+    if(nargs<no_types)
         error->abort("the number of atoms in %s file"
         " is less than the number of atom types present in the system",file_name);
     
-    no_types_file=narg;
+    no_types_file=nargs;
     
     
     
     CREATE1D(type_ref,no_types);
     
     for(int i=0;i<no_types_file;i++)
-    {
         type_ref[i]=atom_types->find_type_exist(args[i]);
-    }
     
-    for(int i=0;i<narg;i++)
-        delete [] args[i];
-    if(narg)
+    if(args_cpcty)
         delete [] args;
     
     
-    //lngth=read_line(fp,line);
     int icmp,jcmp,curs;
     type0 tmp;
-    while(lngth!=-1)
+    while(mapp->read_line(fp,line)!=-1)
     {
-        if(lngth>1)
+        if(mapp->hash_remover(line)==0)
+            continue;
+        if(sscanf(line,"r_c(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
         {
-            if(sscanf(line,"r_c(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
+            
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
             {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
-                
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    if(tmp<=0.0)
-                        error->abort("r_c(%d,%d) in %s "
-                        "file should be greater than 0.0",icmp,jcmp,file_name);
-                    r_c_chk[curs]=1;
-                    cut_sq[curs]=tmp*tmp;
-                    type0 skin=atoms->skin;
-                    cut_sk_sq[curs]=(tmp+skin)*(tmp+skin);
-                }
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                if(tmp<=0.0)
+                    error->abort("r_c(%d,%d) in %s "
+                                 "file should be greater than 0.0",icmp,jcmp,file_name);
+                r_c_chk[curs]=1;
+                cut_sq[curs]=tmp*tmp;
+                type0 skin=atoms->get_skin();
+                cut_sk_sq[curs]=(tmp+skin)*(tmp+skin);
             }
-            else if(sscanf(line,"epsilon(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    if(tmp<=0.0)
-                        error->abort("epsilon(%d,%d) in %s "
-                        "file should be greater than 0.0",icmp,jcmp,file_name);
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    eps_chk[curs]=1;
-                    epsilon[curs]=tmp;
-                }
-            }
-            else if(sscanf(line,"sigma(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-            {
-                if(icmp<0 || icmp>no_types_file-1)
-                    error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
-                if(jcmp<0 || jcmp>no_types_file-1)
-                    error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
-                if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-                {
-                    if(tmp<=0.0)
-                        error->abort("sigma(%d,%d) in %s "
-                        "file should be greater than 0.0",icmp,jcmp,file_name);
-                    curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                    eps_chk[curs]=1;
-                    sigma[curs]=tmp;
-                }
-            }
-            else
-                error->abort("invalid line in %s file: %s",file_name,line);
         }
-        
-        lngth=read_line(fp,line);
+        else if(sscanf(line,"epsilon(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                if(tmp<=0.0)
+                    error->abort("epsilon(%d,%d) in %s "
+                                 "file should be greater than 0.0",icmp,jcmp,file_name);
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                eps_chk[curs]=1;
+                epsilon[curs]=tmp;
+            }
+        }
+        else if(sscanf(line,"sigma(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
+        {
+            if(icmp<0 || icmp>no_types_file-1)
+                error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
+            if(jcmp<0 || jcmp>no_types_file-1)
+                error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
+            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
+            {
+                if(tmp<=0.0)
+                    error->abort("sigma(%d,%d) in %s "
+                                 "file should be greater than 0.0",icmp,jcmp,file_name);
+                curs=COMP(type_ref[icmp],type_ref[jcmp]);
+                sigma_chk[curs]=1;
+                sigma[curs]=tmp;
+            }
+        }
+        else
+            error->abort("invalid line in %s file: %s",file_name,line);
     }
     
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
         fclose(fp);
     
+     delete [] line;
     /*
      check wether all the values are set or not
      */
@@ -500,35 +413,24 @@ void ForceField_lj::read_file(char* file_name)
     if(no_types_file)
         delete [] type_ref;
     
-    delete [] line;
-}
-/*--------------------------------------------
- initiate before a run
- --------------------------------------------*/
-int ForceField_lj::read_line(FILE* file,char*& line)
-{
-    int lenght;
-    int eof=0;
-    if(atoms->my_p_no==0)
-        if(feof(file))
-            eof=-1;
-    MPI_Bcast(&eof,1,MPI_INT,0,world);
-    if(eof==-1)
-        return -1;
     
-    if(atoms->my_p_no==0)
+    if(shift)
     {
-        char* n_line;
-        fgets(line,MAXCHAR,file);
-        mapp->hash_remover(line,n_line);
-        delete [] line;
-        line =n_line;
-        lenght=static_cast<int>(strlen(line))+1;
+        type0 sig2,sig6,sig12;
+        for(int icurs=0;icurs<arr_size;icurs++)
+        {
+            sig2=sigma[icurs]*sigma[icurs]/cut_sq[icurs];
+            sig6=sig2*sig2*sig2;
+            sig12=sig6*sig6;
+            offset[icurs]=-4.0*epsilon[icurs]*(sig12-sig6);
+        }
     }
-    MPI_Bcast(&lenght,1,MPI_INT,0,world);
-    MPI_Bcast(line,lenght,MPI_CHAR,0,world);
-    
-    return lenght;
+    else
+    {
+        for(int icurs=0;icurs<arr_size;icurs++)
+            offset[icurs]=0.0;
+    }
 }
+
 
 

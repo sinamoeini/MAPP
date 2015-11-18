@@ -4,10 +4,12 @@
  --------------------------------------------*/
 #ifndef __MAPP__min__
 #define __MAPP__min__
-
 #include "init.h"
+#include "ls.h"
+#include "ff.h"
 #include "atoms.h"
 #include "ls.h"
+#include "xmath.h"
 #include "thermo_dynamics.h"
 namespace MAPP_NS
 {
@@ -15,33 +17,36 @@ namespace MAPP_NS
     {
     private:
         int ns_alloc;
+        XMath* xmath;
+        ForceFieldDMD* forcefield_dmd;
+        type0 max_dx;
     protected:
         VecLst* vecs_comm;
         int chng_box;
         int dim;
         int err;
         type0 curr_energy;
-        ThermoDynamics* thermo;
         
         type0* nrgy_strss;
         
         int pe_idx;
         int stress_idx;
-        char* dof;
-        int dof_n,cdof_n;
-        int id_n;
-        int c_type_n;
+        int sts_flag;
         
-        void reg_h_H(type0**);        
-        void init_linesearch();
-        void prepare_affine_h(type0*,type0*);
+
+        void force_calc();
+        void prepare_affine_h(type0* x,type0* h);
+        void zero_f();
+        
+        ThermoDynamics* thermo;
+       
     public:
         Min(MAPP *);
         virtual ~Min();
         void print_error();
         virtual void run()=0;
-        virtual void init()=0;
-        virtual void fin()=0;
+        virtual void init();
+        virtual void fin();
         void rectify(type0*);
         int max_iter;
         int affine;
@@ -52,16 +57,30 @@ namespace MAPP_NS
         
         int x_dim;
         
-        int f_n,h_n;
-        type0** f_H;
-        type0** h_H;
+        Vec<type0>* h_ptr;
+        Vec<type0>* x_prev_ptr;
         
-        int x_prev_n;
+        Vec<type0>* f_prev_ptr;
+        
+
+        type0** h_H;
+        type0** f_H_prev;
+        
         type0** H_prev;
         type0** B_prev;
+        type0** f_H;
+        
+        type0 F(type0);
+        type0 dF(type0,type0&);
+        void ls_prep(type0&,type0&,type0&);
+        void F_reset();
+        
+        
+        type0 test(type0 i){return 4.5;}
 
     };
 
 
 }
+
 #endif

@@ -1,7 +1,10 @@
 #include "clock.h"
 #include "thermo_dynamics.h"
 #include "atom_types.h"
-#include "ff.h"
+#include "write.h"
+#include "error.h"
+#include "memory.h"
+#include "timer.h"
 #include <limits>
 #define INITIAL_STEP_MODE 1
 using namespace MAPP_NS;
@@ -11,8 +14,6 @@ using namespace MAPP_NS;
 Clock::Clock(MAPP* mapp):InitPtrs(mapp)
 {
     ns_alloc=0;
-    epsilon=numeric_limits<type0>::epsilon();
-    golden=0.5+0.5*sqrt(5.0);
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before clock");
@@ -22,18 +23,18 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
         "for md mode");
     
     char** args;
-    int narg=mapp->parse_line((char*)
+    int nargs=mapp->parse_line(
     "Time FE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     
     fe_idx=1;
     stress_idx=2;
     time_idx=0;
-    thermo=new ThermoDynamics(mapp,narg,args);
-    for(int i=0;i<narg;i++)
+    thermo=new ThermoDynamics(mapp,nargs,args);
+    for(int i=0;i<nargs;i++)
         delete [] args[i];
-    delete [] args;
+    if(nargs)
+        delete [] args;
     
-    cdof_n=atoms->find_exist("cdof");
     
     int dim=atoms->dimension;
     if(dim)
@@ -43,19 +44,14 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     }
     
     
-    c_n=atoms->find("c");
-    c_d_n=atoms->find("c_d");
+    c_dim=mapp->c->dim;
+    forcefield_dmd=dynamic_cast<ForceFieldDMD*>(forcefield);
+    neighbor_dmd=dynamic_cast<Neighbor_dmd*>(neighbor);
     
-    
-    //defaults for solver
-    min_gamma=0.0;
-    gamma_red=0.5;
-    slope=0.4;
-    max_iter=50;
-    m_tol=sqrt(numeric_limits<type0>::epsilon());
     a_tol=sqrt(numeric_limits<type0>::epsilon());
-    ls_mode=LS_BT;
-    pre_cond=1;
+    min_del_t=std::numeric_limits<type0>::epsilon();
+    initial_del_t=-1.0;
+    max_t=1.0e7;
     
 }
 /*--------------------------------------------
@@ -63,31 +59,106 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
  --------------------------------------------*/
 Clock::~Clock()
 {
-    delete thermo;
     if(ns_alloc)
         delete [] nrgy_strss;
+    delete thermo;
 }
 /*--------------------------------------------
  rectify
  --------------------------------------------*/
 void Clock::rectify(type0* f)
 {
-    if(cdof_n==-1)
+    if(mapp->cdof==NULL)
         return;
-    atoms->vectors[cdof_n]->ret(cdof);
+    byte* cdof=mapp->cdof->begin();
     
     int tot=(atoms->natms)*(atom_types->no_types);
     for(int i=0;i<tot;i++) if(cdof[i]==1) f[i]=0.0;
 }
 /*--------------------------------------------
+ default init
+ --------------------------------------------*/
+void Clock::init()
+{
+    old_skin=atoms->get_skin();
+    atoms->set_skin(0.0);
+    if(mapp->c_d==NULL)
+        mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
+    if(mapp->f==NULL)
+        mapp->f=new Vec<type0>(atoms,mapp->x->dim);
+    
+    vecs_comm=new VecLst(atoms);
+    vecs_comm->add_updt(mapp->c);
+    vecs_comm->add_updt(mapp->ctype);
+    atoms->init(vecs_comm,false);
+    
+    
+    neighbor_dmd->create_2nd_list();
+    forcefield_dmd->force_calc_timer(1,nrgy_strss);
+    forcefield_dmd->dc_timer();
+    
+    thermo->update(fe_idx,nrgy_strss[0]);
+    thermo->update(stress_idx,6,&nrgy_strss[1]);
+    thermo->update(time_idx,0.0);
+    thermo->init();
+    
+    if(write!=NULL)
+        write->init();
+    
+    type0* c=mapp->c->begin();
+    dof_lcl=atoms->natms*c_dim;
+    int tmp_dof=dof_lcl;
+    for(int idof=0;idof<dof_lcl;idof++)
+        if(c[idof]<0.0)
+            tmp_dof--;
+    MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
+    
+    tot_t=0.0;
+}
+/*--------------------------------------------
+ default fin
+ --------------------------------------------*/
+void Clock::fin()
+{
+    if(write!=NULL)
+        write->fin();
+    thermo->fin();
+    atoms->fin();
+    print_stats();
+    timer->print_stats();
+    neighbor->print_stats();
+    delete vecs_comm;
+    atoms->set_skin(old_skin);
+}
+/*--------------------------------------------
+ constructor
+ --------------------------------------------*/
+ClockImplicit::ClockImplicit(MAPP* mapp):Clock(mapp)
+{
+    epsilon=std::numeric_limits<type0>::epsilon();
+    golden=0.5+0.5*sqrt(5.0);
+    //defaults for solver
+    min_gamma=0.0;
+    gamma_red=0.5;
+    slope=0.4;
+    max_iter=50;
+    m_tol=sqrt(numeric_limits<type0>::epsilon());
+    ls_mode=LS_BT;
+    pre_cond=1;
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+ClockImplicit::~ClockImplicit()
+{
+}
+/*--------------------------------------------
  solve the implicit equation
  --------------------------------------------*/
-void Clock::solve_n_err(type0& cost,type0& err)
+void ClockImplicit::solve_n_err(type0& cost,type0& err)
 {
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
     
     type0 gamma;
     type0 inner0,inner1,tmp0;
@@ -102,20 +173,20 @@ void Clock::solve_n_err(type0& cost,type0& err)
     {
         /* beginning of pre-conditioning */
         memcpy(c,y_0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         /* end of pre-conditioning */
     }
     else if(pre_cond==2)
     {
         /* beginning of pre-conditioning */
         memcpy(c,y_1,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         /* end of pre-conditioning */
     }
 
     
     /* find the steepest descent direction and cost */
-    curr_cost=forcefield->g_calc_timer(1,beta,a,g,nrgy_strss);
+    curr_cost=forcefield_dmd->imp_cost_grad_timer(1,beta,a,g);
     rectify(g);
     
 
@@ -135,10 +206,10 @@ void Clock::solve_n_err(type0& cost,type0& err)
 
     iter=0;
     line_search_succ=1;
+    
     while(curr_cost>m_tol*static_cast<type0>(dof_tot)
     && iter<max_iter && line_search_succ==1)
     {
-
         memcpy(g0,g,dof_lcl*sizeof(type0));
         memcpy(c0,c,dof_lcl*sizeof(type0));
         
@@ -159,7 +230,7 @@ void Clock::solve_n_err(type0& cost,type0& err)
         || line_search_succ==0)
             continue;
        
-        curr_cost=forcefield->g_calc_timer(1,beta,a,g,nrgy_strss);
+        curr_cost=forcefield_dmd->imp_cost_grad_timer(1,beta,a,g);
 
         rectify(g);
 
@@ -223,30 +294,39 @@ void Clock::solve_n_err(type0& cost,type0& err)
     err=sqrt(err/static_cast<type0>(dof_tot))/a_tol;
     err*=err_prefac;
 
-
     cost=curr_cost/(m_tol*static_cast<type0>(dof_tot));
-    
+    if(iter)
+    {
+        if(cost<1.0)
+            solve_acc++;
+        else
+            solve_rej++;
+    }
+    if(err>=1.0)
+    {
+        intg_rej++;
+    }
+
 }
 /*--------------------------------------------
  find the the cost function given gamma
  --------------------------------------------*/
-inline type0 Clock::cost_func(type0 gamma)
+inline type0 ClockImplicit::cost_func(type0 gamma)
 {
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
+    type0* c=mapp->c->begin();
     
     for(int i=0;i<dof_lcl;i++)
         if(c0[i]>=0.0)
             c[i]=c0[i]+gamma*h[i];
     
-    atoms->update_ph(c_n);
+    atoms->update(mapp->c);
     
-    return forcefield->g_calc_timer(0,beta,a,g,nrgy_strss);
+    return forcefield_dmd->imp_cost_grad_timer(0,beta,a,g);
 }
 /*--------------------------------------------
  given the direction h do the lin seach
  --------------------------------------------*/
-int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
+int ClockImplicit::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 h_norm_lcl,h_norm;
     type0 max_a_lcl,max_a;
@@ -282,10 +362,9 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
 
     if(max_a<epsilon)
     {
-        type0* c;
-        atoms->vectors[c_n]->ret(c);
+        type0* c=mapp->c->begin();
         memcpy(c,c0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         return 0;
     }
     /* end of finding the maximum gamma */
@@ -307,10 +386,9 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
     
     if(fa1>fa0)
     {
-        type0* c;
-        atoms->vectors[c_n]->ret(c);
+        type0* c=mapp->c->begin();
         memcpy(c,c0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         return 0;
     }
     
@@ -320,10 +398,9 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
         a2=a1+golden*(a1-a0);
         if(a2>max_a)
         {
-            type0* c;
-            atoms->vectors[c_n]->ret(c);
+            type0* c=mapp->c->begin();
             memcpy(c,c0,dof_lcl*sizeof(type0));
-            atoms->update_ph(c_n);
+            atoms->update(mapp->c);
             return 0;
         }
         fa2=cost_func(a2);
@@ -464,7 +541,7 @@ int Clock::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
 /*--------------------------------------------
  given the direction h do the lin seach
  --------------------------------------------*/
-int Clock::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
+int ClockImplicit::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 h_norm_lcl,h_norm;
     type0 max_a_lcl,max_a;
@@ -505,10 +582,9 @@ int Clock::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
     
     if(max_a<epsilon)
     {
-        type0* c;
-        atoms->vectors[c_n]->ret(c);
+        type0* c=mapp->c->begin();
         memcpy(c,c0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         return 0;
     }
     /* end of finding the maximum gamma */
@@ -530,10 +606,9 @@ int Clock::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
     
     if(fa1>fa0)
     {
-        type0* c;
-        atoms->vectors[c_n]->ret(c);
+        type0* c=mapp->c->begin();
         memcpy(c,c0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         return 0;
     }
     
@@ -543,10 +618,9 @@ int Clock::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
         a2=a1+golden*(a1-a0);
         if(a2>max_a)
         {
-            type0* c;
-            atoms->vectors[c_n]->ret(c);
+            type0* c=mapp->c->begin();
             memcpy(c,c0,dof_lcl*sizeof(type0));
-            atoms->update_ph(c_n);
+            atoms->update(mapp->c);
             return 0;
         }
         fa2=cost_func(a2);
@@ -749,7 +823,7 @@ int Clock::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
-int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
+int ClockImplicit::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 u,a,max_a;
 
@@ -779,10 +853,9 @@ int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
     
     if(max_a<numeric_limits<type0>::epsilon())
     {
-        type0* c;
-        atoms->vectors[c_n]->ret(c);
+        type0* c=mapp->c->begin();
         memcpy(c,c0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
         return 0;
     }
     /* end of finding the maximum gamma */
@@ -829,22 +902,85 @@ int Clock::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
     }
 
     
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
+    type0* c=mapp->c->begin();
     memcpy(c,c0,dof_lcl*sizeof(type0));
-    atoms->update_ph(c_n);
+    atoms->update(mapp->c);
     return 0;
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void ClockImplicit::allocate()
+{
+    CREATE1D(y_0,dof_lcl);
+    CREATE1D(y_1,dof_lcl);
+    CREATE1D(a,dof_lcl);
+    CREATE1D(g,dof_lcl);
+    CREATE1D(g0,dof_lcl);
+    CREATE1D(c0,dof_lcl);
+    CREATE1D(h,dof_lcl);
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void ClockImplicit::deallocate()
+{
+    if(dof_lcl)
+    {
+        delete [] y_0;
+        delete [] y_1;
+        delete [] a;
+        delete [] g;
+        delete [] g0;
+        delete [] c0;
+        delete [] h;
+    }
 }
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
-int Clock::test(type0 a0,type0 fa0,type0 dfa0)
+void ClockImplicit::print_stats()
+{
+    if(atoms->my_p==0)
+    {
+        fprintf(output,"\n");
+        fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
+        fprintf(output,"maximum successful timestep: %e\n",max_succ_dt);
+        fprintf(output,"maximum successful    order: %d\n",max_succ_q);
+        fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
+        fprintf(output,"rejected interpolation attempts: %d\n",intp_rej);
+        fprintf(output,"total implicit equations: %d = accepted(%d) + rejected(%d)\n",solve_rej+solve_acc,solve_acc,solve_rej);
+    }
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+void ClockImplicit::init()
+{
+    Clock::init();
+    max_succ_q=1;
+    max_succ_dt=0.0;
+    solve_rej=0;
+    solve_acc=0;
+    intg_rej=0;
+    intp_rej=0;
+    
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+void ClockImplicit::fin()
+{
+    Clock::fin();
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+int ClockImplicit::test(type0 a0,type0 fa0,type0 dfa0)
 {
     type0 u,a,max_a;
     int no=100;
     type0 frac;
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
     
     a=numeric_limits<type0>::infinity();
     
@@ -882,10 +1018,55 @@ int Clock::test(type0 a0,type0 fa0,type0 dfa0)
             u+=frac;
         }
         
-        type0* c;
-        atoms->vectors[c_n]->ret(c);
+        type0* c=mapp->c->begin();
         memcpy(c,c0,dof_lcl*sizeof(type0));
-        atoms->update_ph(c_n);
+        atoms->update(mapp->c);
     }
     return 0;
+}
+/*--------------------------------------------
+ constructor
+ --------------------------------------------*/
+ClockExplicit::ClockExplicit(MAPP* mapp):
+Clock(mapp)
+{
+    
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+ClockExplicit::~ClockExplicit()
+{
+    
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+void ClockExplicit::init()
+{
+    Clock::init();
+    max_succ_dt=0.0;
+    intg_rej=0;
+    intp_rej=0;
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+void ClockExplicit::fin()
+{
+    Clock::fin();
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+void ClockExplicit::print_stats()
+{
+    if(atoms->my_p==0)
+    {
+        fprintf(output,"\n");
+        fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
+        fprintf(output,"maximum successful timestep: %e\n",max_succ_dt);
+        fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
+        fprintf(output,"rejected interpolation attempts: %d\n",intp_rej);
+    }
 }

@@ -33,6 +33,7 @@ void Error::abort(const char* msg,...)
         printf("ABORTED! %s \n"
                ,err_msg);
     va_end (args);
+
     MPI_Finalize();
     exit(EXIT_FAILURE);
 }

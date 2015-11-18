@@ -1,42 +1,38 @@
 #include <stdlib.h>
+#include "memory.h"
+#include "error.h"
 #include "min_cg.h"
 #include "ff.h"
 #include "write.h"
-#include "atom_types.h"
+#include "thermo_dynamics.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
+Min_cg::Min_cg(MAPP* mapp,int nargs,char** args):Min(mapp)
 {
-        
-    CREATE2D(H_dof,dim,dim);
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            H_dof[i][j]=0;
-    
     int icmp;
     int jcmp;
     int iarg=2;
-    while(iarg<narg)
+    while(iarg<nargs)
     {
-        if(!strcmp(arg[iarg],"max_iter"))
+        if(!strcmp(args[iarg],"max_iter"))
         {
             iarg++;
-            if(iarg==narg)
-                error->abort("max_iter in min cg should at least have 1 arguement");
-            max_iter=atoi(arg[iarg]);
+            if(iarg==nargs)
+                error->abort("max_iter in min cg should at least have 1argument");
+            max_iter=atoi(args[iarg]);
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"e_tol"))
+        else if(!strcmp(args[iarg],"e_tol"))
         {
             iarg++;
-            if(iarg==narg)
-                error->abort("e_tol in min cg should at least have 1 arguement");
-            energy_tolerance=atof(arg[iarg]);
+            if(iarg==nargs)
+                error->abort("e_tol in min cg should at least have 1argument");
+            energy_tolerance=atof(args[iarg]);
             iarg++;
         }
-        else if(sscanf(arg[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
+        else if(sscanf(args[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
         {
             if(icmp<0 || icmp>=atoms->dimension)
                 error->abort("wrong component in min cg for H[%i][%i]",icmp,jcmp);
@@ -49,117 +45,34 @@ Min_cg::Min_cg(MAPP* mapp,int narg,char** arg):Min(mapp)
                 H_dof[icmp][jcmp]=1;
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"affine"))
+        else if(!strcmp(args[iarg],"affine"))
         {
             affine=1;
             iarg++;
         }
         else
-            error->abort("unknown keyword for min cg: %s",arg[iarg]);
+            error->abort("unknown keyword for min cg: %s",args[iarg]);
     }
     
     if(max_iter<0)
         error->abort("max_iter in min cg should be greater than 0");
     if(energy_tolerance<0.0)
          error->abort("e_tol in min cg should be greater than 0.0");
-    
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Min_cg::~Min_cg()
 {
-    
-    for(int i=0;i<dim;i++)
-        delete [] H_dof[i];
-    delete [] H_dof;
-
 }
 /*--------------------------------------------
  init before a run
  --------------------------------------------*/
 void Min_cg::init()
 {
-    // determine if the there is chng_box
-    chng_box=0;
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            if(H_dof[i][j])
-                chng_box=1;
-    
-    /*
-     add the tensors for box if necessary
-     */
-    
-    if(chng_box)
-    {
-        CREATE2D(h_H,dim,dim);
-        CREATE2D(f_H,dim,dim);
-        CREATE2D(f_H_prev,dim,dim);
-        CREATE2D(H_prev,dim,dim);
-        CREATE2D(B_prev,dim,dim);
-    }
-    
-    
-    /* begining of chekcking if the primary atomic vectors exist */
-    /* if not, add them */
-    f_n=atoms->find_exist("f");
-    if(f_n<0)
-        f_n=atoms->add<type0>(0,x_dim,"f");
-    
-    if(mapp->mode==DMD_mode)
-        c_type_n=atoms->find("c");
-    else
-        c_type_n=atoms->find("type");
-    
-    id_n=atoms->find("id");
-    dof_n=atoms->find_exist("dof");
-    /* end of chekcking if the primary atomic vectors exist */
-    
-    /* beginning of adding of the new atomic vectors for this min scheme */
-    x_prev_n=atoms->add<type0>(0,x_dim,"x_prev");
-    f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
-    h_n=atoms->add<type0>(0,x_dim,"h");
-    /* end of adding of the new atomic vectors for this min scheme */
-    
-    /* begining of creating the new VecLst */
-    if(dof_n<0)
-        vecs_comm=new VecLst(mapp,7,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,id_n);
-    else
-    {
-        if(mapp->mode==MD_mode)
-            vecs_comm=new VecLst(mapp,8,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,id_n);
-        else
-        {
-            cdof_n=atoms->find("cdof");
-            vecs_comm=new VecLst(mapp,9,0,c_type_n,f_n,x_prev_n,f_prev_n,h_n,dof_n,cdof_n,id_n);
-        }
-    }
-    /* end of creating the new VecLst */
-    
-    /*
-     add the update to vec list
-     */
-    vecs_comm->add_update(0);
-    
-    /*
-     initiate the run
-     */
-    atoms->init(vecs_comm);
-
-    /*
-     do the first force calculatation for 
-     thermo and write
-     */
-    type0* f;
-    atoms->vectors[f_n]->ret(f);
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        f[i]=0.0;
-    forcefield->force_calc_timer(2+affine,nrgy_strss);
-    rectify(f);
-    if(chng_box)
-        reg_h_H(f_H);
-    
+    Min::init();
+    atoms->init(vecs_comm,chng_box);
+    force_calc();
     curr_energy=nrgy_strss[0];
     thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -169,9 +82,6 @@ void Min_cg::init()
     if(write!=NULL)
         write->init();
     
-
-    init_linesearch();
-
 }
 /*--------------------------------------------
  min
@@ -180,11 +90,11 @@ void Min_cg::run()
 {
     if(max_iter==0) return;
     
-    type0* x;
-    type0* f;
-    type0* x_0;
-    type0* f_0;
-    type0* h;
+    type0* x=mapp->x->begin();
+    type0* f=mapp->f->begin();
+    type0* x_0=x_prev_ptr->begin();
+    type0* f_0=f_prev_ptr->begin();
+    type0* h=h_ptr->begin();
     type0 prev_energy;
     type0 alpha;
     int size;
@@ -196,10 +106,7 @@ void Min_cg::run()
     type0 ratio;
     type0 inner;
     err=LS_S;
-   
     
-    atoms->vectors[f_n]->ret(f);
-    atoms->vectors[h_n]->ret(h);
     memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
     
     inner=0.0;
@@ -228,12 +135,12 @@ void Min_cg::run()
             continue;
         }
         
-        atoms->vectors[0]->ret(x);
-        atoms->vectors[f_n]->ret(f);
-        atoms->vectors[x_prev_n]->ret(x_0);
-        atoms->vectors[f_prev_n]->ret(f_0);
+        x=mapp->x->begin();
+        f=mapp->f->begin();
+        x_0=x_prev_ptr->begin();
+        f_0=f_prev_ptr->begin();
         size=atoms->natms*x_dim*sizeof(type0);
-
+        
         
         memcpy(x_0,x,size);
         memcpy(f_0,f,size);
@@ -249,8 +156,8 @@ void Min_cg::run()
                 }
         }
         
-        
         prev_energy=curr_energy;
+        
         
         if(write!=NULL)
             write->write();
@@ -259,7 +166,7 @@ void Min_cg::run()
         
         if(affine) prepare_affine_h(x_0,h);
         err=ls->line_min(curr_energy,alpha,1);
-        atoms->vectors[h_n]->ret(h);
+        h=h_ptr->begin();
         if(affine) rectify(h);
         
         if(err!=LS_S)
@@ -276,15 +183,10 @@ void Min_cg::run()
         if(istp+1==max_iter)
             err=MIN_F_MAX_ITER;
         
-        atoms->vectors[f_n]->ret(f);
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-        forcefield->force_calc_timer(2+affine,nrgy_strss);
+        
+        force_calc();
         
         
-        rectify(f);
-        if(chng_box)
-            reg_h_H(f_H);
         
         if(thermo->test_prev_step() || err)
         {
@@ -297,10 +199,10 @@ void Min_cg::run()
         
         if(err)
             continue;
-
         
-        atoms->vectors[h_n]->ret(h);
-        atoms->vectors[f_prev_n]->ret(f_0);
+        f=mapp->f->begin();
+        h=h_ptr->begin();
+        f_0=f_prev_ptr->begin();
         inner=0.0;
         for(int i=0;i<x_dim*atoms->natms;i++)
             inner+=f[i]*f[i];
@@ -325,7 +227,7 @@ void Min_cg::run()
                 for(int j=0;j<dim;j++)
                     f_f0+=f_H_prev[i][j]*f_H[i][j];
         }
-
+        
         ratio=(f_f-f_f0)/(f0_f0);
         
         inner=0.0;
@@ -349,7 +251,7 @@ void Min_cg::run()
                     f_h+=h_H[i][j]*f_H[i][j];
                 }
         }
-
+        
         
         
         if(f_h<0.0)
@@ -368,10 +270,9 @@ void Min_cg::run()
         }
         
         f0_f0=f_f;
-
+        
     }
 
-   
 }
 /*--------------------------------------------
  finishing minimization
@@ -381,39 +282,12 @@ void Min_cg::fin()
     
     if(write!=NULL)
         write->fin();
+     
     thermo->fin();
     print_error();
     atoms->fin();
-
-    delete vecs_comm;
     
-    if(chng_box)
-    {
-        for(int i=0;i<dim;i++)
-            delete [] f_H_prev[i];
-        delete [] f_H_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] f_H[i];
-        delete [] f_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] h_H[i];
-        delete [] h_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] H_prev[i];
-        delete [] H_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] B_prev[i];
-        delete [] B_prev;
-
-    }
-
-    atoms->del(h_n);
-    atoms->del(f_prev_n);
-    atoms->del(x_prev_n);
-    
+    Min::fin();
     
 }
+

@@ -3,6 +3,7 @@
  Copyright (c) 2014 MIT. All rights reserved.
  --------------------------------------------*/
 #include "atom_types.h"
+#include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -10,7 +11,6 @@ using namespace MAPP_NS;
 AtomTypes::AtomTypes(MAPP* mapp):InitPtrs(mapp)
 {
     no_types=0;
-    
 }
 /*--------------------------------------------
  destructor
@@ -39,7 +39,7 @@ int AtomTypes::add_type(type0 m,char* name)
     
     
     int type=0;
-    for (int i=0;i<no_types;i++)
+    for(int i=0;i<no_types;i++)
         if(!strcmp(name,atom_names[i]))
             type=i+1;
     
@@ -64,10 +64,10 @@ int AtomTypes::add_type(type0 m,char* name)
 /*--------------------------------------------
  find a type
  --------------------------------------------*/
-int AtomTypes::find_type(char* name)
+int AtomTypes::find_type(const char* name)
 {
     int type=0;
-    for (int i=0;i<no_types;i++)
+    for(int i=0;i<no_types;i++)
         if(!strcmp(name,atom_names[i]))
             type=i+1;
     
@@ -85,7 +85,7 @@ int AtomTypes::find_type(char* name)
 int AtomTypes::find_type_exist(char* name)
 {
 
-    for (int i=0;i<no_types;i++)
+    for(int i=0;i<no_types;i++)
         if(!strcmp(name,atom_names[i]))
             return i;
     

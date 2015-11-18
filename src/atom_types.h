@@ -5,7 +5,6 @@
 #ifndef __MAPP__atom_types__
 #define __MAPP__atom_types__
 #include "init.h"
-#include "atoms.h"
 
 namespace MAPP_NS {
     class AtomTypes : protected InitPtrs
@@ -22,7 +21,7 @@ namespace MAPP_NS {
         type0* mass;
         
         int add_type(type0,char*);
-        int find_type(char*);
+        int find_type(const char*);
         int find_type_exist(char*);
         void assign_color_rad(char*,type0*);
     };

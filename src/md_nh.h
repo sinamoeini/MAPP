@@ -13,7 +13,8 @@
 namespace MAPP_NS {
     class MD_nh : public MD{
     private:
-        int x_d_n,f_n,type_n,id_n,dof_n;
+        int x_d_n,f_n,type_n,id_n;
+        bool dof_xst;
         type0 MTK_1,MTK_2;
         type0 ke_cur,ke_tar,t_tar,t_cur;
         type0* ke_curr;
@@ -24,8 +25,6 @@ namespace MAPP_NS {
         int chk_create_vel,seed;
         type0** M1;
         type0** M2;
-        type0** H0;
-        type0** H0_inv;
         
         type0* tmp_fac;
         type0* tmp_ke_curr;

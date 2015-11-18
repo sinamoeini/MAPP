@@ -16,52 +16,46 @@
 #include <stdlib.h>
 #include "min_l-bfgs.h"
 #include "ff.h"
+#include "memory.h"
 #include "write.h"
+#include "thermo_dynamics.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
+Min_lbfgs::Min_lbfgs(MAPP* mapp,int nargs,char** args):Min(mapp)
 {
-
     m_it=2;
-    
-    CREATE2D(H_dof,dim,dim);
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            H_dof[i][j]=0;
-    
-    
     int icmp;
     int jcmp;
     int iarg=2;
-    while(iarg<narg)
+    while(iarg<nargs)
     {
-        if(!strcmp(arg[iarg],"max_iter"))
+        if(!strcmp(args[iarg],"max_iter"))
         {
             iarg++;
-            if(iarg==narg)
-                error->abort("max_iter in min l-bfgs should at least have 1 arguement");
-            max_iter=atoi(arg[iarg]);
+            if(iarg==nargs)
+                error->abort("max_iter in min l-bfgs should at least have 1argument");
+            max_iter=atoi(args[iarg]);
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"e_tol"))
+        else if(!strcmp(args[iarg],"e_tol"))
         {
             iarg++;
-            if(iarg==narg)
-                error->abort("e_tol in min l-bfgs should at least have 1 arguement");
-            energy_tolerance=atof(arg[iarg]);
+            if(iarg==nargs)
+                error->abort("e_tol in min l-bfgs should at least have 1argument");
+            energy_tolerance=atof(args[iarg]);
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"m"))
+        else if(!strcmp(args[iarg],"m"))
         {
             iarg++;
-            if(iarg==narg)
-                error->abort("m in min l-bfgs should at least have 1 arguement");
-            m_it=atoi(arg[iarg]);
+            if(iarg==nargs)
+                error->abort("m in min l-bfgs should at least have 1argument");
+            m_it=atoi(args[iarg]);
             iarg++;
         }
-        else if(sscanf(arg[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
+        else if(sscanf(args[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
         {
             if(icmp<0 || icmp>=dim)
                 error->abort("wrong component in min l-bfgs for H[%i][%i]",icmp,jcmp);
@@ -74,13 +68,13 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
                 H_dof[icmp][jcmp]=1;
             iarg++;
         }
-        else if(!strcmp(arg[iarg],"affine"))
+        else if(!strcmp(args[iarg],"affine"))
         {
             affine=1;
             iarg++;
         }
         else
-            error->abort("unknown keyword for min l-bfgs: %s",arg[iarg]);
+            error->abort("unknown keyword for min l-bfgs: %s",args[iarg]);
     }
     
     if(max_iter<0)
@@ -94,150 +88,48 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int narg,char** arg):Min(mapp)
  --------------------------------------------*/
 Min_lbfgs::~Min_lbfgs()
 {
-    for(int i=0;i<dim;i++)
-        delete [] H_dof[i];
-    delete [] H_dof;
 }
 /*--------------------------------------------
  init before a run
  --------------------------------------------*/
 void Min_lbfgs::init()
 {
-    
-    // determine if the there is chng_box
-    chng_box=0;
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-            if(H_dof[i][j])
-                chng_box=1;
-    
-    /*
-     add the tensors for box if necessary
-     */
+     Min::init();
     
     if(chng_box)
     {
-        CREATE2D(h_H,dim,dim);
-        CREATE2D(f_H,dim,dim);
-        CREATE2D(f_H_prev,dim,dim);
-        CREATE2D(H_prev,dim,dim);
-        CREATE2D(B_prev,dim,dim);
-        CREATE1D(H_y,m_it);
-        CREATE1D(H_s,m_it);
+        CREATE1D(y_H,m_it);
+        CREATE1D(s_H,m_it);
         for(int i=0;i<m_it;i++)
         {
-            CREATE2D(H_y[i],dim,dim);
-            CREATE2D(H_s[i],dim,dim);
+            CREATE2D(y_H[i],dim,dim);
+            CREATE2D(s_H[i],dim,dim);
         }
 
     }
     
     CREATE1D(rho,m_it);
     CREATE1D(alpha,m_it);
-    CREATE1D(s_list,m_it);
-    CREATE1D(y_list,m_it);
     
     
     /* begining of chekcking if the primary atomic vectors exist */
     /* if not, add them */
-    f_n=atoms->find_exist("f");
-    if(f_n<0)
-        f_n=atoms->add<type0>(0,x_dim,"f");
-    
-    if(mapp->mode==DMD_mode)
-        c_type_n=atoms->find("c");
-    else
-        c_type_n=atoms->find("type");
 
-    id_n=atoms->find("id");
-    dof_n=atoms->find_exist("dof");
-    /* end of chekcking if the primary atomic vectors exist */
-    
-    /* beginning of adding of the new atomic vectors for this min scheme */
-    char* vec_name;
-    
-    for (int i=0;i<m_it;i++)
+    s=new Vec<type0>*[m_it];
+    y=new Vec<type0>*[m_it];
+    for(int i=0;i<m_it;i++)
     {
-        CREATE1D(vec_name,20);
-        sprintf(vec_name,"s_%d",i);
-        s_list[i]=atoms->add<type0>(0,x_dim,vec_name);
-        delete [] vec_name;
-        
-        CREATE1D(vec_name,20);
-        sprintf(vec_name,"y_%d",i);
-        y_list[i]=atoms->add<type0>(0,x_dim,vec_name);
-        delete [] vec_name;
+        s[i]=new Vec<type0>(atoms,x_dim);
+        y[i]=new Vec<type0>(atoms,x_dim);
     }
     
-    x_prev_n=atoms->add<type0>(0,x_dim,"x_prev");
-    f_prev_n=atoms->add<type0>(0,x_dim,"f_prev");
-    h_n=atoms->add<type0>(0,x_dim,"h");
-    /* end of adding of the new atomic vectors for this min scheme */
-    
-    /* begining of creating the new VecLst */
-    int* tmp_lst;
-    int icurs=0;
-    
-    if(dof_n<0)
-        CREATE1D(tmp_lst,2*m_it+7);
-    else
-    {
-        if(mapp->mode==MD_mode)
-        {
-            CREATE1D(tmp_lst,2*m_it+8);
-            tmp_lst[icurs++]=dof_n;
-            
-        }
-        else if (mapp->mode==DMD_mode)
-        {
-            CREATE1D(tmp_lst,2*m_it+9);
-            tmp_lst[icurs++]=dof_n;
-            cdof_n=atoms->find("cdof");
-            tmp_lst[icurs++]=cdof_n;
-        }
-    }
-    
-    tmp_lst[icurs++]=0;
-    tmp_lst[icurs++]=c_type_n;
-    tmp_lst[icurs++]=id_n;
-    tmp_lst[icurs++]=f_n;
-    for (int i=0;i<m_it;i++)
-    {
-        tmp_lst[icurs++]=s_list[i];
-        tmp_lst[icurs++]=y_list[i];
-    }
-    tmp_lst[icurs++]=x_prev_n;
-    tmp_lst[icurs++]=f_prev_n;
-    tmp_lst[icurs++]=h_n;
-    
-    vecs_comm=new VecLst(mapp,tmp_lst,icurs);
-    delete [] tmp_lst;
-    /* end of creating the new VecLst */
-    
-    /*
-     add the update to vec list
-     */
-    vecs_comm->add_update(0);
-    
-    /*
-     initiate the run
-     */
-    atoms->init(vecs_comm);
-    
-    
-    /*
-     do the first force calculatation for
-     thermo and write
-     */
-    type0* f;
-    atoms->vectors[f_n]->ret(f);
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        f[i]=0.0;
-    forcefield->force_calc_timer(2+affine,nrgy_strss);
-    rectify(f);
-    if(chng_box)
-        reg_h_H(f_H);
-    
+    for(int i=0;i<m_it;i++)
+        vecs_comm->add_xchng(s[i]);
+    for(int i=0;i<m_it;i++)
+        vecs_comm->add_xchng(y[i]);
+
+    atoms->init(vecs_comm,chng_box);
+    force_calc();
     curr_energy=nrgy_strss[0];
     thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -246,14 +138,6 @@ void Min_lbfgs::init()
     
     if(write!=NULL)
         write->init();
-    
-
-    /*
-     create the linesearch
-     */
-
-    init_linesearch();
-    
 }
 /*--------------------------------------------
  run
@@ -272,7 +156,6 @@ void Min_lbfgs::run()
     type0 prev_energy;
     type0 alpha_m,beta,gamma;
     type0 inner0_lcl,inner1_lcl,inner0,inner1;
-    int s_list_tmp,y_list_tmp;
     type0** H_y_tmp=NULL;
     type0** H_s_tmp=NULL;
     
@@ -287,11 +170,11 @@ void Min_lbfgs::run()
     while(err==LS_S)
     {
         /* beginning of storing the parameters */
-        atoms->vectors[h_n]->ret(h);
-        atoms->vectors[0]->ret(x);
-        atoms->vectors[f_n]->ret(f);
-        atoms->vectors[x_prev_n]->ret(x_0);
-        atoms->vectors[f_prev_n]->ret(f_0);
+        x=mapp->x->begin();
+        f=mapp->f->begin();
+        x_0=x_prev_ptr->begin();
+        f_0=f_prev_ptr->begin();
+        h=h_ptr->begin();
         size=atoms->natms*x_dim*sizeof(type0);
         
         memcpy(h,f,size);
@@ -320,8 +203,7 @@ void Min_lbfgs::run()
         /* level 0 */
         for(int i=0;i<k_it;i++)
         {
-            
-            atoms->vectors[s_list[i]]->ret(tmp_vec0);
+            tmp_vec0=s[i]->begin();
             inner0_lcl=0.0;
             for(int j=0;j<atoms->natms*x_dim;j++)
                 inner0_lcl+=h[j]*tmp_vec0[j];
@@ -332,20 +214,20 @@ void Min_lbfgs::run()
             {
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        inner0+=h_H[j][k]*H_s[i][j][k];
+                        inner0+=h_H[j][k]*s_H[i][j][k];
             }
             
             
             alpha[i]=-rho[i]*inner0;
             
-            atoms->vectors[y_list[i]]->ret(tmp_vec0);
+            tmp_vec0=y[i]->begin();
             for(int j=0;j<atoms->natms*x_dim;j++)
                 h[j]+=alpha[i]*tmp_vec0[j];
             
             if(chng_box)
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        h_H[j][k]+=alpha[i]*H_y[i][j][k];
+                        h_H[j][k]+=alpha[i]*y_H[i][j][k];
             
         }
         
@@ -363,7 +245,7 @@ void Min_lbfgs::run()
         for(int i=k_it-1;i>-1;i--)
         {
             
-            atoms->vectors[y_list[i]]->ret(tmp_vec0);
+            tmp_vec0=y[i]->begin();
             inner0_lcl=0.0;
             for(int j=0;j<atoms->natms*x_dim;j++)
                 inner0_lcl+=h[j]*tmp_vec0[j];
@@ -373,18 +255,18 @@ void Min_lbfgs::run()
             if(chng_box)
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        inner0+=h_H[j][k]*H_y[i][j][k];
+                        inner0+=h_H[j][k]*y_H[i][j][k];
             
             beta=-rho[i]*inner0;
             
-            atoms->vectors[s_list[i]]->ret(tmp_vec0);
+            tmp_vec0=s[i]->begin();
             for(int j=0;j<atoms->natms*x_dim;j++)
                 h[j]-=(alpha[i]-beta)*tmp_vec0[j];
             
             if(chng_box)
                 for(int j=0;j<dim;j++)
                     for(int k=0;k<dim;k++)
-                        h_H[j][k]-=(alpha[i]-beta)*H_s[i][j][k];
+                        h_H[j][k]-=(alpha[i]-beta)*s_H[i][j][k];
             
         }
         
@@ -394,14 +276,16 @@ void Min_lbfgs::run()
         /* beginning of book-keeping & linesearch */
         prev_energy=curr_energy;
         
+    
         if(write!=NULL)
             write->write();
+
         
         thermo->thermo_print();
         
         if(affine) prepare_affine_h(x_0,h);
         err=ls->line_min(curr_energy,alpha_m,0);
-        atoms->vectors[h_n]->ret(h);
+        h=h_ptr->begin();
         if(affine) rectify(h);
         
         if(err!=LS_S)
@@ -421,13 +305,7 @@ void Min_lbfgs::run()
         
         
         /* beginning of calculating new f & f_H */
-        atoms->vectors[f_n]->ret(f);
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-        forcefield->force_calc_timer(2+affine,nrgy_strss);
-        rectify(f);
-        if(chng_box)
-            reg_h_H(f_H);
+        force_calc();
         /* end of calculating new f & f_H */
         
         /* beginning of updating thermodynamics variables */
@@ -445,46 +323,46 @@ void Min_lbfgs::run()
             continue;
     
         
-        /* beginning of storing vectors & calculating ration for the next step */
+        /* beginning of storing vectors & calculating ratio for the next step */
         if(m_it)
         {
-            
-            s_list_tmp=s_list[m_it-1];
-            y_list_tmp=y_list[m_it-1];
+            Vec<type0>* s_tmp=s[m_it-1];
+            Vec<type0>* y_tmp=y[m_it-1];
+
             if(chng_box)
             {
-                H_s_tmp=H_s[m_it-1];
-                H_y_tmp=H_y[m_it-1];
+                H_s_tmp=s_H[m_it-1];
+                H_y_tmp=y_H[m_it-1];
             }
             
             for(int i=m_it-1;i>0;i--)
             {
-                s_list[i]=s_list[i-1];
-                y_list[i]=y_list[i-1];
+                s[i]=s[i-1];
+                y[i]=y[i-1];
                 if(chng_box)
                 {
-                    H_s[i]=H_s[i-1];
-                    H_y[i]=H_y[i-1];
+                    s_H[i]=s_H[i-1];
+                    y_H[i]=y_H[i-1];
                 }
                 rho[i]=rho[i-1];
             }
-            s_list[0]=s_list_tmp;
-            y_list[0]=y_list_tmp;
+            s[0]=s_tmp;
+            y[0]=y_tmp;
             if(chng_box)
             {
-                H_s[0]=H_s_tmp;
-                H_y[0]=H_y_tmp;
+                s_H[0]=H_s_tmp;
+                y_H[0]=H_y_tmp;
             }
             
             if(k_it!=m_it)
                 k_it++;
             
-            atoms->vectors[0]->ret(x);
-            atoms->vectors[x_prev_n]->ret(x_0);
-            atoms->vectors[f_n]->ret(f);
-            atoms->vectors[f_prev_n]->ret(f_0);
-            atoms->vectors[s_list[0]]->ret(tmp_vec0);
-            atoms->vectors[y_list[0]]->ret(tmp_vec1);
+            x=mapp->x->begin();
+            x_0=x_prev_ptr->begin();
+            f=mapp->f->begin();
+            f_0=f_prev_ptr->begin();
+            tmp_vec0=s[0]->begin();
+            tmp_vec1=y[0]->begin();
             
             inner0_lcl=0.0;
             inner1_lcl=0.0;
@@ -502,20 +380,20 @@ void Min_lbfgs::run()
                 for(int i=0;i<dim;i++)
                     for(int j=0;j<dim;j++)
                     {
-                        H_s[0][i][j]=atoms->H[i][j]-H_prev[i][j];
-                        H_y[0][i][j]=f_H_prev[i][j]-f_H[i][j];
-                        inner0+=H_s[0][i][j]*H_y[0][i][j];
-                        inner1+=H_s[0][i][j]*H_s[0][i][j];
+                        s_H[0][i][j]=atoms->H[i][j]-H_prev[i][j];
+                        y_H[0][i][j]=f_H_prev[i][j]-f_H[i][j];
+                        inner0+=s_H[0][i][j]*y_H[0][i][j];
+                        inner1+=s_H[0][i][j]*s_H[0][i][j];
                     }
             gamma=inner0/inner1;
             rho[0]=1.0/inner0;
         }
         else
         {
-            atoms->vectors[0]->ret(x);
-            atoms->vectors[x_prev_n]->ret(x_0);
-            atoms->vectors[f_n]->ret(f);
-            atoms->vectors[f_prev_n]->ret(f_0);
+            x=mapp->x->begin();
+            x_0=x_prev_ptr->begin();
+            f=mapp->f->begin();
+            f_0=f_prev_ptr->begin();
             inner0_lcl=0.0;
             inner1_lcl=0.0;
             for(int i=0;i<x_dim*atoms->natms;i++)
@@ -554,102 +432,42 @@ void Min_lbfgs::fin()
         delete [] alpha;
     }
     
-    
     if(chng_box)
     {
         for(int i=0;i<m_it;i++)
         {
             for(int j=0;j<dim;j++)
             {
-                delete [] H_y[i][j];
-                delete [] H_s[i][j];
+                delete [] y_H[i][j];
+                delete [] s_H[i][j];
             }
             
-            delete [] H_y[i];
-            delete [] H_s[i];
+            delete [] y_H[i];
+            delete [] s_H[i];
         }
-        delete [] H_y;
-        delete [] H_s;
-        
+        delete [] y_H;
+        delete [] s_H;
     }
-    
     
     if(write!=NULL)
         write->fin();
+    
     thermo->fin();
     print_error();
     atoms->fin();
     
-    delete vecs_comm;
-    
-    if(chng_box)
-    {
-        for(int i=0;i<dim;i++)
-            delete [] f_H_prev[i];
-        delete [] f_H_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] f_H[i];
-        delete [] f_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] h_H[i];
-        delete [] h_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] H_prev[i];
-        delete [] H_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] B_prev[i];
-        delete [] B_prev;
-        
-    }
-    
-    
-    atoms->del(h_n);
-    atoms->del(f_prev_n);
-    atoms->del(x_prev_n);
-    
-    int tmp;
-    
     for(int i=0;i<m_it;i++)
     {
-        for(int j=i+1;j<m_it;j++)
-        {
-            if(s_list[j]<s_list[i])
-            {
-                tmp=s_list[j];
-                s_list[j]=s_list[i];
-                s_list[i]=tmp;
-            }
-            
-            if(y_list[j]<y_list[i])
-            {
-                tmp=y_list[j];
-                y_list[j]=y_list[i];
-                y_list[i]=tmp;
-            }
-        }
+        delete s[i];
+        delete y[i];
     }
-    
-    
     if(m_it)
     {
-        for(int i=m_it-1;i>-1;i--)
-        {
-            atoms->del(y_list[i]);
-            atoms->del(s_list[i]);
-        }
+        delete [] s;
+        delete [] y;
     }
-
-    if(m_it)
-    {
-        delete [] s_list;
-        delete [] y_list;
-    }
-
     
+    Min::fin();
 
 }
 

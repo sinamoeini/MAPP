@@ -4,280 +4,39 @@
  --------------------------------------------*/
 #include "neighbor.h"
 #include "ff.h"
+#include "memory.h"
 #include "timer.h"
-
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 Neighbor::Neighbor(MAPP* mapp):InitPtrs(mapp)
 {
+    pair_wise=1;
+    dim=atoms->dimension;
+    
+    CREATE1D(tot_bin_grid,dim);
+    CREATE1D(bin_size,dim);
+    CREATE1D(bin_denom_list,dim);
+
     neighbor_list_size_size=0;
     tot_bin=0;
     first_atom_bin_size=0;
     next_atm_size=0;
-    pair_wise=1;
     atm_bin_size=0;
-
+    no_neigh_lists=0;
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Neighbor::~Neighbor()
 {
-
-    if(tot_bin)
-    {
-        for(int i=0;i<tot_bin;i++)
-            if(bin_neigh_list_size[i])
-                delete [] bin_neigh_list[i];
-        
-        delete [] bin_neigh_list;
-        delete [] bin_neigh_list_size;
-    }
-    
-    if(neighbor_list_size_size)
-    {
-        for(int i=0;i<neighbor_list_size_size;i++)
-            if(neighbor_list_size[i])
-                delete [] neighbor_list[i];
-        delete [] neighbor_list_size;
-    }
-    
-    if(first_atom_bin_size)
-        delete [] first_atom_bin;
-    if(next_atm_size)
-        delete [] next_atm;
-    if(atm_bin_size)
-        delete [] atm_bin;
-    
-}
-/*--------------------------------------------
- initiation before MD
- --------------------------------------------*/
-void Neighbor::init()
-{
-       
-    if(atoms->dimension)
-    {
-        int d=atoms->dimension;
-        CREATE1D(tot_bin_grid,d);
-        CREATE1D(bin_size,d);
-        CREATE1D(bin_denom_list,d);
-        CREATE1D(s_tmp,d);
-    }
-
-    if(mapp->mode==MD_mode)
-        type_n=atoms->find("type");
-    
-    no_neigh_lists=0;
-    //create_bin_list();
-}
-/*--------------------------------------------
- finalize MD
- --------------------------------------------*/
-void Neighbor::fin()
-{
-    if(atoms->dimension)
+    if(dim)
     {
         delete [] tot_bin_grid;
         delete [] bin_size;
         delete [] bin_denom_list;
-        delete [] s_tmp;
     }
-
-    if(tot_bin)
-    {
-        for(int i=0;i<tot_bin;i++)
-            if(bin_neigh_list_size[i])
-                delete [] bin_neigh_list[i];
-        
-        delete [] bin_neigh_list;
-        delete [] bin_neigh_list_size;
-    }
-    
-    if(neighbor_list_size_size)
-    {
-        for(int i=0;i<neighbor_list_size_size;i++)
-            if(neighbor_list_size[i])
-                delete [] neighbor_list[i];
-        delete [] neighbor_list_size;
-    }
-    if(first_atom_bin_size)
-        delete [] first_atom_bin;
-    if(next_atm_size)
-        delete [] next_atm;
-    if(atm_bin_size)
-        delete [] atm_bin;
-    
-    neighbor_list_size_size=0;
-    tot_bin=0;
-    first_atom_bin_size=0;
-    next_atm_size=0;
-    atm_bin_size=0;
-    
-}
-/*--------------------------------------------
- create the neighbopr list
- s_or_x: 0 for x, 1 for s
- --------------------------------------------*/
-void Neighbor::create_list(int box_change,int s_or_x)
-{
-    timer->start(NEIGH_TIME_mode);
-    
-    if(box_change)
-        create_bin_list();
-
-    if(s_or_x)
-        bin_atoms_s();
-    else
-        bin_atoms();
- 
-    
-    if(neighbor_list_size_size)
-    {
-        for(int i=0;i<neighbor_list_size_size;i++)
-            if(neighbor_list_size[i])
-                delete [] neighbor_list[i];
-
-    
-        delete [] neighbor_list_size;
-        delete [] neighbor_list;
-
-    }
-    
-    neighbor_list_size_size=atoms->natms;
-   
-    neighbor_list=CREATE1D(neighbor_list,neighbor_list_size_size);
-    CREATE1D(neighbor_list_size,neighbor_list_size_size);
-    for(int i=0;i<neighbor_list_size_size;i++)
-        neighbor_list_size[i]=0;
-    
-    type0* x;
-    atoms->vectors[0]->ret(x);
-    int* type=NULL;
-    if(mapp->mode==MD_mode)
-        atoms->vectors[type_n]->ret(type);
-    int x_dim=atoms->vectors[0]->dim;
-
-    int dim=atoms->dimension;
-    type0 cut_sq,rsq;
-    int icomp,jcomp;
-    int ibin,jbin;
-    int iatm,jatm;
-    type0* cut_sk_sq=forcefield->cut_sk_sq;
-    
-    int* tmp_neigh_list;
-    int tmp_neigh_list_size=1024;
-    int tmp_neigh_list_grow=50;
-    CREATE1D(tmp_neigh_list,tmp_neigh_list_size);
- 
-    no_pairs=0;
-    if(pair_wise)
-    {
-        for(iatm=0;iatm<atoms->natms;iatm++)
-        {
-            icomp=x_dim*iatm;
-            ibin=atm_bin[iatm];
-            
-            for(int j=0;j<bin_neigh_list_size[ibin];j++)
-            {
-                jbin=bin_neigh_list[ibin][j];
-                jatm=first_atom_bin[jbin];
-                while(jatm!=-1)
-                {
-                    if(jatm>iatm)
-                    {
-                        if(mapp->mode==MD_mode)
-                            cut_sq=cut_sk_sq[COMP(type[iatm],type[jatm])];
-                        else
-                            cut_sq=cut_sk_sq[0];
-                        jcomp=x_dim*jatm;
-                        
-                        rsq=0.0;
-                        for(int idim=0;idim<dim;idim++)
-                            rsq+=(x[icomp+idim]-x[jcomp+idim])
-                            *(x[icomp+idim]-x[jcomp+idim]);
-                        
-                        if(rsq<cut_sq)
-                        {
-                            if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
-                            {
-                                GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
-                                tmp_neigh_list_size+=tmp_neigh_list_grow;
-                            }
-                            tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                            neighbor_list_size[iatm]++;
-                        }
-                    }
-                    jatm=next_atm[jatm];
-                }
-            }
-            if(neighbor_list_size[iatm])
-            {
-                CREATE1D(neighbor_list[iatm],neighbor_list_size[iatm]);
-                memcpy(neighbor_list[iatm],tmp_neigh_list,neighbor_list_size[iatm]*sizeof(int));
-                no_pairs+=neighbor_list_size[iatm];
-            }
-        }
-    }
-    else
-    {
-        for(iatm=0;iatm<atoms->natms;iatm++)
-        {
-            icomp=x_dim*iatm;
-            ibin=atm_bin[iatm];
-            
-            for(int j=0;j<bin_neigh_list_size[ibin];j++)
-            {
-                jbin=bin_neigh_list[ibin][j];
-                jatm=first_atom_bin[jbin];
-                while(jatm!=-1)
-                {
-                    if(jatm!=iatm)
-                    {
-                        cut_sq=cut_sk_sq[COMP(type[iatm],type[jatm])];
-                        jcomp=x_dim*jatm;
-                        
-                        rsq=0.0;
-                        for(int idim=0;idim<dim;idim++)
-                            rsq+=(x[icomp+idim]-x[jcomp+idim])
-                            *(x[icomp+idim]-x[jcomp+idim]);
-                        
-                        if(rsq<cut_sq)
-                        {
-                            if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
-                            {
-                                GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
-                                tmp_neigh_list_size+=tmp_neigh_list_grow;
-                            }
-                            tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                            neighbor_list_size[iatm]++;
-                            
-                            if(jatm>iatm) no_pairs++;
-                        }
-                    }
-                    
-                    jatm=next_atm[jatm];
-                }
-                
-            }
-            if(neighbor_list_size[iatm])
-            {
-                CREATE1D(neighbor_list[iatm],neighbor_list_size[iatm]);
-                memcpy(neighbor_list[iatm],tmp_neigh_list,neighbor_list_size[iatm]*sizeof(int));
-            }
-        }
-    }
-
-    delete [] tmp_neigh_list;
-    if(atm_bin_size)
-        delete [] atm_bin;
-    atm_bin_size=0;
-    
-    no_neigh_lists++;
-    
-    timer->stop(NEIGH_TIME_mode);
 }
 /*--------------------------------------------
  create the bin neighbor list
@@ -298,7 +57,7 @@ void Neighbor::create_bin_list()
         delete [] bin_neigh_list_size;
     }
     tot_bin=1;
-    for (int i=0;i<dim;i++)
+    for(int i=0;i<dim;i++)
     {
         bin_size[i]=max_cut_s[i];
         tot_bin_grid[i]=static_cast<int>
@@ -348,7 +107,6 @@ void Neighbor::create_bin_list()
 void Neighbor::find_bin_no(int dim,int pos,int*& list_ii
 ,int ibin,int* ibin_loc,int* list)
 {
-
     if(dim>0)
     {
         for(int i=0;i<atoms->dimension;i++)
@@ -386,24 +144,17 @@ void Neighbor::bin_atoms()
 {
     if(first_atom_bin_size)
         delete [] first_atom_bin;
-
     CREATE1D(first_atom_bin,tot_bin);
     first_atom_bin_size=tot_bin;
     for(int i=0;i<first_atom_bin_size;i++)
         first_atom_bin[i]=-1;
     
     int tot_natms=atoms->natms+atoms->natms_ph;
-
+    
     if(next_atm_size)
         delete [] next_atm;
     CREATE1D(next_atm,tot_natms);
     next_atm_size=tot_natms;
-    
-    
-    type0* x;
-    atoms->vectors[0]->ret(x);
-    
-    int x_dim=atoms->vectors[0]->dim;
     
     if(atm_bin_size)
         delete [] atm_bin;
@@ -411,76 +162,21 @@ void Neighbor::bin_atoms()
     atm_bin_size=atoms->natms;
     
     int bin;
-    for(int i=tot_natms-1;i>-1;i--)
-    {
-        bin=x2bin(&x[x_dim*i]);
-        
-        if(i<atoms->natms)
-            atm_bin[i]=bin;
-        next_atm[i]=first_atom_bin[bin];
-        first_atom_bin[bin]=i;
-    }
-}
-/*--------------------------------------------
- x 2 bin no
- --------------------------------------------*/
-int Neighbor::x2bin(type0* x)
-{
-    type0** B=atoms->B;
-    
-    int dim=atoms->dimension;
-    for(int j=0;j<dim;j++)
-    {
-        s_tmp[j]=0.0;
-        for(int k=j;k<dim;k++)
-            s_tmp[j]+=B[k][j]*x[k];
-    }
-    
+    type0* s=mapp->x->begin();
+    int s_dim=mapp->x->dim;
     type0* max_cut_s=atoms->max_cut_s;
     type0* s_lo=atoms->s_lo;
     
-    int no=0;
-    for(int i=0;i<dim;i++)
-    {
-        no+=static_cast<int>
-        ((s_tmp[i]+max_cut_s[i]-s_lo[i])/bin_size[i])
-        *bin_denom_list[i];
-    }
-    
-    return no;
-}
-/*--------------------------------------------
- bin the atoms
- --------------------------------------------*/
-void Neighbor::bin_atoms_s()
-{
-    if(first_atom_bin_size)
-        delete [] first_atom_bin;
-    CREATE1D(first_atom_bin,tot_bin);
-    first_atom_bin_size=tot_bin;
-    for(int i=0;i<first_atom_bin_size;i++)
-        first_atom_bin[i]=-1;
-    
-    int tot_natms=atoms->natms+atoms->natms_ph;
-    
-    if(next_atm_size)
-        delete [] next_atm;
-    CREATE1D(next_atm,tot_natms);
-    next_atm_size=tot_natms;
-    
-    if(atm_bin_size)
-        delete [] atm_bin;
-    CREATE1D(atm_bin,atoms->natms);
-    atm_bin_size=atoms->natms;
-    
-    int bin;
-    type0* s;
-    atoms->vectors[0]->ret(s);
-
-    int s_dim=atoms->vectors[0]->dim;
     for(int i=tot_natms-1;i>-1;i--)
     {
-        bin=s2bin(&s[s_dim*i]);
+        bin=0;
+        for(int j=0;j<dim;j++)
+        {
+            bin+=static_cast<int>
+            ((s[s_dim*i+j]+max_cut_s[j]-s_lo[j])/bin_size[j])
+            *bin_denom_list[j];
+        }
+        
         if(i<atoms->natms)
             atm_bin[i]=bin;
         next_atm[i]=first_atom_bin[bin];
@@ -489,36 +185,44 @@ void Neighbor::bin_atoms_s()
     atoms->s2x(tot_natms);
 }
 /*--------------------------------------------
- s 2 bin no
- --------------------------------------------*/
-int Neighbor::s2bin(type0* s)
-{
-    int dim=atoms->dimension;
-    
-    type0* max_cut_s=atoms->max_cut_s;
-    type0* s_lo=atoms->s_lo;
-    
-    int no=0;
-    for(int i=0;i<dim;i++)
-    {
-        no+=static_cast<int>
-        ((s[i]+max_cut_s[i]-s_lo[i])/bin_size[i])
-        *bin_denom_list[i];
-        
-    }
-    
-    return no;
-    
-}
-
-/*--------------------------------------------
  
  --------------------------------------------*/
-void Neighbor::print_neigh_stats()
+void Neighbor::print_stats()
 {
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
+        fprintf(output,"\n");
         fprintf(output,"no of neigh lists "
         "generated: %d\n",no_neigh_lists);
     }
+    no_neigh_lists=0;
 }
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Neighbor::fin()
+{    
+    if(tot_bin)
+    {
+        for(int i=0;i<tot_bin;i++)
+            if(bin_neigh_list_size[i])
+                delete [] bin_neigh_list[i];
+        
+        delete [] bin_neigh_list;
+        delete [] bin_neigh_list_size;
+    }
+    tot_bin=0;
+    
+    if(first_atom_bin_size)
+        delete [] first_atom_bin;
+    first_atom_bin_size=0;
+    
+    if(next_atm_size)
+        delete [] next_atm;
+    next_atm_size=0;
+    
+    if(atm_bin_size)
+        delete [] atm_bin;
+    atm_bin_size=0;
+}
+

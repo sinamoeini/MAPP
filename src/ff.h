@@ -5,44 +5,86 @@
 #ifndef __MAPP__ff__
 #define __MAPP__ff__
 #include "init.h"
-#include "atoms.h"
 namespace MAPP_NS {
     class ForceField : protected InitPtrs{
     private:
-        int cut_alloc;
+        int cut_sz;
         int ns_alloc;
 
         
     protected:
         type0* nrgy_strss;
-        type0* image;
-        int image_size;
-        void image_calc();
-        
+        void cut_off_alloc();
+        void cut_off_dealloc();
+        virtual void force_calc(int,type0*)=0;
+        virtual type0 energy_calc()=0;
     public:
         ForceField(MAPP *);
         virtual ~ForceField();
 
         
-        virtual void init(){};
-        virtual void fin(){};
+        virtual void init()=0;
+        virtual void fin()=0;
         virtual void coef(int,char**)=0;
+        type0* rsq_crd;
+        type0* cut;
         type0* cut_sq;
         type0* cut_sk_sq;
+        type0 max_cut();
 
-
-        virtual void force_calc(int,type0*)=0;
-        virtual type0 energy_calc()=0;
-        virtual void create_2nd_neigh_lst()=0;
-        virtual type0 g_calc(int,type0,type0*,type0*,type0*)=0;
-        virtual void c_d_calc(int,type0*)=0;
-        virtual type0 c_dd_norm()=0;
-        
         void force_calc_timer(int,type0*);
         type0 energy_calc_timer();
-        type0 g_calc_timer(int,type0,type0*,type0*,type0*);
-        void c_d_calc_timer(int,type0*);
-        void create_2nd_neigh_lst_timer();
+    };
+}
+
+namespace MAPP_NS
+{
+    class ForceFieldMD : public ForceField
+    {
+    private:
+    protected:
+    public:
+        ForceFieldMD(MAPP* mapp):ForceField(mapp){}
+        virtual ~ForceFieldMD(){}
+    };
+}
+
+namespace MAPP_NS
+{
+    class ForceFieldDMD : public ForceField
+    {
+    private:
+    protected:
+        virtual void force_calc(int,type0*)=0;
+        virtual type0 energy_calc()=0;
+        
+        virtual void dc()=0;
+        virtual type0 dc_en_proj(int,type0*,int,type0*,type0&)=0;
+        virtual type0 ddc_norm()=0;
+        virtual type0 imp_cost_grad(int,type0,type0*,type0*)=0;
+        virtual type0 dc_norm_grad(int,type0*,int,type0*,type0*)=0;
+        virtual type0 en_grad(int,type0*,int,type0*,type0*)=0;
+        virtual void enst_calc(int,type0*)=0;
+    public:
+        ForceFieldDMD(MAPP* mapp):ForceField(mapp){}
+        virtual ~ForceFieldDMD(){}
+        
+        
+        virtual void init()=0;
+        virtual void fin()=0;
+        virtual void coef(int,char**)=0;
+        
+
+        
+        
+        type0 imp_cost_grad_timer(int,type0,type0*,type0*);
+        type0 dc_norm_grad_timer(int,type0*,int,type0*,type0*);
+        type0 en_grad_timer(int,type0*,int,type0*,type0*);
+        void dc_timer();
+        type0 dc_en_proj_timer(int,type0*,int,type0*,type0&);
+        type0 ddc_norm_timer();
+        void enst_calc_timer(int,type0*);
+        
         
         type0 alpha_min,alpha_max;
         

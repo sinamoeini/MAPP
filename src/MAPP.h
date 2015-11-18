@@ -6,12 +6,11 @@
 #ifndef __MAPP__MAPP__
 #define __MAPP__MAPP__
 #include <mpi.h>
-// type0 can be only float, double, or long double
-typedef double type0;
-#define MPI_TYPE0 MPI_DOUBLE
-
+#include "atoms.h"
+#include "ls.h"
 namespace MAPP_NS {
     enum {MD_mode,DMD_mode};
+    
     class MAPP {
     private:
     protected:
@@ -22,29 +21,55 @@ namespace MAPP_NS {
         int mode;
         int step_no;
         int step_tally;
+        int no_commands;
+        int precision;
+
+        /* 
+         * classes that need to be initialized in constructor
+         */
+        class Atoms* atoms;
         class Memory* memory;
         class Error* error;
         class Timer* timer;
-        class PerAtom* peratom;
-        class ForceField* forcefield;
-        class Atoms* atoms;
-        class Neighbor* neighbor;
         class AtomTypes* atom_types;
-        class ThermoDynamics* thermo;
+        class Neighbor* neighbor;
+        
+        /* 
+         * classes that might be initialized mid simulation
+         */
+        class ForceField* forcefield;
         class Write* write;
-        class Clock* clock;
-        class LineSearch* ls;
-        FILE* output;
-        
-        FILE* input_file;
-        
         class MD* md;
         class Min* min;
+        class Clock* clock;
+
+
+        /* 
+         * atomic vectors
+         */
+        Vec<type0>*& x;
+        Vec<int>*& id;
+        Vec<md_type>* type;
+        Vec<dmd_type>* ctype;
+        Vec<type0>* x_d;
+        Vec<type0>* c;
+        Vec<type0>* c_d;
+        Vec<type0>* f;
+        Vec<byte>* dof;
+        Vec<byte>* cdof;
         
-        int no_commands;
+        
+
+        /* 
+         * linesearch crap
+         */
+        LineSearch<Min>* ls;
+        
+        
+        FILE* output;
+        FILE* input_file;
         
         void read_file();
-        void command(char*);
         void min_style(int,char**);
         void ff_style(int,char**);
         void md_style(int,char**);
@@ -54,12 +79,20 @@ namespace MAPP_NS {
         void write_style(int,char**);
         void command_style(int,char**);
         
-        int parse_line(char*,char**&);
+        //extra functions that can be used by other files
+        int read_line(FILE*,char*&);
+        int parse_line(const char*,char**&);
+        int parse_line(char*,char**&,int&);
         int hash_remover(char*,char*&);
-        void concatenate(int,char**,char*&);
+        int hash_remover(char*&);
+        int concatenate(int,char**,char*&);
         void test();
+        
+        int read_line(FILE*,char*&,int&,int&);
+        void init_dubeg(int);
+        void fin_dubeg();
+        FILE* my_debug;
     };
-
 }
 
 

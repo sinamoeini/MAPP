@@ -8,11 +8,13 @@
 #ifndef __MAPP__ff_fs__
 #define __MAPP__ff_fs__
 #include "ff.h"
-namespace MAPP_NS {
-    class ForceField_fs : public ForceField{
+namespace MAPP_NS
+{
+    class ForceField_fs: public ForceFieldMD
+    {
     private:
-        int x_n,f_n,type_n,rho_n;
         int arr_size;
+        int no_types;
         
         type0** mat_t_1;
         type0** mat_t_2;
@@ -30,26 +32,17 @@ namespace MAPP_NS {
         int max_pairs;
         /*--------------------------------------------*/
         
-        void read_file(char*);
-        int read_line(FILE*,char*&);
-        
-        
+        void read_file(char*);        
+        Vec<type0>* rho_ptr;
+        void force_calc(int,type0*);
+        type0 energy_calc();
     protected:
     public:
         ForceField_fs(MAPP *);
         ~ForceField_fs();
-        void force_calc(int,type0*);
-        void force_calc0(int,type0*);
-        type0 energy_calc();
         void init();
         void fin();
         void coef(int,char**);
-        int shift;
-
-        void create_2nd_neigh_lst(){};
-        type0 g_calc(int,type0,type0*,type0*,type0*){return 0.0;};
-        type0 c_dd_norm(){return 0.0;};
-        void c_d_calc(int,type0*){};
     };
 }
 #endif

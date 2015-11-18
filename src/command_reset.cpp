@@ -4,10 +4,10 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_reset::Command_reset(MAPP* mapp,int narg,char** args)
+Command_reset::Command_reset(MAPP* mapp,int nargs,char** args)
 :InitPtrs(mapp)
 {
-    if(narg!=1)
+    if(nargs!=1)
         error->abort("reset needs 0 argument");
     step_no=0;
 }

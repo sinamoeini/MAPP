@@ -1,19 +1,9 @@
 #ifndef __MAPP__memory__
 #define __MAPP__memory__
 #include <exception>
+#include <new>
 #include "init.h"
 #include "error.h"
-
-#define GROW(A,oldsize,newsize)     \
-memory->grow(A,oldsize,newsize,#A,  \
-__LINE__,__FILE__,__FUNCTION__)
-#define CREATE1D(A,d0)              \
-memory->create(A,d0,#A,__LINE__,    \
-__FILE__,__FUNCTION__)
-#define CREATE2D(A,d0,d1)           \
-memory->create(A,d0,d1,#A,__LINE__, \
-__FILE__,__FUNCTION__)
-
 
 namespace MAPP_NS
 {
@@ -25,15 +15,15 @@ namespace MAPP_NS
         ~Memory();
         
         template <typename TYPE>
-        TYPE* create(TYPE*&,int,const char*
+        TYPE* create(TYPE*&,long,const char*
         ,int,const char*,const char*);
 
         template <typename TYPE>
-        TYPE** create(TYPE**&,int,int,const char*
+        TYPE** create(TYPE**&,long,long,const char*
         ,int,const char*,const char*);
         
         template <typename TYPE>
-        TYPE* grow(TYPE*&,int,int,const char*
+        TYPE* grow(TYPE*&,long,long,const char*
         ,int,const char*,const char*);
 
     };
@@ -44,7 +34,7 @@ using namespace MAPP_NS;
  create 1d vector
  --------------------------------------------*/
 template<typename TYPE>
-TYPE* Memory::create(TYPE*& array,int d0
+TYPE* Memory::create(TYPE*& array,long d0
 ,const char* name,int line_no,const char* file
 ,const char* function)
 {
@@ -64,8 +54,8 @@ TYPE* Memory::create(TYPE*& array,int d0
  create 2d vector
  --------------------------------------------*/
 template <typename TYPE>
-TYPE** Memory::create(TYPE**& array,int d0
-,int d1,const char* name,int line_no,
+TYPE** Memory::create(TYPE**& array,long d0
+,long d1,const char* name,int line_no,
 const char* file,const char* function)
 {
     create(array,d0,name,line_no,file,function);
@@ -77,8 +67,8 @@ const char* file,const char* function)
  grow 1d vector
  --------------------------------------------*/
 template <typename TYPE>
-TYPE* Memory::grow(TYPE*& array,int oldsize,
-int newsize,const char* name,int line_no,
+TYPE* Memory::grow(TYPE*& array,long oldsize,
+long newsize,const char* name,int line_no,
 const char* file,const char* function)
 {
     if (oldsize==0)
@@ -95,9 +85,9 @@ const char* file,const char* function)
         TYPE* newarray=array;
         try
         {
-            int size1=newsize;
-            int size2=oldsize;
-            int size=MIN(size1,size2);
+            long size1=newsize;
+            long size2=oldsize;
+            long size=MIN(size1,size2);
             newarray = new TYPE[newsize];
             memcpy(newarray,array,size*sizeof(TYPE));
             delete [] array;

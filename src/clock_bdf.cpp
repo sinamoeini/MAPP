@@ -2,99 +2,78 @@
 #include <limits>
 #include "clock_bdf.h"
 #include "ff.h"
+#include "error.h"
+#include "memory.h"
 #include "write.h"
 #include "thermo_dynamics.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_bdf::Clock_bdf(MAPP* mapp,int narg
-,char** arg):Clock(mapp)
+Clock_bdf::Clock_bdf(MAPP* mapp,int nargs
+,char** args):ClockImplicit(mapp)
 {
-    
     max_order=6;
-    min_del_t=numeric_limits<type0>::epsilon();
-    initial_del_t=-1.0;
-    max_t=1.0e7;
     
-    
-    if(narg>2)
+    if(nargs>2)
     {
-        if(narg%2!=0)
+        if(nargs%2!=0)
             error->abort("every keyword in clock bdf should be followed by it's value");
         int iarg=2;
-        while(iarg<narg)
+        while(iarg<nargs)
         {
-            if(strcmp(arg[iarg],"min_gamma")==0)
+            if(strcmp(args[iarg],"max_step")==0)
             {
                 iarg++;
-                min_gamma=atof(arg[iarg]);
+                max_step=atoi(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"red_gamma")==0)
+            else if(strcmp(args[iarg],"max_t")==0)
             {
                 iarg++;
-                gamma_red=atof(arg[iarg]);
+                max_t=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"slope")==0)
+            else if(strcmp(args[iarg],"max_iter")==0)
             {
                 iarg++;
-                slope=atof(arg[iarg]);
+                max_iter=atoi(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"max_step")==0)
+            else if(strcmp(args[iarg],"max_order")==0)
             {
                 iarg++;
-                max_step=atoi(arg[iarg]);
+                max_order=atoi(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"max_iter")==0)
+            else if(strcmp(args[iarg],"m_tol")==0)
             {
                 iarg++;
-                max_iter=atoi(arg[iarg]);
+                m_tol=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"max_order")==0)
+            else if(strcmp(args[iarg],"a_tol")==0)
             {
                 iarg++;
-                max_order=atoi(arg[iarg]);
+                a_tol=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"m_tol")==0)
+            else if(strcmp(args[iarg],"min_del_t")==0)
             {
                 iarg++;
-                m_tol=atof(arg[iarg]);
+                min_del_t=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"a_tol")==0)
+            else if(strcmp(args[iarg],"initial_del_t")==0)
             {
                 iarg++;
-                a_tol=atof(arg[iarg]);
-                iarg++;
-            }
-            else if(strcmp(arg[iarg],"min_del_t")==0)
-            {
-                iarg++;
-                min_del_t=atof(arg[iarg]);
-                iarg++;
-            }
-            else if(strcmp(arg[iarg],"initial_del_t")==0)
-            {
-                iarg++;
-                initial_del_t=atof(arg[iarg]);
+                initial_del_t=atof(args[iarg]);
                 if(initial_del_t<=0.0)
                     error->abort("initial_del_t in clock bdf should be greater than 0.0");
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"max_t")==0)
-            {
-                iarg++;
-                max_t=atof(arg[iarg]);
-                iarg++;
-            }
             else
-                error->abort("unknown keyword in clock bdf: %s",arg[iarg]);
+                error->abort("unknown keyword in clock bdf: %s",args[iarg]);
         }
     }
     
@@ -104,7 +83,7 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int narg
         error->abort("gamma_red in clock bdf should be between 0.0 & 1.0");
     if(slope<=0.0 || slope>=1.0)
         error->abort("slope in clock bdf should be between 0.0 & 1.0");
-    if(max_step<=0)
+    if(max_step<0)
         error->abort("max_step in clock bdf should be greater than 0");
     if(max_iter<=0)
         error->abort("max_iter in clock bdf should be greater than 0");
@@ -140,34 +119,10 @@ Clock_bdf::~Clock_bdf()
  --------------------------------------------*/
 void Clock_bdf::allocate()
 {
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
+    ClockImplicit::allocate();
     
-    int c_dim=atoms->vectors[c_n]->dim;
-    dof_lcl=atoms->natms*c_dim;
-    
-    int tmp_dof=dof_lcl;
-    for(int idof=0;idof<dof_lcl;idof++)
-        if(c[idof]<0.0)
-        {
-            tmp_dof--;
-        }
-    
-    MPI_Allreduce(&tmp_dof,&dof_tot,1,MPI_INT,MPI_SUM,world);
-    
-    CREATE1D(y_0,dof_lcl);
-    CREATE1D(y_1,dof_lcl);
-    CREATE1D(a,dof_lcl);
-    CREATE1D(g,dof_lcl);
-    CREATE1D(g0,dof_lcl);
-    CREATE1D(c0,dof_lcl);
-    CREATE1D(h,dof_lcl);
-    
-    
-    CREATE1D(y_0,dof_lcl);
     CREATE1D(e_n,dof_lcl);
     CREATE1D(dy,dof_lcl);
-    
     CREATE1D(t,max_order);
     CREATE1D(y,max_order);
     for(int i=0;i<max_order;i++)
@@ -199,16 +154,110 @@ void Clock_bdf::deallocate()
         delete [] dy;
     }
     
+    ClockImplicit::deallocate();
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void Clock_bdf::init()
+{
+    ClockImplicit::init();
+    allocate();
     
-    if(dof_lcl)
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
+    rectify(c_d);
+    
+    if(initial_del_t<0.0)
     {
-        delete [] y_0;
-        delete [] y_1;
-        delete [] a;
-        delete [] g;
-        delete [] g0;
-        delete [] c0;
-        delete [] h;
+        type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(static_cast<type0>(dof_tot));
+        initial_del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*max_t);
+    }
+    
+    init_stp_adj(initial_del_t);
+    
+    for(int i=0;i<max_order;i++)
+        t[i]=0.0;
+    memcpy(y[0],c,dof_lcl*sizeof(type0));
+    memcpy(dy,c_d,dof_lcl*sizeof(type0));
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void Clock_bdf::fin()
+{
+    ClockImplicit::fin();
+    deallocate();
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void Clock_bdf::run()
+{
+    if(max_step==0)
+        return;
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
+    
+    type0* tmp_y;
+    
+    type0 del_t=initial_del_t,del_t_tmp;
+    type0 cost,err=0.0;
+    int q=1;
+    int err_chk;
+    int istep;
+    
+    
+    istep=0;
+    while (istep<max_step && tot_t<max_t)
+    {
+        err_chk=1;
+        while (err_chk)
+        {
+            interpolate(del_t,q);
+            solve_n_err(cost,err);
+            
+            if(err<1.0 && cost<1.0)
+                err_chk=0;
+            
+            if(err_chk)
+                fail_stp_adj(MAX(cost,err),del_t,q);
+        }
+        
+        max_succ_dt=MAX(max_succ_dt,del_t);
+        max_succ_q=MAX(max_succ_q,q);
+        tot_t+=del_t;
+        
+        if(write!=NULL)
+            write->write();
+        thermo->thermo_print();
+        
+        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
+        {
+            forcefield_dmd->enst_calc_timer(1,nrgy_strss);
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
+            thermo->update(time_idx,tot_t);
+        }
+        
+        del_t_tmp=del_t;
+
+        ord_dt(del_t,q,err);
+        
+        
+        tmp_y=y[max_order-1];
+        for(int i=max_order-1;i>0;i--)
+        {
+            t[i]=t[i-1]-del_t_tmp;
+            y[i]=y[i-1];
+        }
+        
+        y[0]=tmp_y;
+        memcpy(y[0],c,dof_lcl*sizeof(type0));
+        memcpy(dy,c_d,dof_lcl*sizeof(type0));
+        
+        step_no++;
+        istep++;
     }
 }
 /*--------------------------------------------
@@ -218,9 +267,6 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
 {
     type0 tmp0,tmp1,c0,c1,c2;
 
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    
     int idof;
     int err_chk=1;
     int err_chk_lcl;
@@ -261,7 +307,7 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
         idof=0;
         while(idof<dof_lcl && err_chk_lcl==0)
         {
-            if(c[idof]>=0.0)
+            if(y[0][idof]>=0.0)
             {
                 a[idof]=beta*dalpha_dy*dy[idof];
                 y_0[idof]=alpha_dy*dy[idof];
@@ -278,7 +324,7 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
                 }
             }
             else
-                y_0[idof]=c[idof];
+                y_0[idof]=y[0][idof];
             
             
             idof++;
@@ -293,11 +339,47 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
             }
             else
             {
-                del_t*=0.8;
-                del_t=MAX(del_t,min_del_t);
+                if(max_t-tot_t<=2.0*min_del_t)
+                {
+                    error->abort("reached minimum order & del_t (%e)",del_t);
+                }
+                else
+                {
+                    if(del_t==min_del_t)
+                    {
+                        error->abort("reached minimum order & del_t (%e)",del_t);
+                    }
+                    else
+                    {
+                        type0 r_lcl=1.0,r;
+                        for(int i=0;i<dof_lcl;i++)
+                        {
+                            if(y[0][i]>=0.0)
+                            {
+                                tmp0=y[0][i]+r_lcl*del_t*dy[i];
+                                if(tmp0>1.0)
+                                    r_lcl=0.999*((1.0-y[0][i])/(del_t*dy[i]));
+                                if(tmp0<0.0)
+                                    r_lcl=-0.999*((y[0][i])/(del_t*dy[i]));
+                            }
+                        }
+                        
+                        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MIN,world);
+                        
+                        if(r*del_t<min_del_t)
+                            del_t=min_del_t;
+                        else if(r*del_t>max_t-tot_t-min_del_t)
+                            del_t=max_t-tot_t-min_del_t;
+                        else
+                            del_t*=r;
+                    }
+                }
             }
         }
         err_prefac=fabs(-1.0/((1.0+c0)*(1.0+c2)));
+        
+        if(err_chk)
+            intp_rej++;
     }
 }
 /*--------------------------------------------
@@ -306,8 +388,7 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
 void Clock_bdf::ord_dt(type0& del_t,int& q
 ,type0 err)
 {
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
+    type0* c=mapp->c->begin();
     type0 lo_r,hi_r,r;
     
     r=pow(0.5/err,1.0/static_cast<type0>(q+1));
@@ -363,8 +444,7 @@ void Clock_bdf::ord_dt(type0& del_t,int& q
 void Clock_bdf::ratio_calc(int q,type0 del_t,
 type0& lo_ratio,type0& hi_ratio)
 {
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
+    type0* c=mapp->c->begin();
     type0 lo_err,hi_err,lo_err_lcl,hi_err_lcl;
     type0 tmp0,tmp1;
     type0 c0,c2;
@@ -438,190 +518,6 @@ type0& lo_ratio,type0& hi_ratio)
     
 }
 /*--------------------------------------------
- init
- --------------------------------------------*/
-void Clock_bdf::init()
-{
-    
-    old_skin=atoms->skin;
-    old_comm_mode=atoms->comm_mode;
-    atoms->chng_skin(0.0);
-    atoms->comm_mode=COMM_MODE_5;
-    
-    type0* c;
-    type0* c_d;
-    
-    int f_n=atoms->find_exist("f");
-    if(f_n<0)
-        f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
-    
-    int id_n=atoms->find("id");
-    if(cdof_n>-1)
-    {
-        int dof_n=atoms->find("dof");
-        vecs_comm=new VecLst(mapp,6,0,c_n,c_d_n,cdof_n,dof_n,id_n);
-        
-    }
-    else
-    {
-        vecs_comm=new VecLst(mapp,4,0,c_n,c_d_n,id_n);
-    }
-    
-    vecs_comm->add_update(0);
-    atoms->init(vecs_comm);
-    allocate();
-    
-    
-    forcefield->create_2nd_neigh_lst_timer();
-    forcefield->force_calc_timer(1,nrgy_strss);
-    forcefield->c_d_calc_timer(0,nrgy_strss);
-    
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    thermo->init();
-    
-    if(write!=NULL)
-        write->init();
-    
-    atoms->vectors[c_n]->ret(c);
-    atoms->vectors[c_d_n]->ret(c_d);
-    rectify(c_d);
-    tot_t=0.0;
-    
-    if(initial_del_t<0.0)
-    {
-        type0 sum=forcefield->c_dd_norm()/sqrt(static_cast<type0>(dof_tot));
-        initial_del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*max_t);
-    }
-    
-    init_stp_adj(initial_del_t);
-    
-    for(int i=0;i<max_order;i++)
-        t[i]=0.0;
-    memcpy(y[0],c,dof_lcl*sizeof(type0));
-    memcpy(dy,c_d,dof_lcl*sizeof(type0));
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void Clock_bdf::fin()
-{
-    
-    if(write!=NULL)
-        write->fin();
-    thermo->fin();
-    deallocate();
-    atoms->fin();
-    delete vecs_comm;
-    
-    atoms->chng_skin(old_skin);
-    atoms->comm_mode=old_comm_mode;
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void Clock_bdf::run()
-{
-    if(max_step==0)
-        return;
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
-    
-    type0* tmp_y;
-    
-    type0 del_t=initial_del_t,del_t_tmp;
-    type0 cost,err=0.0;
-    int q=1;
-    int err_chk;
-    int istep;
-    
-    
-    istep=0;
-    while (istep<max_step && tot_t<max_t)
-    {
-        err_chk=1;
-        while (err_chk)
-        {
-            /*
-            if(1)
-            {
-                int* id;
-                atoms->vectors[atoms->find("id")]->ret(id);
-                type0* ccc;
-                atoms->vectors[atoms->find("c")]->ret(ccc);
-                int dd=atoms->vectors[atoms->find("c")]->dim;
-                
-                for(int i=0;i<atoms->natms;i++)
-                    if(id[i]==2)
-                        printf("c[%d,%d] %73.67e %d %73.67e\n",id[i],1,ccc[i*dd+1],q,del_t);
-            }
-             */
-            interpolate(del_t,q);
-            /*
-            if(1)
-            {
-                int* id;
-                atoms->vectors[atoms->find("id")]->ret(id);
-                type0* ccc;
-                atoms->vectors[atoms->find("c")]->ret(ccc);
-                int dd=atoms->vectors[atoms->find("c")]->dim;
-                
-                for(int i=0;i<atoms->natms;i++)
-                    if(id[i]==2)
-                        printf("y[%d,%d] %73.67e index %d\n",id[i],1,y_0[i*dd+1],i*dd+1);
-            }
-             */
-            solve_n_err(cost,err);
-            /*
-            if(atoms->my_p_no==0)
-                printf("istep %d err %e  cost %e\n",istep,err,cost);
-             */
-            
-            if(err<1.0 && cost<1.0)
-                err_chk=0;
-            
-            if(err_chk)
-                fail_stp_adj(MAX(cost,err),del_t,q);
-        }
-        
-        tot_t+=del_t;
-        
-        if(write!=NULL)
-            write->write();
-        thermo->thermo_print();
-        
-        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
-        {
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
-        }
-        
-        del_t_tmp=del_t;
- 
-        ord_dt(del_t,q,err);
-
-        tmp_y=y[max_order-1];
-        for(int i=max_order-1;i>0;i--)
-        {
-            t[i]=t[i-1]-del_t_tmp;
-            y[i]=y[i-1];
-        }
-        
-        y[0]=tmp_y;
-        memcpy(y[0],c,dof_lcl*sizeof(type0));
-        memcpy(dy,c_d,dof_lcl*sizeof(type0));
-        
-        step_no++;
-        istep++;
-    }
-    
-}
-/*--------------------------------------------
  step addjustment after failure
  --------------------------------------------*/
 inline void Clock_bdf::fail_stp_adj(type0 err,type0& del_t,int& q)
@@ -677,6 +573,5 @@ inline void Clock_bdf::init_stp_adj(type0& del_t)
                 del_t=max_t-tot_t-min_del_t;
         }
     }
-
 }
 

@@ -5,12 +5,11 @@
 #define __MAPP__command_displace__
 #include "init.h"
 #include "atoms.h"
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     class Command_displace: protected InitPtrs
     {
     private:
-        void move(int*,int,type0*);
-        int id_n;
     protected:
     public:
         Command_displace(MAPP*,int,char**);

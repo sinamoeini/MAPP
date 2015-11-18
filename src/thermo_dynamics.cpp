@@ -1,4 +1,6 @@
 #include "thermo_dynamics.h"
+#include "error.h"
+#include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  init the quantity
@@ -47,20 +49,17 @@ void ThermoQuantity::mod(int lngth)
  constructor
  --------------------------------------------*/
 ThermoDynamics::ThermoDynamics(MAPP* mapp
-,int narg,char** args):InitPtrs(mapp)
+,int nargs,char** args):InitPtrs(mapp),
+precision(mapp->precision)
 {
-    precision=6;
     step_name_lngth=15;
-    
-    mod_lngth=precision+9;
-
-    
+    mod_lngth=precision+9;    
     
     if(atoms->dimension!=3)
         error->abort("the thermodynamics "
         "works only with box dimension 3");
 
-    no_quantities=narg;
+    no_quantities=nargs;
     quantities=new ThermoQuantity[no_quantities];
     
     
@@ -113,8 +112,9 @@ ThermoDynamics::~ThermoDynamics()
  --------------------------------------------*/
 void ThermoDynamics::hdr_print()
 {
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
+        fprintf(output,"\n");
         fprintf(output," ");
         for(int i=0;i<step_name_lngth;i++)
             fprintf(output,"-");
@@ -158,7 +158,7 @@ void ThermoDynamics::val_print()
 {
 
     print_step=step_no+step_tally;
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
         fprintf(output,"|");
         
@@ -187,7 +187,7 @@ void ThermoDynamics::thermo_print()
  --------------------------------------------*/
 void ThermoDynamics::tail_print()
 {
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
         fprintf(output," ");
         for(int i=0;i<step_name_lngth;i++)

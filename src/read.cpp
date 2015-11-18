@@ -5,6 +5,8 @@
 #include "read.h"
 #include "ff.h"
 #include "atom_types.h"
+#include "error.h"
+
 using namespace MAPP_NS;
 
 /*--------------------------------------------

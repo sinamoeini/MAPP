@@ -7,17 +7,13 @@
 namespace MAPP_NS {
     class Min_cg : public Min {
     private:
-    protected:
-        int f_prev_n;
-        
-        type0** f_H_prev;
+    protected:        
     public:
         Min_cg(MAPP *,int,char**);
         ~Min_cg();
         void run();
         void init();
         void fin();
-        
     };
 
 }

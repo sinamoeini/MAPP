@@ -2,29 +2,27 @@
  Created by Sina on 05/11/13.
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
+
 #include "MAPP.h"
-
 #include "timer.h"
-#include "neighbor.h"
+#include "memory.h"
+#include "error.h"
 #include "atom_types.h"
-#include "min.h"
+#include "neighbor.h"
+#include "neighbor_md.h"
+#include "thermo_dynamics.h"
 
-#include "clock.h"
-#include "ff.h"
-#include "md.h"
-#include "ls.h"
-#include "read.h"
-#include "write.h"
-
-#include "clock_styles.h"
+#include "read_styles.h"
 #include "ff_styles.h"
+#include "min_styles.h"
+#include "clock_styles.h"
+#include "command_styles.h"
 #include "md_styles.h"
 #include "ls_styles.h"
-#include "read_styles.h"
 #include "write_styles.h"
 
-#include "min_styles.h"
-#include "command_styles.h"
+#include <iostream>
+#include <fstream>
 
 #define MAPP_VERSION "Beta"
 using namespace MAPP_NS;
@@ -33,222 +31,175 @@ using namespace MAPP_NS;
  constructor of the main executer
  --------------------------------------------*/
 MAPP::
-MAPP(int narg,char** args,MPI_Comm communicator)
+MAPP(int nargs,char** args,MPI_Comm communicator):
+world(communicator),
+atoms(new Atoms(this,3)),
+x(atoms->x),
+id(atoms->id)
 {
-
-    step_no=0;
-    step_tally=1000;
-    output = stdout;
-    world=communicator;
+    init_dubeg(0);
     
-    error = new Error(this);
-    memory = new Memory(this);
-    timer = new Timer(this);
-    
-    atoms = new Atoms(this);
+    memory=new Memory(this);
+    error=new Error(this);
+    timer=new Timer(this);
     atom_types = new AtomTypes(this);
-    neighbor = new Neighbor(this);
-    
-    //print the version
-    if (atoms->my_p_no==0)
-        fprintf(output,"MAPP Version: %s\n\n",
-            (char*) MAPP_VERSION);
-    
-    
+    neighbor=new Neighbor_md(this);
+
     forcefield=NULL;
+    write=NULL;
     md=NULL;
-    ls=NULL;
     min=NULL;
     clock=NULL;
-    write=NULL;
+
+    
+    type=NULL;
+    ctype=NULL;
+    x_d=NULL;
+    c=NULL;
+    c_d=NULL;
+    f=NULL;
+    dof=NULL;
+    cdof=NULL;
+    
+    ls=NULL;
+
+    
+    input_file=stdin;
+    output=stdout;
+
+    if (atoms->my_p==0)
+        fprintf(output,"MAPP Version: %s\n",
+        (char*) MAPP_VERSION);
+    
     
     mode=MD_mode;
-
-    input_file=NULL;
-    input_file=stdin;
+    step_no=0;
+    precision=6;
+    step_tally=1000;
+    no_commands=0;
     
-
     int iarg=1;
-    while(iarg<narg)
+    while(iarg<nargs)
     {
         
         if(strcmp(args[iarg],"-i")==0)
         {
             iarg++;
-            if(iarg==narg)
+            if(iarg==nargs)
                 error->abort("no input file");
+            
             input_file=fopen(args[iarg],"r");
             iarg++;
         }
         else if(strcmp(args[iarg],"-o")==0)
         {
             iarg++;
-            if(iarg==narg)
+            if(iarg==nargs)
                 error->abort("no output file");
             output=fopen(args[iarg],"w");
             iarg++;
         }
         else
-            error->abort("unknown postfix: %s"
-            ,args[iarg]);
+            error->abort("unknown postfix: %s",args[iarg]);
     }
     
     if(input_file==NULL)
         error->abort("input file not found");
     
     read_file();
-    
-    if(input_file!=stdin)
-        fclose(input_file);
-    
 
     
     test();
-
     
+    if(input_file!=stdin)
+        fclose(input_file);
 }
 /*--------------------------------------------
  destructor of the main executer
  --------------------------------------------*/
 MAPP::~MAPP()
 {
-    if (atoms->my_p_no==0)
-        fprintf(output,"Finito\n");
+    if (atoms->my_p==0)
+      fprintf(output,"Finito\n");
     
     if(output!=stdout)
         fclose(output);
     
-    if(ls!=NULL)
-        delete ls;
     
-    if(write!=NULL)
-        delete write;
-    
-    if(forcefield!=NULL)
-        delete forcefield;
+    delete forcefield;
+    delete write;
+    delete md;
+    delete min;
+    delete clock;
 
     delete neighbor;
     delete atom_types;
-    delete atoms;
-    
     delete timer;
-    delete error;
     delete memory;
-}
-/*--------------------------------------------
- test field
- --------------------------------------------*/
-void MAPP::read_file()
-{
-    no_commands=0;
-    int input_file_chk=1;
-    char* line;
-    int lngth;
-    int size=MAXCHAR;
-    int new_size;
-    int line_complt,pos;
-    int max_line_char;
-    char* srch;
-    max_line_char=size;
-    new_size=size;
-    CREATE1D(line,size);
-    
-    
-    while (input_file_chk)
-    {
-        if(atoms->my_p_no==0)
-        {
-            pos=0;
-            line_complt=0;
-            
-            while (line_complt==0)
-            {
-                fgets(&line[pos],size-pos,input_file);
-                lngth=static_cast<int>(strlen(line));
-                while(line[lngth-1]!='\n')
-                {
-                    pos=lngth;
-                    GROW(line,size,pos+max_line_char);
-                    size=pos+max_line_char;
-                    fgets(&line[pos],size-pos,input_file);
-                    lngth=static_cast<int>(strlen(line));
-                }
-
-                srch=NULL;
-                srch=strchr(line,'\\');
-                if(srch==NULL)
-                {
-                    line_complt=1;
-                }
-                else
-                {
-                    pos=static_cast<int>(srch-line);
-                    GROW(line,size,pos+max_line_char);
-                    size=pos+max_line_char;
-                }
-            }
-            
-            new_size=size;
-            
-            if(feof(input_file))
-                input_file_chk=0;
-            
-        }
-        
-        
-        MPI_Bcast(&input_file_chk,1,MPI_INT,0,world);
-        if(input_file_chk==0)
-            continue;
-        
-        MPI_Bcast(&new_size,1,MPI_INT,0,world);
-        if(new_size!=size)
-        {
-            delete [] line;
-            CREATE1D(line,new_size);
-            size=new_size;
-        }
-        
-        MPI_Bcast(line,size,MPI_CHAR,0,world);
-        
-        command(line);
-        
-    }
-    
-    delete [] line;
+    delete error;
+    delete atoms;
+    fin_dubeg();
 }
 /*--------------------------------------------
  analysing the commands
  --------------------------------------------*/
-void MAPP::command(char* command)
+void MAPP::read_file()
 {
-    char** args;
-    int narg;
-    narg=parse_line(command,args);
-    if(narg)
+    char* cmd;
+    int cmd_cpcty=0;
+    int chunk=MAXCHAR;
+    char** args=NULL;
+    int nargs;
+    int args_cpcty=0;
+
+    while(read_line(input_file,cmd,cmd_cpcty,chunk)!=-1)
+    {
+        nargs=parse_line(cmd,args,args_cpcty);
+        if(nargs==0) continue;
+
+        if(0);
+        else if(strcmp(args[0],"read")==0) read_style(nargs,args);
+        else if(strcmp(args[0],"min")==0) min_style(nargs,args);
+        else if(strcmp(args[0],"md")==0) md_style(nargs,args);
+        else if(strcmp(args[0],"clock")==0) clock_style(nargs,args);
+        else if(strcmp(args[0],"ls")==0) ls_style(nargs,args);
+        else if(strcmp(args[0],"ff")==0) ff_style(nargs,args);
+        else if(strcmp(args[0],"write")==0) write_style(nargs,args);
+        else command_style(nargs,args);
+
         no_commands++;
+    }
     
-    if(narg==0) return;
-    else if(strcmp(args[0],"read")==0) read_style(narg,args);
-    else if(strcmp(args[0],"ff")==0) ff_style(narg,args);
-    else if(strcmp(args[0],"min")==0) min_style(narg,args);
-    else if(strcmp(args[0],"clock")==0) clock_style(narg,args);
-    else if(strcmp(args[0],"md")==0) md_style(narg,args);
-    else if(strcmp(args[0],"ls")==0) ls_style(narg,args);
-    else if(strcmp(args[0],"write")==0) write_style(narg,args);
-    else command_style(narg,args);
+    if(args_cpcty) delete [] args;
+    if(cmd_cpcty) delete [] cmd;
+}
+/*--------------------------------------------
+ differnt read styles
+ --------------------------------------------*/
+void MAPP::read_style(int nargs,char** args)
+{
+    if(nargs<2)
+        error->abort("wrong command: %s",args[0]);
     
+    Read* read;
+    #define Read_Style
+    #define ReadStyle(class_name,style_name)    \
+    else if(strcmp(args[1],#style_name)==0)     \
+    read= new class_name(this,nargs,args);
     
-    for(int i=0;i<narg;i++)
-        delete [] args[i];
-    if(narg)
-        delete [] args;
+    if(0){}
+    #include "read_styles.h"
+    else
+        error->abort("wrong style of read: %s",args[1]);
+    #undef Read_Style
+    delete read;
 }
 /*--------------------------------------------
  differnt forcefield styles
  --------------------------------------------*/
-void MAPP::ff_style(int narg,char** args)
+void MAPP::ff_style(int nargs,char** args)
 {
-    if(narg!=2)
+    if(nargs!=2)
         error->abort("wrong command: %s",args[0]);
     
     if(forcefield!=NULL)
@@ -269,11 +220,39 @@ void MAPP::ff_style(int narg,char** args)
     #undef FF_Style
 }
 /*--------------------------------------------
+ differnt command styles
+ --------------------------------------------*/
+void MAPP::command_style(int nargs,char** args)
+{
+    
+    #define Command_Style
+    #define CommandStyle(class_name,style_name) \
+    else if(strcmp(args[0],#style_name)==0){    \
+    class class_name* command =                 \
+    new class_name(this,nargs,args);             \
+    delete command;}
+    
+    if (strcmp(args[0],"rm")==0)
+    {
+        char* cmd_line;
+        int lngth=concatenate(nargs,args,cmd_line);
+        system(cmd_line);
+        if(lngth) delete [] cmd_line;
+    }
+    #include "command_styles.h"
+    else
+        error->abort("unknown command:"
+                     " %s",args[0]);
+    #undef Command_Style
+    
+    
+}
+/*--------------------------------------------
  differnt forcefield styles
  --------------------------------------------*/
-void MAPP::ls_style(int narg,char** args)
+void MAPP::ls_style(int nargs,char** args)
 {
-    if(narg<2)
+    if(nargs<2)
         error->abort("wrong command: %s",args[0]);
     
     if(ls!=NULL)
@@ -282,9 +261,8 @@ void MAPP::ls_style(int narg,char** args)
     #define LS_Style
     #define LSStyle(class_name,style_name)     \
     else if(strcmp(args[1],#style_name)==0)    \
-    ls=new class_name(this,narg,args);
+    ls=new class_name<Min>(this,nargs,args);
     
-    //different forcefileds
     if(0){}
     #include "ls_styles.h"
     else
@@ -296,9 +274,9 @@ void MAPP::ls_style(int narg,char** args)
 /*--------------------------------------------
  differnt minimization styles
  --------------------------------------------*/
-void MAPP::min_style(int narg,char** args)
+void MAPP::min_style(int nargs,char** args)
 {
-    if(narg<2)
+    if(nargs<2)
         error->abort("wrong command: %s"
         ,args[0]);
     if(min!=NULL)
@@ -308,7 +286,7 @@ void MAPP::min_style(int narg,char** args)
     #define MinStyle(class_name,style_name)     \
     else if(strcmp(args[1],#style_name)==0)     \
         {if(min!=NULL)delete min;               \
-        min= new class_name(this,narg,args);    \
+        min= new class_name(this,nargs,args);    \
         min->init();min->run();min->fin();      \
         delete min;min=NULL;}
     
@@ -321,38 +299,11 @@ void MAPP::min_style(int narg,char** args)
     #undef Min_Style
 }
 /*--------------------------------------------
- differnt minimization styles
- --------------------------------------------*/
-void MAPP::clock_style(int narg,char** args)
-{
-    if(narg<2)
-        error->abort("wrong command: %s"
-        ,args[0]);
-    if(clock!=NULL)
-        delete clock;
-    
-    #define Clock_Style
-    #define ClockStyle(class_name,style_name)   \
-    else if(strcmp(args[1],#style_name)==0)     \
-        {if(clock!=NULL)delete clock;           \
-        clock= new class_name(this,narg,args);  \
-        clock->init();clock->run();clock->fin();\
-        delete clock;clock=NULL;}
-    
-    if(0){}
-    #include "clock_styles.h"
-    else
-        error->abort("wrong style of clock"
-                     ": %s",args[1]);
-    
-    #undef Clock_Style
-}
-/*--------------------------------------------
  differnt MD styles
  --------------------------------------------*/
-void MAPP::md_style(int narg,char** args)
+void MAPP::md_style(int nargs,char** args)
 {
-    if(narg<2)
+    if(nargs<2)
         error->abort("wrong command: %s"
         ,args[0]);
     
@@ -368,7 +319,7 @@ void MAPP::md_style(int narg,char** args)
     #define MD_Style
     #define MDStyle(class_name,style_name)      \
     else if(strcmp(args[1],#style_name)==0)     \
-    md= new class_name(this,narg,args);
+    md= new class_name(this,nargs,args);
 
     if(0){}
     #include "md_styles.h"
@@ -385,30 +336,9 @@ void MAPP::md_style(int narg,char** args)
 /*--------------------------------------------
  differnt read styles
  --------------------------------------------*/
-void MAPP::read_style(int narg,char** args)
+void MAPP::write_style(int nargs,char** args)
 {
-    if(narg<2)
-        error->abort("wrong command: %s",args[0]);
-    
-    Read* read;
-    #define Read_Style
-    #define ReadStyle(class_name,style_name)    \
-    else if(strcmp(args[1],#style_name)==0)     \
-    read= new class_name(this,narg,args);
-    
-    if(0){}
-    #include "read_styles.h"
-    else
-        error->abort("wrong style of read: %s",args[1]);
-    #undef Read_Style
-    delete read;
-}
-/*--------------------------------------------
- differnt read styles
- --------------------------------------------*/
-void MAPP::write_style(int narg,char** args)
-{
-    if(narg<2)
+    if(nargs<2)
         error->abort("wrong command: %s",args[0]);
 
     if(write!=NULL)
@@ -417,7 +347,7 @@ void MAPP::write_style(int narg,char** args)
     #define Write_Style
     #define WriteStyle(class_name,style_name)   \
     else if(strcmp(args[1],#style_name)==0)     \
-    write= new class_name(this,narg,args);
+    write= new class_name(this,nargs,args);
     
     if(0){}
     #include "write_styles.h"
@@ -425,30 +355,33 @@ void MAPP::write_style(int narg,char** args)
         error->abort("wrong style of write:"
             " %s",args[1]);
     #undef Write_Style
-
-    
 }
 /*--------------------------------------------
- differnt command styles
+ differnt clock styles
  --------------------------------------------*/
-void MAPP::command_style(int narg,char** args)
+void MAPP::clock_style(int nargs,char** args)
 {
+    if(nargs<2)
+        error->abort("wrong command: %s"
+        ,args[0]);
+    if(clock!=NULL)
+        delete clock;
     
-    #define Command_Style
-    #define CommandStyle(class_name,style_name) \
-    else if(strcmp(args[0],#style_name)==0){    \
-    class class_name* command =                 \
-    new class_name(this,narg,args);             \
-    delete command;}
+    #define Clock_Style
+    #define ClockStyle(class_name,style_name)   \
+    else if(strcmp(args[1],#style_name)==0)     \
+        {if(clock!=NULL)delete clock;           \
+        clock= new class_name(this,nargs,args);  \
+        clock->init();clock->run();clock->fin();\
+        delete clock;clock=NULL;}
     
     if(0){}
-    #include "command_styles.h"
+    #include "clock_styles.h"
     else
-        error->abort("unknown command:"
-                     " %s",args[0]);
-    #undef Command_Style
+        error->abort("wrong style of clock"
+                     ": %s",args[1]);
     
-    
+    #undef Clock_Style
 }
 /*--------------------------------------------
  parse a command line:
@@ -459,16 +392,16 @@ void MAPP::command_style(int narg,char** args)
  line=
  "  this  is a    test, #here is comment";
  will be converted to:
- arg[0]="this";
- arg[1]="is";
- arg[2]="a";
- arg[3]="test,";
- narg=4;
+ args[0]="this";
+ args[1]="is";
+ args[2]="a";
+ args[3]="test,";
+ nargs=4;
  --------------------------------------------*/
-int MAPP::parse_line(char* line,char**& arg)
+int MAPP::parse_line(const char* line,char**& args)
 {
-    arg = NULL;
-    int narg = 0;
+    args=NULL;
+    int nargs = 0;
     int cursor = 0;
     int length= static_cast<int>(strlen(line));
     int ll[length];
@@ -479,7 +412,7 @@ int MAPP::parse_line(char* line,char**& arg)
             cursor++;
         else
         {
-            if (narg==0 && line[cursor]=='#')
+            if (nargs==0 && line[cursor]=='#')
                 return 0;
             int i = 0;
             while(!isspace(line[cursor])
@@ -488,19 +421,19 @@ int MAPP::parse_line(char* line,char**& arg)
                 cursor++;
                 i++;
             }
-            ll[narg]=i+1;
-            narg++;
+            ll[nargs]=i+1;
+            nargs++;
         }
     }
     
-    if (narg==0) return 0;
+    if (nargs==0) return 0;
     
-    CREATE1D(arg,narg);
+    CREATE1D(args,nargs);
     
-    for(int i=0;i<narg;i++)
-        CREATE1D(arg[i],ll[i]);
+    for(int i=0;i<nargs;i++)
+        CREATE1D(args[i],ll[i]);
     
-    narg = 0;
+    nargs = 0;
     cursor = 0;
     
     while (cursor<length&&line[cursor]!='#')
@@ -512,12 +445,12 @@ int MAPP::parse_line(char* line,char**& arg)
             int i=0;
             while(!isspace(line[cursor])
                   && cursor < strlen(line))
-                arg[narg][i++]=line[cursor++];
-            arg[narg][i] = '\0';
-            narg++;
+                args[nargs][i++]=line[cursor++];
+            args[nargs][i] = '\0';
+            nargs++;
         }
     }
-    return narg;
+    return nargs;
 }
 /*--------------------------------------------
  hash sign remover:
@@ -529,31 +462,31 @@ int MAPP::parse_line(char* line,char**& arg)
  will be converted to:
  newline=
  "this is a test,";
- narg=4;
+ nargs=4;
  --------------------------------------------*/
 int MAPP::hash_remover(char* line,char*& newline)
 {
     newline = NULL;
     CREATE1D(newline,MAXCHAR);
     
-    int narg = 0;
-    int cursor = 0;
-    int icursor = 0;
+    int nargs=0;
+    int cursor=0;
+    int icursor=0;
     while (cursor < strlen(line)&& line[cursor]!='#')
     {
         if (isspace(line[cursor]))
             cursor++;
         else
-        {   if (narg!=0)
+        {   if (nargs!=0)
             newline[icursor++]=' ';
             while(!isspace(line[cursor])
                   && cursor < strlen(line))
                 newline[icursor++]=line[cursor++];
-            narg++;
+            nargs++;
         }
     }
     newline[icursor]='\0';
-    return narg;
+    return nargs;
 }
 /*--------------------------------------------
  hash sign remover:
@@ -565,19 +498,121 @@ int MAPP::hash_remover(char* line,char*& newline)
  will be converted to:
  newline=
  "this is a test,";
- narg=4;
+ nargs=4;
  --------------------------------------------*/
-void MAPP::concatenate(int narg,char** args
+int MAPP::hash_remover(char*& line)
+{
+    char* last;
+    last=line;
+    while(*last!='#' && *last!='\0' && *last!='\n')
+        last++;
+    *last='\0';
+    
+    char* ipos=line;
+    char* jpos=line;
+    char* kpos=line;
+    int nargs=0;
+    while(ipos!=last)
+    {
+        while (isspace(*ipos) && ipos!=last)
+            ipos++;
+        if(ipos==last)
+        {
+            if(kpos!=line)
+                kpos--;
+            *kpos='\0';
+            continue;
+        }
+        
+        jpos=ipos;
+        nargs++;
+        
+        while (!isspace(*ipos) && ipos!=last)
+            ipos++;
+        memmove(kpos,jpos,ipos-jpos);
+        if(ipos==last)
+            continue;
+        
+        kpos+=ipos-jpos;
+        *kpos=' ';
+        kpos++;
+    }
+    
+
+
+    return nargs;
+}
+/*--------------------------------------------
+ hash sign remover:
+ it removes the statement after hash sign,
+ replaces the withe spaces with space;
+ for example:
+ line=
+ "  this  is a    test, #here is comment";
+ will be converted to:
+ newline=
+ "this is a test,";
+ nargs=4;
+ --------------------------------------------*/
+int MAPP::parse_line(char* ipos,char**& args,int& args_cpcty)
+{
+
+    char* last;
+    last=ipos;
+    while(*last!='#' && *last!='\0' && *last!='\n')
+        last++;
+    *last='\0';
+    
+
+    int nargs=0;
+    while(ipos!=last)
+    {
+        while (isspace(*ipos) && ipos!=last)
+            ipos++;
+        if(ipos==last)
+            continue;
+        
+        if(nargs+1>args_cpcty)
+        {
+            GROW(args,nargs,nargs+1);
+            args_cpcty++;
+        }
+        args[nargs]=ipos;
+        nargs++;
+        
+        while (!isspace(*ipos) && ipos!=last)
+            ipos++;
+        if(ipos==last)
+            continue;
+        *ipos='\0';
+        ipos++;
+    }
+
+    return nargs;
+}
+/*--------------------------------------------
+ hash sign remover:
+ it removes the statement after hash sign,
+ replaces the withe spaces with space;
+ for example:
+ line=
+ "  this  is a    test, #here is comment";
+ will be converted to:
+ newline=
+ "this is a test,";
+ nargs=4;
+ --------------------------------------------*/
+int MAPP::concatenate(int nargs,char** args
 ,char*& line)
 {
     int lngth=0;
     int pos=0;
-    for(int i=0;i<narg;i++)
+    for(int i=0;i<nargs;i++)
         lngth+=static_cast<int>(strlen(args[i]));
     
-    lngth+=narg;
+    lngth+=nargs;
     CREATE1D(line,lngth);
-    for(int i=0;i<narg;i++)
+    for(int i=0;i<nargs;i++)
     {
         lngth=static_cast<int>(strlen(args[i]));
         for(int j=0;j<lngth;j++)
@@ -586,7 +621,7 @@ void MAPP::concatenate(int narg,char** args
             pos++;
         }
         
-        if(i!=narg-1)
+        if(i!=nargs-1)
         {
             line[pos]=' ';
             pos++;
@@ -597,11 +632,218 @@ void MAPP::concatenate(int narg,char** args
             pos++;
         }
     }
+    return lngth;
+}
+/*--------------------------------------------
+ read line and broadcast
+ --------------------------------------------*/
+int MAPP::read_line(FILE* file,char*& line)
+{
+    int lenght=0;
+    if(atoms->my_p==0)
+    {
+        if(fgets(line,MAXCHAR,file)==NULL)
+            lenght=-1;
+    }
+    
+    MPI_Bcast(&lenght,1,MPI_INT,0,world);
+    if(lenght==-1)
+        return -1;
+
+    if(atoms->my_p==0)
+    {
+        lenght=static_cast<int>(strlen(line))+1;
+    }
+    MPI_Bcast(&lenght,1,MPI_INT,0,world);
+    MPI_Bcast(line,lenght,MPI_CHAR,0,world);
+    
+    return lenght;
+}
+/*--------------------------------------------
+ read line and broadcast
+ --------------------------------------------*/
+int MAPP::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
+{
+    int ipos=0;
+    bool file_cmplt=false;
+    
+    if(atoms->my_p==0)
+    {
+        char* mark;
+        bool cmd_cmplt=false;
+        bool line_cmplt=false;
+        
+
+        while(!cmd_cmplt && !file_cmplt)
+        {
+            line_cmplt=false;
+            while(!line_cmplt && !file_cmplt)
+            {
+                
+                if(ipos+chunk>line_cpcty)
+                {
+                    char* line_=new char[ipos+chunk];
+                    memcpy(line_,line,ipos);
+                    if(line_cpcty)
+                        delete [] line;
+                    line=line_;
+                    line_cpcty=ipos+chunk;
+                }
+                
+                if(fgets(line+ipos,chunk,fp)==NULL)
+                {
+                    file_cmplt=true;
+                    continue;
+                }
+
+                if(strchr(line+ipos,'\n')!=NULL)
+                    line_cmplt=true;
+                else
+                {
+                    ipos=static_cast<int>(strlen(line));
+                    chunk*=2;
+                }
+            }
+            if(file_cmplt)
+                continue;
+            mark=strchr(line+ipos,'\\');
+            if(mark==NULL)
+                cmd_cmplt=true;
+            else
+                ipos=static_cast<int>(mark-line);
+        }
+        
+        if(!file_cmplt)
+        {
+            ipos=static_cast<int>(strlen(line));
+            if(ipos && line[ipos-1]=='\n')
+            {
+                line[ipos-1]='\0';
+                ipos--;
+            }
+        }
+    }
+    
+    MPI_Bcast(&file_cmplt,1,MPI_BYTE,0,world);
+    
+    MPI_Bcast(&ipos,1,MPI_INT,0,world);
+    
+    if (file_cmplt && ipos)
+        error->abort("file ended unexpectedly");
+    
+    if(file_cmplt)
+        return -1;
+    
+    if(ipos+1>line_cpcty)
+    {
+
+
+        if(line_cpcty)
+            delete [] line;
+
+        line =new char[ipos+1];
+
+        line_cpcty=ipos+1;
+
+    }
+    
+    MPI_Bcast(line,ipos+1,MPI_CHAR,0,world);
+    
+    return ipos+1;
+}
+/*--------------------------------------------
+
+ --------------------------------------------*/
+void MAPP::init_dubeg(int i)
+{
+    if(i==0)
+    {
+        my_debug=NULL;
+        return;
+    }
+
+    char* filename=new char[MAXCHAR];
+    //sprintf(filename,"debug-%d-%d",getpid(),atoms->my_p);
+    sprintf(filename,"debug-%d",atoms->my_p);
+    my_debug=fopen(filename,"w");
+    delete [] filename;
+    
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void MAPP::fin_dubeg()
+{
+    if(my_debug!=NULL)
+        fclose(my_debug);
 }
 /*--------------------------------------------
  test
  --------------------------------------------*/
 void MAPP::test()
 {
+
+        /*
+    const char * fileName ="input_dmd";
+    fstream file(fileName,ios::in);
+    file.seekg(0,ios::end);
+    long sizeInBytes=file.tellg();
+    
+    cout << fileName << " is " << sizeInBytes << " bytes long." << endl;
+    char* buff;
+    CREATE1D(buff,sizeInBytes+1);
+
+    FILE* fp=fopen(fileName,"r");
+    fread (buff,1,sizeInBytes,fp);
+    buff[sizeInBytes]='\0';
+    fclose(fp);
+
+    char* pch;
+    
+    
+
+    char* buff_=buff;
+    char* new_buff;
+    char* new_buff_;
+    CREATE1D(new_buff,sizeInBytes+1);
+    new_buff_=new_buff;
+    char* st=buff;
+    pch=strchr(buff_,'#');
+    while (pch!=NULL)
+    {
+        memcpy(new_buff_,st,pch-st);
+        new_buff_+=pch-st;
+        pch=strchr(pch+1,'\n');
+        st=pch;
+        
+        pch=strchr(pch+1,'#');
+    }
+    memcpy(new_buff_,st,buff+sizeInBytes+1-st);
+    
+
+    int buff_length=static_cast<int>(strlen(new_buff)+1);
+    delete [] buff;
+    CREATE1D(buff,buff_length);
+    memcpy(buff,new_buff,buff_length*sizeof(char));
+
+    
+    
+    int nargs=0;
+    char** args=NULL;
+    pch = strtok (buff,"\n");
+    while (pch != NULL)
+    {
+        GROW(args,nargs,nargs+1);
+        args[nargs]=pch;
+        nargs++;
+        pch = strtok (NULL,"\n");
+    }
+    for(int i=0;i<nargs;i++)
+        cout << args[i]<< endl;
+         */
 }
+
+
+
+
 

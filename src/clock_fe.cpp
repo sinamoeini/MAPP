@@ -1,209 +1,188 @@
 #include <stdlib.h>
 #include "clock_fe.h"
 #include "ff.h"
+#include "error.h"
+#include "memory.h"
 #include "write.h"
 #include "thermo_dynamics.h"
-#define SMALL 1.0e-18
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_fe::Clock_fe(MAPP* mapp,int narg
-                   ,char** arg):Clock(mapp)
+Clock_fe::Clock_fe(MAPP* mapp,int nargs
+,char** args):ClockExplicit(mapp)
 {
-    min_del_t=1.0e-12;
-    max_del_t=1.0e4;
-    if(narg<3)
-        error->abort("clock fe should at least have 1 arguement");
-    
-    no_steps=atoi(arg[2]);
-    if(no_steps<0)
-        error->abort("no of steps for clock fe should be greater than 0");
-    
-    if(narg>3)
+    if(nargs>2)
     {
-        if((narg-3)%2!=0)
-            error->abort("every keyword in clock fe should be followed by it's value");
-        int iarg=3;
-        while(iarg<narg)
+        if(nargs%2!=0)
+            error->abort("every keyword in clock adams should be followed by it's value");
+        int iarg=2;
+        while(iarg<nargs)
         {
-            
-            if(strcmp(arg[iarg],"a_tol")==0)
+            if(strcmp(args[iarg],"max_step")==0)
             {
                 iarg++;
-                a_tol=atof(arg[iarg]);
+                max_step=atoi(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"min_del_t")==0)
+            else if(strcmp(args[iarg],"max_t")==0)
             {
                 iarg++;
-                min_del_t=atof(arg[iarg]);
+                max_t=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(arg[iarg],"max_del_t")==0)
+            else if(strcmp(args[iarg],"a_tol")==0)
             {
                 iarg++;
-                max_del_t=atof(arg[iarg]);
+                a_tol=atof(args[iarg]);
+                iarg++;
+            }
+            else if(strcmp(args[iarg],"min_del_t")==0)
+            {
+                iarg++;
+                min_del_t=atof(args[iarg]);
+                iarg++;
+            }
+            else if(strcmp(args[iarg],"initial_del_t")==0)
+            {
+                iarg++;
+                initial_del_t=atof(args[iarg]);
+                if(initial_del_t<=0.0)
+                    error->abort("initial_del_t in clock fe should be greater than 0.0");
                 iarg++;
             }
             else
-                error->abort("unknown keyword in clock fe: %s",arg[iarg]);
+                error->abort("unknown keyword in clock fe: %s",args[iarg]);
         }
     }
-    
-    
+        
+
+    if(max_step<0)
+        error->abort("max_step in clock fe should be greater than 0");
     if(a_tol<=0.0)
         error->abort("a_tol in clock fe should be greater than 0.0");
     if(min_del_t<=0.0)
         error->abort("min_del_t in clock fe should be greater than 0.0");
-    if(max_del_t<=0.0)
-        error->abort("max_del_t in clock fe should be greater than 0.0");
-    if(min_del_t>=max_del_t)
-        error->abort("max_del_t in clock fe should be greater than min_del_t");
+    if(max_t<=0.0)
+        error->abort("max_t in clock fe should be greater than 0.0");
     
     
-    
-    
-    CREATE1D(y,dof_lcl);
-    CREATE1D(dy,dof_lcl);
-    
-    
+    if(initial_del_t!=-1.0 && initial_del_t>max_t)
+        error->abort("max_t in clock fe should be greater than initial_del_t");
+    if(min_del_t>max_t)
+        error->abort("max_t in clock fe should be greater than min_del_t");
+
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Clock_fe::~Clock_fe()
 {
+
+    
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void Clock_fe::allocate()
+{
+    CREATE1D(y,dof_lcl);
+    CREATE1D(dy,dof_lcl);
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void Clock_fe::deallocate()
+{
     if(dof_lcl)
     {
         delete [] y;
         delete [] dy;
     }
-    
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
 void Clock_fe::init()
 {
-    old_skin=atoms->skin;
-    old_comm_mode=atoms->comm_mode;
-    atoms->chng_skin(0.0);
-    atoms->comm_mode=COMM_MODE_5;
+    ClockExplicit::init();
+    allocate();
     
-    int f_n=atoms->find_exist("f");
-    if(f_n<0)
-        f_n=atoms->add<type0>(0,atoms->vectors[0]->dim,"f");
-    
-    c_n=atoms->find_exist("c");
-    c_d_n=atoms->find("c_d");
-    
-    int id_n=atoms->find("id");
-    if(cdof_n>-1)
-    {
-        int dof_n=atoms->find("dof");
-        vecs_comm=new VecLst(mapp,6,0,c_n,c_d_n,cdof_n,dof_n,id_n);
-        
-    }
-    else
-    {
-        vecs_comm=new VecLst(mapp,4,0,c_n,c_d_n,id_n);
-    }
-    
-    vecs_comm->add_update(0);
-    atoms->init(vecs_comm);
-
-    
-    forcefield->create_2nd_neigh_lst_timer();
-    forcefield->force_calc_timer(1,nrgy_strss);
-    forcefield->c_d_calc_timer(0,nrgy_strss);
-    
-    
-    thermo->update(fe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    thermo->update(time_idx,0.0);
-    
-    thermo->init();
-    
-    if(write!=NULL)
-        write->init();
-
-    
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
-    
-
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
     rectify(c_d);
+
+    
+    if(initial_del_t<0.0)
+    {
+        type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(static_cast<type0>(dof_tot));
+        initial_del_t=MIN(sqrt(4.0*a_tol/sum),1.0e-3*max_t);
+    }
+    
+    init_stp_adj(initial_del_t);
     
     
     memcpy(y,c,dof_lcl*sizeof(type0));
     memcpy(dy,c_d,dof_lcl*sizeof(type0));
-
-    
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
 void Clock_fe::fin()
 {
-    if(write!=NULL)
-        write->fin();
-    thermo->fin();
-    atoms->fin();
-    
-    delete vecs_comm;
-    
-    atoms->chng_skin(old_skin);
-    atoms->comm_mode=old_comm_mode;
-
+    ClockExplicit::fin();
+    deallocate();
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
 void Clock_fe::run()
 {
-    if(no_steps==0)
+    if(max_step==0)
         return;
-    type0 curr_t=0.0;
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
     
-    type0 del_t;
+    type0 del_t=initial_del_t,del_t_tmp;
+    type0 err=0.0;
+    int err_chk;
+    int istep;
     
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
-    del_t=min_del_t;
-    int istep=0;
-    
-    while (istep<no_steps)
+    istep=0;
+    while (istep<max_step && tot_t<max_t)
     {
-        solve(del_t);
         
+        err_chk=1;
+        while (err_chk)
+        {
+            interpolate_n_err(err,del_t);
+            
+            if(err<1.0)
+                err_chk=0;
+            fail_stp_adj(err,del_t);
+        }
         
-        curr_t+=del_t;
+        max_succ_dt=MAX(max_succ_dt,del_t);
+        tot_t+=del_t;
+
+        
         
         if(write!=NULL)
             write->write();
         thermo->thermo_print();
         
-        if(thermo->test_prev_step() || istep+1==no_steps)
+        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
         {
+            forcefield_dmd->enst_calc_timer(1,nrgy_strss);
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,curr_t);
+            thermo->update(time_idx,tot_t);
         }
         
-        
-        ord_dt(del_t);
+        del_t_tmp=del_t;
+        ord_dt(del_t,err);
 
-        
-        
-        forcefield->c_d_calc_timer(1,nrgy_strss);
-        
-        
-        rectify(c_d);
+
         
         
         memcpy(y,c,dof_lcl*sizeof(type0));
@@ -218,101 +197,238 @@ void Clock_fe::run()
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::solve(type0& del_t)
+void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
 {
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
     
-    type0* c;
-    atoms->vectors[c_n]->ret(c);
-    type0* c_d;
-    atoms->vectors[c_d_n]->ret(c_d);
-    
-    type0 ratio,tot_ratio,tmp0,err_lcl;
-    ratio=1.0;
-    for(int i=0;i<dof_lcl;i++)
+    int idof;
+    int err_chk=1;
+    type0 r,r_lcl,err_lcl;
+    while (err_chk)
     {
-        if(c[i]>=0.0)
+        r=r_lcl=1.0;
+        idof=0;
+        while(idof<dof_lcl && r_lcl==1.0)
         {
-            tmp0=y[i]+dy[i]*del_t;
-            if(tmp0>1.0)
-                ratio=MIN((1.0-y[i])/(tmp0-y[i]),ratio);
-            else if(tmp0<0.0)
-                ratio=MIN((y[i]-0.0)/(y[i]-tmp0),ratio);
+            if(y[idof]>=0.0)
+            {
+                c[idof]=y[idof]+0.5*del_t*dy[idof];
+                
+                if(c[idof]<0.0 ||c[idof]>1.0)
+                {
+                    while (c[idof]<0.0)
+                    {
+                        r_lcl=-y[idof]/(0.5*(r_lcl*del_t));
+                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*dy[idof];
+                    }
+                    
+                    while (c[idof]>1.0)
+                    {
+                        r_lcl=(1.0-y[idof])/(0.5*(r_lcl*del_t));
+                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*dy[idof];
+                    }
+                }
+            }
+            else
+                c[idof]=y[idof];
+            
+            idof++;
         }
-    }
-    
-    MPI_Allreduce(&ratio,&tot_ratio,1,MPI_TYPE0,MPI_MIN,world);
-    del_t*=ratio;
-    
-    err=1.0;
-    while (err>=1.0)
-    {
-        for(int i=0;i<dof_lcl;i++)
-            if(c[i]>=0.0)
-                c[i]=y[i]+0.5*del_t*dy[i];
+        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MIN,world);
+        if(r!=1.0)
+        {
+            if(max_t-tot_t<=2.0*min_del_t)
+            {
+                error->abort("reached minimum del_t (%e)",del_t);
+            }
+            else
+            {
+                if(del_t==min_del_t)
+                {
+                    error->abort("reached minimum del_t (%e)",del_t);
+                }
+                else
+                {
+                    if(r*del_t<min_del_t)
+                        del_t=min_del_t;
+                    else if(r*del_t>max_t-tot_t-min_del_t)
+                        del_t=max_t-tot_t-min_del_t;
+                    else
+                        del_t*=r;
+                }
+            }
+            intp_rej++;
+            continue;
+        }
         
-        
-        atoms->update_ph(c_n);
-        
-        
-        
-        forcefield->c_d_calc_timer(0,nrgy_strss);
-        
-        
-        rectify(c_d);
-        
+        atoms->update(mapp->c);
+        forcefield_dmd->dc_timer();
         
         err_lcl=0.0;
         for(int i=0;i<dof_lcl;i++)
         {
-             if(c[i]>=0.0)
-             {
-                 tmp0=c_d[i]-dy[i];
-                 err_lcl+=tmp0*tmp0;
-             }
+            if(c[i]>=0.0)
+                err_lcl+=(c_d[i]-dy[i])*(c_d[i]-dy[i]);
         }
+        
         err=0.0;
         MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
         err=0.5*del_t*sqrt(err/static_cast<type0>(dof_tot))/a_tol;
         
-        
-        if(del_t==min_del_t && err>=1.0)
-            err=0.0;
-        
         if(err>=1.0)
         {
-            ratio=0.9/err;
-            if (ratio<=0.5)
-                ratio=0.5;
-            del_t*=ratio;
-            del_t=MAX(del_t,min_del_t);
+            intg_rej++;
+            return;
+        }
+        r=r_lcl=1.0;
+        idof=0;
+        while(idof<dof_lcl && r_lcl==1.0)
+        {
+            if(y[idof]>=0.0)
+            {
+                c[idof]=y[idof]+0.5*del_t*(dy[idof]+c_d[idof]);
+                
+                if(c[idof]<0.0 ||c[idof]>1.0)
+                {
+                    while (c[idof]<0.0)
+                    {
+                        r_lcl=-y[idof]/(0.5*(del_t*r_lcl));
+                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*(dy[idof]+c_d[idof]);
+                    }
+                    
+                    while (c[idof]>1.0)
+                    {
+                        r_lcl=(1.0-y[idof])/(0.5*(del_t*r_lcl));
+                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*(dy[idof]+c_d[idof]);
+                    }
+                }
+            }
+            else
+                c[idof]=y[idof];
+            
+            idof++;
+        }
+        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MIN,world);
+        if(r!=1.0)
+        {
+            if(max_t-tot_t<=2.0*min_del_t)
+            {
+                error->abort("reached minimum del_t (%e)",del_t);
+            }
+            else
+            {
+                if(del_t==min_del_t)
+                {
+                    error->abort("reached minimum del_t (%e)",del_t);
+                }
+                else
+                {
+                    if(r*del_t<min_del_t)
+                        del_t=min_del_t;
+                    else if(r*del_t>max_t-tot_t-min_del_t)
+                        del_t=max_t-tot_t-min_del_t;
+                    else
+                        del_t*=r;
+                }
+            }
+            intp_rej++;
+        }
+        else
+        {
+            err_chk=0;
+            atoms->update(mapp->c);
+            forcefield_dmd->dc_timer();
+            
         }
     }
-
-    for(int i=0;i<dof_lcl;i++)
-    {
-        if(c[i]>=0.0)
-            c[i]=y[i]+del_t*dy[i];
-    }
-
-    atoms->update_ph(c_n);
-    
-
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::ord_dt(type0& del_t)
+void Clock_fe::ord_dt(type0& del_t,type0 err)
 {
-    type0 ratio;
-    ratio=0.9/err;
+    type0 r;
+    r=0.9/err;
     
-    if(ratio>=2.0)
-        ratio=2.0;
-    else if (ratio<=0.5)
-        ratio=0.5;
+    if(r>=2.0)
+        r=2.0;
+    else if(r<=0.5)
+        r=0.5;
+    else
+        r=1.0;
     
-    del_t*=ratio;
-    del_t=MAX(del_t,min_del_t);
-    del_t=MIN(del_t,max_del_t);
+    if(r*del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=2.0*min_del_t;
+        }
+        else
+        {
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+            {
+                del_t*=r;
+            }
+        }
+    }
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+inline void Clock_fe::init_stp_adj(type0& del_t)
+{
+    if(del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=max_t-tot_t;
+        }
+        else
+        {
+            if(del_t<min_del_t)
+                del_t=min_del_t;
+            else if(del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+        }
+    }
+}
+/*--------------------------------------------
+ step addjustment after failure
+ --------------------------------------------*/
+inline void Clock_fe::fail_stp_adj(type0 err,type0& del_t)
+{
+    if(max_t-tot_t<=2.0*min_del_t)
+    {
+        error->abort("reached minimum order & del_t (%e)",del_t);
+    }
+    else
+    {
+        if(del_t==min_del_t)
+        {
+            
+            error->abort("reached minimum order & del_t (%e)",del_t);
+        }
+        else
+        {
+            type0 r=0.9/err;
+            r=MAX(r,0.5);            
+
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+                del_t*=r;
+        }
+    }
 }
 

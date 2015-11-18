@@ -6,24 +6,19 @@
 #include "clock.h"
 namespace MAPP_NS
 {
-    class Clock_fe :public Clock
+    class Clock_fe :public ClockExplicit
     {
     private:
     protected:
-        type0 delta_t;
-        VecLst* vecs_comm;
-        int no_steps;
-        
-        type0 min_del_t;
-        type0 max_del_t;
         type0* y;
         type0* dy;
-        void ord_dt(type0&);
-        void solve(type0&);
-        type0 err;
+        void ord_dt(type0&,type0);
+        void interpolate_n_err(type0&,type0&);
         
-        int old_comm_mode;
-        type0 old_skin;
+        void allocate();
+        void deallocate();
+        inline void fail_stp_adj(type0,type0&);
+        inline void init_stp_adj(type0&);
     public:
         Clock_fe(MAPP *,int,char**);
         ~Clock_fe();

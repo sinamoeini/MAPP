@@ -12,7 +12,6 @@ namespace MAPP_NS {
     public:
         Command_change_box(MAPP*,int,char**);
         ~Command_change_box();
-        
     };
 }
 

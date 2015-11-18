@@ -1,3 +1,4 @@
+
 #ifdef Command_Style
     CommandStyle(Command_mode,mode)
 #else
@@ -17,4 +18,3 @@ namespace MAPP_NS
 }
 #endif
 #endif
-

@@ -1,8 +1,6 @@
 #ifndef __MAPP__group__
 #define __MAPP__group__
 #include "init.h"
-#include "region.h"
-
 namespace MAPP_NS
 {
     class Group:protected InitPtrs
@@ -11,13 +9,12 @@ namespace MAPP_NS
         int inline line_read(FILE*,char*&,char*);
     protected:
     public:
-        Group(MAPP*,char*,char*);
-        Group(MAPP*,char*,Region*,int);
+        Group(MAPP*);
         ~Group();
         
-        char* group_name;
-        int* group_id_list;
-        int group_natms;
+        void update_ids();
+        int* group_list;
+        int group_list_size;
     };
 }
 #endif

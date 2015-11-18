@@ -1,7 +1,6 @@
 #ifndef __MAPP__thermo_dynamics__
 #define __MAPP__thermo_dynamics__
 #include "init.h"
-#include "atoms.h"
 namespace MAPP_NS
 {
     

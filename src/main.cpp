@@ -6,11 +6,11 @@
 #include <stdlib.h>
 using namespace MAPP_NS;
 
-int main(int narg, char** arg)
+int main(int nargs, char** args)
 {
 
-    MPI_Init(&narg,&arg);
-    MAPP* mapp = new MAPP(narg,arg,MPI_COMM_WORLD);
+    MPI_Init(&nargs,&args);
+    MAPP* mapp = new MAPP(nargs,args,MPI_COMM_WORLD);
     delete mapp;
     MPI_Finalize();    
     

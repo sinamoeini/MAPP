@@ -1,4 +1,5 @@
 #include "timer.h"
+#include "memory.h"
 #include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
@@ -6,27 +7,52 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Timer::Timer(MAPP* mapp):InitPtrs(mapp)
 {
-    no_of_modes=5;
+    nmodes=0;
     curr_level=-1;
     level2mode_capacity=0;
     
-    CREATE1D(time,no_of_modes);
-    
-    tot_time=0.0;
-    
-    for(int i=0;i<no_of_modes;i++)
-        time[i]=0.0;
+    add_mode("comm ");
+    add_mode("neigh");
+    add_mode("force");
+    add_mode("write");
+    add_mode("other");
 }
 /*--------------------------------------------
  destructor of timer
  --------------------------------------------*/
 Timer::~Timer()
 {
-    if(no_of_modes)
+    for(int imod=0;imod<nmodes;imod++)
+        delete [] mode_names[imod];
+    if(nmodes)
+    {
         delete [] time;
+        delete [] mode_names;
+    }
     
     if (level2mode_capacity)
         delete [] level2mode;
+}
+/*--------------------------------------------
+ destructor of timer
+ --------------------------------------------*/
+int Timer::add_mode(const char* mode_name)
+{
+    int imod=0;
+    while(imod<nmodes && strcmp(mode_name,mode_names[imod]))
+        imod++;
+
+    if(imod!=nmodes)
+        return imod;
+    
+    int lnght=static_cast<int>(strlen(mode_name))+1;
+    GROW(time,nmodes,nmodes+1);
+    GROW(mode_names,nmodes,nmodes+1);
+    time[nmodes]=0.0;
+    CREATE1D(mode_names[nmodes],lnght);
+    memcpy(mode_names[nmodes],mode_name,lnght*sizeof(char));
+    nmodes++;
+    return nmodes-1;
 }
 /*--------------------------------------------
  start communication time;
@@ -77,7 +103,7 @@ void Timer::init()
 {
     type0 t=MPI_Wtime();
     tot_time=-t;
-    for(int i=0;i<no_of_modes;i++)
+    for(int i=0;i<nmodes;i++)
         time[i]=0.0;
 }
 /*--------------------------------------------
@@ -89,41 +115,29 @@ void Timer::fin()
     tot_time+=t;
 
     t=tot_time;
-    for(int i=0;i<no_of_modes;i++)
+    for(int i=0;i<nmodes;i++)
         t-=time[i];
     
     time[OTHER_TIME_mode]+=t;
 }
-
 /*--------------------------------------------
  print
  --------------------------------------------*/
-void Timer::print_time_stats()
+void Timer::print_stats()
 {
-    if(atoms->my_p_no==0)
+    if(atoms->my_p==0)
     {
+        fprintf(output,"\n");
         fprintf(output,"total time: %lf secs\n"
         ,tot_time);
         
-        fprintf(output,"force time: %lf secs (%05.2lf%%)\n"
-        ,time[FORCE_TIME_mode],time[FORCE_TIME_mode]*100.0/tot_time);
-        
-        fprintf(output,"neigh time: %lf secs (%05.2lf%%)\n"
-        ,time[NEIGH_TIME_mode],time[NEIGH_TIME_mode]*100.0/tot_time);
-        
-        fprintf(output,"comm  time: %lf secs (%05.2lf%%)\n"
-        ,time[COMM_TIME_mode],time[COMM_TIME_mode]*100.0/tot_time);
-        
-        fprintf(output,"write time: %lf secs (%05.2lf%%)\n"
-        ,time[WRITE_TIME_mode],time[WRITE_TIME_mode]*100.0/tot_time);
-        
-        fprintf(output,"other time: %lf secs (%05.2lf%%)\n"
-        ,time[OTHER_TIME_mode],time[OTHER_TIME_mode]*100.0/tot_time);
+        for(int imod=0;imod<nmodes;imod++)
+        {
+            fprintf(output,"%s time: %lf secs (%05.2lf%%)\n"
+            ,mode_names[imod],time[imod],time[imod]*100.0/tot_time);
+        }
     }
-
-    
 }
-
 /*--------------------------------------------
  print
  --------------------------------------------*/

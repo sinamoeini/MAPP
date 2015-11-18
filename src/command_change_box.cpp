@@ -1,6 +1,8 @@
 #include "command_change_box.h"
 #include "atoms.h"
 #include "xmath.h"
+#include "error.h"
+#include "memory.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
 /*--------------------------------------------
@@ -116,7 +118,7 @@ Command_change_box::Command_change_box(MAPP* mapp
         M3INV_TRI_LOWER(atoms->H,atoms->B);
     else
     {
-        XMath* xmath=new XMath(mapp);
+        XMath* xmath=new XMath();
         xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
         delete xmath;
     }
@@ -127,5 +129,4 @@ Command_change_box::Command_change_box(MAPP* mapp
  --------------------------------------------*/
 Command_change_box::~Command_change_box()
 {
-    
 }

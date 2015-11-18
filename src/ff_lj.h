@@ -10,7 +10,8 @@
 #include "ff.h"
 namespace MAPP_NS
 {
-    class ForceField_lj : public ForceField{
+    class ForceField_lj: public ForceFieldMD
+    {
     private:
         int x_n,f_n,type_n;
         int arr_size;
@@ -18,23 +19,19 @@ namespace MAPP_NS
         type0* epsilon;
         type0* offset;
         void read_file(char*);
-        int read_line(FILE*,char*&);
-        
+        int shift;
     protected:
+        void force_calc(int,type0*);
+        type0 energy_calc();
     public:
         ForceField_lj(MAPP *);
         ~ForceField_lj();
-        void force_calc(int,type0*);
-        type0 energy_calc();
+
         void init();
         void fin();
         void coef(int,char**);
-        int shift;
-        
-        void create_2nd_neigh_lst(){};
-        type0 g_calc(int,type0,type0*,type0*,type0*){return 0.0;};
-        type0 c_dd_norm(){return 0.0;};
-        void c_d_calc(int,type0*){};
+
+
     };
 }
 #endif

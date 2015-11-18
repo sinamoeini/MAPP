@@ -15,11 +15,9 @@ namespace MAPP_NS {
         Write(MAPP *);
         virtual ~Write();
         virtual void write_file(int)=0;
-        void init();
+        virtual void init();
         void write();
-        void fin();
-        virtual void init_indv()=0;
-        virtual void fin_indv()=0;
+        virtual void fin();
     };
     
 }

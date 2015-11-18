@@ -2,14 +2,17 @@
  Created by Sina on 2/5/14.
  Copyright (c) 2014 MIT. All rights reserved.
  --------------------------------------------*/
+#include <cmath>
 #include "xmath.h"
-#include "atoms.h"
 #include <limits>
+#define TOLERANCE 1.0e-10
+#include "error.h"
+#include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-XMath::XMath(MAPP* mapp): InitPtrs(mapp)
+XMath::XMath()
 {
 }
 /*--------------------------------------------
@@ -25,8 +28,7 @@ int XMath::fac(int no,int dim,int**& list)
 {
     
     int list_size=0;
-    int* tmp_list;
-    CREATE1D(tmp_list,dim);
+    int* tmp_list=new int[dim];
     fac_rec(no,dim,0,tmp_list,list,list_size);
     if(dim)
         delete [] tmp_list;
@@ -54,8 +56,13 @@ int*& tmp_list,int**& list,int& list_size)
     else
     {
         tmp_list[pos]=no;
-        GROW(list,list_size,list_size+1);
-        CREATE1D(list[list_size],pos+1);
+        int** list_=new int*[list_size+1];
+        memcpy(list_,list,list_size*sizeof(type0*));
+        if(list_size)
+            delete [] list;
+        list=list_;
+        
+        list[list_size]=new int[pos+1];
         for(int i=0;i<=pos;i++)
             list[list_size][i]=tmp_list[i];
         list_size++;
@@ -67,8 +74,10 @@ int*& tmp_list,int**& list,int& list_size)
 void XMath::square2lo_tri(type0** H_old
 ,type0** H_new)
 {
-    type0** Q;
-    CREATE2D(Q,3,3);
+    type0** Q=new type0*[3];
+    for(int idim=0;idim<3;idim++)
+        Q[idim]=new type0[3];
+
     type0 H0H0;
     type0 H0H1;
     H0H0=H0H1=0.0;
@@ -121,18 +130,15 @@ void XMath::invert(type0** A,type0** Ainv,int dim)
     if(dim==0)
         return;
     
-    type0** ATA;
-    CREATE2D(ATA,dim,dim);
-    type0* c;
-    CREATE1D(c,dim);
-    type0* x;
-    CREATE1D(x,dim);
-    type0* g;
-    CREATE1D(g,dim);
-    type0* g0;
-    CREATE1D(g0,dim);
-    type0* h;
-    CREATE1D(h,dim);
+    
+    type0** ATA=new type0*[dim];
+    for(int idim=0;idim<dim;idim++)
+        ATA[idim]=new type0[dim];
+    type0* c=new type0[dim];
+    type0* x=new type0[dim];
+    type0* g=new type0[dim];
+    type0* g0=new type0[dim];
+    type0* h=new type0[dim];
     type0 a0,a1,alpha;
     type0 g0g0,gg,gg0,ratio;
     
@@ -247,14 +253,67 @@ void XMath::invert(type0** A,type0** Ainv,int dim)
 /*--------------------------------------------
  inversion funtion to calculate B whenever H
  is changed
- --------------------------------------------*/
-void XMath::invert_lower_triangle(type0** A,type0** Ainv,int dim)
-{
-    invert(A,Ainv,dim);
-    for(int i=0;i<dim;i++)
-        for(int j=i+1;j<dim;j++)
-            Ainv[i][j]=0.0;
+ test: 
+     XMath* xmath=new XMath();
     
+    int dim=4;
+    type0** A;
+    type0** A_inv;
+    type0** I;
+    CREATE2D(A,dim,dim);
+    CREATE2D(A_inv,dim,dim);
+    CREATE2D(I,dim,dim);
+    
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            A[i][j]=0.0;
+
+    A[0][0]=1.25;
+    A[1][0]=23.45; A[1][1]=0.87;
+    A[2][0]=33.9;  A[2][1]=52.08; A[2][2]=7.85;
+    A[3][0]=1.025; A[3][1]=75.9;  A[3][2]=9.06; A[3][3]=12.35;
+    
+    xmath->invert_lower_triangle(A,A_inv,dim);
+    
+    for(int i=0;i<dim;i++)
+    {
+        for(int j=0;j<dim;j++)
+        {
+            I[i][j]=0.0;
+            for(int k=0;k<dim;k++)
+                I[i][j]+=A[i][k]*A_inv[k][j];
+            
+            printf("%lf ",I[i][j]);
+        }
+        printf("\n");
+    }
+    
+    for(int i=0;i<dim;i++)
+    {
+        delete [] A[i];
+        delete [] A_inv[i];
+        delete [] I[i];
+    }
+    delete [] A;
+    delete [] A_inv;
+    delete [] I;
+ 
+ --------------------------------------------*/
+void XMath::invert_lower_triangle(type0**& A,type0**& A_inv,int& dim)
+{
+    for(int i=0;i<dim;i++)
+    {
+        A_inv[i][i]=1.0/A[i][i];
+        for(int j=i+1;j<dim;j++)
+            A_inv[i][j]=0.0;
+        for(int j=i-1;j>-1;j--)
+        {
+            A_inv[i][j]=0.0;
+            for(int k=j;k<i;k++)
+                A_inv[i][j]-=A[i][k]*A_inv[k][j];
+            A_inv[i][j]*=A_inv[i][i];
+        }
+    }
 }
 /*--------------------------------------------
  construct a legendre polynomial of degree n
@@ -266,10 +325,8 @@ void XMath::quadrature_lg(int n,type0* x,type0* w)
     int max_iter=50;
     type0 a,u0,inv_u0,f,up,df,tmp0,tol;
     type0 ii,jj,del_u0;
-    type0* p_coef;
-    type0* dp_coef;
-    CREATE1D(p_coef,m);
-    CREATE1D(dp_coef,m);
+    type0* p_coef=new type0[m];
+    type0* dp_coef=new type0[m];
     
     up=0.0;
     for(int i=0;i<m;i++)
@@ -313,7 +370,7 @@ void XMath::quadrature_lg(int n,type0* x,type0* w)
         dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
     }
     
-    tol=numeric_limits<type0>::epsilon();
+    tol=std::numeric_limits<type0>::epsilon();
     ord=m;
     icurs=n-1;
     a=p_coef[m-1];
@@ -329,7 +386,7 @@ void XMath::quadrature_lg(int n,type0* x,type0* w)
         f=1.0;
         del_u0=0.0;
         iter=max_iter;
-        while (abs(f)>tol && iter)
+        while (fabs(f)>tol && iter)
         {
             u0+=del_u0;
             df=f=0.0;
@@ -422,15 +479,10 @@ void XMath::quadrature_hg(int n,type0* x,type0* w)
     type0 ii,del_u0;
 
     
-    type0* p_1;
-    type0* p_2;
-    type0* p_coef;
-    type0* dp_coef;
-
-    CREATE1D(p_1,m);
-    CREATE1D(p_2,m);
-    CREATE1D(p_coef,m);
-    CREATE1D(dp_coef,m);
+    type0* p_1=new type0[m];
+    type0* p_2=new type0[m];
+    type0* p_coef=new type0[m];
+    type0* dp_coef=new type0[m];
     
     up=0.0;
     for(int i=0;i<m;i++)
@@ -473,7 +525,7 @@ void XMath::quadrature_hg(int n,type0* x,type0* w)
         dp_coef[i-1]=p_coef[i]*static_cast<type0>(i);
     }
     
-    tol=numeric_limits<type0>::epsilon();
+    tol=std::numeric_limits<type0>::epsilon();
     ord=m;
     icurs=n/2;
     if(n%2==1)
@@ -497,7 +549,7 @@ void XMath::quadrature_hg(int n,type0* x,type0* w)
         f=1.0;
         del_u0=0.0;
         iter=max_iter;
-        while(abs(f)>tol && iter)
+        while(fabs(f)>tol && iter)
         {
             u0+=del_u0;
             df=f=0.0;
@@ -566,6 +618,78 @@ void XMath::quadrature_hg(int n,type0* x,type0* w)
     delete [] p_coef;
     delete [] dp_coef;
 
+}
+/*--------------------------------------------
+ calculates square root of 3x3 matrix
+ ref: L. P. Franca
+ An Algorithm to Compute The Square Root of
+ a 3x3 Positive Definite Matrix
+ Computers Math. Applic. Vol. 18, No. 5,
+ pp. 459-466, 1989
+ --------------------------------------------*/
+int XMath::M3sqroot(type0** A,type0** Asq)
+{
+    type0 IA=0;
+    for(int i=0;i<3;i++)
+        IA+=A[i][i];
+    type0 IIA=0;
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            IIA-=A[i][j]*A[j][i];
+    
+    IIA+=IA*IA;
+    IIA*=0.5;
+    type0 IIIA=M3DET(A);
+    type0 k=IA*IA-3*IIA;
+    if(k<0.0)
+        return 0;
+    if(k<TOLERANCE)
+    {
+        if(IA<=0.0)
+            return 0;
+        M3ZERO(Asq);
+        for(int i=0;i<3;i++)
+            Asq[i][i]=sqrt(IA/3.0);
+        return 1;
+    }
+    
+    type0 l=IA*(IA*IA -4.5*IIA)+13.5*IIIA;
+    
+    type0 temp=l/(k*sqrt(k));
+    if(temp>1.0||temp<-1.0)
+        return 0;
+    
+    type0 phi=acos(temp);
+    type0 lambda=sqrt((1.0/3.0)*(IA+2*sqrt(k)*cos(phi/3.0)));
+    
+    type0 IIIAsq=sqrt(IIIA);
+    type0 y=-lambda*lambda+IA+2*IIIAsq/lambda;
+    if(y<0.0)
+        return 0;
+    type0 IAsq=lambda+sqrt(y);
+    type0 IIAsq=0.5*(IAsq*IAsq-IA);
+    
+    type0 coef0=IAsq*IIAsq-IIIAsq;
+    if(coef0==0)
+        return 0;
+    coef0=1.0/coef0;
+    
+    M3ZERO(Asq);
+    
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            for(int k=0;k<3;k++)
+                Asq[i][j]-=coef0*A[i][k]*A[k][j];
+    
+    type0 coef1=coef0*(IAsq*IAsq-IIAsq);
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            Asq[i][j]+=coef1*A[i][j];
+    
+    type0 coef2=coef0*IAsq*IIIAsq;
+    for(int i=0;i<3;i++)
+        Asq[i][i]+=coef2;
+    return 1;
 }
 /*--------------------------------------------
  constructor
@@ -896,7 +1020,7 @@ double* b,int size): InitPtrs(mapp)
     if(A->h1!=size)
         error->abort("Dimensions of A and b does not match");
 
-    myno=atoms->my_p_no;
+    myno=atoms->my_p;
     totp=atoms->tot_p;
     if(size<totp)
     error->abort("Size of vector cannot be "
@@ -1256,7 +1380,7 @@ int SOLVEAXb::solve(double tol)
         error=abs(xBx-2.0*cx+d_sq);
         if(error<=tol)
         {
-            if(atoms->my_p_no==0)
+            if(atoms->my_p==0)
                 printf("Converged in %d steps!\n",iter);
             construct_ans();
             return 0;
@@ -1300,7 +1424,7 @@ SPARSE_P(MAPP* mapp,int n0,int n1): InitPtrs(mapp)
     h0=n0;
     h1=n1;
     no_elem=lcl_no_elem=0;
-    myno=atoms->my_p_no;
+    myno=atoms->my_p;
     totp=atoms->tot_p;
     lcl_h0=static_cast<int>((1.0/totp)*h0+0.5);
     lo_h0=myno*lcl_h0;

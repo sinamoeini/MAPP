@@ -5,10 +5,10 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_del_write::Command_del_write(MAPP* mapp,int narg,char** args)
+Command_del_write::Command_del_write(MAPP* mapp,int nargs,char** args)
 :InitPtrs(mapp)
 {
-    if(narg!=1)
+    if(nargs!=1)
         error->abort("del_write needs 0 argument");
     
     if(write!=NULL)

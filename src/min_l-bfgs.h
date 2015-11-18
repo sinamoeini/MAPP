@@ -9,18 +9,18 @@ namespace MAPP_NS {
     {
     private:
     protected:
-        int f_prev_n;
         
         int m_it;
-        int* s_list;
-        int* y_list;
+
         
         type0* rho;
         type0* alpha;
         
-        type0*** H_y;
-        type0*** H_s;
-        type0** f_H_prev;
+        type0*** y_H;
+        type0*** s_H;
+        
+        Vec<type0>** s;
+        Vec<type0>** y;
     public:
         Min_lbfgs(MAPP *,int,char**);
         ~Min_lbfgs();

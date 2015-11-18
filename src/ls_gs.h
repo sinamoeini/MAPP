@@ -1,5 +1,5 @@
 #ifdef LS_Style
-    LSStyle(LineSearch_goldensection,goldensection)
+    LSStyle(LineSearch_goldensection,golden)
 #else
 #ifndef __MAPP__ls_gs__
 #define __MAPP__ls_gs__
@@ -7,16 +7,250 @@
 #include "ls.h"
 namespace MAPP_NS
 {
-    class LineSearch_goldensection : public LineSearch
+    template<class Func>
+    class LineSearch_goldensection : public LineSearch<Func>
     {
     private:
-    protected:
+        Func* func;
+        Error*& error;
         type0 tol;
+        type0 max_iter;
+        bool brack;
+    protected:
     public:
         LineSearch_goldensection(MAPP*,int,char**);
+        virtual void init(Func*);
         ~LineSearch_goldensection();
         int line_min(type0&,type0&,int);
     };
 }
+#include <stdlib.h>
+/*--------------------------------------------
+ constructor
+ --------------------------------------------*/
+template<class Func>
+LineSearch_goldensection<Func>::
+LineSearch_goldensection(MAPP* mapp,int nargs,char** args):
+LineSearch<Func>(mapp),
+error(mapp->error)
+{
+    tol=sqrt(LineSearch<Func>::epsilon);
+    max_iter=20;
+    brack=true;
+    if(nargs>2)
+    {
+        if(nargs%2!=0)
+            error->abort("every keyword in ls golden should be followed by it's value");
+        int iarg=2;
+        while(iarg<nargs)
+        {
+            if(strcmp(args[iarg],"tol")==0)
+            {
+                iarg++;
+                tol=atof(args[iarg]);
+                iarg++;
+            }
+            else if(strcmp(args[iarg],"bracket")==0)
+            {
+                iarg++;
+                if(strcmp(args[iarg],"yes")==0)
+                    brack=true;
+                else if(strcmp(args[iarg],"no")==0)
+                    brack=false;
+                else
+                    error->abort("unknown keyword in ls golden: %s",args[iarg]);
+                iarg++;
+            }
+            else
+                error->abort("unknown keyword in ls golden: %s",args[iarg]);
+        }
+    }
+    
+    if(tol<=0.0)
+        error->abort("tol in ls golden should be greater than 0.0");
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+template<class Func>
+LineSearch_goldensection<Func>::
+~LineSearch_goldensection()
+{
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<class Func>
+void LineSearch_goldensection<Func>::
+init(Func* func_)
+{
+    LineSearch<Func>::init(func_);
+    func=func_;
+}
+/*--------------------------------------------
+ minimize line
+ --------------------------------------------*/
+template<class Func>
+int LineSearch_goldensection<Func>::line_min(type0& nrgy
+,type0& alpha,int init_flag)
+{
+    int calc=0;
+    type0 a,b,c;
+    type0 fa,fb,fc;
+    type0 max_a,h_norm;
+    type0 x0,x1,x2,x3,f1,f2;
+    type0 dfa;
+    type0 gold,cgold;
+    type0& prev_val=LineSearch<Func>::prev_val;
+    type0 epsilon=LineSearch<Func>::epsilon;
+    
+    
+    gold=0.61803399;
+    cgold=0.38196601;
+    
+    func->ls_prep(dfa,h_norm,max_a);
+    
+    LineSearch<Func>::h_norm=h_norm;
+    
+    if(max_a==0.0 && dfa==0.0)
+        return LS_F_GRAD0;
+    
+    if(dfa>=0.0)
+        return LS_F_DOWNHILL;
+    
+    a=0.0;
+    fa=nrgy;
+    
+    
+    if(brack)
+    {
+        int chk_bracket=LineSearch<Func>::bracket(dfa,max_a,a,b,c,fa,fb,fc);
+        if(chk_bracket!=B_S)
+        {
+            func->F_reset();
+            return chk_bracket;
+        }
+        x0=a;
+        x3=c;
+        
+        
+        if(c-b>b-a)
+        {
+            x1=b;
+            x2=b+cgold*(c-b);
+            
+            f1=fb;
+            f2=func->F(x2);
+            calc=2;
+        }
+        else
+        {
+            x1=b+cgold*(a-b);
+            x2=b;
+            
+            f1=func->F(x1);
+            f2=fb;
+            calc=1;
+        }
+        
+        
+        int iter=max_iter;
+        while(x3-x0>tol*(x1+x2) && x3-x0>epsilon && iter)
+        {
+            if(f2<f1)
+            {
+                x0=x1;
+                x1=x2;
+                x2=gold*x2+cgold*x3;
+                
+                f1=f2;
+                f2=func->F(x2);
+                calc=2;
+            }
+            else
+            {
+                x3=x2;
+                x2=x1;
+                x1=gold*x1+cgold*x0;
+                f2=f1;
+                f1=func->F(x1);
+                calc=1;
+            }
+            iter--;
+        }
+    }
+    else
+    {
+        type0 delta,f0,f3;
+        f1=f2=0.0;
+        x0=0.0;
+        f0=fa;
+        x3=max_a;
+        f3=func->F(x3);
+        
+        int iter=max_iter;
+        
+        int set_left=0;
+        int set_right=0;
+        while(x3-x0>tol*(x1+x2) && x3-x0>epsilon && iter)
+        {
+            delta=cgold*(x3-x0);
+            if(!set_left)
+            {
+                x1=x0+delta;
+                f1=func->F(x1);
+                calc=1;
+                set_left=1;
+            }
+            
+            if(!set_right)
+            {
+                x2=x3-delta;
+                f2=func->F(x2);
+                calc=2;
+                set_right=1;
+            }
+            
+            
+            if((f0<f2 && f0<f3) || (f1<f2 && f1<f3))
+            {
+                set_left=0;
+                x3=x2;
+                x2=x1;
+                f3=f2;
+                f2=f1;
+            }
+            else
+            {
+                set_right=0;
+                x0=x1;
+                x1=x2;
+                f0=f1;
+                f1=f2;
+            }
+            
+            iter--;
+        }
+    }
+    
+    if(f1<f2)
+    {
+        if(calc==2)
+            f1=func->F(x1);
+        nrgy=f1;
+        alpha=x1;
+    }
+    else
+    {
+        if(calc==1)
+            f2=func->F(x2);
+        nrgy=f2;
+        alpha=x2;
+    }
+
+    prev_val=-dfa*alpha;
+    return LS_S;
+}
+
 #endif
 #endif

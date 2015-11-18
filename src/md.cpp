@@ -1,4 +1,7 @@
 #include "md.h"
+#include "error.h"
+#include "memory.h"
+#include "thermo_dynamics.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
@@ -17,17 +20,19 @@ MD::MD(MAPP* mapp):InitPtrs(mapp)
         "for md mode");
     
     char** args;
-    int narg=mapp->parse_line((char*)"KE Temp. "
+    int nargs=mapp->parse_line("KE Temp. "
     "PE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     ke_idx=0;
     temp_idx=1;
     pe_idx=2;
     stress_idx=3;
     
-    thermo=new ThermoDynamics(mapp,narg,args);
-    for(int i=0;i<narg;i++)
+    
+    thermo=new ThermoDynamics(mapp,nargs,args);
+    for(int i=0;i<nargs;i++)
         delete [] args[i];
-    delete [] args;
+    if(nargs)
+        delete [] args;
     
     int dim=atoms->dimension;
     if(dim)

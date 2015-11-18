@@ -1,122 +1,100 @@
 #include "command_displace.h"
+#include "memory.h"
+#include "error.h"
+#include "atoms.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 Command_displace::Command_displace(MAPP* mapp
-,int narg,char** args):InitPtrs(mapp)
+,int nargs,char** args):InitPtrs(mapp)
 {
-    if((narg-1)%4!=0)
-        error->abort("wrong displace command");
     int dim=atoms->dimension;
-    
-    int no_traj=(narg-1)/(1+dim);
-    int iarg=1;
-    int no_atoms=0;
-    char* line;
-    CREATE1D(line,MAXCHAR);
-    
-    FILE* fp=NULL;
-    int* list;
+    if(nargs<2+dim)
+        error->abort("incorrect displace command");
+        
     type0* disp;
     CREATE1D(disp,dim);
+    for(int iarg=1;iarg<dim+1;iarg++)
+        disp[iarg-1]=atof(args[iarg]);
     
-    id_n=atoms->find("id");
+    int iarg=dim+1;
     
+    FILE* fp=NULL;
+    char* line;
     
+    int natms=atoms->natms;
+    int tot_natms=atoms->tot_natms;
+    int* id=mapp->id->begin();
+    int* list=NULL;
+    int list_size=0;
+    int list_cpcty=0;
+    int list_grow=10;
+    int list_size_tot=0;
+    int iatm;
     
-    
-    for(int i=0;i<no_traj;i++)
+    CREATE1D(line,MAXCHAR);
+    while (iarg<nargs)
     {
-        if(atoms->my_p_no==0)
+        if(atoms->my_p==0)
         {
             fp=fopen(args[iarg],"r");
             if(fp==NULL)
                 error->abort("file %s not found",args[iarg]);
-            
             fgets(line,MAXCHAR,fp);
-            sscanf(line,"%d",&no_atoms);
-            
         }
         
-        MPI_Bcast(&no_atoms,1,MPI_INT,0,world);
-        CREATE1D(list,no_atoms);
-        if(atoms->my_p_no==0)
+        while(mapp->read_line(fp,line)!=-1)
         {
-            for(int iatm=0;iatm<no_atoms;iatm++)
+            nargs=mapp->hash_remover(line);
+            if(nargs==0)
+                continue;
+            
+            if(sscanf(line,"%d",&iatm)!=1)
+                error->abort("every line of file %s can contain only 1argument",args[iarg]);
+            if(iatm<0 || iatm>=tot_natms)
+                error->abort("the id of atoms in file %s should be between 0 & %d",args[iarg],tot_natms);
+            int i=0;
+            while(i<natms && id[i]!=iatm) i++;
+            if(i!=natms)
             {
-                fgets(line,MAXCHAR,fp);
-                sscanf(line,"%d",&list[iatm]);
+                if(list_size+1>list_cpcty)
+                {
+                    GROW(list,list_size,list_size+1+list_grow);
+                    list_cpcty=list_size+1+list_grow;
+                }
+                
+                list[list_size++]=i;
             }
-            
-            
-            fclose(fp);
+            list_size_tot++;
         }
-        MPI_Bcast(list,no_atoms,MPI_INT,0,world);
+        
+        if(atoms->my_p==0)
+            fclose(fp);
         
         iarg++;
-        
-        for(int j=0;j<dim;j++)
-            disp[j]=atof(args[iarg++]);
-        
-
-        
-        move(list,no_atoms,disp);
-
-        if(no_atoms)
-            delete [] list;
     }
+    
+    type0* x=mapp->x->begin();
+    int x_dim=mapp->x->dim;
 
+    for(int i=0;i<list_size;i++)
+    {
+        iatm=list[i];
+        for(int idim=0;idim<dim;idim++)
+            x[i*x_dim+idim]+=disp[idim];
+    }
     
     delete [] line;
     delete [] disp;
     
-    int* tmp_list;
-    int no_vecs=atoms->no_vecs;
-    CREATE1D(tmp_list,no_vecs);
-    for(int i=0;i<no_vecs;i++)
-        tmp_list[i]=i;
-    
-    VecLst* vecs_comm=new VecLst(mapp,tmp_list,no_vecs);
-    delete [] tmp_list;
-    
-    atoms->x2s(atoms->natms);
-    atoms->xchng_cmplt(vecs_comm);
-    atoms->s2x(atoms->natms);
-    
-    
-    delete vecs_comm;
+    atoms->reset();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Command_displace::~Command_displace()
 {
-    
-}
-/*--------------------------------------------
- move
- --------------------------------------------*/
-void Command_displace::move(int* list,
-int no_atoms,type0* disp)
-{
-    for(int i=0;i<no_atoms;i++)
-        if(list[i]<0 || list[i]>atoms->tot_natms-1)
-            error->abort("invalid atom id %d",list[i]);
-    int* id;
-    atoms->vectors[id_n]->ret(id);
-    type0* x;
-    atoms->vectors[0]->ret(x);
-    int x_dim=atoms->vectors[0]->dim;
-    int dim=atoms->dimension;
-    
-    int natms=atoms->natms;
-    for(int i=0;i<natms;i++)
-        for(int j=0;j<no_atoms;j++)
-            if(id[i]==list[j])
-                for(int k=0;k<dim;k++)
-                    x[i*x_dim+k]+=disp[k];
-    
     
 }
