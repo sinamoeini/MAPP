@@ -8,10 +8,12 @@
 #include <mpi.h>
 #include "atoms.h"
 #include "ls.h"
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     enum {MD_mode,DMD_mode};
     
-    class MAPP {
+    class MAPP
+    {
     private:
     protected:
     public:
@@ -94,6 +96,5 @@ namespace MAPP_NS {
         FILE* my_debug;
     };
 }
-
 
 #endif

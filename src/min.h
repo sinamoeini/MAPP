@@ -26,20 +26,17 @@ namespace MAPP_NS
         int dim;
         int err;
         type0 curr_energy;
-        
         type0* nrgy_strss;
         
         int pe_idx;
         int stress_idx;
         int sts_flag;
         
-
         void force_calc();
         void prepare_affine_h(type0* x,type0* h);
         void zero_f();
         
         ThermoDynamics* thermo;
-       
     public:
         Min(MAPP *);
         virtual ~Min();
@@ -58,25 +55,21 @@ namespace MAPP_NS
         int x_dim;
         
         Vec<type0>* h_ptr;
+        type0** h_H;
+
+        type0** H_prev;
         Vec<type0>* x_prev_ptr;
         
+        type0** f_H_prev;
         Vec<type0>* f_prev_ptr;
         
-
-        type0** h_H;
-        type0** f_H_prev;
-        
-        type0** H_prev;
-        type0** B_prev;
+        //Vec<type0>* f_ptr;
         type0** f_H;
         
         type0 F(type0);
         type0 dF(type0,type0&);
         void ls_prep(type0&,type0&,type0&);
         void F_reset();
-        
-        
-        type0 test(type0 i){return 4.5;}
 
     };
 

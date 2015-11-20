@@ -57,11 +57,21 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
         ns_alloc=1;
     }
     
-    CREATE2D(N,dim,dim);
-    CREATE2D(H_dof,dim,dim);
+    N=new type0*[dim];
+    *N=new type0[dim*dim];
+    H_dof=new int*[dim];
+    *H_dof=new int[dim*dim];
+
+    for(int i=1;i<dim;i++)
+    {
+        N[i]=N[i-1]+dim;
+        H_dof[i]=H_dof[i-1]+dim;
+    }
+
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
             H_dof[i][j]=0;
+    
     xmath=new XMath();
         
     if(mapp->mode==DMD_mode)
@@ -77,14 +87,11 @@ Min::~Min()
     if(ns_alloc)
         delete [] nrgy_strss;
 
-    for(int i=0;i<dim;i++)
-    {
-        delete [] H_dof[i];
-        delete [] N[i];
-    }
     if(dim)
     {
+        delete [] *H_dof;
         delete [] H_dof;
+        delete [] *N;
         delete [] N;
     }
     
@@ -300,13 +307,14 @@ void Min::force_calc()
  --------------------------------------------*/
 void Min::prepare_affine_h(type0* x,type0* h)
 {
+    type0** B=atoms->B;
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
         {
             N[i][j]=0.0;
             if(chng_box)
                 for(int k=0;k<dim;k++)
-                    N[i][j]+=B_prev[j][k]*h_H[k][i];
+                    N[i][j]+=B[j][k]*h_H[k][i];
         }
     
     for(int iatm=0;iatm<atoms->natms;iatm++)
@@ -339,11 +347,23 @@ void Min::init()
     
     if(chng_box)
     {
-        CREATE2D(h_H,dim,dim);
-        CREATE2D(f_H,dim,dim);
-        CREATE2D(H_prev,dim,dim);
-        CREATE2D(B_prev,dim,dim);
-        CREATE2D(f_H_prev,dim,dim);
+        h_H=new type0*[dim];
+        f_H=new type0*[dim];
+        H_prev=new type0*[dim];
+        f_H_prev=new type0*[dim];
+        
+        *h_H=new type0[dim*dim];
+        *f_H=new type0[dim*dim];
+        *H_prev=new type0[dim*dim];
+        *f_H_prev=new type0[dim*dim];
+        
+        for(int i=1;i<dim;i++)
+        {
+            h_H[i]=h_H[i-1]+dim;
+            f_H[i]=f_H[i-1]+dim;
+            H_prev[i]=H_prev[i-1]+dim;
+            f_H_prev[i]=f_H_prev[i-1]+dim;
+        }
     }
     
     if(mapp->f==NULL)
@@ -404,24 +424,16 @@ void Min::fin()
     
     if(chng_box)
     {
-        for(int i=0;i<dim;i++)
-            delete [] f_H[i];
+        delete [] *f_H;
         delete [] f_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] h_H[i];
+
+        delete [] *h_H;
         delete [] h_H;
-        
-        for(int i=0;i<dim;i++)
-            delete [] H_prev[i];
+
+        delete [] *H_prev;
         delete [] H_prev;
         
-        for(int i=0;i<dim;i++)
-            delete [] B_prev[i];
-        delete [] B_prev;
-        
-        for(int i=0;i<dim;i++)
-            delete [] f_H_prev[i];
+        delete [] *f_H_prev;
         delete [] f_H_prev;
     }
 }
@@ -653,11 +665,15 @@ void Min::F_reset()
     {
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
-            {
                 atoms->H[i][j]=H_prev[i][j];
-                atoms->B[i][j]=B_prev[i][j];
-            }
+        
+        if(dim==3)
+            M3INV_TRI_LOWER(atoms->H,atoms->B);
+        else
+            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
     }
+    
+    
     
     atoms->update(mapp->x);
 }

@@ -1599,11 +1599,18 @@ nvecs(0)
     max_cut_s=new type0[dimension];
     H=new type0*[dimension];
     B=new type0*[dimension];
+    *H=new type0[dimension*dimension];
+    *B=new type0[dimension*dimension];
+    
+    for(int idim=1;idim<dimension;idim++)
+    {
+        B[idim]=B[idim-1]+dimension;
+        H[idim]=H[idim-1]+dimension;
+    }
+    
     for(int idim=0;idim<dimension;idim++)
     {
         max_cut_s[idim]=0.0;
-        H[idim]=new type0[dimension];
-        B[idim]=new type0[dimension];
         for(int jdim=0;jdim<dimension;jdim++)
             H[idim][jdim]=B[idim][jdim]=0.0;
     }
@@ -1617,16 +1624,11 @@ Atoms::~Atoms()
     delete comm;
     if(dimension)
     {
-        delete [] max_cut_s;
-        
-        for(int i=0;i<dimension;i++)
-        {
-            delete [] H[i];
-            delete [] B[i];
-        }
-        delete [] H;
+        delete [] *B;
+        delete [] *H;
         delete [] B;
-        
+        delete [] H;
+        delete [] max_cut_s;
     }
 
     while(nvecs)

@@ -71,6 +71,12 @@ Min_cg::~Min_cg()
 void Min_cg::init()
 {
     Min::init();
+    x.init(atoms,atoms->x,atoms->H,chng_box);
+    x0.init(atoms,x_prev_ptr,H_prev,chng_box);
+    f.init(atoms,mapp->f,f_H,chng_box);
+    f0.init(atoms,f_prev_ptr,f_H_prev,chng_box);
+    h.init(atoms,h_ptr,h_H,chng_box);
+    
     atoms->init(vecs_comm,chng_box);
     force_calc();
     curr_energy=nrgy_strss[0];
@@ -81,7 +87,6 @@ void Min_cg::init()
     
     if(write!=NULL)
         write->init();
-    
 }
 /*--------------------------------------------
  min
@@ -90,84 +95,40 @@ void Min_cg::run()
 {
     if(max_iter==0) return;
     
-    type0* x=mapp->x->begin();
-    type0* f=mapp->f->begin();
-    type0* x_0=x_prev_ptr->begin();
-    type0* f_0=f_prev_ptr->begin();
-    type0* h=h_ptr->begin();
     type0 prev_energy;
     type0 alpha;
-    int size;
     int istp=0;
     type0 f0_f0;
     type0 f_f;
     type0 f_h;
     type0 f_f0;
     type0 ratio;
-    type0 inner;
     err=LS_S;
     
-    memcpy(h,f,x_dim*atoms->natms*sizeof(type0));
-    
-    inner=0.0;
-    for(int i=0;i<atoms->natms*x_dim;i++)
-        inner+=f[i]*f[i];
-    f0_f0=0.0;
-    MPI_Allreduce(&inner,&f0_f0,1,MPI_TYPE0,MPI_SUM,world);
-    
-    if(chng_box)
-    {
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-                h_H[i][j]=f_H[i][j];
-        
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-                f0_f0+=f_H[i][j]*f_H[i][j];
-    }
+    h=f;
+    f_h=f0_f0=f*f;
     
     while(err==LS_S)
     {
-        
         if(f0_f0==0.0)
         {
             err=LS_F_GRAD0;
             continue;
         }
         
-        x=mapp->x->begin();
-        f=mapp->f->begin();
-        x_0=x_prev_ptr->begin();
-        f_0=f_prev_ptr->begin();
-        size=atoms->natms*x_dim*sizeof(type0);
-        
-        
-        memcpy(x_0,x,size);
-        memcpy(f_0,f,size);
-        
-        if(chng_box)
-        {
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                {
-                    H_prev[i][j]=atoms->H[i][j];
-                    B_prev[i][j]=atoms->B[i][j];
-                    f_H_prev[i][j]=f_H[i][j];
-                }
-        }
+        x0=x;
+        f0=f;
         
         prev_energy=curr_energy;
-        
         
         if(write!=NULL)
             write->write();
         
         thermo->thermo_print();
         
-        if(affine) prepare_affine_h(x_0,h);
+        if(affine) prepare_affine_h(x0()->begin(),h()->begin());
         err=ls->line_min(curr_energy,alpha,1);
-        h=h_ptr->begin();
-        if(affine) rectify(h);
+        if(affine) rectify(h()->begin());
         
         if(err!=LS_S)
         {
@@ -176,17 +137,13 @@ void Min_cg::run()
             continue;
         }
         
-        
         if(prev_energy-curr_energy<energy_tolerance)
             err=MIN_S_TOLERANCE;
         
         if(istp+1==max_iter)
             err=MIN_F_MAX_ITER;
-        
-        
+
         force_calc();
-        
-        
         
         if(thermo->test_prev_step() || err)
         {
@@ -197,88 +154,36 @@ void Min_cg::run()
         istp++;
         step_no++;
         
-        if(err)
-            continue;
+        if(err) continue;
         
-        f=mapp->f->begin();
-        h=h_ptr->begin();
-        f_0=f_prev_ptr->begin();
-        inner=0.0;
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            inner+=f[i]*f[i];
-        
-        f_f=0.0;
-        MPI_Allreduce(&inner,&f_f,1,MPI_TYPE0,MPI_SUM,world);
-        if(chng_box)
-        {
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                    f_f+=f_H[i][j]*f_H[i][j];
-        }
-        
-        inner=0.0;
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            inner+=f[i]*f_0[i];
-        f_f0=0.0;
-        MPI_Allreduce(&inner,&f_f0,1,MPI_TYPE0,MPI_SUM,world);
-        if(chng_box)
-        {
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                    f_f0+=f_H_prev[i][j]*f_H[i][j];
-        }
+        f_f=f*f;
+        f_f0=f*f0;
         
         ratio=(f_f-f_f0)/(f0_f0);
         
-        inner=0.0;
-        
-        for(int i=0;i<x_dim*atoms->natms;i++)
-        {
-            h[i]*=ratio;
-            h[i]+=f[i];
-            inner+=h[i]*f[i];
-        }
-        
-        MPI_Allreduce(&inner,&f_h,1,MPI_TYPE0,MPI_SUM,world);
-        
-        if(chng_box)
-        {
-            for(int i=0;i<dim;i++)
-                for(int j=0;j<dim;j++)
-                {
-                    h_H[i][j]*=ratio;
-                    h_H[i][j]+=f_H[i][j];
-                    f_h+=h_H[i][j]*f_H[i][j];
-                }
-        }
-        
-        
+        h*=ratio;
+        h+=f;
+        f_h*=ratio;
+        f_h+=f_f;
         
         if(f_h<0.0)
         {
-            size=atoms->natms*x_dim*sizeof(type0);
-            memcpy(h,f,size);
-            
-            if(chng_box)
-            {
-                for(int i=0;i<dim;i++)
-                    for(int j=0;j<dim;j++)
-                    {
-                        h_H[i][j]=f_H[i][j];
-                    }
-            }
+            h=f;
+            f_h=f_f;
         }
-        
         f0_f0=f_f;
-        
     }
-
 }
 /*--------------------------------------------
  finishing minimization
  --------------------------------------------*/
 void Min_cg::fin()
 {
+    x.fin();
+    x0.fin();
+    f.fin();
+    f0.fin();
+    h.fin();
     
     if(write!=NULL)
         write->fin();

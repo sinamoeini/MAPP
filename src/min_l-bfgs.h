@@ -4,6 +4,7 @@
 #ifndef __MAPP__min_lbfgs__
 #define __MAPP__min_lbfgs__
 #include "min.h"
+#include "vec.h"
 namespace MAPP_NS {
     class Min_lbfgs :public Min
     {
@@ -16,11 +17,13 @@ namespace MAPP_NS {
         type0* rho;
         type0* alpha;
         
-        type0*** y_H;
-        type0*** s_H;
-        
-        Vec<type0>** s;
-        Vec<type0>** y;
+        vvec<type0>* s;
+        vvec<type0>* y;
+        vvec<type0> h;
+        vvec<type0> x;
+        vvec<type0> x0;
+        vvec<type0> f;
+        vvec<type0> f0;
     public:
         Min_lbfgs(MAPP *,int,char**);
         ~Min_lbfgs();
