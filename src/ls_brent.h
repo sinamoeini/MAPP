@@ -44,7 +44,7 @@ error(mapp->error)
     max_iter=5;
     tol=sqrt(2.0*epsilon);
     zeps=epsilon*1.0e-3;
-    brack=true;
+    brack=false;
 
     if(nargs>2)
     {
@@ -286,9 +286,17 @@ int LineSearch_brent<Func>::line_min(type0& nrgy
         }
     }
 
+    //make sure that the result is less than initial value
+    if(fa<fx)
+    {
+        func->F_reset();
+        alpha=0.0;
+        return LS_MIN_ALPHA;
+    }
     
     if(u!=x)
         func->F(x);
+    
     nrgy=fx;
     alpha=x;
     

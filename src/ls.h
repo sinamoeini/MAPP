@@ -123,6 +123,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         return B_F_DOWNHILL;
     }
     
+    
     fc=fb;
     while (fb>=fc)
     {
@@ -136,7 +137,6 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         }
         
         fc=func->F(c);
-        
         if(fc>fb)
             continue;
         
@@ -146,8 +146,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         r=(b-a)*(fb-fc);
         q=(b-c)*(fb-fa);
         
-        u=0.5*b+(c*q-a*r)/(2.0*(q-r));
-        
+        u=b-((b-c)*q-(b-a)*r)/(2.0*(q-r));
         if(b<u && u<c)
         {
             fu=func->F(u);
@@ -174,9 +173,9 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
         }
         else if(u>c)
         {
+            
             u=MIN(u,ulim);
             fu=func->F(u);
-            
             a=b;
             b=c;
             c=u;
@@ -210,17 +209,16 @@ void LineSearch<Func>::test(type0 fa,type0 dfa,type0 max_a)
 {
     int no=100;
     type0 frac=1.0e-2*max_a;
-    type0 dfu,fu,u=0.0;
+    type0 fu,u=0.0;
+    fa=func->F(0);
     
     printf("dfa %e\n",dfa);
     printf("u fu f_x u*dfa\n");
 
-    type0 sum=0.0;
     for(int i=0;i<no;i++)
     {
-        fu=func->dF(u,dfu);
-        printf("%22.20lf %22.20lf %22.20lf %22.20lf \n",u,fu-fa,sum,u*dfa);
-        sum+=frac*dfu;
+        fu=func->F(u);
+        printf("%22.20lf %22.20lf %22.20lf \n",u,fu-fa,u*dfa);
         u+=frac;
     }
     

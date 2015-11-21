@@ -17,13 +17,9 @@ namespace MAPP_NS {
         type0* rho;
         type0* alpha;
         
-        vvec<type0>* s;
-        vvec<type0>* y;
-        vvec<type0> h;
-        vvec<type0> x;
-        vvec<type0> x0;
-        vvec<type0> f;
-        vvec<type0> f0;
+        VecTens<type0>* s;
+        VecTens<type0>* y;
+
     public:
         Min_lbfgs(MAPP *,int,char**);
         ~Min_lbfgs();

@@ -9,6 +9,7 @@
 #include "ff.h"
 #include "atoms.h"
 #include "ls.h"
+#include "vec.h"
 #include "xmath.h"
 #include "thermo_dynamics.h"
 namespace MAPP_NS
@@ -22,9 +23,10 @@ namespace MAPP_NS
         type0 max_dx;
     protected:
         VecLst* vecs_comm;
-        int chng_box;
+        bool chng_box;
         int dim;
         int err;
+        type0 f_h;
         type0 curr_energy;
         type0* nrgy_strss;
         
@@ -33,7 +35,7 @@ namespace MAPP_NS
         int sts_flag;
         
         void force_calc();
-        void prepare_affine_h(type0* x,type0* h);
+        void prepare_affine_h();
         void zero_f();
         
         ThermoDynamics* thermo;
@@ -46,16 +48,14 @@ namespace MAPP_NS
         virtual void fin();
         void rectify(type0*);
         int max_iter;
-        int affine;
+        bool affine;
         type0 energy_tolerance;
 
         int** H_dof;
-        type0** N;
         
         int x_dim;
         
         Vec<type0>* h_ptr;
-        type0** h_H;
 
         type0** H_prev;
         Vec<type0>* x_prev_ptr;
@@ -63,8 +63,12 @@ namespace MAPP_NS
         type0** f_H_prev;
         Vec<type0>* f_prev_ptr;
         
-        //Vec<type0>* f_ptr;
-        type0** f_H;
+        
+        VecTens<type0> h;
+        VecTens<type0> x;
+        VecTens<type0> x0;
+        VecTens<type0> f;
+        VecTens<type0> f0;
         
         type0 F(type0);
         type0 dF(type0,type0&);

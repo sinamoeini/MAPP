@@ -535,7 +535,7 @@ force_calc(int st_clc,type0* en_st)
                     f[icomp+1]+=dx1*rho_coef;
                     f[icomp+2]+=dx2*rho_coef;
                     
-                    if(jatm<natms || st_clc==2)
+                    if(jatm<natms)
                     {
                         f[jcomp]-=dx0*rho_coef;
                         f[jcomp+1]-=dx1*rho_coef;
@@ -568,7 +568,7 @@ force_calc(int st_clc,type0* en_st)
                     f[icomp+1]+=dx1*phi_coef;
                     f[icomp+2]+=dx2*phi_coef;
                     
-                    if(jatm<natms || st_clc==2)
+                    if(jatm<natms)
                     {
                         f[jcomp]-=dx0*phi_coef;
                         f[jcomp+1]-=dx1*phi_coef;

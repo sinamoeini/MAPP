@@ -143,7 +143,7 @@ force_calc(int st_clc,type0* en_st)
                 f[icomp]+=fpair*dx0;
                 f[icomp+1]+=fpair*dx1;
                 f[icomp+2]+=fpair*dx2;
-                if(jatm<natms || st_clc==2)
+                if(jatm<natms)
                 {
                     f[jcomp]-=fpair*dx0;
                     f[jcomp+1]-=fpair*dx1;

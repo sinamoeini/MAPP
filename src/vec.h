@@ -5,7 +5,7 @@
 namespace MAPP_NS
 {
     template<typename T>
-    class vvec
+    class VecTens
     {
     private:
     protected:
@@ -20,9 +20,9 @@ namespace MAPP_NS
         MPI_Datatype MPI_T;
         bool box_chng;
         
-        vvec(){alloc_flag=0;}
+        VecTens(){alloc_flag=0;}
         
-        ~vvec()
+        ~VecTens()
         {
             if(alloc_flag==3)
             {
@@ -122,7 +122,7 @@ namespace MAPP_NS
             alloc_flag=0;
         }
         
-        T operator*(const vvec& rhs)
+        T operator*(const VecTens& rhs)
         {
             T ans_lcl=0.0,ans;
             T* vec0=this->vec->begin();
@@ -139,7 +139,7 @@ namespace MAPP_NS
             return ans;
         }
         
-        void add(T a,const vvec& other)
+        void add(T a,const VecTens& other)
         {
             T* vec0=this->vec->begin();
             T* vec1=other.vec->begin();
@@ -160,7 +160,7 @@ namespace MAPP_NS
         {return vec;}
         
         
-        vvec& operator*= (T& a)
+        VecTens& operator*= (T& a)
         {
             T* vec0=this->vec->begin();
             for(int i=0;i<*pnatms*x_dim;i++)
@@ -174,7 +174,7 @@ namespace MAPP_NS
             return *this;
         }
         
-        friend void operator*(T& a,vvec& rhs)
+        friend void operator*(T& a,VecTens& rhs)
         {
             T* vec0=rhs.vec->begin();
             for(int i=0;i<*rhs.pnatms*rhs.x_dim;i++)
@@ -184,14 +184,14 @@ namespace MAPP_NS
                 vec0[i]*=a;
         }
         
-        vvec(const vvec& other)
+        VecTens(const VecTens& other)
         {
             memcpy(vec->begin(),other.vec->begin(),*pnatms*x_dim*sizeof(T));
             if(!box_chng) return;
             memcpy(*A,*other.A,dim*dim*sizeof(T));
         }
         
-        vvec& operator=(const vvec& other)
+        VecTens& operator=(const VecTens& other)
         {
             memcpy(this->vec->begin(),other.vec->begin(),*pnatms*x_dim*sizeof(T));
             if(!box_chng) return *this;
@@ -199,7 +199,7 @@ namespace MAPP_NS
             return *this;
         }
         
-        vvec(vvec&& other)
+        VecTens(VecTens&& other)
         {
             this->vec=other.vec;
             this->box_chng=other.box_chng;
@@ -207,7 +207,7 @@ namespace MAPP_NS
             this->alloc_flag=0;
         }
         
-        vvec& operator =(vvec&& other)
+        VecTens& operator =(VecTens&& other)
         {
             this->vec=other.vec;
             this->box_chng=other.box_chng;
@@ -215,7 +215,7 @@ namespace MAPP_NS
             return *this;
         }
         
-        vvec& operator-(const vvec& rhs)
+        VecTens& operator-(const VecTens& rhs)
         {
             T* vec0=this->vec->begin();
             T* vec1=rhs.vec->begin();
@@ -234,7 +234,7 @@ namespace MAPP_NS
             return *this;
         }
         
-        void operator-=(const vvec& rhs)
+        void operator-=(const VecTens& rhs)
         {
             T* vec0=this->vec->begin();
             T* vec1=rhs.vec->begin();
@@ -253,7 +253,7 @@ namespace MAPP_NS
 
         }
         
-        vvec& operator+(const vvec& rhs)
+        VecTens& operator+(const VecTens& rhs)
         {
             T* vec0=this->vec->begin();
             T* vec1=rhs.vec->begin();
@@ -272,7 +272,7 @@ namespace MAPP_NS
             return *this;
         }
         
-        void operator+=(const vvec& rhs)
+        void operator+=(const VecTens& rhs)
         {
             T* vec0=this->vec->begin();
             T* vec1=rhs.vec->begin();

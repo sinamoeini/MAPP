@@ -96,14 +96,8 @@ void Min_lbfgs::init()
 {
     Min::init();
     
-    x.init(atoms,atoms->x,atoms->H,chng_box);
-    x0.init(atoms,x_prev_ptr,H_prev,chng_box);
-    f.init(atoms,mapp->f,f_H,chng_box);
-    f0.init(atoms,f_prev_ptr,f_H_prev,chng_box);
-    h.init(atoms,h_ptr,h_H,chng_box);
-    
-    s=new vvec<type0>[m_it];
-    y=new vvec<type0>[m_it];
+    s=new VecTens<type0>[m_it];
+    y=new VecTens<type0>[m_it];
     for(int i=0;i<m_it;i++)
     {
         s[i].init(atoms,chng_box);
@@ -171,7 +165,15 @@ void Min_lbfgs::run()
         
         thermo->thermo_print();
         
-        if(affine) prepare_affine_h(x_prev_ptr->begin(),h_ptr->begin());
+        
+        f_h=f*h;
+        if(f_h<0.0)
+        {
+            h=f;
+            k_it=0;
+            f_h=f*f;
+        }
+        if(affine) prepare_affine_h();
         err=ls->line_min(curr_energy,alpha_m,0);
         if(affine) rectify(h_ptr->begin());
         
@@ -203,8 +205,8 @@ void Min_lbfgs::run()
         
         if(m_it)
         {
-            vvec<type0> s_tmp=std::move(s[m_it-1]);
-            vvec<type0> y_tmp=std::move(y[m_it-1]);
+            VecTens<type0> s_tmp=std::move(s[m_it-1]);
+            VecTens<type0> y_tmp=std::move(y[m_it-1]);
             
             for(int i=m_it-1;i>0;i--)
             {
@@ -251,14 +253,7 @@ void Min_lbfgs::fin()
         delete [] s;
         delete [] y;
     }
-    
-    x.fin();
-    x0.fin();
-    f.fin();
-    f0.fin();
-    h.fin();
-    
-    
+        
     if(write!=NULL)
         write->fin();
     

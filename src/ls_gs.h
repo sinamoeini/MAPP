@@ -35,8 +35,8 @@ LineSearch<Func>(mapp),
 error(mapp->error)
 {
     tol=sqrt(LineSearch<Func>::epsilon);
-    max_iter=20;
-    brack=true;
+    max_iter=5;
+    brack=false;
     if(nargs>2)
     {
         if(nargs%2!=0)
@@ -48,6 +48,12 @@ error(mapp->error)
             {
                 iarg++;
                 tol=atof(args[iarg]);
+                iarg++;
+            }
+            else if(strcmp(args[iarg],"max_iter")==0)
+            {
+                iarg++;
+                max_iter=atoi(args[iarg]);
                 iarg++;
             }
             else if(strcmp(args[iarg],"bracket")==0)
@@ -68,6 +74,8 @@ error(mapp->error)
     
     if(tol<=0.0)
         error->abort("tol in ls golden should be greater than 0.0");
+    if(max_iter<=0)
+        error->abort("max_iter in ls brent should be greater than 0");
 }
 /*--------------------------------------------
  destructor
@@ -190,8 +198,8 @@ int LineSearch_goldensection<Func>::line_min(type0& nrgy
         
         int iter=max_iter;
         
-        int set_left=0;
-        int set_right=0;
+        bool set_left=false;
+        bool set_right=false;
         while(x3-x0>tol*(x1+x2) && x3-x0>epsilon && iter)
         {
             delta=cgold*(x3-x0);
@@ -230,6 +238,33 @@ int LineSearch_goldensection<Func>::line_min(type0& nrgy
             }
             
             iter--;
+        }
+        
+        if(!set_left)
+        {
+            if(f0<f1)
+            {
+                if(x0==0.0)
+                {
+                    func->F_reset();
+                    alpha=0.0;
+                    return LS_MIN_ALPHA;
+                }
+                
+                x1=x0;
+                f1=func->F(x1);
+                calc=1;
+            }
+        }
+        if(!set_right)
+        {
+            if(f3<f2)
+            {
+                
+                x2=x3;
+                f2=func->F(x2);
+                calc=2;
+            }
         }
     }
     

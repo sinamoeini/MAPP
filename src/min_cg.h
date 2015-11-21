@@ -9,11 +9,6 @@ namespace MAPP_NS {
     class Min_cg : public Min {
     private:
     protected:
-        vvec<type0> h;
-        vvec<type0> x;
-        vvec<type0> x0;
-        vvec<type0> f;
-        vvec<type0> f0;
     public:
         Min_cg(MAPP *,int,char**);
         ~Min_cg();

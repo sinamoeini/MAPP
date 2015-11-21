@@ -107,20 +107,6 @@ void ForceField::force_calc_timer(int flag,type0* enst)
         for(int i=1;i<7;i++)
             enst[i]/=vol;
     }
-    /*
-    if(chk==2) image_calc();
-    if(chk==3)
-    {
-        force_calc(1,enst);
-        type0** B=atoms->B;
-        enst[1]=-(enst[1]*B[0][0]+enst[6]*B[1][0]+enst[5]*B[2][0]);
-        enst[2]=-(enst[2]*B[1][1]+enst[4]*B[2][1]);
-        enst[3]=-(enst[3]*B[2][2]);
-        enst[4]=-(enst[4]*B[2][2]);
-        enst[6]=-(enst[6]*B[1][1]+enst[5]*B[2][1]);
-        enst[5]=-(enst[5]*B[2][2]);
-    }
-    else force_calc(chk,enst);*/
     timer->stop(FORCE_TIME_mode);
 }
 /*--------------------------------------------

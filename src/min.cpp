@@ -57,16 +57,11 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
         ns_alloc=1;
     }
     
-    N=new type0*[dim];
-    *N=new type0[dim*dim];
     H_dof=new int*[dim];
     *H_dof=new int[dim*dim];
 
     for(int i=1;i<dim;i++)
-    {
-        N[i]=N[i-1]+dim;
         H_dof[i]=H_dof[i-1]+dim;
-    }
 
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
@@ -91,8 +86,6 @@ Min::~Min()
     {
         delete [] *H_dof;
         delete [] H_dof;
-        delete [] *N;
-        delete [] N;
     }
     
     delete xmath;
@@ -176,156 +169,216 @@ void Min::rectify(type0* a)
  --------------------------------------------*/
 void Min::force_calc()
 {
-    type0* f=mapp->f->begin();
-    if(chng_box && !affine)
-        for(int i=0;i<x_dim*(atoms->natms+atoms->natms_ph);i++)
-            f[i]=0.0;
-    else
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
-    if(chng_box)
-        for(int i=0;i<3;i++)
-            for(int j=0;j<3;j++)
-                f_H[i][j]=0.0;
+    type0* fvec=f()->begin();
+    for(int i=0;i<x_dim*atoms->natms;i++)
+        fvec[i]=0.0;
 
     forcefield->force_calc_timer(sts_flag,nrgy_strss);
     
-    if(mapp->dof!=NULL && affine==0)
-    {
-        byte* dof=mapp->dof->begin();
-        for(int i=0;i<atoms->natms*x_dim;i++)
-            if(dof[i]) f[i]=0.0;
-    }
-    else if(mapp->dof==NULL && affine)
-    {
-        for(int i=0;i<atoms->natms;i++)
-            for(int j=0;j<dim;j++)
-                f[i*x_dim+j]=0.0;
-    }
-    else if(mapp->dof==NULL && affine)
-    {
-        byte* dof=mapp->dof->begin();
-        for(int i=0;i<atoms->natms;i++)
-        {
-            for(int j=0;j<dim;j++)
-                f[i*x_dim+j]=0.0;
-            for(int j=dim;j<x_dim;j++)
-                if(dof[i*x_dim+j]==1) f[i*x_dim+j]=0.0;
-        }
-    }
-    
     if(!chng_box)
+    {
+        if(mapp->dof!=NULL)
+        {
+            byte* dofvec=mapp->dof->begin();
+            for(int i=0;i<atoms->natms*x_dim;i++)
+                if(dofvec[i]) fvec[i]=0.0;
+        }
         return;
+    }
     
     if(affine)
     {
         type0** B=atoms->B;
         type0** H=atoms->H;
+        type0 vol=H[0][0]*H[1][1]*H[2][2];
         if(H_dof[0][0])
-            f_H[0][0]=-(nrgy_strss[1]*B[0][0]+nrgy_strss[6]*B[1][0]+nrgy_strss[5]*B[2][0])*H[0][0]*H[1][1]*H[2][2];
+            f.A[0][0]=-(nrgy_strss[1]*B[0][0]+nrgy_strss[6]*B[1][0]+nrgy_strss[5]*B[2][0])*vol;
         if(H_dof[1][1])
-            f_H[1][1]=-(nrgy_strss[2]*B[1][1]+nrgy_strss[4]*B[2][1])*H[0][0]*H[1][1]*H[2][2];
+            f.A[1][1]=-(nrgy_strss[2]*B[1][1]+nrgy_strss[4]*B[2][1])*vol;
         if(H_dof[2][2])
-            f_H[2][2]=-(nrgy_strss[3]*B[2][2])*H[0][0]*H[1][1]*H[2][2];
+            f.A[2][2]=-(nrgy_strss[3]*B[2][2])*vol;
         if(H_dof[2][1])
-            f_H[2][1]=-(nrgy_strss[4]*B[2][2])*H[0][0]*H[1][1]*H[2][2];
+            f.A[2][1]=-(nrgy_strss[4]*B[2][2])*vol;
         if(H_dof[2][0])
-            f_H[2][0]=-(nrgy_strss[6]*B[1][1]+nrgy_strss[5]*B[2][1])*H[0][0]*H[1][1]*H[2][2];
+            f.A[2][0]=-(nrgy_strss[5]*B[2][2])*vol;
         if(H_dof[1][0])
-            f_H[1][0]=-(nrgy_strss[5]*B[2][2])*H[0][0]*H[1][1]*H[2][2];
-    }
-    else
-    {
-        type0* f=mapp->f->begin();
-        int tot_natms=atoms->natms+atoms->natms_ph;
-        int dimension=atoms->dimension;
-        type0* x=mapp->x->begin();
-        int x_dim=mapp->x->dim;
-        type0 xtmp[3];
-        type0 image[3];
+            f.A[1][0]=-(nrgy_strss[6]*B[1][1]+nrgy_strss[5]*B[2][1])*vol;
+
+        if(mapp->dof==NULL)
+        {
+            fvec=f()->begin();
+            
+            if(x_dim!=dim)
+            {
+                for(int iatm=0;iatm<atoms->natms;iatm++,fvec+=x_dim)
+                    for(int i=0;i<dim;i++)
+                        fvec[i]=0.0;
+            }
+            else
+                for(int i=0;i<atoms->natms*dim;i++)
+                    fvec[i]=0.0;
+            return;
+        }
+
         type0 st_lcl[6];
+        type0 st[6];
         for(int i=0;i<6;i++)
             st_lcl[i]=0.0;
-        type0 st[6];
-        type0** H=atoms->H;
         
-        
-        for(int i=0;i<tot_natms;i++)
+        type0* xvec=x()->begin();
+        fvec=f()->begin();
+        byte* dofvec=mapp->dof->begin();
+        for(int i=0;i<atoms->natms;i++)
         {
-            for(int j=0;j<dimension;j++)
-                xtmp[j]=x[j];
-            
-            for(int j=dimension-1;j>-1;j--)
+            if(dofvec[0])
             {
-                image[j]=0.0;
-                
-                while(xtmp[j]>=H[j][j])
-                {
-                    for(int k=0;k<j+1;k++)
-                        xtmp[k]-=H[j][k];
-                    image[j]++;
-                }
-                
-                while(xtmp[j]<0.0)
-                {
-                    for(int k=0;k<j+1;k++)
-                        xtmp[k]+=H[j][k];
-                    image[j]--;
-                }
+                st_lcl[0]+=fvec[0]*xvec[0];
+                st_lcl[4]+=fvec[0]*xvec[2];
+                st_lcl[5]+=fvec[0]*xvec[1];
             }
             
+            if(dofvec[1])
+            {
+                st_lcl[1]+=fvec[1]*xvec[1];
+                st_lcl[3]+=fvec[1]*xvec[2];
+            }
             
-            st_lcl[0]+=f[0]*image[0];
-            st_lcl[1]+=f[1]*image[1];
-            st_lcl[2]+=f[2]*image[2];
-            st_lcl[3]+=f[1]*image[2];
-            st_lcl[4]+=f[0]*image[2];
-            st_lcl[5]+=f[0]*image[1];
+            if(dofvec[2])
+            {
+                st_lcl[2]+=fvec[2]*xvec[2];
+            }
             
-            x+=x_dim;
-            f+=x_dim;
+            for(int j=0;j<dim;j++)
+                fvec[j]=0.0;
+            
+            for(int j=dim;j<x_dim;j++)
+                if(dofvec[j])
+                    fvec[j]=0.0;
+            
+            fvec+=x_dim;
+            xvec+=x_dim;
+            dofvec+=x_dim;
         }
         
         MPI_Allreduce(st_lcl,st,6,MPI_TYPE0,MPI_SUM,world);
         
+        st_lcl[0]=-(st[0]*B[0][0]+st[5]*B[1][0]+st[4]*B[2][0]);
+        st_lcl[1]=-(st[1]*B[1][1]+st[3]*B[2][1]);
+        st_lcl[2]=-(st[2]*B[2][2]);
+        st_lcl[3]=-(st[3]*B[2][2]);
+        st_lcl[4]=-(st[4]*B[2][2]);
+        st_lcl[5]=-(st[5]*B[1][1]+st[4]*B[2][1]);
+        
         if(H_dof[0][0])
-            f_H[0][0]=0.5*st[0];
+            f.A[0][0]-=st_lcl[0];
         if(H_dof[1][1])
-            f_H[1][1]=0.5*st[1];
+            f.A[1][1]-=st_lcl[1];
         if(H_dof[2][2])
-            f_H[2][2]=0.5*st[2];
+            f.A[2][2]-=st_lcl[2];
         if(H_dof[2][1])
-            f_H[2][1]=0.5*st[3];
+            f.A[2][1]-=st_lcl[3];
         if(H_dof[2][0])
-            f_H[2][0]=0.5*st[4];
+            f.A[2][0]-=st_lcl[4];
         if(H_dof[1][0])
-            f_H[1][0]=0.5*st[5];
+            f.A[1][0]-=st_lcl[5];
+        
     }
+    else
+    {
+        type0** B=atoms->B;
+        type0** H=atoms->H;
+        
+        type0 st_lcl[6];
+        type0 st[6];
+        for(int i=0;i<6;i++)
+            st_lcl[i]=0.0;
+        
+        fvec=f()->begin();
+        type0* xvec=x()->begin();
+        for(int iatm=0;iatm<atoms->natms;iatm++)
+        {
+            st_lcl[0]+=fvec[0]*xvec[0];
+            st_lcl[1]+=fvec[1]*xvec[1];
+            st_lcl[2]+=fvec[2]*xvec[2];
+            st_lcl[3]+=fvec[1]*xvec[2];
+            st_lcl[4]+=fvec[0]*xvec[2];
+            st_lcl[5]+=fvec[0]*xvec[1];
+            
+            fvec+=x_dim;
+            xvec+=x_dim;
+        }
+        
+
+        MPI_Allreduce(st_lcl,st,6,MPI_TYPE0,MPI_SUM,world);
+        
+        type0 vol=H[0][0]*H[1][1]*H[2][2];
+        for(int i=0;i<6;i++)
+            st_lcl[i]=st[i]+nrgy_strss[i+1]*vol;
+        
+        st[0]=-(st_lcl[0]*B[0][0]+st_lcl[5]*B[1][0]+st_lcl[4]*B[2][0]);
+        st[1]=-(st_lcl[1]*B[1][1]+st_lcl[3]*B[2][1]);
+        st[2]=-(st_lcl[2]*B[2][2]);
+        st[3]=-(st_lcl[3]*B[2][2]);
+        st[4]=-(st_lcl[4]*B[2][2]);
+        st[5]=-(st_lcl[5]*B[1][1]+st_lcl[4]*B[2][1]);
+
+        if(H_dof[0][0])
+            f.A[0][0]=st[0];
+        if(H_dof[1][1])
+            f.A[1][1]=st[1];
+        if(H_dof[2][2])
+            f.A[2][2]=st[2];
+        if(H_dof[2][1])
+            f.A[2][1]=st[3];
+        if(H_dof[2][0])
+            f.A[2][0]=st[4];
+        if(H_dof[1][0])
+            f.A[1][0]=st[5];
+
+        if(mapp->dof==NULL)
+            return;
+        
+        byte* dofvec=mapp->dof->begin();
+        fvec=f()->begin();
+        for(int i=0;i<atoms->natms*x_dim;i++)
+            if(dofvec[i]) fvec[i]=0.0;
+    }
+
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Min::prepare_affine_h(type0* x,type0* h)
+void Min::prepare_affine_h()
 {
     type0** B=atoms->B;
+    type0 N[3][3];
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
         {
             N[i][j]=0.0;
             if(chng_box)
                 for(int k=0;k<dim;k++)
-                    N[i][j]+=B[j][k]*h_H[k][i];
+                    N[i][j]+=B[j][k]*h.A[k][i];
         }
     
+    type0* xvec=x0()->begin();
+    type0* hvec=h()->begin();
     for(int iatm=0;iatm<atoms->natms;iatm++)
     {
         for(int j=0;j<dim;j++)
         {
-            h[iatm*x_dim+j]=0.0;
+            hvec[iatm*x_dim+j]=0.0;
             for(int k=0;k<dim;k++)
-                h[iatm*x_dim+j]+=N[j][k]*x[iatm*x_dim+k];
+                hvec[iatm*x_dim+j]+=N[j][k]*xvec[iatm*x_dim+k];
         }
     }
+    
+    if(mapp->dof==NULL)
+        return;
+    byte* dof=mapp->dof->begin();
+    for(int i=0;i<atoms->natms*x_dim;i++)
+        if(dof[i]) hvec[i]=0.0;
+    
 }
 /*--------------------------------------------
  
@@ -341,26 +394,20 @@ void Min::init()
     
     sts_flag=1;
     if(chng_box && affine)
-        sts_flag=1;
+        sts_flag=2;
     else if(chng_box && !affine)
         sts_flag=2;
     
     if(chng_box)
     {
-        h_H=new type0*[dim];
-        f_H=new type0*[dim];
         H_prev=new type0*[dim];
         f_H_prev=new type0*[dim];
         
-        *h_H=new type0[dim*dim];
-        *f_H=new type0[dim*dim];
         *H_prev=new type0[dim*dim];
         *f_H_prev=new type0[dim*dim];
         
         for(int i=1;i<dim;i++)
         {
-            h_H[i]=h_H[i-1]+dim;
-            f_H[i]=f_H[i-1]+dim;
             H_prev[i]=H_prev[i-1]+dim;
             f_H_prev[i]=f_H_prev[i-1]+dim;
         }
@@ -372,6 +419,12 @@ void Min::init()
     x_prev_ptr=new Vec<type0>(atoms,x_dim);
     h_ptr=new Vec<type0>(atoms,x_dim);
     f_prev_ptr=new Vec<type0>(atoms,x_dim);
+    
+    x.init(atoms,atoms->x,atoms->H,chng_box);
+    x0.init(atoms,x_prev_ptr,H_prev,chng_box);
+    f.init(atoms,mapp->f,chng_box);
+    f0.init(atoms,f_prev_ptr,f_H_prev,chng_box);
+    h.init(atoms,h_ptr,chng_box);
 
     
     vecs_comm=new VecLst(atoms);
@@ -394,8 +447,7 @@ void Min::init()
         }
     }
     
-    //vecs_comm->add_xchng(mapp->f);
-    vecs_comm->add_xchng(h_ptr);    
+    vecs_comm->add_xchng(h_ptr);
     vecs_comm->add_xchng(x_prev_ptr);
     vecs_comm->add_xchng(f_prev_ptr);
     
@@ -415,6 +467,11 @@ void Min::init()
  --------------------------------------------*/
 void Min::fin()
 {
+    x.fin();
+    x0.fin();
+    f.fin();
+    f0.fin();
+    h.fin();
     delete f_prev_ptr;
     delete h_ptr;
     delete x_prev_ptr;
@@ -424,12 +481,6 @@ void Min::fin()
     
     if(chng_box)
     {
-        delete [] *f_H;
-        delete [] f_H;
-
-        delete [] *h_H;
-        delete [] h_H;
-
         delete [] *H_prev;
         delete [] H_prev;
         
@@ -443,34 +494,19 @@ void Min::fin()
 void Min::zero_f()
 {
     type0* f=mapp->f->begin();
-    if(chng_box && ! affine)
-        for(int i=0;i<x_dim*(atoms->natms+atoms->natms_ph);i++)
-            f[i]=0.0;
-    else
-        for(int i=0;i<x_dim*atoms->natms;i++)
-            f[i]=0.0;
+    for(int i=0;i<x_dim*atoms->natms;i++)
+        f[i]=0.0;
 }
 /*--------------------------------------------
  inner product of f and h
  --------------------------------------------*/
 type0 Min::F(type0 alpha)
 {
-    type0* x=mapp->x->begin();
-    type0* h=h_ptr->begin();
-    type0* x_prev=x_prev_ptr->begin();
-    
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        x[i]=x_prev[i]+alpha*h[i];
-    
+    x=x0;
+    x.add(alpha,h);
+
     if(chng_box)
     {
-        type0** H=atoms->H;
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-            {
-                H[i][j]=H_prev[i][j]+alpha*h_H[i][j];
-            }
-        
         if(dim==3)
             M3INV_TRI_LOWER(atoms->H,atoms->B);
         else
@@ -485,25 +521,12 @@ type0 Min::F(type0 alpha)
  --------------------------------------------*/
 type0 Min::dF(type0 alpha,type0& drev)
 {
-    type0* x=mapp->x->begin();
-    type0* h=h_ptr->begin();
-    type0* x_prev=x_prev_ptr->begin();
-    type0* f=mapp->f->begin();
     
-    type0 drev_lcl;
-    
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        x[i]=x_prev[i]+alpha*h[i];
+    x=x0;
+    x.add(alpha,h);
     
     if(chng_box)
     {
-        type0** H=atoms->H;
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-            {
-                H[i][j]=H_prev[i][j]+alpha*h_H[i][j];
-            }
-        
         if(dim==3)
             M3INV_TRI_LOWER(atoms->H,atoms->B);
         else
@@ -511,37 +534,45 @@ type0 Min::dF(type0 alpha,type0& drev)
     }
     
     atoms->update(mapp->x);
-    
     force_calc();
-    
-    drev_lcl=0.0;
-    if(affine==0)
+
+    if(affine)
     {
-        for(int i=0;i<atoms->natms*x_dim;i++)
-            drev_lcl+=h[i]*f[i];
+        
+        drev=0.0;
+        
+        if(x_dim!=dim)
+        {
+            
+            type0* hvec=h()->begin()+dim;
+            type0* fvec=f()->begin()+dim;
+            type0 dfa_lcl=0.0;
+            
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                for(int i=0;i<x_dim-dim;i++)
+                    dfa_lcl+=hvec[i]*fvec[i];
+                
+                fvec+=x_dim;
+                hvec+=x_dim;
+            }
+            
+            MPI_Allreduce(&dfa_lcl,&drev,1,MPI_TYPE0,MPI_SUM,world);
+        }
+        
+        if(chng_box)
+        {
+            for(int i=0;i<dim;i++)
+                for(int j=0;j<dim;j++)
+                    drev+=h.A[i][j]*f.A[i][j];
+        }
+        
+        drev*=-1.0;
     }
     else
     {
-        for(int i=dim;i<atoms->natms*x_dim;i+=dim)
-        {
-            for(int j=dim;j<x_dim;j++)
-            {
-                drev_lcl+=h[i]*f[i];
-                i++;
-            }
-        }
+        drev=-(f*h);
     }
-    MPI_Allreduce(&drev_lcl,&drev,1,MPI_TYPE0,MPI_SUM,world);
-    
-    if(chng_box)
-    {
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-            {
-                drev+=h_H[i][j]*f_H[i][j];
-            }
-    }
-    drev*=-1.0;
     
     return nrgy_strss[0];
 }
@@ -550,47 +581,41 @@ type0 Min::dF(type0 alpha,type0& drev)
  --------------------------------------------*/
 void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
 {
-    type0* h=h_ptr->begin();
-    type0* f=mapp->f->begin();
+
     type0 max_a_lcl=max_dx;
-    type0 h_norm_lcl,dfa_lcl;
     
-    h_norm_lcl=0.0;
-    dfa_lcl=0.0;
-    if(affine==0)
+    
+    
+    if(affine)
     {
-        for(int i=0;i<atoms->natms*x_dim;i++)
+        h_norm=0.0;
+        
+        if(x_dim!=dim)
         {
-            h_norm_lcl+=h[i]*h[i];
-            dfa_lcl+=h[i]*f[i];
+            type0* hvec=h()->begin()+dim;
+            type0 h_norm_lcl=0.0;
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                for(int i=0;i<x_dim-dim;i++)
+                    h_norm_lcl+=hvec[i]*hvec[i];
+                hvec+=x_dim;
+            }
+            MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
+        }
+        
+        if(chng_box)
+        {
+            for(int i=0;i<dim;i++)
+                for(int j=0;j<dim;j++)
+                    h_norm+=h.A[i][j]*h.A[i][j];
         }
     }
     else
     {
-        for(int i=dim;i<atoms->natms*x_dim;i+=dim)
-        {
-            for(int j=dim;j<x_dim;j++)
-            {
-                h_norm_lcl+=h[i]*h[i];
-                dfa_lcl+=h[i]*f[i];
-                i++;
-            }
-        }
+        h_norm=h*h;
     }
 
-    MPI_Allreduce(&h_norm_lcl,&h_norm,1,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(&dfa_lcl,&dfa,1,MPI_TYPE0,MPI_SUM,world);
-    if(chng_box)
-    {
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-            {
-                h_norm+=h_H[i][j]*h_H[i][j];
-                dfa+=h_H[i][j]*f_H[i][j];
-            }
-    }
-    
-    dfa*=-1.0;
+    dfa=-f_h;
     
     if(h_norm==0.0)
     {
@@ -611,11 +636,13 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
     
     if(mapp->mode==MD_mode)
     {
+        type0* hvec=h()->begin();
         for(int i=0;i<atoms->natms*x_dim;i++)
-            max_a_lcl=MIN(max_a_lcl,0.999*fabs(max_dx/h[i]));
+            max_a_lcl=MIN(max_a_lcl,0.999*fabs(max_dx/hvec[i]));
     }
     else if(mapp->mode==DMD_mode)
     {
+        type0* hvec=h()->begin();
         int icmp=0;
         type0 a_max=0.99*(forcefield_dmd->alpha_max)/sqrt(2.0);
         type0 a_min=forcefield_dmd->alpha_min;
@@ -626,15 +653,15 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
         {
             for(int j=0;j<dim;j++)
             {
-                max_a_lcl=MIN(max_a_lcl,0.999*fabs(max_dx/h[icmp]));
+                max_a_lcl=MIN(max_a_lcl,0.999*fabs(max_dx/hvec[icmp]));
                 icmp++;
             }
             for(int j=dim;j<x_dim;j++)
             {
-                if(h[icmp]>0.0)
-                    max_a_lcl=MIN(max_a_lcl,0.999*(a_max-x[icmp])/h[icmp]);
-                if(h[icmp]<0.0)
-                    max_a_lcl=MIN(max_a_lcl,0.999*(a_min-x[icmp])/h[icmp]);
+                if(hvec[icmp]>0.0)
+                    max_a_lcl=MIN(max_a_lcl,0.999*(a_max-x[icmp])/hvec[icmp]);
+                if(hvec[icmp]<0.0)
+                    max_a_lcl=MIN(max_a_lcl,0.999*(a_min-x[icmp])/hvec[icmp]);
                 icmp++;
             }
         }
@@ -645,36 +672,16 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
     {
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
-                if(h_H[i][j]!=0.0)
-                    max_a=MIN(max_a,0.999*fabs(max_dx/h_H[i][j]));
+                if(h.A[i][j]!=0.0)
+                    max_a=MIN(max_a,0.999*fabs(max_dx/h.A[i][j]));
     }
-    
-    
 }
 /*--------------------------------------------
  reset to initial position
  --------------------------------------------*/
 void Min::F_reset()
 {
-    type0* x=mapp->x->begin();
-    type0* x_prev=x_prev_ptr->begin();
-    
-    memcpy(x,x_prev,atoms->natms*x_dim*sizeof(type0));
-    
-    if(chng_box)
-    {
-        for(int i=0;i<dim;i++)
-            for(int j=0;j<dim;j++)
-                atoms->H[i][j]=H_prev[i][j];
-        
-        if(dim==3)
-            M3INV_TRI_LOWER(atoms->H,atoms->B);
-        else
-            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
-    }
-    
-    
-    
+    x=x0;
     atoms->update(mapp->x);
 }
 
