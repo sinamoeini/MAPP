@@ -36,7 +36,6 @@ namespace MAPP_NS
         
         void force_calc();
         void prepare_affine_h();
-        void zero_f();
         
         ThermoDynamics* thermo;
     public:

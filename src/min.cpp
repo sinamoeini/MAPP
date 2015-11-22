@@ -350,35 +350,61 @@ void Min::force_calc()
  --------------------------------------------*/
 void Min::prepare_affine_h()
 {
-    type0** B=atoms->B;
-    type0 N[3][3];
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<dim;j++)
-        {
-            N[i][j]=0.0;
-            if(chng_box)
+    
+    if(chng_box)
+    {
+        type0** B=atoms->B;
+        type0 N[3][3];
+        for(int i=0;i<dim;i++)
+            for(int j=0;j<dim;j++)
+            {
+                N[i][j]=0.0;
                 for(int k=0;k<dim;k++)
                     N[i][j]+=B[j][k]*h.A[k][i];
-        }
-    
-    type0* xvec=x0()->begin();
-    type0* hvec=h()->begin();
-    for(int iatm=0;iatm<atoms->natms;iatm++)
-    {
-        for(int j=0;j<dim;j++)
+            }
+        
+        type0* xvec=x0()->begin();
+        type0* hvec=h()->begin();
+        if(dim==3)
         {
-            hvec[iatm*x_dim+j]=0.0;
-            for(int k=0;k<dim;k++)
-                hvec[iatm*x_dim+j]+=N[j][k]*xvec[iatm*x_dim+k];
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                M3V_TRI_UPPER(N,xvec,hvec);
+                xvec+=x_dim;
+                hvec+=x_dim;
+            }
+        }
+        else
+        {
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                for(int j=0;j<dim;j++)
+                {
+                    hvec[j]=0.0;
+                    for(int k=j;k<dim;k++)
+                        hvec[j]+=N[j][k]*xvec[k];
+                }
+                xvec+=x_dim;
+                hvec+=x_dim;
+            }
         }
     }
+    else
+    {
+        type0* hvec=h()->begin();
+        for(int iatm=0;iatm<atoms->natms;iatm++,hvec+=x_dim)
+            for(int j=0;j<dim;j++)
+                hvec[j]=0.0;
+    }
     
+
     if(mapp->dof==NULL)
         return;
+    
     byte* dof=mapp->dof->begin();
+    type0*hvec=h()->begin();
     for(int i=0;i<atoms->natms*x_dim;i++)
         if(dof[i]) hvec[i]=0.0;
-    
 }
 /*--------------------------------------------
  
@@ -489,15 +515,6 @@ void Min::fin()
     }
 }
 /*--------------------------------------------
- 
- --------------------------------------------*/
-void Min::zero_f()
-{
-    type0* f=mapp->f->begin();
-    for(int i=0;i<x_dim*atoms->natms;i++)
-        f[i]=0.0;
-}
-/*--------------------------------------------
  inner product of f and h
  --------------------------------------------*/
 type0 Min::F(type0 alpha)
@@ -538,9 +555,7 @@ type0 Min::dF(type0 alpha,type0& drev)
 
     if(affine)
     {
-        
         drev=0.0;
-        
         if(x_dim!=dim)
         {
             
@@ -581,11 +596,8 @@ type0 Min::dF(type0 alpha,type0& drev)
  --------------------------------------------*/
 void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
 {
-
     type0 max_a_lcl=max_dx;
-    
-    
-    
+
     if(affine)
     {
         h_norm=0.0;

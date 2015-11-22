@@ -129,7 +129,7 @@ void Min_cg::run()
         }
         if(affine) prepare_affine_h();
         err=ls->line_min(curr_energy,alpha,1);
-        if(affine) rectify(h()->begin());
+        //if(affine) rectify(h()->begin());
         
         if(err!=LS_S)
         {
