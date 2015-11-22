@@ -133,7 +133,7 @@ void Clock_inf::run()
     
     if(mod==MIN_MOD_EN_DC_PROJ)
     {
-        curr_cost=forcefield_dmd->dc_en_proj_timer(1,nrgy_strss,1,h,g_h);
+        curr_cost=forcefield_dmd->dc_en_proj_timer(1,h,g_h);
         rectify(h);
         inner0=0.0;
         for(int i=0;i<dof_lcl;i++)
@@ -149,9 +149,9 @@ void Clock_inf::run()
     else
     {
         if(mod==MIN_MOD_FORM_EN)
-            curr_cost=forcefield_dmd->en_grad_timer(1,nrgy_strss,1,g_orig,g);
+            curr_cost=forcefield_dmd->en_grad_timer(1,g_orig,g);
         else
-            curr_cost=forcefield_dmd->dc_norm_grad_timer(1,nrgy_strss,1,g_orig,g);
+            curr_cost=forcefield_dmd->dc_norm_grad_timer(1,g_orig,g);
         
         rectify(g);
         rectify(g_orig);
@@ -211,7 +211,7 @@ void Clock_inf::run()
         
         if(mod==MIN_MOD_EN_DC_PROJ)
         {
-            curr_cost=forcefield_dmd->dc_en_proj_timer(1,nrgy_strss,1,h,g_h);
+            curr_cost=forcefield_dmd->dc_en_proj_timer(1,h,g_h);
             rectify(h);
             inner0=0.0;
             for(int i=0;i<dof_lcl;i++)
@@ -227,9 +227,9 @@ void Clock_inf::run()
         else
         {
             if(mod==MIN_MOD_FORM_EN)
-                curr_cost=forcefield_dmd->en_grad_timer(1,nrgy_strss,1,g_orig,g);
+                curr_cost=forcefield_dmd->en_grad_timer(1,g_orig,g);
             else
-                curr_cost=forcefield_dmd->dc_norm_grad_timer(1,nrgy_strss,1,g_orig,g);
+                curr_cost=forcefield_dmd->dc_norm_grad_timer(1,g_orig,g);
             rectify(g);
             rectify(g_orig);
             
@@ -318,11 +318,11 @@ inline type0 Clock_inf::cost_func(type0 gamma)
     atoms->update(mapp->c);
     
     if(mod==MIN_MOD_EN_DC_PROJ)
-        return forcefield_dmd->dc_en_proj_timer(0,nrgy_strss,0,g,tmp);
+        return forcefield_dmd->dc_en_proj_timer(0,g,tmp);
     else if(mod==MIN_MOD_FORM_EN)
-        return forcefield_dmd->en_grad_timer(0,nrgy_strss,0,g_orig,g);
+        return forcefield_dmd->en_grad_timer(0,g_orig,g);
     else
-        return forcefield_dmd->dc_norm_grad_timer(0,nrgy_strss,0,g_orig,g);
+        return forcefield_dmd->dc_norm_grad_timer(0,g_orig,g);
 
 }
 /*--------------------------------------------
@@ -347,7 +347,7 @@ inline type0 Clock_inf::dcost_func(type0 gamma,type0& df)
     
     atoms->update(mapp->c);
     
-    type0 cost=forcefield_dmd->en_grad_timer(1,nrgy_strss,1,g_orig,g);
+    type0 cost=forcefield_dmd->en_grad_timer(1,g_orig,g);
     type0 inner0=0.0;
     for(int i=0;i<dof_lcl;i++)
     {

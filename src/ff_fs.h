@@ -34,7 +34,7 @@ namespace MAPP_NS
         
         void read_file(char*);        
         Vec<type0>* rho_ptr;
-        void force_calc(int,type0*);
+        void force_calc(bool,type0*);
         type0 energy_calc();
     protected:
     public:

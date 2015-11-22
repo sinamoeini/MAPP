@@ -26,12 +26,6 @@ namespace MAPP_NS
         int** type2phi_pair_ij;
         int** type2phi_pair_ji;
         
-        
-        type0* manip_arr0;
-        type0* manip_arr0_lcl;
-        int* manip_arr1;
-        int* manip_arr1_lcl;
-        
         Vec<type0>* cv_ptr;
         Vec<type0>* E_ptr;
         Vec<type0>* dE_ptr;
@@ -50,7 +44,8 @@ namespace MAPP_NS
 
         
         int c_dim;
-        //type0 cut_sq_0;
+        int dim;
+        int x_dim;
         type0 cut_sq_mod_0;
         type0 kbT,beta;
         type0* c_0;
@@ -84,25 +79,28 @@ namespace MAPP_NS
         
         void dc_crd();
         void dc_ncrd();
-        type0 dc_en_proj_crd(int,type0*,int,type0*,type0&);
-        type0 dc_en_proj_ncrd(int,type0*,int,type0*,type0&);
-        type0 imp_cost_grad_crd(int,type0,type0*,type0*);
-        type0 imp_cost_grad_ncrd(int,type0,type0*,type0*);
+        type0 dc_en_proj_crd(bool,type0*,type0&);
+        type0 dc_en_proj_ncrd(bool,type0*,type0&);
+        type0 imp_cost_grad_crd(bool,type0,type0*,type0*);
+        type0 imp_cost_grad_ncrd(bool,type0,type0*,type0*);
         type0 ddc_norm_crd();
         type0 ddc_norm_ncrd();
-        type0 dc_norm_grad_crd(int,type0*,int,type0*,type0*);
-        type0 dc_norm_grad_ncrd(int,type0*,int,type0*,type0*);
+        type0 dc_norm_grad_crd(bool,type0*,type0*);
+        type0 dc_norm_grad_ncrd(bool,type0*,type0*);
         
+        void calc_mu_crd();
+        void calc_mu_ncrd();
         
-        void force_calc(int,type0*);
+        void force_calc(bool,type0*);
+
         type0 energy_calc();
         void dc();
-        type0 dc_en_proj(int,type0*,int,type0*,type0&);
+        type0 dc_en_proj(bool,type0*,type0&);
         type0 ddc_norm();
-        type0 imp_cost_grad(int,type0,type0*,type0*);
-        type0 dc_norm_grad(int,type0*,int,type0*,type0*);
-        type0 en_grad(int,type0*,int,type0*,type0*);
-        void enst_calc(int,type0*);
+        type0 imp_cost_grad(bool,type0,type0*,type0*);
+        type0 dc_norm_grad(bool,type0*,type0*);
+        type0 en_grad(bool,type0*,type0*);
+        void enst_calc(bool,type0*);
     public:
         ForceField_eam_dmd(MAPP *);
         ~ForceField_eam_dmd();

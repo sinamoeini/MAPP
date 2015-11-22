@@ -429,7 +429,7 @@ void ForceField_fsm::fin()
  force and energy calculation
  --------------------------------------------*/
 void ForceField_fsm::
-force_calc(int st_clc,type0* en_st)
+force_calc(bool st_clc,type0* en_st)
 {
     type0* x=mapp->x->begin();
     type0* f=mapp->f->begin();

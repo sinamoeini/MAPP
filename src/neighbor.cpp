@@ -191,7 +191,7 @@ void Neighbor::print_stats()
 {
     if(atoms->my_p==0)
     {
-        fprintf(output,"\n");
+        fprintf(output,"neighbor stats:\n");
         fprintf(output,"no of neigh lists "
         "generated: %d\n",no_neigh_lists);
     }

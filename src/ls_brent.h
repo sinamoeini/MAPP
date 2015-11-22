@@ -44,7 +44,7 @@ error(mapp->error)
     max_iter=5;
     tol=sqrt(2.0*epsilon);
     zeps=epsilon*1.0e-3;
-    brack=false;
+    brack=true;
 
     if(nargs>2)
     {

@@ -94,7 +94,7 @@ type0 ForceField::max_cut()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceField::force_calc_timer(int flag,type0* enst)
+void ForceField::force_calc_timer(bool flag,type0* enst)
 {
     timer->start(FORCE_TIME_mode);
     force_calc(flag,enst);
@@ -123,7 +123,7 @@ type0 ForceField::energy_calc_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
-type0 ForceFieldDMD::imp_cost_grad_timer(int
+type0 ForceFieldDMD::imp_cost_grad_timer(bool
 chk,type0 alpha,type0* a,type0* g)
 {
     type0 en;
@@ -135,12 +135,12 @@ chk,type0 alpha,type0* a,type0* g)
 /*--------------------------------------------
  
  --------------------------------------------*/
-type0 ForceFieldDMD::dc_norm_grad_timer(int st_clc
-,type0* enst,int chk,type0* g,type0* g_mod)
+type0 ForceFieldDMD::dc_norm_grad_timer
+(bool chk,type0* g,type0* g_mod)
 {
     type0 en;
     timer->start(FORCE_TIME_mode);
-    en=dc_norm_grad(st_clc,enst,chk,g,g_mod);
+    en=dc_norm_grad(chk,g,g_mod);
     timer->stop(FORCE_TIME_mode);
     return en;
 }
@@ -157,12 +157,12 @@ type0 ForceFieldDMD::ddc_norm_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
-type0 ForceFieldDMD::en_grad_timer(int st_clc
-,type0* enst,int chk,type0* g,type0* g_mod)
+type0 ForceFieldDMD::en_grad_timer(
+bool chk,type0* g,type0* g_mod)
 {
     type0 en;
     timer->start(FORCE_TIME_mode);
-    en=en_grad(st_clc,enst,chk,g,g_mod);
+    en=en_grad(chk,g,g_mod);
     timer->stop(FORCE_TIME_mode);
     return en;
 }
@@ -178,18 +178,19 @@ void ForceFieldDMD::dc_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
-type0 ForceFieldDMD::dc_en_proj_timer(int st_clc,type0* enst,int chk,type0* g,type0& g_h)
+type0 ForceFieldDMD::dc_en_proj_timer
+(bool chk,type0* g,type0& g_h)
 {
     type0 en;
     timer->start(FORCE_TIME_mode);
-    en=dc_en_proj(st_clc,enst,chk,g,g_h);
+    en=dc_en_proj(chk,g,g_h);
     timer->stop(FORCE_TIME_mode);
     return en;
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceFieldDMD::enst_calc_timer(int flag,type0* enst)
+void ForceFieldDMD::enst_calc_timer(bool flag,type0* enst)
 {
     timer->start(FORCE_TIME_mode);
     force_calc(flag,enst);

@@ -36,7 +36,7 @@ error(mapp->error)
 {
     tol=sqrt(LineSearch<Func>::epsilon);
     max_iter=5;
-    brack=false;
+    brack=true;
     if(nargs>2)
     {
         if(nargs%2!=0)

@@ -21,7 +21,7 @@ namespace MAPP_NS
         void read_file(char*);
         int shift;
     protected:
-        void force_calc(int,type0*);
+        void force_calc(bool,type0*);
         type0 energy_calc();
     public:
         ForceField_lj(MAPP *);

@@ -58,7 +58,7 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
  force calculation
  --------------------------------------------*/
 void ForceField_eam_dmd::
-force_calc(int st_clc,type0* en_st)
+force_calc(bool st_clc,type0* en_st)
 {
     type0* x=mapp->x->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -556,24 +556,13 @@ void ForceField_eam_dmd::init()
     type0* mu=mu_ptr->begin();
     for(int i=0;i<c_dim*atoms->natms;i++)
         mu[i]=0.0;
- 
-    CREATE1D(manip_arr0,no_types);
-    CREATE1D(manip_arr0_lcl,no_types);
-    CREATE1D(manip_arr1,no_types);
-    CREATE1D(manip_arr1_lcl,no_types);
+
 }
 /*--------------------------------------------
  fin
  --------------------------------------------*/
 void ForceField_eam_dmd::fin()
 {
-    if(no_types)
-    {
-        delete [] manip_arr0;
-        delete [] manip_arr0_lcl;
-        delete [] manip_arr1;
-        delete [] manip_arr1_lcl;
-    }
     if(max_pairs)
     {
         delete [] rho_phi;
@@ -618,6 +607,8 @@ void ForceField_eam_dmd::coef(int nargs,char** args)
     
     no_types=atom_types->no_types;
     c_dim=mapp->c->dim;
+    x_dim=mapp->x->dim;
+    dim=atoms->dimension;
     CREATE1D(c_0,no_types);
     CREATE1D(f_t,no_types);
     CREATE1D(Q_nrm,no_types);
@@ -1042,7 +1033,7 @@ inline type0 ForceField_eam_dmd::mod_log(type0 x)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad(
-int cost_grad,type0 alpha,type0* a,type0* g)
+bool cost_grad,type0 alpha,type0* a,type0* g)
 {
     if(CRD_ENBL)
         return imp_cost_grad_crd(cost_grad,alpha,a,g);
@@ -1052,13 +1043,13 @@ int cost_grad,type0 alpha,type0* a,type0* g)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::dc_norm_grad(int st_clc
-,type0* en_st,int cost_grad,type0* g,type0* g_mod)
+type0 ForceField_eam_dmd::dc_norm_grad(
+bool cost_grad,type0* g,type0* g_mod)
 {
     if(CRD_ENBL)
-        return dc_norm_grad_crd(st_clc,en_st,cost_grad,g,g_mod);
+        return dc_norm_grad_crd(cost_grad,g,g_mod);
     else
-        return dc_norm_grad_ncrd(st_clc,en_st,cost_grad,g,g_mod);
+        return dc_norm_grad_ncrd(cost_grad,g,g_mod);
 }
 /*--------------------------------------------
  claculate F and dF and dFF
@@ -1083,131 +1074,34 @@ type0 ForceField_eam_dmd::ddc_norm()
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::dc_en_proj(int st_clc
-,type0* enst,int cost_grad,type0* g,type0& g_h)
+type0 ForceField_eam_dmd::dc_en_proj(
+bool cost_grad,type0* g,type0& g_h)
 {
     if(CRD_ENBL)
-        return dc_en_proj_crd(st_clc,enst,cost_grad,g,g_h);
+        return dc_en_proj_crd(cost_grad,g,g_h);
     else
-        return dc_en_proj_ncrd(st_clc,enst,cost_grad,g,g_h);
+        return dc_en_proj_ncrd(cost_grad,g,g_h);
 }
 /*------------------------------------------------------------------------------------------------------------------------------------
  claculate F and dF and dFF
  ------------------------------------------------------------------------------------------------------------------------------------*/
 void ForceField_eam_dmd::dc_crd()
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
-    type0* E=E_ptr->begin();
-    type0* dE=dE_ptr->begin();
     type0* cv=cv_ptr->begin();
     type0* mu=mu_ptr->begin();
     type0* crd=crd_ptr->begin();
-    
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,s_ij,crdi,crdj,w_ij,w_ji;
-    type0* coef;
-    int m;
-    int istart;
+    type0 tmp0,s_ij,crdi,crdj,w_ij,w_ji;
     
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    calc_mu_crd();
     
     int natms=atoms->natms;
-    
-    nrgy_strss[0]=0.0;
-    
     for(int i=0;i<natms*c_dim;i++)
-        mu[i]=c_d[i]=E[i]=crd[i]=0.0;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    crd[ic_dim]+=c[jc_dim];
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        crd[jc_dim]+=c[ic_dim];
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            if(E[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-            }
-            
-            dE[ic_dim]=tmp1;
-            
-            tmp1=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp1);
-            mu[ic_dim]+=tmp1;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    atoms->update(dE_ptr);
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    
-    atoms->update(mu_ptr);
-    atoms->update(crd_ptr);
-    
+        c_d[i]=0.0;
+
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
     
@@ -1245,113 +1139,18 @@ void ForceField_eam_dmd::dc_crd()
  --------------------------------------------*/
 void ForceField_eam_dmd::dc_ncrd()
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* cv=cv_ptr->begin();
-    type0* E=E_ptr->begin();
-    type0* dE=dE_ptr->begin();
     type0* mu=mu_ptr->begin();
-    
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,s_ij,w_ij,w_ji;
-    type0* coef;
-    int m;
-    int istart;
-    
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    type0 tmp0,s_ij,w_ij,w_ji;
+    calc_mu_ncrd();
     
     int natms=atoms->natms;
-    
-    nrgy_strss[0]=0.0;
     for(int i=0;i<natms*c_dim;i++)
-        mu[i]=c_d[i]=E[i]=0.0;
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            if(E[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-            }
-            
-            dE[ic_dim]=tmp1;
-            
-            tmp1=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp1);
-            mu[ic_dim]+=tmp1;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    atoms->update(dE_ptr);
-
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    atoms->update(mu_ptr);
+        c_d[i]=0.0;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -1386,9 +1185,8 @@ void ForceField_eam_dmd::dc_ncrd()
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_crd
-(int cost_grad,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 alpha,type0* a,type0* g)
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -1401,124 +1199,18 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
     type0* t=t_ptr->begin();
     type0* ddE=E;
     type0* v=crd;
-    
     type0 inner0,ans;
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,tmp2,s_ij;
+    type0 tmp0,s_ij;
     type0 w_ij,w_ji;
     type0 crdi,crdj;
-    type0* coef;
-    int m;
     int istart;
     
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    nrgy_strss[0]=0.0;
+    calc_mu_crd();
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
-        crd[i]=c_d[i]=g[i]=E[i]=mu[i]=0.0;
-    
-    
-    /*
-     beginning of level 1
-     */
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    crd[ic_dim]+=c[jc_dim];
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        crd[jc_dim]+=c[ic_dim];
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
-            if(E[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-                tmp2=0.0;
-            }
-            
-            dE[ic_dim]=tmp1;
-            ddE[ic_dim]=tmp2;
-            
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
-            mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    
-    /*
-     beginning of level 2
-     */
-    
-    atoms->update(dE_ptr);
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    /*
-     beginning of level 3
-     */
-    atoms->update(mu_ptr);
-    atoms->update(crd_ptr);
+        c_d[i]=g[i]=0.0;
     
     for(int i=0;i<natms*c_dim;i++)
     {
@@ -1566,7 +1258,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
     
-    if(cost_grad==0)
+    if(!cost_grad)
         return ans;
     
     /*
@@ -1622,6 +1314,9 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
     
     for(int i=0;i<c_dim*natms;i++)
         v[i]=0.0;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
     
     istart=0;
     for(int iatm=0;iatm<natms;iatm++)
@@ -1695,9 +1390,8 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_ncrd
-(int cost_grad,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 alpha,type0* a,type0* g)
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -1709,124 +1403,17 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     type0* mu=mu_ptr->begin();
     type0* v=crd_ptr->begin();
     type0* ddE=E;
-
-
-    
     type0 inner0,ans;
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,tmp2,s_ij;
+    type0 tmp0,s_ij;
     type0 w_ij,w_ji;
-    type0* coef;
-    int m;
     int istart;
     
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    
-    nrgy_strss[0]=0.0;
+    calc_mu_ncrd();
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
-        c_d[i]=g[i]=E[i]=mu[i]=0.0;
-    
-    
-    /*
-     beginning of level 1
-     */
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
-            if(E[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-                tmp2=0.0;
-            }
-            
-            dE[ic_dim]=tmp1;
-            ddE[ic_dim]=tmp2;
-            
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
-            mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    
-    /*
-     beginning of level 2
-     */
-    
-    atoms->update(dE_ptr);
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    /*
-     beginning of level 3
-     */
-    atoms->update(mu_ptr);
+        c_d[i]=g[i]=0.0;
     
     for(int i=0;i<natms*c_dim;i++)
     {
@@ -1874,7 +1461,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
 
-    if(cost_grad==0)
+    if(!cost_grad)
         return ans;
     
     /*
@@ -1928,6 +1515,8 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     for(int i=0;i<c_dim*natms;i++)
         v[i]=0.0;
     
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
     istart=0;
     for(int iatm=0;iatm<natms;iatm++)
     {
@@ -1999,10 +1588,9 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::dc_norm_grad_crd(int st_clc
-,type0* en_st,int cost_grad,type0* g,type0* g_mod)
+type0 ForceField_eam_dmd::dc_norm_grad_crd(bool
+cost_grad,type0* g,type0* g_mod)
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -2015,162 +1603,18 @@ type0 ForceField_eam_dmd::dc_norm_grad_crd(int st_clc
     type0* t=t_ptr->begin();
     type0* ddE=E;
     type0* v=crd;
-    
     type0 inner0,ans;
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,tmp2,s_ij;
+    type0 tmp0,s_ij;
     type0 w_ij,w_ji;
     type0 crdi,crdj;
-    type0* coef;
-    int m;
     int istart;
-    
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    
-    en_st[0]=nrgy_strss[0]=0.0;
-    if (st_clc)
-        for(int i=1;i<7;i++)
-            en_st[i]=nrgy_strss[i]=0.0;
+
+    calc_mu_crd();
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
-        crd[i]=c_d[i]=g[i]=E[i]=mu[i]=0.0;
-    
-    
-    /*
-     beginning of level 1
-     */
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    crd[ic_dim]+=c[jc_dim];
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        crd[jc_dim]+=c[ic_dim];
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
-            if(E[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-                tmp2=0.0;
-            }
-            
-            dE[ic_dim]=tmp1;
-            ddE[ic_dim]=tmp2;
-            
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
-            mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    /*
-     beginning of level 2
-     */
-    
-    atoms->update(dE_ptr);
-    
-    type0 dx0,dx1,dx2,fpair;
-    dx0=dx1=dx2=0.0;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            if(st_clc)
-            {
-                dx0=x[iatm*(3+c_dim)]-x[jatm*(3+c_dim)];
-                dx1=x[iatm*(3+c_dim)+1]-x[jatm*(3+c_dim)+1];
-                dx2=x[iatm*(3+c_dim)+2]-x[jatm*(3+c_dim)+2];
-            }
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-
-                    if(st_clc)
-                    {
-                        fpair=(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                        +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                        *c[ic_dim]*c[jc_dim]/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
-                        if(jatm>=natms)
-                            fpair*=0.5;
-                        
-                        nrgy_strss[1]+=fpair*dx0*dx0;
-                        nrgy_strss[2]+=fpair*dx1*dx1;
-                        nrgy_strss[3]+=fpair*dx2*dx2;
-                        nrgy_strss[4]+=fpair*dx1*dx2;
-                        nrgy_strss[5]+=fpair*dx2*dx0;
-                        nrgy_strss[6]+=fpair*dx0*dx1;
-                    }
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    if(st_clc)
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
-    else
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-    
-    /*
-     beginning of level 3
-     */
-    atoms->update(mu_ptr);
-    atoms->update(crd_ptr);
-    
-    for(int i=0;i<natms*c_dim;i++)
-        s[i]=0.0;
+        s[i]=c_d[i]=g[i]=0.0;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -2210,7 +1654,7 @@ type0 ForceField_eam_dmd::dc_norm_grad_crd(int st_clc
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
     
-    if(cost_grad==0)
+    if(!cost_grad)
         return ans;
     
     /*
@@ -2260,6 +1704,9 @@ type0 ForceField_eam_dmd::dc_norm_grad_crd(int st_clc
     
     for(int i=0;i<c_dim*natms;i++)
         v[i]=0.0;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
     
     istart=0;
     for(int iatm=0;iatm<natms;iatm++)
@@ -2322,91 +1769,14 @@ type0 ForceField_eam_dmd::dc_norm_grad_crd(int st_clc
     }
 
     
-    /* 
-     * take care of the mass conservatoin
-     */
-    
-    for(int i=0;i<no_types;i++)
-    {
-        manip_arr0_lcl[i]=0.0;
-        manip_arr1_lcl[i]=0;
-    }
-    
-    for(int i=0;i<c_dim*natms;i++)
-        if(c[i]>=0.0)
-        {
-            manip_arr0_lcl[type[i]]+=g[i];
-            manip_arr1_lcl[type[i]]++;
-        }
-
-    MPI_Allreduce(manip_arr0_lcl,manip_arr0,no_types,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(manip_arr1_lcl,manip_arr1,no_types,MPI_INT,MPI_SUM,world);
-    
-    for(int i=0;i<no_types;i++)
-    {
-        manip_arr0[i]/=static_cast<type0>(manip_arr1[i]);
-    }
-    
-    
-    for(int i=0;i<c_dim*natms;i++)
-        if(c[i]>=0.0)
-        {
-            g_mod[i]=g[i]-manip_arr0[type[i]];
-        }
-    
-    
-    /*
-    for(int i=0;i<c_dim*natms;i++)
-    {
-        v[i]=0.0;
-        if(c[i]>=0.0)
-        {
-            g[i]/=ans;
-            v[i]=g[i];
-        }
-        g_mod[i]=0.0;
-    }
-    
-    atoms->update(crd_ptr);
-    type0 g_ij;
-    for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
-    {
-        itype=type[ic_dim];
-        for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
-        {
-            jc_dim=neighbor_list_2nd[ic_dim][j];
-            
-            
-            g_ij=v[ic_dim]-v[jc_dim];
-            
-            if(g_ij>0.0)
-            {
-                // i is recievieng from j
-                if(cv[ic_dim/c_dim]==0.0 || c[jc_dim]==0.0)
-                    g_ij=0.0;
-            }
-            else
-            {
-                // j is recievieng from i
-                if(c[ic_dim]==0.0 || cv[jc_dim/c_dim]==0.0)
-                    g_ij=0.0;
-            }
-            
-            g_mod[ic_dim]+=g_ij;
-            if(jc_dim<natms*c_dim)
-                g_mod[jc_dim]-=g_ij;
-        }
-    }*/
-    
     return ans;
 }
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::dc_norm_grad_ncrd(int st_clc
-,type0* en_st,int cost_grad,type0* g,type0* g_mod)
+type0 ForceField_eam_dmd::dc_norm_grad_ncrd(
+bool cost_grad,type0* g,type0* g_mod)
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -2418,159 +1788,17 @@ type0 ForceField_eam_dmd::dc_norm_grad_ncrd(int st_clc
     type0* t=t_ptr->begin();
     type0* v=crd_ptr->begin();
     type0* ddE=E;
-    
     type0 inner0,ans;
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,tmp2,s_ij;
+    type0 tmp0,s_ij;
     type0 w_ij,w_ji;
-    type0* coef;
-    int m;
     int istart;
-    
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    
-    en_st[0]=nrgy_strss[0]=0.0;
-    if (st_clc)
-        for(int i=1;i<7;i++)
-            en_st[i]=nrgy_strss[i]=0.0;
+
+    calc_mu_ncrd();
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
-        c_d[i]=g[i]=E[i]=mu[i]=0.0;
-    
-    
-    /*
-     beginning of level 1
-     */
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
-            if(E[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-                tmp2=0.0;
-            }
-            
-            dE[ic_dim]=tmp1;
-            ddE[ic_dim]=tmp2;
-            
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
-            mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    
-    /*
-     beginning of level 2
-     */
-    
-    atoms->update(dE_ptr);
-    
-    type0 dx0,dx1,dx2,fpair;
-    dx0=dx1=dx2=0.0;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            if(st_clc)
-            {
-                dx0=x[iatm*(3+c_dim)]-x[jatm*(3+c_dim)];
-                dx1=x[iatm*(3+c_dim)+1]-x[jatm*(3+c_dim)+1];
-                dx2=x[iatm*(3+c_dim)+2]-x[jatm*(3+c_dim)+2];
-            }
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-
-                    if(st_clc)
-                    {
-                        fpair=(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                        +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                        *c[ic_dim]*c[jc_dim]/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
-                        if(jatm>=natms)
-                            fpair*=0.5;
-                        
-                        nrgy_strss[1]+=fpair*dx0*dx0;
-                        nrgy_strss[2]+=fpair*dx1*dx1;
-                        nrgy_strss[3]+=fpair*dx2*dx2;
-                        nrgy_strss[4]+=fpair*dx1*dx2;
-                        nrgy_strss[5]+=fpair*dx2*dx0;
-                        nrgy_strss[6]+=fpair*dx0*dx1;
-                    }
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    if(st_clc)
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
-    else
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-
-    /*
-     beginning of level 3
-     */
-    atoms->update(mu_ptr);
-    
-    for(int i=0;i<natms*c_dim;i++)
-        s[i]=0.0;
+        s[i]=c_d[i]=g[i]=0.0;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -2608,7 +1836,7 @@ type0 ForceField_eam_dmd::dc_norm_grad_ncrd(int st_clc
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
     
-    if(cost_grad==0)
+    if(!cost_grad)
         return ans;
 
     /*
@@ -2654,6 +1882,8 @@ type0 ForceField_eam_dmd::dc_norm_grad_ncrd(int st_clc
     for(int i=0;i<c_dim*natms;i++)
         v[i]=0.0;
     
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
     istart=0;
     for(int iatm=0;iatm<natms;iatm++)
     {
@@ -2713,83 +1943,7 @@ type0 ForceField_eam_dmd::dc_norm_grad_ncrd(int st_clc
             istart+=stride;
         }
     }
-    
-    /*
-     * take care of the mass conservatoin
-     */
-    
-    /*
-    for(int i=0;i<no_types;i++)
-    {
-        manip_arr0_lcl[i]=0.0;
-        manip_arr1_lcl[i]=0;
-    }
-    
-    for(int i=0;i<c_dim*natms;i++)
-        if(c[i]>=0.0)
-        {
-            manip_arr0_lcl[type[i]]+=g[i];
-            manip_arr1_lcl[type[i]]++;
-        }
-    
-    MPI_Allreduce(manip_arr0_lcl,manip_arr0,no_types,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(manip_arr1_lcl,manip_arr1,no_types,MPI_INT,MPI_SUM,world);
-    
-    for(int i=0;i<no_types;i++)
-    {
-        manip_arr0[i]/=static_cast<type0>(manip_arr1[i]);
-    }
-    
-    
-    for(int i=0;i<c_dim*natms;i++)
-        if(c[i]>=0.0)
-        {
-            g_mod[i]=g[i]-manip_arr0[type[i]];
-        }
-    */
-    
-
-    for(int i=0;i<c_dim*natms;i++)
-    {
-        v[i]=0.0;
-        if(c[i]>=0.0)
-        {
-            g[i]/=ans;
-            v[i]=g[i];
-        }
-        g_mod[i]=0.0;
-    }
-    
-    atoms->update(crd_ptr);
-    type0 g_ij;
-    for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
-    {
-        itype=type[ic_dim];
-        for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
-        {
-            jc_dim=neighbor_list_2nd[ic_dim][j];
-            
-            
-            g_ij=v[ic_dim]-v[jc_dim];
-            
-            if(g_ij>0.0)
-            {
-                // i is recievieng from j
-                if(cv[ic_dim/c_dim]==0.0 || c[jc_dim]==0.0)
-                    g_ij=0.0;
-            }
-            else
-            {
-                // j is recievieng from i
-                if(c[ic_dim]==0.0 || cv[jc_dim/c_dim]==0.0)
-                    g_ij=0.0;
-            }
-            
-            g_mod[ic_dim]+=g_ij;
-            if(jc_dim<natms*c_dim)
-                g_mod[jc_dim]-=g_ij;
-        }
-    }
+  
 
     return ans;
 }
@@ -2797,163 +1951,27 @@ type0 ForceField_eam_dmd::dc_norm_grad_ncrd(int st_clc
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::dc_en_proj_crd
-(int st_clc,type0* en_st,int cost_grad
+(bool cost_grad
 ,type0* g,type0& g_h)
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* cv=cv_ptr->begin();
     type0* mu=mu_ptr->begin();
-    type0* E=E_ptr->begin();
-    type0* dE=dE_ptr->begin();
     type0* crd=crd_ptr->begin();
-
-    
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,tmp2,s_ij,crdi,crdj,w_ij,w_ji;
-    type0* coef;
-    int m;
-    int istart;
-    
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    type0 tmp0,s_ij,crdi,crdj,w_ij,w_ji;
+
+    calc_mu_crd();
+    type0 en;
+    MPI_Allreduce(nrgy_strss,&en,1,MPI_TYPE0,MPI_SUM,world);
+    if(!cost_grad)
+        return en;
     
     int natms=atoms->natms;
-    en_st[0]=nrgy_strss[0]=0.0;
-    if (st_clc)
-        for(int i=1;i<7;i++)
-            en_st[i]=nrgy_strss[i]=0.0;
-    
     for(int i=0;i<natms*c_dim;i++)
-        mu[i]=E[i]=crd[i]=g[i]=0.0;
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    crd[ic_dim]+=c[jc_dim];
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        crd[jc_dim]+=c[ic_dim];
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            if(E[ic_dim]>rho_max)
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
+        g[i]=0.0;
 
-            dE[ic_dim]=tmp1;
-            
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
-            mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    if(cost_grad==0 && st_clc==0)
-    {
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-        return en_st[0];
-    }
-    
-    atoms->update(dE_ptr);
-    
-    type0 dx0,dx1,dx2,fpair;
-    dx0=dx1=dx2=0.0;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            if(st_clc)
-            {
-                dx0=x[iatm*(3+c_dim)]-x[jatm*(3+c_dim)];
-                dx1=x[iatm*(3+c_dim)+1]-x[jatm*(3+c_dim)+1];
-                dx2=x[iatm*(3+c_dim)+2]-x[jatm*(3+c_dim)+2];
-            }
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-
-                    if(st_clc)
-                    {
-                        fpair=(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                        +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                        *c[ic_dim]*c[jc_dim]/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
-                        if(jatm>=natms)
-                            fpair*=0.5;
-                        
-                        nrgy_strss[1]+=fpair*dx0*dx0;
-                        nrgy_strss[2]+=fpair*dx1*dx1;
-                        nrgy_strss[3]+=fpair*dx2*dx2;
-                        nrgy_strss[4]+=fpair*dx1*dx2;
-                        nrgy_strss[5]+=fpair*dx2*dx0;
-                        nrgy_strss[6]+=fpair*dx0*dx1;
-                    }
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    if(st_clc)
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
-    else
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-   
-    if(cost_grad==0)
-        return en_st[0];
-    
-    atoms->update(mu_ptr);
-    atoms->update(crd_ptr);
-    
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
     
@@ -3012,167 +2030,34 @@ type0 ForceField_eam_dmd::dc_en_proj_crd
     MPI_Allreduce(&inner_lcl,&inner,1,MPI_TYPE0,MPI_SUM,world);
     
     g_h=-inner+min_log*inf_cnt;
-    return en_st[0];
+    return en;
     
 }
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::dc_en_proj_ncrd
-(int st_clc,type0* en_st,int cost_grad
-,type0* g,type0& g_h)
+(bool cost_grad,type0* g,type0& g_h)
 {
-    type0* x=mapp->x->begin();
+
     type0* c=mapp->c->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* cv=cv_ptr->begin();
     type0* mu=mu_ptr->begin();
-    type0* E=E_ptr->begin();
-    type0* dE=dE_ptr->begin();
-    
-    
     type0 fi,fj,exp_fi,exp_fj;
-    type0 p,tmp0,tmp1,tmp2,s_ij,w_ij,w_ji;
-    type0* coef;
-    int m;
-    int istart;
-    
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    type0 tmp0,s_ij,w_ij,w_ji;
+
+    calc_mu_ncrd();
+
+    type0 en;
+    MPI_Allreduce(nrgy_strss,&en,1,MPI_TYPE0,MPI_SUM,world);
+    if(!cost_grad)
+        return en;
     
     int natms=atoms->natms;
-    en_st[0]=nrgy_strss[0]=0.0;
-    if (st_clc)
-        for(int i=1;i<7;i++)
-            en_st[i]=nrgy_strss[i]=0.0;
-    
     for(int i=0;i<natms*c_dim;i++)
-        mu[i]=E[i]=g[i]=0.0;
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            if(E[ic_dim]>rho_max)
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
+        g[i]=0.0;
 
-            dE[ic_dim]=tmp1;
-            
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
-            mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    
-    if(cost_grad==0 && st_clc==0)
-    {
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-        return en_st[0];
-    }
-    
-    atoms->update(dE_ptr);
-    
-    type0 dx0,dx1,dx2,fpair;
-    dx0=dx1=dx2=0.0;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            if(st_clc)
-            {
-                dx0=x[iatm*(3+c_dim)]-x[jatm*(3+c_dim)];
-                dx1=x[iatm*(3+c_dim)+1]-x[jatm*(3+c_dim)+1];
-                dx2=x[iatm*(3+c_dim)+2]-x[jatm*(3+c_dim)+2];
-            }
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-
-                    if(st_clc)
-                    {
-                        fpair=(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                        +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                        *c[ic_dim]*c[jc_dim]/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
-                        if(jatm>=natms)
-                            fpair*=0.5;
-                        
-                        nrgy_strss[1]+=fpair*dx0*dx0;
-                        nrgy_strss[2]+=fpair*dx1*dx1;
-                        nrgy_strss[3]+=fpair*dx2*dx2;
-                        nrgy_strss[4]+=fpair*dx1*dx2;
-                        nrgy_strss[5]+=fpair*dx2*dx0;
-                        nrgy_strss[6]+=fpair*dx0*dx1;
-                    }
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    if(st_clc)
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
-    else
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-    
-    if(cost_grad==0)
-        return en_st[0];
-    
-    atoms->update(mu_ptr);
-    
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
     
@@ -3227,162 +2112,28 @@ type0 ForceField_eam_dmd::dc_en_proj_ncrd
     MPI_Allreduce(&inner_lcl,&inner,1,MPI_TYPE0,MPI_SUM,world);
     
     g_h=-inner+min_log*inf_cnt;
-    return en_st[0];
+    return en;
 }
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::en_grad(int st_clc
-,type0* en_st,int cost_grad,type0* g,type0* g_mod)
+type0 ForceField_eam_dmd::en_grad(bool
+cost_grad,type0* g,type0* g_mod)
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* cv=cv_ptr->begin();
     type0* mu=mu_ptr->begin();
-    type0* E=E_ptr->begin();
-    type0* dE=dE_ptr->begin();
+    type0 f_ij;
 
-    
-    type0 p,tmp0,tmp1,f_ij,del_mu;
-    type0* coef;
-    int m;
-    int istart;
-    
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    en_st[0]=nrgy_strss[0]=0.0;
-    if (st_clc)
-        for(int i=1;i<7;i++)
-            en_st[i]=nrgy_strss[i]=0.0;
-    
+    calc_mu_ncrd();
+
+    type0 en;
+    MPI_Allreduce(nrgy_strss,&en,1,MPI_TYPE0,MPI_SUM,world);
+    if(!cost_grad)
+        return en;
+   
     int natms=atoms->natms;
-    for(int i=0;i<natms*c_dim;i++)
-        mu[i]=E[i]=0.0;
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
-                    
-                    if(jatm<natms)
-                    {
-                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            
-            if(E[ic_dim]>rho_max)
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-            
-            del_mu=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+del_mu);
-            mu[ic_dim]+=del_mu;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-            dE[ic_dim]=tmp1;
-        }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
-    }
-    
-    if(cost_grad==0 && st_clc==0)
-    {
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-        return en_st[0];
-    }
-    
-    atoms->update(dE_ptr);
-    
-    type0 dx0,dx1,dx2,fpair;
-    dx0=dx1=dx2=0.0;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            
-            if(st_clc)
-            {
-                dx0=x[iatm*(3+c_dim)]-x[jatm*(3+c_dim)];
-                dx1=x[iatm*(3+c_dim)+1]-x[jatm*(3+c_dim)+1];
-                dx2=x[iatm*(3+c_dim)+2]-x[jatm*(3+c_dim)+2];
-            }
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
-                    
-                    if(st_clc)
-                    {
-                        fpair=(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                        +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                        *c[ic_dim]*c[jc_dim]/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
-                        if(jatm>=natms)
-                            fpair*=0.5;
-                        
-                        nrgy_strss[1]+=fpair*dx0*dx0;
-                        nrgy_strss[2]+=fpair*dx1*dx1;
-                        nrgy_strss[3]+=fpair*dx2*dx2;
-                        nrgy_strss[4]+=fpair*dx1*dx2;
-                        nrgy_strss[5]+=fpair*dx2*dx0;
-                        nrgy_strss[6]+=fpair*dx0*dx1;
-                    }
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    if(st_clc)
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
-    else
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-    
-    
-    if(cost_grad==0)
-        return en_st[0];
-    
-    atoms->update(mu_ptr);
     for(int i=0;i<natms*c_dim;i++)
         g_mod[i]=0.0;
     
@@ -3426,14 +2177,13 @@ type0 ForceField_eam_dmd::en_grad(int st_clc
         }
     }
     
-    return en_st[0];
+    return en;
 }
 /*--------------------------------------------
  calculate norm of d^2c/dt^2
  --------------------------------------------*/
 type0 ForceField_eam_dmd::ddc_norm_crd()
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* dE=dE_ptr->begin();
@@ -3443,106 +2193,15 @@ type0 ForceField_eam_dmd::ddc_norm_crd()
     type0* mu=mu_ptr->begin();
     type0* crd=crd_ptr->begin();
     type0* t=t_ptr->begin();
-    
     type0 fi,fj,exp_fi,exp_fj,norm_lcl;
-    type0 p,tmp0,tmp1,tmp2,s_ij,crdi,crdj,w_ij,w_ji;
-    type0* coef;
-    int m;
+    type0 tmp0,s_ij,crdi,crdj,w_ij,w_ji;
     int istart;
     
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    calc_mu_crd();
     
     int natms=atoms->natms;
-    
-    
     for(int i=0;i<natms*c_dim;i++)
-        mu[i]=s[i]=0.0;
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    crd[ic_dim]+=c[jc_dim];
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    
-                    if(jatm<natms)
-                    {
-                        crd[jc_dim]+=c[ic_dim];
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                    }
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=mu[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
-            if(mu[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(mu[ic_dim]-rho_max);
-                tmp2=0.0;
-            }
-            
-            mu[ic_dim]=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            dE[ic_dim]=tmp1;
-            ddE[ic_dim]=tmp2;
-        }
-    }
-    
-    atoms->update(dE_ptr);
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                    +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    atoms->update(mu_ptr);
-    atoms->update(crd_ptr);
+        s[i]=0.0;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -3574,14 +2233,15 @@ type0 ForceField_eam_dmd::ddc_norm_crd()
             }
         }
     }
-    
 
     atoms->update(s_ptr);
     
     for(int i=0;i<2*natms*c_dim;i++)
         t[i]=0.0;
-    
-   istart=0;
+   
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    istart=0;
     for(int iatm=0;iatm<natms;iatm++)
     {
         for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
@@ -3694,7 +2354,6 @@ type0 ForceField_eam_dmd::ddc_norm_crd()
  --------------------------------------------*/
 type0 ForceField_eam_dmd::ddc_norm_ncrd()
 {
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* dE=dE_ptr->begin();
@@ -3703,101 +2362,15 @@ type0 ForceField_eam_dmd::ddc_norm_ncrd()
     type0* s=s_ptr->begin();
     type0* mu=mu_ptr->begin();
     type0* t=t_ptr->begin();
-    
     type0 fi,fj,exp_fi,exp_fj,norm_lcl;
-    type0 p,tmp0,tmp1,tmp2,s_ij,w_ij,w_ji;
-    type0* coef;
-    int m;
+    type0 tmp0,s_ij,w_ij,w_ji;
     int istart;
     
-    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
+    calc_mu_ncrd();
     
     int natms=atoms->natms;
-    
-    
     for(int i=0;i<natms*c_dim;i++)
-        mu[i]=s[i]=0.0;
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
-                }
-            }
-            istart+=stride;
-        }
-        
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-            itype=type[ic_dim];
-            p=mu[ic_dim]*drho_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
-            if(mu[ic_dim]>rho_max)
-            {
-                tmp0+=tmp1*(mu[ic_dim]-rho_max);
-                tmp2=0.0;
-            }
-            
-            mu[ic_dim]=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            dE[ic_dim]=tmp1;
-            ddE[ic_dim]=tmp2;
-        }
-    }
-    
-    atoms->update(dE_ptr);
-    
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-                    
-                    mu[ic_dim]+=c[jc_dim]*(rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                    +rho_phi[istart+type2phi_pair_ij[itype][jtype]]);
-                    
-                    if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*(rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                        +rho_phi[istart+type2phi_pair_ji[jtype][itype]]);
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    atoms->update(mu_ptr);
+        s[i]=0.0;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -3833,7 +2406,10 @@ type0 ForceField_eam_dmd::ddc_norm_ncrd()
     for(int i=0;i<natms*c_dim;i++)
         t[i]=0.0;
     
-   istart=0;
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    istart=0;
     for(int iatm=0;iatm<natms;iatm++)
     {
         for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
@@ -3938,9 +2514,9 @@ type0 ForceField_eam_dmd::ddc_norm_ncrd()
 /*--------------------------------------------
  calculate norm of d^2c/dt^2
  --------------------------------------------*/
-void ForceField_eam_dmd::enst_calc(int flag,type0* en_st)
+void ForceField_eam_dmd::enst_calc(bool flag,type0* en_st)
 {
-    if(flag==0)
+    if(!flag)
     {
         MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
         return;
@@ -4002,4 +2578,240 @@ void ForceField_eam_dmd::enst_calc(int flag,type0* en_st)
     
     MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
 }
-
+/*--------------------------------------------
+ calculate mu crd dE ddE and local energy
+ --------------------------------------------*/
+void ForceField_eam_dmd::calc_mu_crd()
+{
+    type0* x=mapp->x->begin();
+    type0* c=mapp->c->begin();
+    dmd_type* type=mapp->ctype->begin();
+    type0* E=E_ptr->begin();
+    type0* dE=dE_ptr->begin();
+    type0* cv=cv_ptr->begin();
+    type0* mu=mu_ptr->begin();
+    type0* crd=crd_ptr->begin();
+    type0* ddE=E;
+    
+    type0 p,tmp0,tmp1,tmp2;
+    type0* coef;
+    int m;
+    int istart;
+    
+    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    nrgy_strss[0]=0.0;
+    
+    int natms=atoms->natms;
+    for(int i=0;i<natms*c_dim;i++)
+        crd[i]=E[i]=mu[i]=0.0;
+    
+    /*
+     beginning of level 1
+     */
+    istart=0;
+    for(int iatm=0;iatm<natms;iatm++)
+    {
+        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+            {
+                itype=type[ic_dim];
+                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                {
+                    jtype=type[jc_dim];
+                    
+                    crd[ic_dim]+=c[jc_dim];
+                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
+                    
+                    if(jatm<natms)
+                    {
+                        crd[jc_dim]+=c[ic_dim];
+                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+        {
+            itype=type[ic_dim];
+            p=E[ic_dim]*drho_inv;
+            m=static_cast<int>(p);
+            m=MIN(m,nrho-2);
+            p-=m;
+            p=MIN(p,1.0);
+            coef=F_arr[itype][m];
+            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
+            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
+            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
+            if(E[ic_dim]>rho_max)
+            {
+                tmp0+=tmp1*(E[ic_dim]-rho_max);
+                tmp2=0.0;
+            }
+            
+            dE[ic_dim]=tmp1;
+            ddE[ic_dim]=tmp2;
+            
+            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
+            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
+            mu[ic_dim]+=tmp2;
+            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
+        }
+        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
+    }
+    
+    
+    atoms->update(dE_ptr);
+    
+    istart=0;
+    for(int iatm=0;iatm<natms;iatm++)
+    {
+        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            
+            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+            {
+                itype=type[ic_dim];
+                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                {
+                    jtype=type[jc_dim];
+                    
+                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
+                    
+                    if(jatm<natms)
+                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
+                }
+            }
+            istart+=stride;
+        }
+    }
+    atoms->update(mu_ptr);
+    atoms->update(crd_ptr);
+}
+/*--------------------------------------------
+ calculate mu crd dE ddE and local energy
+ --------------------------------------------*/
+void ForceField_eam_dmd::calc_mu_ncrd()
+{
+    type0* x=mapp->x->begin();
+    type0* c=mapp->c->begin();
+    dmd_type* type=mapp->ctype->begin();
+    type0* E=E_ptr->begin();
+    type0* dE=dE_ptr->begin();
+    type0* cv=cv_ptr->begin();
+    type0* mu=mu_ptr->begin();
+    type0* ddE=E;
+    
+    type0 p,tmp0,tmp1,tmp2;
+    type0* coef;
+    int m;
+    int istart;
+    
+    calc_cv(c,cv,atoms->natms+atoms->natms_ph);
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    nrgy_strss[0]=0.0;
+    
+    int natms=atoms->natms;
+    for(int i=0;i<natms*c_dim;i++)
+        E[i]=mu[i]=0.0;
+    
+    /*
+     beginning of level 1
+     */
+    istart=0;
+    for(int iatm=0;iatm<natms;iatm++)
+    {
+        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+            {
+                itype=type[ic_dim];
+                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                {
+                    jtype=type[jc_dim];
+                    
+                    E[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]];
+                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2phi_pair_ij[itype][jtype]];
+                    
+                    if(jatm<natms)
+                    {
+                        E[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]];
+                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2phi_pair_ji[jtype][itype]];
+                    }
+                }
+            }
+            istart+=stride;
+        }
+        
+        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+        {
+            itype=type[ic_dim];
+            p=E[ic_dim]*drho_inv;
+            m=static_cast<int>(p);
+            m=MIN(m,nrho-2);
+            p-=m;
+            p=MIN(p,1.0);
+            coef=F_arr[itype][m];
+            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
+            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
+            tmp2=(((12.0*coef[4]*p+6.0*coef[3])*p+2.0*coef[2]))*drho_inv*drho_inv;
+            if(E[ic_dim]>rho_max)
+            {
+                tmp0+=tmp1*(E[ic_dim]-rho_max);
+                tmp2=0.0;
+            }
+            
+            dE[ic_dim]=tmp1;
+            ddE[ic_dim]=tmp2;
+            
+            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
+            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
+            mu[ic_dim]+=tmp2;
+            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
+        }
+        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
+    }
+    
+    
+    atoms->update(dE_ptr);
+    
+    istart=0;
+    for(int iatm=0;iatm<natms;iatm++)
+    {
+        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            
+            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+            {
+                itype=type[ic_dim];
+                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                {
+                    jtype=type[jc_dim];
+                    
+                    mu[ic_dim]+=c[jc_dim]*rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim];
+                    
+                    if(jatm<natms)
+                        mu[jc_dim]+=c[ic_dim]*rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim];
+                }
+            }
+            istart+=stride;
+        }
+    }
+    
+    atoms->update(mu_ptr);
+}

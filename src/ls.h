@@ -30,7 +30,6 @@ namespace MAPP_NS
         type0 golden;
         type0 prev_val,h_norm;
         int bracket(type0,type0,type0&,type0&,type0&,type0&,type0&,type0&);
-        int bracket0(type0,type0,type0&,type0&,type0&,type0&,type0&,type0&);
         Func* func;
     public:
 
@@ -78,53 +77,39 @@ void LineSearch<Func>::init(Func* func_)
  bracketing routine
  --------------------------------------------*/
 template<class Func>
-int LineSearch<Func>::bracket0(type0 dfa,type0 max_a,type0& a,
+int LineSearch<Func>::bracket(type0 dfa,type0 max_a,type0& a,
 type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 {
     type0 u,fu,r,q,ulim;
-    int uphill_iter=2,iter;
+   
+    b=0.01*max_a;
+    fb=func->F(b);
     
-    if(dfa<-epsilon_3_4)
+    if(fb>=fa)
     {
-        b=MIN(max_a,MAX(sqrt(epsilon),2.0*sqrt(epsilon)/dfa));
-        b=1.0e-4*max_a;
-    }
-    else
-        b=1.0e-2*max_a;
-    
-    r=u=b;
-    b=0.0;
-    fb=fa;
-    iter=uphill_iter;
-    
-    while(fb>=fa && u<max_a && iter)
-    {
-        fu=func->F(u);
-        if(fa<=fu)
+        c=b;
+        fc=fb;
+        int iter=20;
+        type0 r=(fa-fc)/(c*dfa);
+        b=c*0.5/(1.0+r);
+        while(fb>=fa && iter && b>epsilon)
+        {
+            fb=func->F(b);
+            if(fb<fa)
+                continue;
+            c=b;
+            fc=fb;
             iter--;
-        else
-            iter=uphill_iter;
-        b=u;
-        fb=fu;
-        u*=2.0;
-    }
-    test(fa,dfa,max_a);
-    
-    if(u>max_a && fb>=fa)
-    {
+            r=(fa-fc)/(c*dfa);
+            b=c*0.5/(1.0+r);
+        }
         
-        //test(fa,dfa,max_a);
-        return B_F_MAX_ALPHA;
+        if(fb>=fa)
+            return B_F_DOWNHILL;
+        
+        return B_S;
     }
-    
-    if(fb>fa)
-    {
-        //printf("bbb %e \n",-2.0/(1.0+dfa/sqrt(epsilon)));
-        //test(fa,dfa,max_a);
-        return B_F_DOWNHILL;
-    }
-    
-    
+
     fc=fb;
     while (fb>=fc)
     {
@@ -199,52 +184,6 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
             fb=fc;
         }
     }
-    
-    return B_S;
-}
-/*--------------------------------------------
- bracketing routine
- --------------------------------------------*/
-template<class Func>
-int LineSearch<Func>::bracket(type0 dfa,type0 max_a,type0& a,
-type0& b,type0& c,type0& fa,type0& fb,type0& fc)
-{
-
-    type0 cgold=0.38196601;
-    c=max_a;
-    fc=func->F(c);
-
-    if(fc<fa)
-    {
-        std::swap(fc,fa);
-        std::swap(c,a);
-    }
-    
-    b=c;
-    fb=fc;
-    int iter=10;
-    while(fb>=fa && iter)
-    {
-        b=cgold*(c-a)+a;
-        fb=func->F(b);
-        if(fb<fa)
-            continue;
-        c=b;
-        fc=fb;
-        iter--;
-    }
-    if(fb>=fa)
-    {
-        return B_F_MAX_ALPHA;
-    }
-    
-    if(a>c)
-    {
-        std::swap(fc,fa);
-        std::swap(c,a);
-    }
-    
-    
     
     return B_S;
 }

@@ -439,7 +439,7 @@ void ForceField_fs::fin()
  force and energy calculation
  --------------------------------------------*/
 void ForceField_fs::
-force_calc(int st_clc,type0* en_st)
+force_calc(bool st_clc,type0* en_st)
 {
     if(max_pairs<neighbor->no_pairs)
     {

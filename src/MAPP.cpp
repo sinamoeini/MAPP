@@ -782,32 +782,55 @@ void MAPP::fin_dubeg()
  --------------------------------------------*/
 void MAPP::test()
 {
-
+    
     /*
-    const char * fileName ="input_dmd";
-    fstream file(fileName,ios::in);
-    file.seekg(0,ios::end);
-    long sizeInBytes=file.tellg();
     
-    cout << fileName << " is " << sizeInBytes << " bytes long." << endl;
+    const char* fileName ="input_dmd";
+    long byte_sz;
     char* buff;
-    CREATE1D(buff,sizeInBytes+1);
+    if(atoms->my_p==0)
+    {
+        fstream file(fileName,ios::in);
+        file.seekg(0,ios::end);
+        byte_sz=file.tellg();
+    }
 
-    FILE* fp=fopen(fileName,"r");
-    fread (buff,1,sizeInBytes,fp);
-    buff[sizeInBytes]='\0';
-    fclose(fp);
-
-    char* pch;
+    MPI_Bcast(&byte_sz,1,MPI_LONG,0,world);
+    byte_sz++;
+    CREATE1D(buff,byte_sz+1);
     
+    if(atoms->my_p==0)
+    {
+        FILE* fp=fopen(fileName,"r");
+        fread (buff,1,byte_sz,fp);
+        buff[byte_sz]='\0';
+        fclose(fp);
+    }
     
-
+    int sz_int=static_cast<int>(byte_sz);
+    long sz_long=static_cast<long>(sz_int);
+    long byte_sz_=byte_sz;
     char* buff_=buff;
+    while(byte_sz_)
+    {
+        MPI_Bcast(buff_,sz_int,MPI_CHAR,0, world);
+        byte_sz_-=sz_long;
+        buff_+=sz_int;
+        if(byte_sz_<sz_long)
+            sz_int=static_cast<int>(byte_sz_);
+    }
+    
+    
+    
+    char* pch;
     char* new_buff;
     char* new_buff_;
-    CREATE1D(new_buff,sizeInBytes+1);
+    char* st;
+    CREATE1D(new_buff,byte_sz);
+    
+    buff_=buff;
     new_buff_=new_buff;
-    char* st=buff;
+    st=buff;
     pch=strchr(buff_,'#');
     while (pch!=NULL)
     {
@@ -818,30 +841,75 @@ void MAPP::test()
         
         pch=strchr(pch+1,'#');
     }
-    memcpy(new_buff_,st,buff+sizeInBytes+1-st);
+    memcpy(new_buff_,st,buff+byte_sz-st);
+    swap(new_buff,buff);
+
+    buff_=buff;
+    new_buff_=new_buff;
+    st=buff;
+    pch=strchr(buff_,'\\');
+    while (pch!=NULL)
+    {
+        memcpy(new_buff_,st,pch-st);
+        new_buff_+=pch-st;
+        pch=strchr(pch+1,'\n');
+        st=pch+1;
+        
+        pch=strchr(pch+1,'\\');
+    }
+    memcpy(new_buff_,st,buff+byte_sz-st);
     
 
     int buff_length=static_cast<int>(strlen(new_buff)+1);
-    delete [] buff;
+    if(byte_sz)
+        delete [] buff;
     CREATE1D(buff,buff_length);
     memcpy(buff,new_buff,buff_length*sizeof(char));
-
+    if(byte_sz)
+        delete [] new_buff;
     
     
-    int nargs=0;
-    char** args=NULL;
-    pch = strtok (buff,"\n");
-    while (pch != NULL)
+    int ncmds=0;
+    char** cmds=NULL;
+    pch=strtok(buff,"\n");
+    while (pch!=NULL)
     {
-        GROW(args,nargs,nargs+1);
-        args[nargs]=pch;
-        nargs++;
-        pch = strtok (NULL,"\n");
+        GROW(cmds,ncmds,ncmds+1);
+        cmds[ncmds]=pch;
+        ncmds++;
+        pch=strtok(NULL,"\n");
     }
-    for(int i=0;i<nargs;i++)
-        cout << args[i]<< endl;
-         */    
+    
+    for(int i=0;i<ncmds;i++)
+    {
+        cout << cmds[i] <<endl;
+    }
 
+    
+    int* nargs;
+    char*** args;
+    CREATE1D(nargs,ncmds);
+    CREATE1D(args,ncmds);
+    for(int icmd=0;icmd<ncmds;icmd++)
+    {
+        nargs[icmd]=0;
+        pch=strtok(cmds[icmd]," ");
+        while (pch!=NULL)
+        {
+            GROW(args[icmd],nargs[icmd],nargs[icmd]+1);
+            args[icmd][nargs[icmd]]=pch;
+            nargs[icmd]++;
+            pch=strtok(NULL," ");
+        }
+    }
+
+
+    
+    if(ncmds)
+        delete [] cmds;
+    
+
+     */
 }
 
 

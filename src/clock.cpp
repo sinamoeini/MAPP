@@ -943,10 +943,10 @@ void ClockImplicit::print_stats()
 {
     if(atoms->my_p==0)
     {
-        fprintf(output,"\n");
+        fprintf(output,"clock stats:\n");
         fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
-        fprintf(output,"maximum successful timestep: %e\n",max_succ_dt);
-        fprintf(output,"maximum successful    order: %d\n",max_succ_q);
+        fprintf(output,"max timestep: %e\n",max_succ_dt);
+        fprintf(output,"max    order: %d\n",max_succ_q);
         fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
         fprintf(output,"rejected interpolation attempts: %d\n",intp_rej);
         fprintf(output,"total implicit equations: %d = accepted(%d) + rejected(%d)\n",solve_rej+solve_acc,solve_acc,solve_rej);
@@ -1063,9 +1063,9 @@ void ClockExplicit::print_stats()
 {
     if(atoms->my_p==0)
     {
-        fprintf(output,"\n");
+        fprintf(output,"clock stats:\n");
         fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
-        fprintf(output,"maximum successful timestep: %e\n",max_succ_dt);
+        fprintf(output,"max timestep: %e\n",max_succ_dt);
         fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
         fprintf(output,"rejected interpolation attempts: %d\n",intp_rej);
     }

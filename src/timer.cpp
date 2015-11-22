@@ -127,7 +127,7 @@ void Timer::print_stats()
 {
     if(atoms->my_p==0)
     {
-        fprintf(output,"\n");
+        fprintf(output,"time stats:\n");
         fprintf(output,"total time: %lf secs\n"
         ,tot_time);
         

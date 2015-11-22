@@ -30,7 +30,7 @@ namespace MAPP_NS
         
         Vec<type0>* rho_ptr;
     protected:
-        void force_calc(int,type0*);
+        void force_calc(bool,type0*);
         type0 energy_calc();
     public:
         ForceField_fsm(MAPP *);

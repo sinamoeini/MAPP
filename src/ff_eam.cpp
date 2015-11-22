@@ -31,7 +31,7 @@ ForceField_eam::~ForceField_eam()
  force calculation
  --------------------------------------------*/
 void ForceField_eam::
-force_calc(int st_clc,type0* en_st)
+force_calc(bool st_clc,type0* en_st)
 {
     if(max_pairs<neighbor->no_pairs)
     {
