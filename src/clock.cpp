@@ -70,7 +70,7 @@ void Clock::rectify(type0* f)
 {
     if(mapp->cdof==NULL)
         return;
-    byte* cdof=mapp->cdof->begin();
+    bool* cdof=mapp->cdof->begin();
     
     int tot=(atoms->natms)*(atom_types->no_types);
     for(int i=0;i<tot;i++) if(cdof[i]==1) f[i]=0.0;

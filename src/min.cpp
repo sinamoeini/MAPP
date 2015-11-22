@@ -142,7 +142,7 @@ void Min::rectify(type0* a)
         return;
     else if(mapp->dof!=NULL && affine==0)
     {
-        byte* dof=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         for(int i=0;i<atoms->natms*x_dim;i++)
             if(dof[i]==1) a[i]=0.0;
     }
@@ -154,7 +154,7 @@ void Min::rectify(type0* a)
     }
     else if(mapp->dof==NULL && affine)
     {
-        byte* dof=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         for(int i=0;i<atoms->natms;i++)
         {
             for(int j=0;j<dim;j++)
@@ -179,9 +179,9 @@ void Min::force_calc()
     {
         if(mapp->dof!=NULL)
         {
-            byte* dofvec=mapp->dof->begin();
+            bool* dof=mapp->dof->begin();
             for(int i=0;i<atoms->natms*x_dim;i++)
-                if(dofvec[i]) fvec[i]=0.0;
+                if(dof[i]) fvec[i]=0.0;
         }
         return;
     }
@@ -227,23 +227,23 @@ void Min::force_calc()
         
         type0* xvec=x()->begin();
         fvec=f()->begin();
-        byte* dofvec=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         for(int i=0;i<atoms->natms;i++)
         {
-            if(dofvec[0])
+            if(dof[0])
             {
                 st_lcl[0]+=fvec[0]*xvec[0];
                 st_lcl[4]+=fvec[0]*xvec[2];
                 st_lcl[5]+=fvec[0]*xvec[1];
             }
             
-            if(dofvec[1])
+            if(dof[1])
             {
                 st_lcl[1]+=fvec[1]*xvec[1];
                 st_lcl[3]+=fvec[1]*xvec[2];
             }
             
-            if(dofvec[2])
+            if(dof[2])
             {
                 st_lcl[2]+=fvec[2]*xvec[2];
             }
@@ -252,12 +252,12 @@ void Min::force_calc()
                 fvec[j]=0.0;
             
             for(int j=dim;j<x_dim;j++)
-                if(dofvec[j])
+                if(dof[j])
                     fvec[j]=0.0;
             
             fvec+=x_dim;
             xvec+=x_dim;
-            dofvec+=x_dim;
+            dof+=x_dim;
         }
         
         MPI_Allreduce(st_lcl,st,6,MPI_TYPE0,MPI_SUM,world);
@@ -338,10 +338,10 @@ void Min::force_calc()
         if(mapp->dof==NULL)
             return;
         
-        byte* dofvec=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         fvec=f()->begin();
         for(int i=0;i<atoms->natms*x_dim;i++)
-            if(dofvec[i]) fvec[i]=0.0;
+            if(dof[i]) fvec[i]=0.0;
     }
 
 }
@@ -401,7 +401,7 @@ void Min::prepare_affine_h()
     if(mapp->dof==NULL)
         return;
     
-    byte* dof=mapp->dof->begin();
+    bool* dof=mapp->dof->begin();
     type0*hvec=h()->begin();
     for(int i=0;i<atoms->natms*x_dim;i++)
         if(dof[i]) hvec[i]=0.0;

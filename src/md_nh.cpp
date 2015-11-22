@@ -418,7 +418,7 @@ void MD_nh::init()
     if(mapp->dof!=NULL)
     {
         dof_xst=true;
-        byte* dof=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         dof_dim=mapp->dof->dim;
         
         int tmp_0=0;
@@ -763,7 +763,7 @@ void MD_nh::update_x(type0 dlt)
     type0* x=mapp->x->begin();
     type0* x_d=mapp->x_d->begin();
     
-    byte* dof=NULL;
+    bool* dof=NULL;
     if(dof_xst)
         dof=mapp->dof->begin();
     
@@ -866,7 +866,7 @@ void MD_nh::update_x_d(type0 dlt)
     type0* f=mapp->f->begin();
     md_type* type=mapp->type->begin();
     
-    byte* dof=NULL;
+    bool* dof=NULL;
     if(dof_xst)
         dof=mapp->dof->begin();
 
@@ -1080,7 +1080,7 @@ void MD_nh::update_omega_d(type0 dlt)
 void MD_nh::update_x_d_xpnd(type0 dlt)
 {
     
-    byte* dof=NULL;
+    bool* dof=NULL;
     if(dof_xst)
         dof=mapp->dof->begin();
     
@@ -1150,7 +1150,7 @@ void MD_nh::zero_f()
  --------------------------------------------*/
 void MD_nh::create_vel(int seed,type0 temperature)
 {
-    byte* dof=NULL;
+    bool* dof=NULL;
     if(dof_xst)
         dof=mapp->dof->begin();
     

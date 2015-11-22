@@ -57,8 +57,8 @@ namespace MAPP_NS
         Vec<type0>* c;
         Vec<type0>* c_d;
         Vec<type0>* f;
-        Vec<byte>* dof;
-        Vec<byte>* cdof;
+        Vec<bool>* dof;
+        Vec<bool>* cdof;
         
         
 

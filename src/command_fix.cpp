@@ -168,8 +168,8 @@ Command_fix::Command_fix(MAPP* mapp
         x_dim=mapp->x->dim;
         if(mapp->dof==NULL)
         {
-            mapp->dof=new Vec<byte>(atoms,x_dim);
-            byte* dof=mapp->dof->begin();
+            mapp->dof=new Vec<bool>(atoms,x_dim);
+            bool* dof=mapp->dof->begin();
             for(int i=0;i<natms*x_dim;i++)
                 dof[i]=false;
         }
@@ -182,8 +182,8 @@ Command_fix::Command_fix(MAPP* mapp
         c_dim=mapp->c->dim;
         if(mapp->cdof==NULL)
         {
-            mapp->cdof=new Vec<byte>(atoms,c_dim);
-            byte* cdof=mapp->cdof->begin();
+            mapp->cdof=new Vec<bool>(atoms,c_dim);
+            bool* cdof=mapp->cdof->begin();
             for(int i=0;i<natms*c_dim;i++)
                 cdof[i]=false;
         }
@@ -191,7 +191,7 @@ Command_fix::Command_fix(MAPP* mapp
     
     if(x_xst)
     {
-        byte* dof=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         int icurs;
         for(int i=0;i<list_size;i++)
         {
@@ -207,7 +207,7 @@ Command_fix::Command_fix(MAPP* mapp
     if(alpha_xst)
     {
         dmd_type* type=mapp->ctype->begin();
-        byte* dof=mapp->dof->begin();
+        bool* dof=mapp->dof->begin();
         int icurs;
         int jcurs;
         for(int i=0;i<list_size;i++)
@@ -225,7 +225,7 @@ Command_fix::Command_fix(MAPP* mapp
     if(c_xst)
     {
         dmd_type* type=mapp->ctype->begin();
-        byte* cdof=mapp->cdof->begin();
+        bool* cdof=mapp->cdof->begin();
         int icurs;
         for(int i=0;i<list_size;i++)
         {

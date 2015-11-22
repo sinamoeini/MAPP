@@ -783,7 +783,7 @@ void MAPP::fin_dubeg()
 void MAPP::test()
 {
 
-        /*
+    /*
     const char * fileName ="input_dmd";
     fstream file(fileName,ios::in);
     file.seekg(0,ios::end);
@@ -840,8 +840,7 @@ void MAPP::test()
     }
     for(int i=0;i<nargs;i++)
         cout << args[i]<< endl;
-         */
-    
+         */    
 
 }
 

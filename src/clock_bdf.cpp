@@ -103,16 +103,12 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int nargs
         error->abort("max_t in clock bdf should be greater than initial_del_t");
     if(min_del_t>max_t)
         error->abort("max_t in clock bdf should be greater than min_del_t");
-
-
-
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Clock_bdf::~Clock_bdf()
 {
-
 }
 /*--------------------------------------------
  destructor
