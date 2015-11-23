@@ -157,75 +157,77 @@ void ForceField_meam::allocate()
  --------------------------------------------*/
 void ForceField_meam::deallocate()
 {
-    if(no_types)
+    if(!no_types)
+        return;
+    
+    for(int j=0;j<no_types;j++)
     {
-        for(int j=0;j<no_types;j++)
-        {
-            for(int i=0;i<no_types;i++)
-            {
-                delete [] c_min[i][j];
-                delete [] c_max[i][j];
-            }
-        }
-        
         for(int i=0;i<no_types;i++)
         {
-            delete [] c_min[i];
-            delete [] c_max[i];
+            delete [] c_min[i][j];
+            delete [] c_max[i][j];
         }
-        delete [] c_min;
-        delete [] c_max;
-        
-        int tot_types=(no_types+1)*no_types/2;
-        for(int i=0;i<tot_types;i++)
-            for(int j=0;j<nr;j++)
-                delete [] phirar[i][j];
-        
-        for(int i=0;i<tot_types;i++)
-            delete [] phirar[i];
-        delete [] phirar;
-        
-        for(int i=0;i<no_types;i++)
-        {
-            delete [] re_meam[i];
-            delete [] ebound_meam[i];
-            delete [] Ec_meam[i];
-            delete [] alpha_meam[i];
-            delete [] delta_meam[i];
-            delete [] attrac_meam[i];
-            delete [] repuls_meam[i];
-            delete [] lattice[i];
-            delete [] nn2_meam[i];
-            delete [] zbl_meam[i];
-        }
-        
-        delete [] re_meam;
-        delete [] ebound_meam;
-        delete [] Ec_meam;
-        delete [] alpha_meam;
-        delete [] delta_meam;
-        delete [] attrac_meam;
-        delete [] repuls_meam;
-        delete [] lattice;
-        delete [] nn2_meam;
-        delete [] zbl_meam;
-        
-        delete [] rho0_meam;
-        delete [] beta0_meam;
-        delete [] beta1_meam;
-        delete [] beta2_meam;
-        delete [] beta3_meam;
-        delete [] t0_meam;
-        delete [] t1_meam;
-        delete [] t2_meam;
-        delete [] t3_meam;
-        delete [] Z_meam;
-        delete [] rho_ref_meam;
-        delete [] A_meam;
-        delete [] ibar_meam;
-        delete [] ielt_meam;
-        delete [] type_ref;
     }
+    
+    for(int i=0;i<no_types;i++)
+    {
+        delete [] c_min[i];
+        delete [] c_max[i];
+    }
+    delete [] c_min;
+    delete [] c_max;
+    
+    int tot_types=(no_types+1)*no_types/2;
+    for(int i=0;i<tot_types;i++)
+        for(int j=0;j<nr;j++)
+            delete [] phirar[i][j];
+    
+    for(int i=0;i<tot_types;i++)
+        delete [] phirar[i];
+    delete [] phirar;
+    
+    for(int i=0;i<no_types;i++)
+    {
+        delete [] re_meam[i];
+        delete [] ebound_meam[i];
+        delete [] Ec_meam[i];
+        delete [] alpha_meam[i];
+        delete [] delta_meam[i];
+        delete [] attrac_meam[i];
+        delete [] repuls_meam[i];
+        delete [] lattice[i];
+        delete [] nn2_meam[i];
+        delete [] zbl_meam[i];
+    }
+    
+    delete [] re_meam;
+    delete [] ebound_meam;
+    delete [] Ec_meam;
+    delete [] alpha_meam;
+    delete [] delta_meam;
+    delete [] attrac_meam;
+    delete [] repuls_meam;
+    delete [] lattice;
+    delete [] nn2_meam;
+    delete [] zbl_meam;
+    
+    delete [] rho0_meam;
+    delete [] beta0_meam;
+    delete [] beta1_meam;
+    delete [] beta2_meam;
+    delete [] beta3_meam;
+    delete [] t0_meam;
+    delete [] t1_meam;
+    delete [] t2_meam;
+    delete [] t3_meam;
+    delete [] Z_meam;
+    delete [] rho_ref_meam;
+    delete [] A_meam;
+    delete [] ibar_meam;
+    delete [] ielt_meam;
+    delete [] type_ref;
+    
+    no_types=0;
 }
 /*--------------------------------------------
  G_gam

@@ -30,20 +30,14 @@ ForceField_lj(MAPP* mapp):ForceFieldMD(mapp)
         "for md mode");
     
     shift=0;
-    arr_size=0;
+    no_types=0;
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 ForceField_lj::~ForceField_lj()
 {
-    if(arr_size)
-    {
-        delete [] sigma;
-        delete [] epsilon;
-        delete [] offset;
-    }
-    
+    deallocate();
 }
 /*--------------------------------------------
  destructor
@@ -56,23 +50,38 @@ void ForceField_lj::coef(int nargs,char** args)
         "for lj Force Field");
     
     cut_off_alloc();
-    int no_types=atom_types->no_types;
-    if(arr_size!=no_types*(no_types+1)/2)
-    {
-        if(arr_size)
-        {
-            delete [] sigma;
-            delete [] epsilon;
-            delete [] offset;
-        }
-        
-        arr_size=no_types*(no_types+1)/2;
-        CREATE1D(sigma,arr_size);
-        CREATE1D(epsilon,arr_size);
-        CREATE1D(offset,arr_size);
-    }
+    allocate();
     
     read_file(args[1]);
+}
+/*--------------------------------------------
+ allocation
+ --------------------------------------------*/
+void ForceField_lj::allocate()
+{
+    if(no_types==atom_types->no_types)
+        return;
+    deallocate();
+    no_types=atom_types->no_types;
+    int arr_size=no_types*(no_types+1)/2;
+    CREATE1D(sigma,arr_size);
+    CREATE1D(epsilon,arr_size);
+    CREATE1D(offset,arr_size);
+}
+/*--------------------------------------------
+ allocation
+ --------------------------------------------*/
+void ForceField_lj::deallocate()
+{
+    if(!no_types)
+        return;
+    
+    delete [] sigma;
+    delete [] epsilon;
+    delete [] offset;
+    
+    no_types=0;
+    
 }
 /*--------------------------------------------
  initiate before a run
@@ -417,7 +426,7 @@ void ForceField_lj::read_file(char* file_name)
     if(shift)
     {
         type0 sig2,sig6,sig12;
-        for(int icurs=0;icurs<arr_size;icurs++)
+        for(int icurs=0;icurs<no_types*(no_types+1)/2;icurs++)
         {
             sig2=sigma[icurs]*sigma[icurs]/cut_sq[icurs];
             sig6=sig2*sig2*sig2;
@@ -427,7 +436,7 @@ void ForceField_lj::read_file(char* file_name)
     }
     else
     {
-        for(int icurs=0;icurs<arr_size;icurs++)
+        for(int icurs=0;icurs<no_types*(no_types+1)/2;icurs++)
             offset[icurs]=0.0;
     }
 }

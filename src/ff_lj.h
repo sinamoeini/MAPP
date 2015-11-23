@@ -13,8 +13,9 @@ namespace MAPP_NS
     class ForceField_lj: public ForceFieldMD
     {
     private:
-        int x_n,f_n,type_n;
-        int arr_size;
+        void allocate();
+        void deallocate();
+        int no_types;
         type0* sigma;
         type0* epsilon;
         type0* offset;

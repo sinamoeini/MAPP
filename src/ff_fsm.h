@@ -13,7 +13,6 @@ namespace MAPP_NS
     class ForceField_fsm: public ForceFieldMD
     {
     private:
-        int arr_size;
         int no_types;
         
         type0** mat_t_1;
@@ -27,6 +26,8 @@ namespace MAPP_NS
         type0* mat_k_3;
         
         void read_file(char*);
+        void allocate();
+        void deallocate();
         
         Vec<type0>* rho_ptr;
     protected:

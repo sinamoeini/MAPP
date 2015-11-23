@@ -30,15 +30,9 @@ ForceField_eam_dmd(MAPP* mapp): ForceFieldDMD(mapp)
  --------------------------------------------*/
 ForceField_eam_dmd::~ForceField_eam_dmd()
 {
-    if(no_types)
-    {
-        delete [] c_0;
-        delete [] f_t;
-        delete [] Q_nrm;
-    }
-    
+    deallocate();
     delete eam_reader;
-    
+
     if(no_i)
     {
         delete [] xi;
@@ -46,13 +40,7 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
         delete [] wi_1;
         delete [] wi_2;
     }
-    
-    if(max_pairs)
-    {
-        delete [] rho_phi;
-        delete [] drho_phi_dr;
-        delete [] drho_phi_dalpha;
-    }
+
 }
 /*--------------------------------------------
  force calculation
@@ -589,32 +577,41 @@ void ForceField_eam_dmd::coef(int nargs,char** args)
         "for ff dmd");
     
     cut_off_alloc();
-    
-    if(no_types)
-    {
-        delete [] c_0;
-        delete [] f_t;
-        delete [] Q_nrm;
-    }
-    
-    if(no_i)
-    {
-        delete [] xi;
-        delete [] wi_0;
-        delete [] wi_1;
-        delete [] wi_2;
-    }
-    
+    allocate();
+
     no_types=atom_types->no_types;
     c_dim=mapp->c->dim;
     x_dim=mapp->x->dim;
     dim=atoms->dimension;
+    
+    read_file(args[1]);
+}
+/*-------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceField_eam_dmd::allocate()
+{
+    if(no_types==atom_types->no_types)
+        return;
+    
+    deallocate();
     CREATE1D(c_0,no_types);
     CREATE1D(f_t,no_types);
     CREATE1D(Q_nrm,no_types);
-    c_dim=mapp->c->dim;
+}
+/*-------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceField_eam_dmd::deallocate()
+{
+    if(!no_types)
+        return;
     
-    read_file(args[1]);
+    delete [] c_0;
+    delete [] f_t;
+    delete [] Q_nrm;
+    no_types=0;
+
 }
 /*-------------------------------------------
 
@@ -859,8 +856,7 @@ void ForceField_eam_dmd::read_file(char* file_name)
     type2rho_pair_ji=eam_reader->type2rho_pair_ji;
     type2phi_pair_ij=eam_reader->type2phi_pair_ij;
     type2phi_pair_ji=eam_reader->type2phi_pair_ji;
-    
-    
+        
     type0 cut_max=0.0;
     for(int itype=0;itype<no_types;itype++)
         for(int jtype=itype;jtype<no_types;jtype++)
@@ -878,18 +874,7 @@ void ForceField_eam_dmd::read_file(char* file_name)
         if(rsq_crd[itype]>cut_sq[COMP(itype,itype)])
             error->abort("r_crd(%s) set by file %s should be less than %lf"
             ,file_name,atom_types->atom_names[itype],sqrt(cut_sq[COMP(itype,itype)]));
-    
-    
-    
 
-    /*
-    int pos=type2rho[atom_types->find_type("Fe")][atom_types->find_type("H")];
-    int j=0;
-    for(type0 i=0;i<nr;i++,j++)
-    {
-        printf("%lf %lf\n",i*dr,rho_r_arr[pos][j][0]);
-    }
-     */
 }
 /*--------------------------------------------
  Gaussian-Hermite quadrature weights and

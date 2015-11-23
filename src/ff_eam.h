@@ -11,6 +11,7 @@ namespace MAPP_NS
     {
     private:
         Vec<type0>* rho_ptr;
+        void setup();
     protected:
         int nr,nrho;
         type0 dr,drho,dr_inv,drho_inv,rho_max;

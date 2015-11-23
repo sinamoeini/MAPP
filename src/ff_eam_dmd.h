@@ -12,6 +12,9 @@ namespace MAPP_NS
     private:
         int no_types;
         type0 min_log;
+        void allocate();
+        void deallocate();
+        
     protected:
         int stride;
         int nr,nrho;

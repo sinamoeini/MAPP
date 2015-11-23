@@ -367,8 +367,13 @@ void ForceField_eam::coef(int nargs,char** args)
         eam_reader->add_file(args[iarg],iarg-2);
         iarg++;
     }
+}
+/*--------------------------------------------
+ setup
+ --------------------------------------------*/
+void ForceField_eam::setup()
+{
     eam_reader->setup();
-    
     nr=eam_reader->nr;
     nrho=eam_reader->nrho;
     dr=eam_reader->dr;
@@ -387,4 +392,5 @@ void ForceField_eam::coef(int nargs,char** args)
     int no_types=atom_types->no_types;
     memcpy(cut_sq,eam_reader->cut_sq,(no_types*(no_types+1)/2)*sizeof(type0));
 }
+
  

@@ -28,38 +28,14 @@ ForceField_fsm(MAPP* mapp):ForceFieldMD(mapp)
     if(mapp->mode!=MD_mode)
         error->abort("ff fsm works only "
         "for md mode");
-
     no_types=0;
-    arr_size=0;
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 ForceField_fsm::~ForceField_fsm()
 {
-    if(no_types)
-    {
-        for(int i=0;i<no_types;i++)
-        {
-            delete [] mat_t_1[i];
-            delete [] mat_t_2[i];
-        }
-        
-        delete [] mat_t_1;
-        delete [] mat_t_2;
-        delete [] mat_A;
-    }
-    
-    if(arr_size)
-    {
-        delete [] cut_sq_phi;
-        delete [] cut_sq_rho;
-        delete [] mat_k_1;
-        delete [] mat_k_2;
-        delete [] mat_k_3;
-    }
-    
-    
+    deallocate();
 }
 /*--------------------------------------------
  read the force field file
@@ -71,69 +47,74 @@ void ForceField_fsm::coef(int nargs,char** args)
         "for Finnis-Sinclair Force Field");
     
     cut_off_alloc();
-    if(no_types!=atom_types->no_types)
-    {
-        for(int i=0;i<no_types;i++)
-        {
-            delete [] mat_t_1[i];
-            delete [] mat_t_2[i];
-        }
-        if(no_types)
-        {
-            delete [] mat_t_1;
-            delete [] mat_t_2;
-            delete [] mat_A;
-        }
-        
-        
-        no_types=atom_types->no_types;
-        CREATE2D(mat_t_1,no_types,no_types);
-        CREATE2D(mat_t_2,no_types,no_types);
-        CREATE1D(mat_A,no_types);
-        for(int i=0;i<no_types;i++)
-        {
-            for(int j=0;j<no_types;j++)
-                mat_t_1[i][j]=mat_t_2[i][j]=0.0;
-            mat_A[i]=0.0;
-        }
-    }
-    
-    if(arr_size!=no_types*(no_types+1)/2)
-    {
-        if(arr_size)
-        {
-            delete [] cut_sq_phi;
-            delete [] cut_sq_rho;
-            delete [] mat_k_1;
-            delete [] mat_k_2;
-            delete [] mat_k_3;
-        }
-        
-        
-        arr_size=no_types*(no_types+1)/2;
-        CREATE1D(cut_sq_phi,arr_size);
-        CREATE1D(cut_sq_rho,arr_size);
-        CREATE1D(mat_k_1,arr_size);
-        CREATE1D(mat_k_2,arr_size);
-        CREATE1D(mat_k_3,arr_size);
-        
-        for(int i=0;i<arr_size;i++)
-            cut_sq_phi[i]=cut_sq_rho[i]
-            =mat_k_1[i]=mat_k_2[i]=mat_k_3[i];
-    }
+    allocate();
     
     read_file(args[1]);
     
-    for(int i=0;i<arr_size;i++)
+    for(int i=0;i<no_types*(no_types+1)/2;i++)
         cut_sq[i]=MAX(cut_sq_phi[i],cut_sq_rho[i]);
     
+}
+/*--------------------------------------------
+ allocate
+ --------------------------------------------*/
+void ForceField_fsm::allocate()
+{
+    if(no_types==atom_types->no_types)
+        return;
+    deallocate();
+    no_types=atom_types->no_types;
+    CREATE2D(mat_t_1,no_types,no_types);
+    CREATE2D(mat_t_2,no_types,no_types);
+    CREATE1D(mat_A,no_types);
+    for(int i=0;i<no_types;i++)
+    {
+        for(int j=0;j<no_types;j++)
+            mat_t_1[i][j]=mat_t_2[i][j]=0.0;
+        mat_A[i]=0.0;
+    }
+    
+    int arr_size=no_types*(no_types+1)/2;
+    CREATE1D(cut_sq_phi,arr_size);
+    CREATE1D(cut_sq_rho,arr_size);
+    CREATE1D(mat_k_1,arr_size);
+    CREATE1D(mat_k_2,arr_size);
+    CREATE1D(mat_k_3,arr_size);
+    
+    for(int i=0;i<arr_size;i++)
+        cut_sq_phi[i]=cut_sq_rho[i]
+        =mat_k_1[i]=mat_k_2[i]=mat_k_3[i]=0.0;
+}
+/*--------------------------------------------
+ allocate
+ --------------------------------------------*/
+void ForceField_fsm::deallocate()
+{
+    if(!no_types)
+        return;
+
+    for(int i=0;i<no_types;i++)
+    {
+        delete [] mat_t_1[i];
+        delete [] mat_t_2[i];
+    }
+    
+    delete [] mat_t_1;
+    delete [] mat_t_2;
+    delete [] mat_A;
+    delete [] cut_sq_phi;
+    delete [] cut_sq_rho;
+    delete [] mat_k_1;
+    delete [] mat_k_2;
+    delete [] mat_k_3;
+    
+    no_types=0;
 }
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
 void ForceField_fsm::read_file(char* file_name)
 {
-    int no_types=atom_types->no_types;
     
     int* type_ref;
     

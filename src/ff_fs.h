@@ -13,7 +13,6 @@ namespace MAPP_NS
     class ForceField_fs: public ForceFieldMD
     {
     private:
-        int arr_size;
         int no_types;
         
         type0** mat_t_1;
@@ -36,6 +35,8 @@ namespace MAPP_NS
         Vec<type0>* rho_ptr;
         void force_calc(bool,type0*);
         type0 energy_calc();
+        void allocate();
+        void deallocate();
     protected:
     public:
         ForceField_fs(MAPP *);
