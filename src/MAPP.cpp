@@ -797,13 +797,13 @@ void MAPP::test()
 
     MPI_Bcast(&byte_sz,1,MPI_LONG,0,world);
     byte_sz++;
-    CREATE1D(buff,byte_sz+1);
+    CREATE1D(buff,byte_sz);
     
     if(atoms->my_p==0)
     {
         FILE* fp=fopen(fileName,"r");
-        fread (buff,1,byte_sz,fp);
-        buff[byte_sz]='\0';
+        fread (buff,1,byte_sz-1,fp);
+        buff[byte_sz-1]='\0';
         fclose(fp);
     }
     
