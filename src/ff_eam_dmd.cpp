@@ -595,6 +595,7 @@ void ForceField_eam_dmd::allocate()
         return;
     
     deallocate();
+    no_types=atom_types->no_types;
     CREATE1D(c_0,no_types);
     CREATE1D(f_t,no_types);
     CREATE1D(Q_nrm,no_types);

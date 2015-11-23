@@ -57,15 +57,15 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
         ns_alloc=1;
     }
     
-    H_dof=new int*[dim];
-    *H_dof=new int[dim*dim];
+    H_dof=new bool*[dim];
+    *H_dof=new bool[dim*dim];
 
     for(int i=1;i<dim;i++)
         H_dof[i]=H_dof[i-1]+dim;
 
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
-            H_dof[i][j]=0;
+            H_dof[i][j]=false;
     
     xmath=new XMath();
         
@@ -89,12 +89,18 @@ Min::~Min()
     }
     
     delete xmath;
+    cout <<"last one " <<endl;
 }
 /*--------------------------------------------
  error messages
  --------------------------------------------*/
 void Min::print_error()
 {
+    if(atoms->my_p==0)
+    {
+        fprintf(output,"init. energy gradient norm: %e\n",df_norm_0);
+        fprintf(output,"final energy gradient norm: %e\n",df_norm_1);
+    }
     
     if(err==LS_F_DOWNHILL)
     {
@@ -132,37 +138,6 @@ void Min::print_error()
             fprintf(output,"bracketing failed: maximum alpha reached\n");
     }
 
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Min::rectify(type0* a)
-{
-    if(mapp->dof==NULL && affine==0)
-        return;
-    else if(mapp->dof!=NULL && affine==0)
-    {
-        bool* dof=mapp->dof->begin();
-        for(int i=0;i<atoms->natms*x_dim;i++)
-            if(dof[i]==1) a[i]=0.0;
-    }
-    else if(mapp->dof==NULL && affine)
-    {
-        for(int i=0;i<atoms->natms;i++)
-            for(int j=0;j<dim;j++)
-                a[i*x_dim+j]=0.0;
-    }
-    else if(mapp->dof==NULL && affine)
-    {
-        bool* dof=mapp->dof->begin();
-        for(int i=0;i<atoms->natms;i++)
-        {
-            for(int j=0;j<dim;j++)
-                a[i*x_dim+j]=0.0;
-            for(int j=dim;j<x_dim;j++)
-                if(dof[i*x_dim+j]==1) a[i*x_dim+j]=0.0;
-        }
-    }
 }
 /*--------------------------------------------
  
@@ -424,33 +399,18 @@ void Min::init()
     else if(chng_box && !affine)
         sts_flag=2;
     
-    if(chng_box)
-    {
-        H_prev=new type0*[dim];
-        f_H_prev=new type0*[dim];
-        
-        *H_prev=new type0[dim*dim];
-        *f_H_prev=new type0[dim*dim];
-        
-        for(int i=1;i<dim;i++)
-        {
-            H_prev[i]=H_prev[i-1]+dim;
-            f_H_prev[i]=f_H_prev[i-1]+dim;
-        }
-    }
+
     
     if(mapp->f==NULL)
         mapp->f=new Vec<type0>(atoms,x_dim);
     
-    x_prev_ptr=new Vec<type0>(atoms,x_dim);
-    h_ptr=new Vec<type0>(atoms,x_dim);
-    f_prev_ptr=new Vec<type0>(atoms,x_dim);
+
     
     x.init(atoms,atoms->x,atoms->H,chng_box);
-    x0.init(atoms,x_prev_ptr,H_prev,chng_box);
+    x0.init(atoms,chng_box);
     f.init(atoms,mapp->f,chng_box);
-    f0.init(atoms,f_prev_ptr,f_H_prev,chng_box);
-    h.init(atoms,h_ptr,chng_box);
+    f0.init(atoms,chng_box);
+    h.init(atoms,chng_box);
 
     
     vecs_comm=new VecLst(atoms);
@@ -473,9 +433,9 @@ void Min::init()
         }
     }
     
-    vecs_comm->add_xchng(h_ptr);
-    vecs_comm->add_xchng(x_prev_ptr);
-    vecs_comm->add_xchng(f_prev_ptr);
+    vecs_comm->add_xchng(h());
+    vecs_comm->add_xchng(x0());
+    vecs_comm->add_xchng(f0());
     
     if(mapp->x_d!=NULL)
         vecs_comm->add_arch(mapp->x_d);
@@ -498,21 +458,11 @@ void Min::fin()
     f.fin();
     f0.fin();
     h.fin();
-    delete f_prev_ptr;
-    delete h_ptr;
-    delete x_prev_ptr;
     delete vecs_comm;
+    print_error();
     timer->print_stats();
     neighbor->print_stats();
-    
-    if(chng_box)
-    {
-        delete [] *H_prev;
-        delete [] H_prev;
-        
-        delete [] *f_H_prev;
-        delete [] f_H_prev;
-    }
+
 }
 /*--------------------------------------------
  inner product of f and h

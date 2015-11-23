@@ -48,7 +48,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     forcefield_dmd=dynamic_cast<ForceFieldDMD*>(forcefield);
     neighbor_dmd=dynamic_cast<Neighbor_dmd*>(neighbor);
     
-    a_tol=sqrt(numeric_limits<type0>::epsilon());
+    a_tol=sqrt(2.0*numeric_limits<type0>::epsilon());
     min_del_t=std::numeric_limits<type0>::epsilon();
     initial_del_t=-1.0;
     max_t=1.0e7;
@@ -996,8 +996,6 @@ int ClockImplicit::test(type0 a0,type0 fa0,type0 dfa0)
             {
                 a=MIN((0.0-c0[i])/h[i],a);
             }
-            
-            
         }
     }
     

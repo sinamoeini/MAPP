@@ -63,9 +63,9 @@ Min_lbfgs::Min_lbfgs(MAPP* mapp,int nargs,char** args):Min(mapp)
                 error->abort("wrong component in min l-bfgs for H[%i][%i]",icmp,jcmp);
             
             if(icmp<=jcmp)
-                H_dof[jcmp][icmp]=1;
+                H_dof[jcmp][icmp]=true;
             else
-                H_dof[icmp][jcmp]=1;
+                H_dof[icmp][jcmp]=true;
             iarg++;
         }
         else if(!strcmp(args[iarg],"affine"))
@@ -114,6 +114,7 @@ void Min_lbfgs::init()
     
     atoms->init(vecs_comm,chng_box);
     force_calc();
+    df_norm_0=sqrt(f*f);
     curr_energy=nrgy_strss[0];
     thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -175,7 +176,6 @@ void Min_lbfgs::run()
         }
         if(affine) prepare_affine_h();
         err=ls->line_min(curr_energy,alpha_m,0);
-        if(affine) rectify(h_ptr->begin());
         
         if(err!=LS_S)
         {
@@ -242,6 +242,7 @@ void Min_lbfgs::run()
  --------------------------------------------*/
 void Min_lbfgs::fin()
 {
+    df_norm_1=sqrt(f*f);
     if(m_it)
     {
         delete [] rho;
@@ -258,9 +259,7 @@ void Min_lbfgs::fin()
         write->fin();
     
     thermo->fin();
-    print_error();
     atoms->fin();
     Min::fin();
-
 }
 

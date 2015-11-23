@@ -38,6 +38,25 @@ namespace MAPP_NS
         void prepare_affine_h();
         
         ThermoDynamics* thermo;
+        
+        int max_iter;
+        bool affine;
+        type0 energy_tolerance;
+        
+        bool** H_dof;
+        
+        int x_dim;
+        
+                
+        VecTens<type0> h;
+        VecTens<type0> x;
+        VecTens<type0> x0;
+        VecTens<type0> f;
+        VecTens<type0> f0;
+        
+        type0 df_norm_0;
+        type0 df_norm_1;
+        
     public:
         Min(MAPP *);
         virtual ~Min();
@@ -45,29 +64,7 @@ namespace MAPP_NS
         virtual void run()=0;
         virtual void init();
         virtual void fin();
-        void rectify(type0*);
-        int max_iter;
-        bool affine;
-        type0 energy_tolerance;
-
-        int** H_dof;
         
-        int x_dim;
-        
-        Vec<type0>* h_ptr;
-
-        type0** H_prev;
-        Vec<type0>* x_prev_ptr;
-        
-        type0** f_H_prev;
-        Vec<type0>* f_prev_ptr;
-        
-        
-        VecTens<type0> h;
-        VecTens<type0> x;
-        VecTens<type0> x0;
-        VecTens<type0> f;
-        VecTens<type0> f0;
         
         type0 F(type0);
         type0 dF(type0,type0&);

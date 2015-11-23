@@ -40,9 +40,9 @@ Min_cg::Min_cg(MAPP* mapp,int nargs,char** args):Min(mapp)
                 error->abort("wrong component in min cg for H[%i][%i]",icmp,jcmp);
             
             if(icmp<=jcmp)
-                H_dof[jcmp][icmp]=1;
+                H_dof[jcmp][icmp]=true;
             else
-                H_dof[icmp][jcmp]=1;
+                H_dof[icmp][jcmp]=true;
             iarg++;
         }
         else if(!strcmp(args[iarg],"affine"))
@@ -76,6 +76,7 @@ void Min_cg::init()
     atoms->init(vecs_comm,chng_box);
         
     force_calc();
+    df_norm_0=sqrt(f*f);
     curr_energy=nrgy_strss[0];
     thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -173,14 +174,11 @@ void Min_cg::run()
  --------------------------------------------*/
 void Min_cg::fin()
 {
+    df_norm_1=sqrt(f*f);
     if(write!=NULL)
         write->fin();
-     
     thermo->fin();
-    print_error();
     atoms->fin();
-    
     Min::fin();
-    
 }
 

@@ -103,6 +103,7 @@ namespace MAPP_NS
             if(alloc_flag==3)
             {
                 delete vec;
+                alloc_flag=0;
                 if(!box_chng) return;
                 delete [] *A;
                 delete [] A;
@@ -110,6 +111,7 @@ namespace MAPP_NS
             }
             else if(alloc_flag==2)
             {
+                alloc_flag=0;
                 if(!box_chng) return;
                 delete [] *A;
                 delete [] A;
