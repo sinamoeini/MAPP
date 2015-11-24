@@ -156,26 +156,32 @@ void Clock_adams::allocate()
 {
     ClockImplicit::allocate();
     
-    CREATE1D(e_n,dof_lcl);
-    CREATE1D(y,dof_lcl);
+    vecs_1=new Vec<type0>*[max_order+2];
+    for(int ivec=0;ivec<max_order+2;ivec++)
+        vecs_1[ivec]=new Vec<type0>(atoms,c_dim);
+    
     CREATE1D(t,max_order);
     CREATE1D(dy,max_order);
-    for(int i=0;i<max_order;i++)
-        CREATE1D(dy[i],dof_lcl);
-    
     CREATE1D(alpha_dy,max_order);
     CREATE1D(dalpha_dy,max_order);
+    
+    reset();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Clock_adams::reset()
+{
+    for(int i=0;i<max_order;i++)
+        dy[i]=vecs_1[i]->begin();
+    y=vecs_1[max_order]->begin();
+    e_n=vecs_1[max_order+1]->begin();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 void Clock_adams::deallocate()
 {
-
-    for(int i=0;i<max_order;i++)
-        if(dof_lcl)
-            delete [] dy[i];
-    
     if(max_order)
     {
         delete [] dy;
@@ -184,11 +190,9 @@ void Clock_adams::deallocate()
         delete [] dalpha_dy;
     }
     
-    if(dof_lcl)
-    {
-        delete [] e_n;
-        delete [] y;
-    }
+    for(int ivec=0;ivec<max_order+2;ivec++)
+        delete vecs_1[ivec];
+    delete [] vecs_1;
     
     ClockImplicit::deallocate();
 }
@@ -272,7 +276,7 @@ void Clock_adams::run()
         
         if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
         {
-            forcefield_dmd->enst_calc_timer(1,nrgy_strss);            
+            forcefield_dmd->force_calc_timer(true);
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,tot_t);

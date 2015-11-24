@@ -1,3 +1,4 @@
+#include "ff.h"
 #include "md.h"
 #include "error.h"
 #include "memory.h"
@@ -7,10 +8,10 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-MD::MD(MAPP* mapp):InitPtrs(mapp)
+MD::MD(MAPP* mapp):InitPtrs(mapp),
+nrgy_strss(forcefield->nrgy_strss)
 {
-    ns_alloc=0;
-    
+   
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before md");
@@ -33,13 +34,6 @@ MD::MD(MAPP* mapp):InitPtrs(mapp)
         delete [] args[i];
     if(nargs)
         delete [] args;
-    
-    int dim=atoms->dimension;
-    if(dim)
-    {
-        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
-        ns_alloc=1;
-    }
 
 }
 /*--------------------------------------------
@@ -48,7 +42,5 @@ MD::MD(MAPP* mapp):InitPtrs(mapp)
 MD::~MD()
 {
     delete thermo;
-    if(ns_alloc)
-        delete [] nrgy_strss;
 }
 

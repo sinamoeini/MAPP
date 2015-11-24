@@ -65,7 +65,6 @@ namespace MAPP_NS {
         type0* x_ave_tot;
         
         int omega_denom;
-        int x_dim,x_d_dim,f_dim,dof_dim;
     protected:
     public:
         MD_nh(MAPP *,int,char**);

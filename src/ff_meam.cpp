@@ -603,12 +603,12 @@ void ForceField_meam::fin()
  run
  --------------------------------------------*/
 void ForceField_meam::force_calc
-(bool st_clc,type0* en_st)
+(bool st_clc)
 {
-    nrgy_strss[0]=0.0;
+    nrgy_strss_lcl[0]=0.0;
     if (st_clc)
         for (int i=1;i<7;i++)
-            nrgy_strss[i]=0.0;
+            nrgy_strss_lcl[i]=0.0;
     
     reset();
     
@@ -660,7 +660,7 @@ void ForceField_meam::force_calc
     type0 v[6];
     
     type0* x=mapp->x->begin();
-    type0* f=mapp->f->begin();
+    type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
     type0* rho_vec=rho_vec_ptr->begin();
     md_type* type=mapp->type->begin();
@@ -1051,12 +1051,12 @@ void ForceField_meam::force_calc
             if(emb_lin_neg==1 && rhob<=0.0)
             {
                 rho[icomp_rho+37]=-B;
-                nrgy_strss[0]-=B*rhob;
+                nrgy_strss_lcl[0]-=B*rhob;
             }
             else
             {
                 rho[icomp_rho+37]=B*(log(rhob)+1.0);
-                nrgy_strss[0]+=B*rhob*log(rhob);
+                nrgy_strss_lcl[0]+=B*rhob*log(rhob);
             }
         }
         else
@@ -1120,11 +1120,11 @@ void ForceField_meam::force_calc
                         
                         if(jatm<atoms->natms)
                         {
-                            nrgy_strss[0]+=phi*sij;
+                            nrgy_strss_lcl[0]+=phi*sij;
                         }
                         else
                         {
-                            nrgy_strss[0]+=0.5*phi*sij;
+                            nrgy_strss_lcl[0]+=0.5*phi*sij;
                         }
                         
                         /*
@@ -1503,9 +1503,9 @@ void ForceField_meam::force_calc
                         for(int i=0;i<3;i++)
                         {
                             forcem=delij[i]*force+dUdrijm[i];
-                            f[icomp+i]+=forcem;
+                            fvec[icomp+i]+=forcem;
                             if(jatm<atoms->natms)
-                                f[jcomp+i]-=forcem;
+                                fvec[jcomp+i]-=forcem;
                         }
                         
                         /*
@@ -1521,21 +1521,21 @@ void ForceField_meam::force_calc
                             
                             if(jatm<atoms->natms)
                             {
-                                nrgy_strss[1]+=delij[0]*fi[0];
-                                nrgy_strss[2]+=delij[1]*fi[1];
-                                nrgy_strss[3]+=delij[2]*fi[2];
-                                nrgy_strss[4]+=0.5*(delij[1]*fi[2]+delij[2]*fi[1]);
-                                nrgy_strss[5]+=0.5*(delij[0]*fi[2]+delij[2]*fi[0]);
-                                nrgy_strss[6]+=0.5*(delij[0]*fi[1]+delij[1]*fi[0]);
+                                nrgy_strss_lcl[1]+=delij[0]*fi[0];
+                                nrgy_strss_lcl[2]+=delij[1]*fi[1];
+                                nrgy_strss_lcl[3]+=delij[2]*fi[2];
+                                nrgy_strss_lcl[4]+=0.5*(delij[1]*fi[2]+delij[2]*fi[1]);
+                                nrgy_strss_lcl[5]+=0.5*(delij[0]*fi[2]+delij[2]*fi[0]);
+                                nrgy_strss_lcl[6]+=0.5*(delij[0]*fi[1]+delij[1]*fi[0]);
                             }
                             else
                             {
-                                nrgy_strss[1]+=0.5*delij[0]*fi[0];
-                                nrgy_strss[2]+=0.5*delij[1]*fi[1];
-                                nrgy_strss[3]+=0.5*delij[2]*fi[2];
-                                nrgy_strss[4]+=0.25*(delij[1]*fi[2]+delij[2]*fi[1]);
-                                nrgy_strss[5]+=0.25*(delij[0]*fi[2]+delij[2]*fi[0]);
-                                nrgy_strss[6]+=0.25*(delij[0]*fi[1]+delij[1]*fi[0]);
+                                nrgy_strss_lcl[1]+=0.5*delij[0]*fi[0];
+                                nrgy_strss_lcl[2]+=0.5*delij[1]*fi[1];
+                                nrgy_strss_lcl[3]+=0.5*delij[2]*fi[2];
+                                nrgy_strss_lcl[4]+=0.25*(delij[1]*fi[2]+delij[2]*fi[1]);
+                                nrgy_strss_lcl[5]+=0.25*(delij[0]*fi[2]+delij[2]*fi[0]);
+                                nrgy_strss_lcl[6]+=0.25*(delij[0]*fi[1]+delij[1]*fi[0]);
                             }
                         }
                         
@@ -1598,14 +1598,14 @@ void ForceField_meam::force_calc
                                             delik[2]=zki;
                                             deljk[2]=-zjk;
                                             for(int i=0;i<3;i++)
-                                                f[icomp+i]+=force1*delik[i];
+                                                fvec[icomp+i]+=force1*delik[i];
                                             if(jatm<atoms->natms)
                                                 for(int i=0;i<3;i++)
-                                                    f[jcomp+i]+=force2*deljk[i];
+                                                    fvec[jcomp+i]+=force2*deljk[i];
                                             
                                             if(katm<atoms->natms)
                                                 for(int i=0;i<3;i++)
-                                                    f[kcomp+i]-=force1*delik[i]+force2*deljk[i];
+                                                    fvec[kcomp+i]-=force1*delik[i]+force2*deljk[i];
                                             
                                             /*
                                              the stress contrbution crap
@@ -1631,13 +1631,13 @@ void ForceField_meam::force_calc
                                                 +delik[1]*fi[0]+deljk[1]*fj[0]);
                                                 
                                                 for(int i=0;i<6;i++)
-                                                    nrgy_strss[i+1]-=v[i];
+                                                    nrgy_strss_lcl[i+1]-=v[i];
                                                 if(jatm<atoms->natms)
                                                     for(int i=0;i<6;i++)
-                                                        nrgy_strss[i+1]-=v[i];
+                                                        nrgy_strss_lcl[i+1]-=v[i];
                                                 if(katm<atoms->natms)
                                                     for(int i=0;i<6;i++)
-                                                        nrgy_strss[i+1]-=v[i];
+                                                        nrgy_strss_lcl[i+1]-=v[i];
                                                 
                                             }
                                         }
@@ -1655,14 +1655,14 @@ void ForceField_meam::force_calc
     if(st_clc)
     {
         for(int i=0;i<7;i++)
-            en_st[i]=0.0;
+            nrgy_strss[i]=0.0;
         
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,7,MPI_TYPE0,MPI_SUM,world);
     }
     else
     {
-        en_st[0]=0.0;
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
+        nrgy_strss[0]=0.0;
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,1,MPI_TYPE0,MPI_SUM,world);
     }
 }
 /*--------------------------------------------

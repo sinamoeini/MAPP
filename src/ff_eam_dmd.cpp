@@ -46,11 +46,19 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
  force calculation
  --------------------------------------------*/
 void ForceField_eam_dmd::
-force_calc(bool st_clc,type0* en_st)
+force_calc(bool st_clc)
 {
+
+    /*
+    for(int i=0;i<c_dim*atoms->natms;i++)
+        printf("%lf %d \n",mapp->c->begin()[i],mapp->ctype->begin()[i]);
+    cout <<atom_types->atom_names[0] <<endl;
+
+    */
+    
     type0* x=mapp->x->begin();
     dmd_type* type=mapp->ctype->begin();
-    type0* f=mapp->f->begin();
+    type0* fvec=f->begin();
     type0* E=E_ptr->begin();
     type0* dE=dE_ptr->begin();
     type0* mu=mu_ptr->begin();;
@@ -68,210 +76,233 @@ force_calc(bool st_clc,type0* en_st)
     
     type0 p,c_iv;
 
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    if(max_pairs<neighbor->no_pairs)
-    {
-        if(max_pairs)
-        {
-            delete [] rho_phi;
-            delete [] drho_phi_dr;
-            delete [] drho_phi_dalpha;
-        }
-        max_pairs=neighbor->no_pairs;
-        int no_0=max_pairs*stride;
-        CREATE1D(rho_phi,no_0);
-        CREATE1D(drho_phi_dr,no_0);
-        CREATE1D(drho_phi_dalpha,no_0);
-    }
     
-    for(int i=0;i<max_pairs*stride;i++)
-        rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
-    
-    nrgy_strss[0]=0.0;
     if (st_clc)
         for (int i=1;i<7;i++)
-            nrgy_strss[i]=0.0;
+            nrgy_strss_lcl[i]=0.0;
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++) E[i]=0.0;
     
-    istart=0;
-    for(iatm=0;iatm<natms;iatm++)
+    if(dynamic_flag)
     {
-        icomp=(3+c_dim)*iatm;
-        for(int j=0;j<neighbor_list_size[iatm];j++)
+        int** neighbor_list=neighbor->neighbor_list;
+        int* neighbor_list_size=neighbor->neighbor_list_size;
+        if(max_pairs<neighbor->no_pairs)
         {
-            jatm=neighbor_list[iatm][j];
-            jcomp=(3+c_dim)*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
-            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            if(rsq<cut_sq_mod_0)
+            if(max_pairs)
             {
-                r=sqrt(rsq);
-                r_inv=1.0/r;
-                
-                for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+                delete [] rho_phi;
+                delete [] drho_phi_dr;
+                delete [] drho_phi_dalpha;
+            }
+            max_pairs=neighbor->no_pairs;
+            int no_0=max_pairs*stride;
+            CREATE1D(rho_phi,no_0);
+            CREATE1D(drho_phi_dr,no_0);
+            CREATE1D(drho_phi_dalpha,no_0);
+        }
+        
+        for(int i=0;i<max_pairs*stride;i++)
+            rho_phi[i]=drho_phi_dr[i]=drho_phi_dalpha[i]=0.0;
+        
+        nrgy_strss_lcl[0]=0.0;
+        
+        istart=0;
+        for(iatm=0;iatm<natms;iatm++)
+        {
+            icomp=(3+c_dim)*iatm;
+            for(int j=0;j<neighbor_list_size[iatm];j++)
+            {
+                jatm=neighbor_list[iatm][j];
+                jcomp=(3+c_dim)*jatm;
+                dx0=x[icomp]-x[jcomp];
+                dx1=x[icomp+1]-x[jcomp+1];
+                dx2=x[icomp+2]-x[jcomp+2];
+                rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+                if(rsq<cut_sq_mod_0)
                 {
-                    itype=type[ic_dim];
-                    for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                    r=sqrt(rsq);
+                    r_inv=1.0/r;
+                    
+                    for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
                     {
-                        jtype=type[jc_dim];
-                        
-                        if(rsq>cut_sq[COMP(itype,jtype)])
-                            continue;
-                        
-                        type0 alpha_ij=sqrt(x[3*iatm+ic_dim+3]*x[3*iatm+ic_dim+3]+x[3*jatm+jc_dim+3]*x[3*jatm+jc_dim+3]);
-                        
-                        if(alpha_ij>=alpha_max)
-                            continue;
-                        
-                        type0 upper=(r+cut[COMP(itype,jtype)])/alpha_ij;
-                        type0 lower=(r-cut[COMP(itype,jtype)])/alpha_ij;
-                        
-                        if(lower>=xi[no_i-1])
-                            continue;
-                        
-                        int rho_ij=istart+type2rho_pair_ij[itype][jtype];
-                        int rho_ji=istart+type2rho_pair_ji[jtype][itype];
-                        int phi_ij=istart+type2phi_pair_ij[itype][jtype];
-                        
-                        rho_phi[rho_ij]=0.0;
-                        drho_phi_dr[rho_ij]=0.0;
-                        drho_phi_dalpha[rho_ij]=0.0;
-                        
-                        rho_phi[rho_ji]=0.0;
-                        drho_phi_dr[rho_ji]=0.0;
-                        drho_phi_dalpha[rho_ji]=0.0;
-                        
-                        rho_phi[phi_ij]=0.0;
-                        drho_phi_dr[phi_ij]=0.0;
-                        drho_phi_dalpha[phi_ij]=0.0;
-                        
-                        int m;
-                        type0 rtmp;
-                        type0 p,tmp0,tmp1;
-                        type0* coef;
-                        for(int i=0;i<no_i;i++)
+                        itype=type[ic_dim];
+                        for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
                         {
-                            if(xi[i]<=lower && xi[i]>=upper)
+                            jtype=type[jc_dim];
+                            
+                            //bool debug_flag=(iatm==0 && jatm==1 && itype==0 && jtype==0);
+                            
+                            if(rsq>cut_sq[COMP(itype,jtype)])
                                 continue;
-                            rtmp=r-xi[i]*alpha_ij;
-                            p=fabs(rtmp)*dr_inv;
-                            m=static_cast<int>(p);
-                            m=MIN(m,nr-2);
-                            p-=m;
-                            p=MIN(p,1.0);
                             
-                            coef=rho_r_arr[type2rho[itype][jtype]][m];
-                            tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-                            tmp1=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv;
-                            if(rtmp<0.0)
-                                tmp0*=-1.0;
+                            type0 alpha_ij=sqrt(x[3*iatm+ic_dim+3]*x[3*iatm+ic_dim+3]+x[3*jatm+jc_dim+3]*x[3*jatm+jc_dim+3]);
                             
-                            rho_phi[rho_ij]+=wi_0[i]*tmp0;
-                            drho_phi_dr[rho_ij]+=wi_0[i]*tmp1;
-                            drho_phi_dalpha[rho_ij]+=wi_1[i]*tmp1;
+                            if(alpha_ij>=alpha_max)
+                                continue;
                             
-                            if(itype!=jtype)
+                            type0 upper=(r+cut[COMP(itype,jtype)])/alpha_ij;
+                            type0 lower=(r-cut[COMP(itype,jtype)])/alpha_ij;
+                            
+                            if(lower>=xi[no_i-1])
+                                continue;
+                            
+                            int rho_ij=istart+type2rho_pair_ij[itype][jtype];
+                            int rho_ji=istart+type2rho_pair_ji[jtype][itype];
+                            int phi_ij=istart+type2phi_pair_ij[itype][jtype];
+                            
+                            rho_phi[rho_ij]=0.0;
+                            drho_phi_dr[rho_ij]=0.0;
+                            drho_phi_dalpha[rho_ij]=0.0;
+                            
+                            rho_phi[rho_ji]=0.0;
+                            drho_phi_dr[rho_ji]=0.0;
+                            drho_phi_dalpha[rho_ji]=0.0;
+                            
+                            rho_phi[phi_ij]=0.0;
+                            drho_phi_dr[phi_ij]=0.0;
+                            drho_phi_dalpha[phi_ij]=0.0;
+                            
+                            int m;
+                            type0 rtmp;
+                            type0 p,tmp0,tmp1;
+                            type0* coef;
+                            for(int i=0;i<no_i;i++)
                             {
-                                coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                if(xi[i]<=lower && xi[i]>=upper)
+                                    continue;
+                                rtmp=r-xi[i]*alpha_ij;
+
+                                p=fabs(rtmp)*dr_inv;
+                                m=static_cast<int>(p);
+                                m=MIN(m,nr-2);
+                                p-=m;
+                                p=MIN(p,1.0);
+                                
+                                coef=rho_r_arr[type2rho[itype][jtype]][m];
+                                tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                                tmp1=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv;
+                                if(rtmp<0.0)
+                                    tmp0*=-1.0;
+                                /*
+                                if(debug_flag)
+                                    printf("%32.20lf %d\n",tmp0,type2rho[itype][jtype]);
+                                */
+                                rho_phi[rho_ij]+=wi_0[i]*tmp0;
+                                drho_phi_dr[rho_ij]+=wi_0[i]*tmp1;
+                                drho_phi_dalpha[rho_ij]+=wi_1[i]*tmp1;
+                                
+                                if(itype!=jtype)
+                                {
+                                    coef=rho_r_arr[type2rho[jtype][itype]][m];
+                                    tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                                    tmp1=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv;
+                                    if(rtmp<0.0)
+                                        tmp0*=-1.0;
+                                    
+                                    rho_phi[rho_ji]+=wi_0[i]*tmp0;
+                                    drho_phi_dr[rho_ji]+=wi_0[i]*tmp1;
+                                    drho_phi_dalpha[rho_ji]+=wi_1[i]*tmp1;
+                                }
+                                
+                                
+                                
+                                coef=phi_r_arr[type2phi[itype][jtype]][m];
                                 tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
                                 tmp1=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv;
                                 if(rtmp<0.0)
                                     tmp0*=-1.0;
                                 
-                                rho_phi[rho_ji]+=wi_0[i]*tmp0;
-                                drho_phi_dr[rho_ji]+=wi_0[i]*tmp1;
-                                drho_phi_dalpha[rho_ji]+=wi_1[i]*tmp1;
+                                rho_phi[phi_ij]+=wi_0[i]*tmp0;
+                                drho_phi_dr[phi_ij]+=wi_0[i]*tmp1;
+                                drho_phi_dalpha[phi_ij]+=wi_1[i]*tmp1;
+                            }
+                            /*
+                            if(debug_flag)
+                                printf("%d %d %32.20lf %32.20lf\n",itype,jtype,c[jc_dim]*rho_phi[rho_ji],c[ic_dim]*rho_phi[rho_ij]);
+                             */
+                            
+                            tmp0=PI_IN_SQ*r_inv;
+                            
+                            rho_phi[rho_ij]*=tmp0;
+                            drho_phi_dr[rho_ij]*=tmp0;
+                            drho_phi_dr[rho_ij]-=rho_phi[rho_ij]*r_inv;
+                            drho_phi_dalpha[rho_ij]*=-tmp0;
+                            
+                            if(itype!=jtype)
+                            {
+                                rho_phi[rho_ji]*=tmp0;
+                                drho_phi_dr[rho_ji]*=tmp0;
+                                drho_phi_dr[rho_ji]-=rho_phi[rho_ji]*r_inv;
+                                drho_phi_dalpha[rho_ji]*=-tmp0;
                             }
                             
+                            rho_phi[phi_ij]*=tmp0;
+                            drho_phi_dr[phi_ij]*=tmp0;
+                            drho_phi_dr[phi_ij]-=rho_phi[phi_ij]*r_inv;
+                            drho_phi_dalpha[phi_ij]*=-tmp0;
                             
                             
-                            coef=phi_r_arr[type2phi[itype][jtype]][m];
-                            tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-                            tmp1=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv;
-                            if(rtmp<0.0)
-                                tmp0*=-1.0;
+                            E[ic_dim]+=c[jc_dim]*rho_phi[rho_ji];
                             
-                            rho_phi[phi_ij]+=wi_0[i]*tmp0;
-                            drho_phi_dr[phi_ij]+=wi_0[i]*tmp1;
-                            drho_phi_dalpha[phi_ij]+=wi_1[i]*tmp1;
+                            if(jatm<natms)
+                            {
+                                E[jc_dim]+=c[ic_dim]*rho_phi[rho_ij];
+                                nrgy_strss_lcl[0]+=c[ic_dim]*c[jc_dim]*rho_phi[phi_ij];
+                            }
+                            else
+                                nrgy_strss_lcl[0]+=0.5*c[ic_dim]*c[jc_dim]*rho_phi[phi_ij];
                         }
-                        
-                        tmp0=PI_IN_SQ*r_inv;
-                        
-                        rho_phi[rho_ij]*=tmp0;
-                        drho_phi_dr[rho_ij]*=tmp0;
-                        drho_phi_dr[rho_ij]-=rho_phi[rho_ij]*r_inv;
-                        drho_phi_dalpha[rho_ij]*=-tmp0;
-                        
-                        if(itype!=jtype)
-                        {
-                            rho_phi[rho_ji]*=tmp0;
-                            drho_phi_dr[rho_ji]*=tmp0;
-                            drho_phi_dr[rho_ji]-=rho_phi[rho_ji]*r_inv;
-                            drho_phi_dalpha[rho_ji]*=-tmp0;
-                        }
-                        
-                        rho_phi[phi_ij]*=tmp0;
-                        drho_phi_dr[phi_ij]*=tmp0;
-                        drho_phi_dr[phi_ij]-=rho_phi[phi_ij]*r_inv;
-                        drho_phi_dalpha[phi_ij]*=-tmp0;
-                        
-                        E[ic_dim]+=c[jc_dim]*rho_phi[rho_ji];
-                        
-                        if(jatm<natms)
-                        {
-                            E[jc_dim]+=c[ic_dim]*rho_phi[rho_ij];
-                            nrgy_strss[0]+=c[ic_dim]*c[jc_dim]*rho_phi[phi_ij];
-                        }
-                        else
-                            nrgy_strss[0]+=0.5*c[ic_dim]*c[jc_dim]*rho_phi[phi_ij];
                     }
                 }
+                
+                
+                istart+=stride;
             }
-            istart+=stride;
+            
+            c_iv=1.0;
+            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+            {
+                
+                itype=type[ic_dim];
+                c_iv-=c[ic_dim];
+                /*
+                printf("%d %32.20lf %32.20lf\n",ic_dim,E[ic_dim],c[ic_dim]);
+                 */
+                p=E[ic_dim]*drho_inv;
+                
+                m=static_cast<int>(p);
+                
+                
+                m=MIN(m,nrho-2);
+                p-=m;
+                p=MIN(p,1.0);
+                coef=F_arr[itype][m];
+                
+                tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
+                tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
+                
+                
+                if(E[ic_dim]>rho_max)
+                    tmp0+=tmp1*(E[ic_dim]-rho_max);
+                
+                E[ic_dim]=tmp0;
+                dE[ic_dim]=tmp1;
+                
+                nrgy_strss_lcl[0]+=c[ic_dim]*(tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]));
+                mu[ic_dim]=tmp0-3.0*kbT*log(x[3*iatm+ic_dim+3]);
+                nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
+            }
+            nrgy_strss_lcl[0]+=kbT*calc_ent(c_iv);
         }
         
-        c_iv=1.0;
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-        {
-
-            itype=type[ic_dim];
-            c_iv-=c[ic_dim];
-            p=E[ic_dim]*drho_inv;
-            
-            m=static_cast<int>(p);
-
-            
-            m=MIN(m,nrho-2);
-            p-=m;
-            p=MIN(p,1.0);
-            coef=F_arr[itype][m];
-
-            tmp0=(((coef[4]*p+coef[3])*p+coef[2])*p+coef[1])*p+coef[0];
-            tmp1=(((4.0*coef[4]*p+3.0*coef[3])*p+2.0*coef[2])*p+coef[1])*drho_inv;
-
-
-            if(E[ic_dim]>rho_max)
-                tmp0+=tmp1*(E[ic_dim]-rho_max);
-            
-            E[ic_dim]=tmp0;
-            dE[ic_dim]=tmp1;
-
-            nrgy_strss[0]+=c[ic_dim]*(tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]));
-            mu[ic_dim]=tmp0-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
-            f[3*iatm+ic_dim+3]+=3.0*kbT*c[ic_dim]/x[3*iatm+ic_dim+3];
-        }
-        nrgy_strss[0]+=kbT*calc_ent(c_iv);
+        atoms->update(dE_ptr);
     }
-    
-    atoms->update(dE_ptr);
-    
+
+
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -311,22 +342,18 @@ force_calc(bool st_clc,type0* en_st)
                     
                     if(apair==0.0 && fpair==0.0)
                         continue;
-                    
-                    f[3*iatm+ic_dim+3]+=apair*x[3*iatm+ic_dim+3];
-                    
-                    if(jatm<natms)
-                        f[3*jatm+jc_dim+3]+=apair*x[3*jatm+jc_dim+3];
                 
                     
-                    f[icomp]+=dx0*fpair;
-                    f[icomp+1]+=dx1*fpair;
-                    f[icomp+2]+=dx2*fpair;
-                    
+                    fvec[icomp]+=dx0*fpair;
+                    fvec[icomp+1]+=dx1*fpair;
+                    fvec[icomp+2]+=dx2*fpair;
+                    fvec[3*iatm+ic_dim+3]+=apair*x[3*iatm+ic_dim+3];
                     if(jatm<natms)
                     {
-                        f[jcomp]-=dx0*fpair;
-                        f[jcomp+1]-=dx1*fpair;
-                        f[jcomp+2]-=dx2*fpair;
+                        fvec[jcomp]-=dx0*fpair;
+                        fvec[jcomp+1]-=dx1*fpair;
+                        fvec[jcomp+2]-=dx2*fpair;
+                        fvec[3*jatm+jc_dim+3]+=apair*x[3*jatm+jc_dim+3];
                     }
                     
                     if(jatm>=natms)
@@ -334,12 +361,12 @@ force_calc(bool st_clc,type0* en_st)
                     
                     if(st_clc)
                     {
-                        nrgy_strss[1]-=fpair*dx0*dx0;
-                        nrgy_strss[2]-=fpair*dx1*dx1;
-                        nrgy_strss[3]-=fpair*dx2*dx2;
-                        nrgy_strss[4]-=fpair*dx1*dx2;
-                        nrgy_strss[5]-=fpair*dx2*dx0;
-                        nrgy_strss[6]-=fpair*dx0*dx1;
+                        nrgy_strss_lcl[1]-=fpair*dx0*dx0;
+                        nrgy_strss_lcl[2]-=fpair*dx1*dx1;
+                        nrgy_strss_lcl[3]-=fpair*dx2*dx2;
+                        nrgy_strss_lcl[4]-=fpair*dx1*dx2;
+                        nrgy_strss_lcl[5]-=fpair*dx2*dx0;
+                        nrgy_strss_lcl[6]-=fpair*dx0*dx1;
                     }
                 }
             }
@@ -347,16 +374,29 @@ force_calc(bool st_clc,type0* en_st)
         }
     }
     
+    type0* alpha=x+dim;
+    type0* fvec_alpha=fvec+dim;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        for(int i=0;i<c_dim;i++)
+            if(c[i]>=0.0)
+                fvec_alpha[i]+=3.0*kbT*c[i]/alpha[i];
+        
+        fvec_alpha+=x_dim;
+        alpha+=x_dim;
+        c+=c_dim;
+    }
+    
     if(st_clc)
     {
         for(int i=0;i<7;i++)
-            en_st[i]=0.0;
+            nrgy_strss[i]=0.0;
         
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,7,MPI_TYPE0,MPI_SUM,world);
     }
     else
     {
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,1,MPI_TYPE0,MPI_SUM,world);
     }
 }
 /*--------------------------------------------
@@ -875,7 +915,6 @@ void ForceField_eam_dmd::read_file(char* file_name)
         if(rsq_crd[itype]>cut_sq[COMP(itype,itype)])
             error->abort("r_crd(%s) set by file %s should be less than %lf"
             ,file_name,atom_types->atom_names[itype],sqrt(cut_sq[COMP(itype,itype)]));
-
 }
 /*--------------------------------------------
  Gaussian-Hermite quadrature weights and
@@ -1950,7 +1989,7 @@ type0 ForceField_eam_dmd::dc_en_proj_crd
 
     calc_mu_crd();
     type0 en;
-    MPI_Allreduce(nrgy_strss,&en,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(nrgy_strss_lcl,&en,1,MPI_TYPE0,MPI_SUM,world);
     if(!cost_grad)
         return en;
     
@@ -2036,7 +2075,7 @@ type0 ForceField_eam_dmd::dc_en_proj_ncrd
     calc_mu_ncrd();
 
     type0 en;
-    MPI_Allreduce(nrgy_strss,&en,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(nrgy_strss_lcl,&en,1,MPI_TYPE0,MPI_SUM,world);
     if(!cost_grad)
         return en;
     
@@ -2115,7 +2154,7 @@ cost_grad,type0* g,type0* g_mod)
     calc_mu_ncrd();
 
     type0 en;
-    MPI_Allreduce(nrgy_strss,&en,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(nrgy_strss_lcl,&en,1,MPI_TYPE0,MPI_SUM,world);
     if(!cost_grad)
         return en;
    
@@ -2496,74 +2535,6 @@ type0 ForceField_eam_dmd::ddc_norm_ncrd()
     MPI_Allreduce(&norm_lcl,&tmp0,1,MPI_TYPE0,MPI_SUM,world);
     return sqrt(tmp0);
 }
-
-/*--------------------------------------------
- calculate norm of d^2c/dt^2
- --------------------------------------------*/
-void ForceField_eam_dmd::enst_calc(bool flag,type0* en_st)
-{
-    if(!flag)
-    {
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
-        return;
-    }
-    
-    for(int i=1;i<7;i++)
-        en_st[i]=nrgy_strss[i]=0.0;
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    int natms=atoms->natms;
-    type0* dE=dE_ptr->begin();
-    type0* x=mapp->x->begin();
-    type0* c=mapp->c->begin();
-    dmd_type* type=mapp->ctype->begin();
-    
-    int istart;
-    type0 dx0,dx1,dx2,fpair;
-    
-    istart=0;
-    for(int iatm=0;iatm<natms;iatm++)
-    {
-        for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
-        {
-            jatm=neighbor_list[iatm][j];
-
-            dx0=x[iatm*(3+c_dim)]-x[jatm*(3+c_dim)];
-            dx1=x[iatm*(3+c_dim)+1]-x[jatm*(3+c_dim)+1];
-            dx2=x[iatm*(3+c_dim)+2]-x[jatm*(3+c_dim)+2];
-            
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
-            {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
-                {
-                    jtype=type[jc_dim];
-
-                    fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
-                    +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                    +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])
-                    *c[ic_dim]*c[jc_dim]/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
-                    if(jatm>=natms)
-                        fpair*=0.5;
-
-                    if(flag)
-                    {
-                        nrgy_strss[1]-=fpair*dx0*dx0;
-                        nrgy_strss[2]-=fpair*dx1*dx1;
-                        nrgy_strss[3]-=fpair*dx2*dx2;
-                        nrgy_strss[4]-=fpair*dx1*dx2;
-                        nrgy_strss[5]-=fpair*dx2*dx0;
-                        nrgy_strss[6]-=fpair*dx0*dx1;
-                    }
-                }
-            }
-            istart+=stride;
-        }
-    }
-    
-    MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
-}
 /*--------------------------------------------
  calculate mu crd dE ddE and local energy
  --------------------------------------------*/
@@ -2589,7 +2560,7 @@ void ForceField_eam_dmd::calc_mu_crd()
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    nrgy_strss[0]=0.0;
+    nrgy_strss_lcl[0]=0.0;
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
@@ -2648,11 +2619,11 @@ void ForceField_eam_dmd::calc_mu_crd()
             ddE[ic_dim]=tmp2;
             
             tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
+            nrgy_strss_lcl[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
             mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
+            nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
         }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
+        nrgy_strss_lcl[0]+=kbT*calc_ent(cv[iatm]);
     }
     
     
@@ -2708,7 +2679,7 @@ void ForceField_eam_dmd::calc_mu_ncrd()
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    nrgy_strss[0]=0.0;
+    nrgy_strss_lcl[0]=0.0;
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
@@ -2765,11 +2736,11 @@ void ForceField_eam_dmd::calc_mu_ncrd()
             ddE[ic_dim]=tmp2;
             
             tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]);
-            nrgy_strss[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
+            nrgy_strss_lcl[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
             mu[ic_dim]+=tmp2;
-            nrgy_strss[0]+=kbT*calc_ent(c[ic_dim]);
+            nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
         }
-        nrgy_strss[0]+=kbT*calc_ent(cv[iatm]);
+        nrgy_strss_lcl[0]+=kbT*calc_ent(cv[iatm]);
     }
     
     

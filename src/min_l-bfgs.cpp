@@ -114,15 +114,14 @@ void Min_lbfgs::init()
     
     atoms->init(vecs_comm,chng_box);
     force_calc();
-    df_norm_0=sqrt(f*f);
     curr_energy=nrgy_strss[0];
-    thermo->update(pe_idx,nrgy_strss[0]);
-    thermo->update(stress_idx,6,&nrgy_strss[1]);
-    
-    thermo->init();
-    
-    if(write!=NULL)
-        write->init();
+
+    if(output_flag)
+    {
+        thermo->init();
+        if(write!=NULL)
+            write->init();
+    }
 }
 /*--------------------------------------------
  run
@@ -161,10 +160,12 @@ void Min_lbfgs::run()
         
         prev_energy=curr_energy;
         
-        if(write!=NULL)
-            write->write();
-        
-        thermo->thermo_print();
+        if(output_flag)
+        {
+            thermo->thermo_print();
+            if(write!=NULL)
+                write->write();
+        }
         
         
         f_h=f*h;
@@ -178,11 +179,7 @@ void Min_lbfgs::run()
         err=ls->line_min(curr_energy,alpha_m,0);
         
         if(err!=LS_S)
-        {
-            thermo->update(pe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
             continue;
-        }
         
         if(prev_energy-curr_energy<energy_tolerance)
             err=MIN_S_TOLERANCE;
@@ -191,15 +188,10 @@ void Min_lbfgs::run()
             err=MIN_F_MAX_ITER;
         
         force_calc();
-        
-        if(thermo->test_prev_step() || err)
-        {
-            thermo->update(pe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-        }
+
         
         istp++;
-        step_no++;
+        if(output_flag) step_no++;
         
         if(err) continue;
         
@@ -242,7 +234,6 @@ void Min_lbfgs::run()
  --------------------------------------------*/
 void Min_lbfgs::fin()
 {
-    df_norm_1=sqrt(f*f);
     if(m_it)
     {
         delete [] rho;
@@ -255,10 +246,12 @@ void Min_lbfgs::fin()
         delete [] y;
     }
         
-    if(write!=NULL)
-        write->fin();
-    
-    thermo->fin();
+    if(output_flag)
+    {
+        if(write!=NULL)
+            write->fin();
+        thermo->fin();
+    }
     atoms->fin();
     Min::fin();
 }

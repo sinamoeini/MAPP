@@ -14,16 +14,16 @@ Command_fix::Command_fix(MAPP* mapp
         if(nargs!=2)
             error->abort("incorrect fix command");
         
-        if(mapp->dof!=NULL)
+        if(mapp->x_dof!=NULL)
         {
-            delete mapp->dof;
-            mapp->dof=NULL;
+            delete mapp->x_dof;
+            mapp->x_dof=NULL;
         }
         
-        if(mapp->cdof!=NULL)
+        if(mapp->c_dof!=NULL)
         {
-            delete mapp->cdof;
-            mapp->cdof=NULL;
+            delete mapp->c_dof;
+            mapp->c_dof=NULL;
         }
         
         return;
@@ -40,11 +40,11 @@ Command_fix::Command_fix(MAPP* mapp
     CREATE1D(alpha_dof,no_types);
     CREATE1D(c_dof,no_types);
     for(int i=0;i<dim;i++)
-        x_dof[i]=false;
+        x_dof[i]=true;
     for(int i=0;i<no_types;i++)
-        alpha_dof[i]=false;
+        alpha_dof[i]=true;
     for(int i=0;i<no_types;i++)
-        c_dof[i]=false;
+        c_dof[i]=true;
     
     
     
@@ -55,18 +55,18 @@ Command_fix::Command_fix(MAPP* mapp
     while(iarg<nargs && files_started==0)
     {
         if(strcmp(args[iarg],"x")==0)
-            x_dof[0]=true;
+            x_dof[0]=false;
         else if(strcmp(args[iarg],"y")==0)
-            x_dof[1]=true;
+            x_dof[1]=false;
         else if(strcmp(args[iarg],"z")==0)
-            x_dof[2]=true;
+            x_dof[2]=false;
         else if(sscanf(args[iarg],"c[%d]",&c_comp)==1)
         {
             if(mapp->mode!=DMD_mode)
                 error->abort("c[%d] can only be used in dmd mode",c_comp);
             if(c_comp>=no_types || c_comp<0)
                 error->abort("invalid c component %d",c_comp);
-            c_dof[c_comp]=true;
+            c_dof[c_comp]=false;
         }
         else if(sscanf(args[iarg],"alpha[%d]",&alpha_comp)==1)
         {
@@ -74,7 +74,7 @@ Command_fix::Command_fix(MAPP* mapp
                 error->abort("alpha[%d] can only be used in dmd mode",alpha_comp);
             if(alpha_comp>=no_types || alpha_comp<0)
                 error->abort("invalid alpha component %d",alpha_comp);
-            alpha_dof[alpha_comp]=true;
+            alpha_dof[alpha_comp]=false;
         }
         else
         {
@@ -144,21 +144,21 @@ Command_fix::Command_fix(MAPP* mapp
     delete [] line;
     
 
-    int x_xst=0;
-    int alpha_xst=0;
-    int c_xst=0;
+    bool x_xst=false;
+    bool alpha_xst=false;
+    bool c_xst=false;
     
     for(int i=0;i<dim && x_xst==0;i++)
         if(x_dof[i] && list_size_tot)
-            x_xst=1;
+            x_xst=true;
     
     for(int i=0;i<no_types && alpha_xst==0;i++)
         if(alpha_dof[i]  && list_size_tot)
-            alpha_xst=1;
+            alpha_xst=true;
     
     for(int i=0;i<no_types && c_xst==0;i++)
         if(c_dof[i]  && list_size_tot)
-            c_xst=1;
+            c_xst=true;
     
     int x_dim=0;
     int c_dim=0;
@@ -166,12 +166,12 @@ Command_fix::Command_fix(MAPP* mapp
     if(x_xst || alpha_xst)
     {
         x_dim=mapp->x->dim;
-        if(mapp->dof==NULL)
+        if(mapp->x_dof==NULL)
         {
-            mapp->dof=new Vec<bool>(atoms,x_dim);
-            bool* dof=mapp->dof->begin();
+            mapp->x_dof=new Vec<bool>(atoms,x_dim);
+            bool* dof=mapp->x_dof->begin();
             for(int i=0;i<natms*x_dim;i++)
-                dof[i]=false;
+                dof[i]=true;
         }
         
         if(alpha_xst)
@@ -180,26 +180,26 @@ Command_fix::Command_fix(MAPP* mapp
     if(c_xst)
     {
         c_dim=mapp->c->dim;
-        if(mapp->cdof==NULL)
+        if(mapp->c_dof==NULL)
         {
-            mapp->cdof=new Vec<bool>(atoms,c_dim);
-            bool* cdof=mapp->cdof->begin();
+            mapp->c_dof=new Vec<bool>(atoms,c_dim);
+            bool* cdof=mapp->c_dof->begin();
             for(int i=0;i<natms*c_dim;i++)
-                cdof[i]=false;
+                cdof[i]=true;
         }
     }
     
     if(x_xst)
     {
-        bool* dof=mapp->dof->begin();
+        bool* dof=mapp->x_dof->begin();
         int icurs;
         for(int i=0;i<list_size;i++)
         {
             icurs=list[i]*x_dim;
             for(int k=0;k<dim;k++)
             {
-                if(x_dof[k])
-                    dof[icurs+k]=true;
+                if(!x_dof[k])
+                    dof[icurs+k]=false;
             }
         }
     }
@@ -207,7 +207,7 @@ Command_fix::Command_fix(MAPP* mapp
     if(alpha_xst)
     {
         dmd_type* type=mapp->ctype->begin();
-        bool* dof=mapp->dof->begin();
+        bool* dof=mapp->x_dof->begin();
         int icurs;
         int jcurs;
         for(int i=0;i<list_size;i++)
@@ -216,8 +216,8 @@ Command_fix::Command_fix(MAPP* mapp
             jcurs=list[i]*c_dim;
             for(int k=0;k<c_dim;k++)
             {
-                if(alpha_dof[type[jcurs+k]])
-                    dof[icurs+k]=true;
+                if(!alpha_dof[type[jcurs+k]])
+                    dof[icurs+k]=false;
             }
         }
     }
@@ -225,15 +225,15 @@ Command_fix::Command_fix(MAPP* mapp
     if(c_xst)
     {
         dmd_type* type=mapp->ctype->begin();
-        bool* cdof=mapp->cdof->begin();
+        bool* cdof=mapp->c_dof->begin();
         int icurs;
         for(int i=0;i<list_size;i++)
         {
             icurs=list[i]*c_dim;
             for(int k=0;k<c_dim;k++)
             {
-                if(c_dof[type[icurs+k]])
-                    cdof[icurs+k]=true;
+                if(!c_dof[type[icurs+k]])
+                    cdof[icurs+k]=false;
             }
         }
     }
@@ -247,8 +247,6 @@ Command_fix::Command_fix(MAPP* mapp
         delete [] alpha_dof;
         delete [] c_dof;
     }
-    
-
 }
 /*--------------------------------------------
  destructor

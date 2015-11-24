@@ -12,6 +12,9 @@ namespace MAPP_NS
     protected:
         type0* y;
         type0* dy;
+        Vec<type0>** vecs_1;
+        void reset();
+        
         void ord_dt(type0&,type0);
         void interpolate_n_err(type0&,type0&);
         

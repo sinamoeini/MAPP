@@ -15,7 +15,6 @@ namespace MAPP_NS
         void allocate();
         void deallocate();
         
-    protected:
         int stride;
         int nr,nrho;
         type0 dr,drho,dr_inv,drho_inv,rho_max;
@@ -33,18 +32,18 @@ namespace MAPP_NS
         Vec<type0>* E_ptr;
         Vec<type0>* dE_ptr;
         Vec<type0>* mu_ptr;
-        Vec<type0>* crd_ptr;        
+        Vec<type0>* crd_ptr;
         Vec<type0>* s_ptr;
         Vec<type0>* t_ptr;
-
+        
         EAMFileReader* eam_reader;
-
+        
         void read_file(char*);
         
         /*--------------------------------------------*/
         
         /*--------------------------------------------*/
-
+        
         
         int c_dim;
         int dim;
@@ -63,7 +62,7 @@ namespace MAPP_NS
         int max_pairs;
         
         /*--------------------------------------------*/
-
+        
         type0* xi;
         type0* wi_0;
         type0* wi_1;
@@ -72,6 +71,9 @@ namespace MAPP_NS
         type0 set_weight_abs(int);
         
         /*--------------------------------------------*/
+        
+        
+        
         
         type0 mat(type0,type0,type0,type0,int);
         type0 dmat0(type0,type0,type0,type0,int);
@@ -93,9 +95,8 @@ namespace MAPP_NS
         
         void calc_mu_crd();
         void calc_mu_ncrd();
-        
-        void force_calc(bool,type0*);
-
+    protected:        
+        void force_calc(bool);
         type0 energy_calc();
         void dc();
         type0 dc_en_proj(bool,type0*,type0&);
@@ -103,7 +104,6 @@ namespace MAPP_NS
         type0 imp_cost_grad(bool,type0,type0*,type0*);
         type0 dc_norm_grad(bool,type0*,type0*);
         type0 en_grad(bool,type0*,type0*);
-        void enst_calc(bool,type0*);
     public:
         ForceField_eam_dmd(MAPP *);
         ~ForceField_eam_dmd();
@@ -230,10 +230,10 @@ namespace MAPP_NS
  if(jown)
  {
  Ej+=ci*rho_phi[rho_ij];
- nrgy_strss[0]+=ci*cj*rho_phi[phi_ij];
+ nrgy_strss_lcl[0]+=ci*cj*rho_phi[phi_ij];
  }
  else
- nrgy_strss[0]+=0.5*ci*cj*rho_phi[phi_ij];
+ nrgy_strss_lcl[0]+=0.5*ci*cj*rho_phi[phi_ij];
  };*/
 
 /*
@@ -346,10 +346,10 @@ namespace MAPP_NS
  if(jown)
  {
  Ej+=ci*rho_phi[rho_ij];
- nrgy_strss[0]+=ci*cj*rho_phi[phi_ij];
+ nrgy_strss_lcl[0]+=ci*cj*rho_phi[phi_ij];
  }
  else
- nrgy_strss[0]+=0.5*ci*cj*rho_phi[phi_ij];
+ nrgy_strss_lcl[0]+=0.5*ci*cj*rho_phi[phi_ij];
  };
  */
 /*

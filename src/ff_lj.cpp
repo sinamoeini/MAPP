@@ -100,10 +100,10 @@ void ForceField_lj::fin()
  force and energy calculation
  --------------------------------------------*/
 void ForceField_lj::
-force_calc(bool st_clc,type0* en_st)
+force_calc(bool st_clc)
 {
     type0* x=mapp->x->begin();
-    type0* f=mapp->f->begin();
+    type0* fvec=f->begin();
     md_type* type=mapp->type->begin();
 
     int natms=atoms->natms;
@@ -115,10 +115,10 @@ force_calc(bool st_clc,type0* en_st)
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    nrgy_strss[0]=0.0;
+    nrgy_strss_lcl[0]=0.0;
     if (st_clc)
         for(int i=1;i<7;i++)
-            nrgy_strss[i]=0.0;
+            nrgy_strss_lcl[i]=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -149,14 +149,14 @@ force_calc(bool st_clc,type0* en_st)
                 en=4.0*eps*(sig12-sig6)
                 +offset[curs];
                 
-                f[icomp]+=fpair*dx0;
-                f[icomp+1]+=fpair*dx1;
-                f[icomp+2]+=fpair*dx2;
+                fvec[icomp]+=fpair*dx0;
+                fvec[icomp+1]+=fpair*dx1;
+                fvec[icomp+2]+=fpair*dx2;
                 if(jatm<natms)
                 {
-                    f[jcomp]-=fpair*dx0;
-                    f[jcomp+1]-=fpair*dx1;
-                    f[jcomp+2]-=fpair*dx2;
+                    fvec[jcomp]-=fpair*dx0;
+                    fvec[jcomp+1]-=fpair*dx1;
+                    fvec[jcomp+2]-=fpair*dx2;
                 }
 
                
@@ -165,16 +165,16 @@ force_calc(bool st_clc,type0* en_st)
                     fpair*=0.5;
                     en*=0.5;
                 }
-                nrgy_strss[0]+=en;
+                nrgy_strss_lcl[0]+=en;
                 
                 if (st_clc)
                 {
-                    nrgy_strss[1]-=fpair*dx0*dx0;
-                    nrgy_strss[2]-=fpair*dx1*dx1;
-                    nrgy_strss[3]-=fpair*dx2*dx2;
-                    nrgy_strss[4]-=fpair*dx1*dx2;
-                    nrgy_strss[5]-=fpair*dx2*dx0;
-                    nrgy_strss[6]-=fpair*dx0*dx1;
+                    nrgy_strss_lcl[1]-=fpair*dx0*dx0;
+                    nrgy_strss_lcl[2]-=fpair*dx1*dx1;
+                    nrgy_strss_lcl[3]-=fpair*dx2*dx2;
+                    nrgy_strss_lcl[4]-=fpair*dx1*dx2;
+                    nrgy_strss_lcl[5]-=fpair*dx2*dx0;
+                    nrgy_strss_lcl[6]-=fpair*dx0*dx1;
                 }
             }
         }
@@ -183,14 +183,14 @@ force_calc(bool st_clc,type0* en_st)
     if(st_clc)
     {
         for(int i=0;i<7;i++)
-            en_st[i]=0.0;
+            nrgy_strss[i]=0.0;
         
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,7,MPI_TYPE0,MPI_SUM,world);
     }
     else
     {
-        en_st[0]=0.0;
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
+        nrgy_strss[0]=0.0;
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,1,MPI_TYPE0,MPI_SUM,world);
     }
 }
 /*--------------------------------------------

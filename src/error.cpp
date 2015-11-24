@@ -3,6 +3,7 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include <stdlib.h>
+#include <stdarg.h>
 #include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------

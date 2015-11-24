@@ -7,13 +7,12 @@ namespace MAPP_NS {
     class MD : protected InitPtrs
     {
     private:
-        int ns_alloc;
     protected:
         int pe_idx;
         int ke_idx;
         int temp_idx;
         int stress_idx;
-        type0* nrgy_strss;
+        type0*& nrgy_strss;
         VecLst* vecs_comm;
         ThermoDynamics* thermo;
     public:

@@ -28,7 +28,9 @@ ForceField(MAPP* mapp) : InitPtrs(mapp)
     int dim=atoms->dimension;
     if(dim)
     {
+        f=new Vec<type0>(atoms,mapp->x->dim);
         CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
+        CREATE1D(nrgy_strss_lcl,dim*(dim+1)/2+1);
         ns_alloc=1;
     }
 }
@@ -39,7 +41,10 @@ ForceField::~ForceField()
 {
     cut_off_dealloc();
     if(ns_alloc)
+    {
+        delete [] nrgy_strss_lcl;
         delete [] nrgy_strss;
+    }
 }
 /*--------------------------------------------
  allocate cutoff
@@ -94,10 +99,10 @@ type0 ForceField::max_cut()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceField::force_calc_timer(bool flag,type0* enst)
+void ForceField::force_calc_timer(bool flag)
 {
     timer->start(FORCE_TIME_mode);
-    force_calc(flag,enst);
+    force_calc(flag);
     if(flag)
     {
         type0** H=atoms->H;
@@ -105,7 +110,7 @@ void ForceField::force_calc_timer(bool flag,type0* enst)
         for(int idim=0;idim<atoms->dimension;idim++)
             vol*=H[idim][idim];
         for(int i=1;i<7;i++)
-            enst[i]/=vol;
+            nrgy_strss[i]/=vol;
     }
     timer->stop(FORCE_TIME_mode);
 }
@@ -187,24 +192,5 @@ type0 ForceFieldDMD::dc_en_proj_timer
     timer->stop(FORCE_TIME_mode);
     return en;
 }
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void ForceFieldDMD::enst_calc_timer(bool flag,type0* enst)
-{
-    timer->start(FORCE_TIME_mode);
-    force_calc(flag,enst);
-    if(flag)
-    {
-        type0** H=atoms->H;
-        type0 vol=1.0;
-        for(int idim=0;idim<atoms->dimension;idim++)
-            vol*=H[idim][idim];
-        for(int i=1;i<7;i++)
-            enst[i]/=vol;
-    }
-    timer->stop(FORCE_TIME_mode);
-}
-
 
 

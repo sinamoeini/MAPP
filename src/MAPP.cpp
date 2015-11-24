@@ -57,9 +57,8 @@ id(atoms->id)
     x_d=NULL;
     c=NULL;
     c_d=NULL;
-    f=NULL;
-    dof=NULL;
-    cdof=NULL;
+    x_dof=NULL;
+    c_dof=NULL;
     
     ls=NULL;
 
@@ -286,7 +285,7 @@ void MAPP::min_style(int nargs,char** args)
     #define MinStyle(class_name,style_name)     \
     else if(strcmp(args[1],#style_name)==0)     \
         {if(min!=NULL)delete min;               \
-        min= new class_name(this,nargs,args);    \
+        min= new class_name(this,nargs,args);   \
         min->init();min->run();min->fin();      \
         delete min;min=NULL;}
     
@@ -364,16 +363,18 @@ void MAPP::clock_style(int nargs,char** args)
     if(nargs<2)
         error->abort("wrong command: %s"
         ,args[0]);
+    
     if(clock!=NULL)
+    {
         delete clock;
+        clock=NULL;
+    }
     
     #define Clock_Style
-    #define ClockStyle(class_name,style_name)   \
-    else if(strcmp(args[1],#style_name)==0)     \
-        {if(clock!=NULL)delete clock;           \
-        clock= new class_name(this,nargs,args);  \
-        clock->init();clock->run();clock->fin();\
-        delete clock;clock=NULL;}
+    #define ClockStyle(class_name,style_name)\
+    else if(strcmp(args[1],#style_name)==0)  \
+    {clock= new class_name(this,nargs,args);}
+
     
     if(0){}
     #include "clock_styles.h"
@@ -910,6 +911,7 @@ void MAPP::test()
     
 
      */
+
 }
 
 

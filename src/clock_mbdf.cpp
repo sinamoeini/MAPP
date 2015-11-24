@@ -119,15 +119,26 @@ void Clock_mbdf::allocate()
 {
     ClockImplicit::allocate();
     
-    CREATE1D(dy,dof_lcl);
-    CREATE1D(t,max_order+1);
-    CREATE1D(y,max_order+1);
-    for(int i=0;i<max_order+1;i++)
-        CREATE1D(y[i],dof_lcl);
+    vecs_1=new Vec<type0>*[max_order+2];
+    for(int ivec=0;ivec<max_order+2;ivec++)
+        vecs_1[ivec]=new Vec<type0>(atoms,c_dim);
     
     CREATE1D(alpha_y,max_order+1);
     CREATE1D(dalpha_y,max_order+1);
     CREATE1D(alph_err,max_order+2);
+    CREATE1D(t,max_order+1);
+    CREATE1D(y,max_order+1);
+    
+    reset();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Clock_mbdf::reset()
+{
+    for(int i=0;i<max_order+1;i++)
+        y[i]=vecs_1[i]->begin();
+    dy=vecs_1[max_order+1]->begin();
 }
 /*--------------------------------------------
  init
@@ -135,21 +146,15 @@ void Clock_mbdf::allocate()
 void Clock_mbdf::deallocate()
 {
     
-    for(int i=0;i<max_order+1;i++)
-        if(dof_lcl)
-            delete [] y[i];
-    
-    delete [] alph_err;
     delete [] y;
     delete [] t;
-    delete [] alpha_y;
+    delete [] alph_err;
     delete [] dalpha_y;
-    
-    
-    if(dof_lcl)
-    {
-        delete [] dy;
-    }
+    delete [] alpha_y;
+
+    for(int ivec=0;ivec<max_order+2;ivec++)
+        delete vecs_1[ivec];
+    delete [] vecs_1;
     
     ClockImplicit::deallocate();
 }
@@ -216,6 +221,7 @@ void Clock_mbdf::run()
     int err_chk;
     int initial_phase,const_stps;
     int istep;
+    bool thermo_flag;
     
     initial_phase=1;
     const_stps=0;
@@ -244,18 +250,52 @@ void Clock_mbdf::run()
         if(write!=NULL)
             write->write();
         thermo->thermo_print();
+        thermo_flag=(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t);
         
-        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
+        if(thermo_flag)
         {
-            forcefield_dmd->enst_calc_timer(1,nrgy_strss);            
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
+            forcefield_dmd->force_calc_timer(true);
         }
         
         del_t_tmp=del_t;
+        if(min==NULL)
+        {
+            if(thermo_flag)
+                forcefield_dmd->force_calc_timer(true);
+            
+            ord_dt(initial_phase,const_stps,del_t,q);
+        }
+        else
+        {
+            type0 f_norm=min->calc_ave_f_norm();
+            if(f_norm-init_f_norm>=f_tol)
+            {
+                forcefield_dmd->dynamic_flag=true;
+                min->run();
+                nmin++;
+                forcefield_dmd->dynamic_flag=false;
+                init_f_norm=min->calc_ave_f_norm();
+                reset();
+                type0 sum,sum_lcl;
+                sum_lcl=0.0;
+                for(int i=0;i<dof_lcl;i++)
+                    if(c[i]>=0.0)
+                        sum_lcl+=c_d[i]*c_d[i];
+                sum=0.0;
+                MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
+                sum=sqrt(sum/static_cast<type0>(dof_tot));
+                type0 del_t_=MIN(2.0*a_tol/sum,1.0e-3*(max_t-tot_t));
+                init_stp_adj(del_t_);
+                t[0]=0.0;
+                t[1]=-del_t_;
+                q=1;
+                initial_phase=1;
+                const_stps=0;
+            }
+            else
+                ord_dt(initial_phase,const_stps,del_t,q);
+        }
         
-        ord_dt(initial_phase,const_stps,del_t,q);
                 
         tmp_y=y[max_order];
         for(int i=max_order;i>0;i--)
@@ -267,6 +307,13 @@ void Clock_mbdf::run()
         y[0]=tmp_y;
         memcpy(y[0],c,dof_lcl*sizeof(type0));
         memcpy(dy,c_d,dof_lcl*sizeof(type0));
+        
+        if(thermo_flag)
+        {
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
+            thermo->update(time_idx,tot_t);
+        }
         
         step_no++;
         istep++;

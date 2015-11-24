@@ -116,26 +116,33 @@ Clock_bdf::~Clock_bdf()
 void Clock_bdf::allocate()
 {
     ClockImplicit::allocate();
+    vecs_1=new Vec<type0>*[max_order+2];
+    for(int ivec=0;ivec<max_order+2;ivec++)
+        vecs_1[ivec]=new Vec<type0>(atoms,c_dim);
     
-    CREATE1D(e_n,dof_lcl);
-    CREATE1D(dy,dof_lcl);
+    
     CREATE1D(t,max_order);
     CREATE1D(y,max_order);
-    for(int i=0;i<max_order;i++)
-        CREATE1D(y[i],dof_lcl);
-    
     CREATE1D(alpha_y,max_order);
     CREATE1D(dalpha_y,max_order);
+    
+    reset();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Clock_bdf::reset()
+{
+    for(int i=0;i<max_order;i++)
+        y[i]=vecs_1[i]->begin();
+    dy=vecs_1[max_order]->begin();
+    e_n=vecs_1[max_order+1]->begin();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 void Clock_bdf::deallocate()
 {
-    for(int i=0;i<max_order;i++)
-        if(dof_lcl)
-            delete [] y[i];
-    
     if(max_order)
     {
         delete [] y;
@@ -144,11 +151,9 @@ void Clock_bdf::deallocate()
         delete [] dalpha_y;
     }
     
-    if(dof_lcl)
-    {
-        delete [] e_n;
-        delete [] dy;
-    }
+    for(int ivec=0;ivec<max_order+2;ivec++)
+        delete vecs_1[ivec];
+    delete [] vecs_1;
     
     ClockImplicit::deallocate();
 }
@@ -202,7 +207,7 @@ void Clock_bdf::run()
     int q=1;
     int err_chk;
     int istep;
-    
+    bool thermo_flag;
     
     istep=0;
     while (istep<max_step && tot_t<max_t)
@@ -227,19 +232,45 @@ void Clock_bdf::run()
         if(write!=NULL)
             write->write();
         thermo->thermo_print();
+        thermo_flag=(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t);
         
-        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
-        {
-            forcefield_dmd->enst_calc_timer(1,nrgy_strss);
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
-        }
-        
-        del_t_tmp=del_t;
 
-        ord_dt(del_t,q,err);
-        
+        del_t_tmp=del_t;
+        if(min==NULL)
+        {
+            if(thermo_flag)
+                forcefield_dmd->force_calc_timer(true);
+
+            ord_dt(del_t,q,err);
+        }
+        else
+        {
+            type0 f_norm=min->calc_ave_f_norm();
+            if(f_norm-init_f_norm>=f_tol)
+            {
+                forcefield_dmd->dynamic_flag=true;
+                min->run();
+                nmin++;
+                forcefield_dmd->dynamic_flag=false;
+                init_f_norm=min->calc_ave_f_norm();
+                reset();
+                c=mapp->c->begin();
+                c_d=mapp->c_d->begin();
+                neighbor_dmd->create_2nd_list();
+                forcefield_dmd->dc_timer();
+                type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(static_cast<type0>(dof_tot));
+                type0 del_t_=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+                init_stp_adj(del_t_);
+                for(int i=0;i<max_order;i++)
+                    t[i]=0.0;
+                q=1;
+            }
+            else
+                ord_dt(del_t,q,err);
+
+        }
+
+
         
         tmp_y=y[max_order-1];
         for(int i=max_order-1;i>0;i--)
@@ -252,6 +283,12 @@ void Clock_bdf::run()
         memcpy(y[0],c,dof_lcl*sizeof(type0));
         memcpy(dy,c_d,dof_lcl*sizeof(type0));
         
+        if(thermo_flag)
+        {
+            thermo->update(fe_idx,nrgy_strss[0]);
+            thermo->update(stress_idx,6,&nrgy_strss[1]);
+            thermo->update(time_idx,tot_t);
+        }
         step_no++;
         istep++;
     }

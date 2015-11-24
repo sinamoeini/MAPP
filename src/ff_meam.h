@@ -182,7 +182,7 @@ namespace MAPP_NS
         type0 third,sixth;
         
         
-        void force_calc(bool,type0*);
+        void force_calc(bool);
         type0 energy_calc();
         
     public:

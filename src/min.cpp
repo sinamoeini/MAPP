@@ -15,15 +15,16 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min::Min(MAPP* mapp):InitPtrs(mapp)
+Min::Min(MAPP* mapp):InitPtrs(mapp),
+nrgy_strss(forcefield->nrgy_strss)
 {
-    ns_alloc=0;
+    output_flag=true;
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before min");
     
     
-    chng_box=0;
+    chng_box=false;
     dim=atoms->dimension;
     x_dim=mapp->x->dim;
     err=LS_S;
@@ -51,11 +52,6 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
     energy_tolerance=1.0e-8;
     affine=0;
 
-    if(dim)
-    {
-        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
-        ns_alloc=1;
-    }
     
     H_dof=new bool*[dim];
     *H_dof=new bool[dim*dim];
@@ -79,8 +75,6 @@ Min::Min(MAPP* mapp):InitPtrs(mapp)
 Min::~Min()
 {
     delete thermo;
-    if(ns_alloc)
-        delete [] nrgy_strss;
 
     if(dim)
     {
@@ -89,18 +83,12 @@ Min::~Min()
     }
     
     delete xmath;
-    cout <<"last one " <<endl;
 }
 /*--------------------------------------------
  error messages
  --------------------------------------------*/
 void Min::print_error()
 {
-    if(atoms->my_p==0)
-    {
-        fprintf(output,"init. energy gradient norm: %e\n",df_norm_0);
-        fprintf(output,"final energy gradient norm: %e\n",df_norm_1);
-    }
     
     if(err==LS_F_DOWNHILL)
     {
@@ -148,15 +136,22 @@ void Min::force_calc()
     for(int i=0;i<x_dim*atoms->natms;i++)
         fvec[i]=0.0;
 
-    forcefield->force_calc_timer(sts_flag,nrgy_strss);
+    forcefield->force_calc_timer(sts_flag);
+    
+    if(output_flag)
+    {
+        thermo->update(pe_idx,nrgy_strss[0]);
+        thermo->update(stress_idx,6,&nrgy_strss[1]);
+    }
+
     
     if(!chng_box)
     {
-        if(mapp->dof!=NULL)
+        if(mapp->x_dof!=NULL)
         {
-            bool* dof=mapp->dof->begin();
+            bool* dof=mapp->x_dof->begin();
             for(int i=0;i<atoms->natms*x_dim;i++)
-                if(dof[i]) fvec[i]=0.0;
+                fvec[i]*=dof[i];
         }
         return;
     }
@@ -179,7 +174,7 @@ void Min::force_calc()
         if(H_dof[1][0])
             f.A[1][0]=-(nrgy_strss[6]*B[1][1]+nrgy_strss[5]*B[2][1])*vol;
 
-        if(mapp->dof==NULL)
+        if(mapp->x_dof==NULL)
         {
             fvec=f()->begin();
             
@@ -202,23 +197,23 @@ void Min::force_calc()
         
         type0* xvec=x()->begin();
         fvec=f()->begin();
-        bool* dof=mapp->dof->begin();
+        bool* dof=mapp->x_dof->begin();
         for(int i=0;i<atoms->natms;i++)
         {
-            if(dof[0])
+            if(!dof[0])
             {
                 st_lcl[0]+=fvec[0]*xvec[0];
                 st_lcl[4]+=fvec[0]*xvec[2];
                 st_lcl[5]+=fvec[0]*xvec[1];
             }
             
-            if(dof[1])
+            if(!dof[1])
             {
                 st_lcl[1]+=fvec[1]*xvec[1];
                 st_lcl[3]+=fvec[1]*xvec[2];
             }
             
-            if(dof[2])
+            if(!dof[2])
             {
                 st_lcl[2]+=fvec[2]*xvec[2];
             }
@@ -227,8 +222,7 @@ void Min::force_calc()
                 fvec[j]=0.0;
             
             for(int j=dim;j<x_dim;j++)
-                if(dof[j])
-                    fvec[j]=0.0;
+                fvec[j]*=dof[j];
             
             fvec+=x_dim;
             xvec+=x_dim;
@@ -310,13 +304,13 @@ void Min::force_calc()
         if(H_dof[1][0])
             f.A[1][0]=st[5];
 
-        if(mapp->dof==NULL)
+        if(mapp->x_dof==NULL)
             return;
         
-        bool* dof=mapp->dof->begin();
+        bool* dof=mapp->x_dof->begin();
         fvec=f()->begin();
         for(int i=0;i<atoms->natms*x_dim;i++)
-            if(dof[i]) fvec[i]=0.0;
+            fvec[i]*=dof[i];
     }
 
 }
@@ -373,13 +367,86 @@ void Min::prepare_affine_h()
     }
     
 
-    if(mapp->dof==NULL)
+    if(mapp->x_dof==NULL)
         return;
     
-    bool* dof=mapp->dof->begin();
-    type0*hvec=h()->begin();
+    bool* dof=mapp->x_dof->begin();
+    type0* hvec=h()->begin();
     for(int i=0;i<atoms->natms*x_dim;i++)
-        if(dof[i]) hvec[i]=0.0;
+        hvec[i]*=dof[i];
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+type0 Min::calc_ave_f_norm()
+{
+    force_calc();
+    return sqrt(f*f)/ndofs;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+type0 Min::calc_ndofs()
+{
+    type0 ndofs_lcl=0.0;
+    if(mapp->mode==DMD_mode)
+    {
+
+        type0* c=mapp->c->begin();
+        int c_dim=mapp->c->dim;
+        if(mapp->x_dof==NULL)
+        {
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                for(int i=0;i<c_dim;i++)
+                    if(c[i]>=0.0)
+                        ndofs_lcl++;
+                
+                c+=c_dim;
+            }
+        }
+        else
+        {
+            bool* dof=mapp->x_dof->begin()+dim;
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                for(int i=0;i<c_dim;i++)
+                    if(c[i]>=0.0 && dof[i])
+                        ndofs_lcl++;
+                
+                c+=c_dim;
+                dof+=x_dim;
+            }
+            
+        }
+    }
+    
+    if(!affine)
+    {
+        if(mapp->x_dof!=NULL)
+        {
+            bool* dof=mapp->x_dof->begin();
+            for(int iatm=0;iatm<atoms->natms;iatm++)
+            {
+                for(int i=0;i<dim;i++)
+                    if(dof[i])
+                        ndofs_lcl++;
+                dof+=x_dim;
+            }
+        }
+        else
+        {
+            ndofs_lcl+=static_cast<type0>(atoms->natms*dim);
+        }
+    }
+    type0 ndofs;
+    MPI_Allreduce(&ndofs_lcl,&ndofs,1,MPI_TYPE0,MPI_SUM,world);
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            if(H_dof[i][j])
+                ndofs++;
+    
+    return ndofs;
 }
 /*--------------------------------------------
  
@@ -391,24 +458,20 @@ void Min::init()
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
             if(H_dof[i][j])
-                chng_box=1;
+                chng_box=true;
     
-    sts_flag=1;
-    if(chng_box && affine)
-        sts_flag=2;
-    else if(chng_box && !affine)
-        sts_flag=2;
+    ndofs=calc_ndofs();
+    if(ndofs==0)
+        error->abort("for minimization to "
+        "perform the degrees of freedom "
+        "must be greater than 0.0");
     
-
-    
-    if(mapp->f==NULL)
-        mapp->f=new Vec<type0>(atoms,x_dim);
-    
+    sts_flag=true;
 
     
     x.init(atoms,atoms->x,atoms->H,chng_box);
     x0.init(atoms,chng_box);
-    f.init(atoms,mapp->f,chng_box);
+    f.init(atoms,forcefield->f,chng_box);
     f0.init(atoms,chng_box);
     h.init(atoms,chng_box);
 
@@ -418,18 +481,18 @@ void Min::init()
     if(mapp->mode==MD_mode)
     {
         vecs_comm->add_updt(mapp->type);
-        if(mapp->dof!=NULL)
-            vecs_comm->add_xchng(mapp->dof);
+        if(mapp->x_dof!=NULL)
+            vecs_comm->add_xchng(mapp->x_dof);
     }
     else if(mapp->mode==DMD_mode)
     {
         vecs_comm->add_updt(mapp->c);
         vecs_comm->add_updt(mapp->ctype);
-        if(mapp->dof!=NULL)
+        if(mapp->x_dof!=NULL)
         {
-            vecs_comm->add_xchng(mapp->dof);
-            if(mapp->cdof!=NULL)
-                vecs_comm->add_xchng(mapp->cdof);
+            vecs_comm->add_xchng(mapp->x_dof);
+            if(mapp->c_dof!=NULL)
+                vecs_comm->add_xchng(mapp->c_dof);
         }
     }
     
@@ -459,10 +522,12 @@ void Min::fin()
     f0.fin();
     h.fin();
     delete vecs_comm;
-    print_error();
-    timer->print_stats();
-    neighbor->print_stats();
-
+    if(output_flag)
+    {
+        print_error();
+        timer->print_stats();
+        neighbor->print_stats();
+    }
 }
 /*--------------------------------------------
  inner product of f and h

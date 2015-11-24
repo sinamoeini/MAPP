@@ -13,6 +13,8 @@ namespace MAPP_NS {
         type0* t;
         type0** dy;
         type0* y;
+        Vec<type0>** vecs_1;
+        void reset();
         
         // stuff for coefficients
         type0 alpha_y;

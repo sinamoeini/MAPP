@@ -4,6 +4,7 @@
 #include "ff.h"
 #include "neighbor_dmd.h"
 #include "thermo_dynamics.h"
+#include "min.h"
 namespace MAPP_NS
 {
     enum
@@ -16,7 +17,6 @@ namespace MAPP_NS
     class Clock : protected InitPtrs
     {
     private:
-        int ns_alloc;
     protected:
         VecLst* vecs_comm;
         ForceFieldDMD* forcefield_dmd;
@@ -26,7 +26,7 @@ namespace MAPP_NS
         int fe_idx;
         int stress_idx;
         int time_idx;
-        type0* nrgy_strss;
+        type0*& nrgy_strss;
         type0 tot_t,a_tol;
         int c_dim;
         
@@ -35,17 +35,23 @@ namespace MAPP_NS
         type0 old_skin;
         void rectify(type0*);
         
-        virtual void print_stats()=0;
+        virtual void print_stats();
         
         int max_step;
         type0 min_del_t,initial_del_t,max_t;
         ThermoDynamics* thermo;
+        
+        Min* min;
+        int nmin;
+        type0 f_tol;
+        type0 init_f_norm;
     public:
         Clock(MAPP *);
         virtual ~Clock();
         virtual void run()=0;
         virtual void init();
         virtual void fin();
+        void coef(int,char**);
     };
 
     class ClockImplicit: public Clock
@@ -57,6 +63,7 @@ namespace MAPP_NS
         int max_order;
         // variables & vectors for implicit integrator
         type0 beta;
+        Vec<type0>** vecs_0;
         type0* a;
         type0* y_0;
         type0* y_1;
@@ -95,7 +102,8 @@ namespace MAPP_NS
         int solve_acc;
         int intg_rej;
         int intp_rej;
-        
+
+        void reset();
         int test(type0,type0,type0);
 
     public:

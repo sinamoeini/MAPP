@@ -394,14 +394,7 @@ void MD_nh::init()
 
     if(mapp->x_d==NULL)
         mapp->x_d=new Vec<type0>(atoms,3);
-    
-    if(mapp->f==NULL)
-        mapp->f=new Vec<type0>(atoms,3);
-    
-    
-    x_dim=mapp->x->dim;
-    x_d_dim=mapp->x_d->dim;
-    f_dim=mapp->f->dim;
+
     
     /*
      0. set the atomic vectors communication
@@ -415,11 +408,10 @@ void MD_nh::init()
      */
 
     dof_xst=false;
-    if(mapp->dof!=NULL)
+    if(mapp->x_dof!=NULL)
     {
         dof_xst=true;
-        bool* dof=mapp->dof->begin();
-        dof_dim=mapp->dof->dim;
+        bool* dof=mapp->x_dof->begin();
         
         int tmp_0=0;
         int tmp_1=0;
@@ -427,9 +419,9 @@ void MD_nh::init()
         
         for(int i=0;i<atoms->natms;i++)
         {
-            if(dof[dof_dim*i]==1) tmp_0++;
-            if(dof[dof_dim*i+1]==1) tmp_1++;
-            if(dof[dof_dim*i+2]==1) tmp_2++;
+            if(!dof[3*i]) tmp_0++;
+            if(!dof[3*i+1]) tmp_1++;
+            if(!dof[3*i+2]) tmp_2++;
         }
         
         
@@ -465,9 +457,9 @@ void MD_nh::init()
     vecs_comm->add_updt(mapp->type);
     vecs_comm->add_xchng(mapp->x_d);
     
-    if(mapp->dof!=NULL)
+    if(mapp->x_dof!=NULL)
     {
-        vecs_comm->add_xchng(mapp->dof);
+        vecs_comm->add_xchng(mapp->x_dof);
     }
     
     if(chk_stress)
@@ -483,7 +475,7 @@ void MD_nh::init()
     
     zero_f();
     
-    forcefield->force_calc_timer(1,nrgy_strss);
+    forcefield->force_calc_timer(true);
     
     thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(pe_idx,nrgy_strss[0]);
@@ -573,7 +565,7 @@ void MD_nh::run(int no_stps)
             if(write!=NULL)
                 write->write();
             
-            forcefield->force_calc_timer(1,nrgy_strss);
+            forcefield->force_calc_timer(true);
             
             
             for(int j=0;j<6;j++)
@@ -621,9 +613,9 @@ void MD_nh::run(int no_stps)
                 write->write();
             
             if(thermo->test_prev_step()|| i==no_stps-1)
-                 forcefield->force_calc_timer(1,&nrgy_strss[0]);
+                 forcefield->force_calc_timer(true);
             else
-                forcefield->force_calc_timer(0,&nrgy_strss[0]);
+                forcefield->force_calc_timer(false);
 
             update_x_d(dt2);
             update_NH_T(dt2);
@@ -765,7 +757,7 @@ void MD_nh::update_x(type0 dlt)
     
     bool* dof=NULL;
     if(dof_xst)
-        dof=mapp->dof->begin();
+        dof=mapp->x_dof->begin();
     
     int natms=atoms->natms;
     int icomp,iicomp,iiicomp;
@@ -777,8 +769,8 @@ void MD_nh::update_x(type0 dlt)
         update_H(0.5*dlt);
         for(int i=0;i<natms;i++)
         {
-            icomp=x_dim*i;
-            iicomp=x_d_dim*i;
+            icomp=3*i;
+            iicomp=3*i;
             
             x_ave[0]-=x[icomp];
             x_ave[1]-=x[icomp+1];
@@ -797,17 +789,17 @@ void MD_nh::update_x(type0 dlt)
             
             if(dof_xst)
             {
-                iiicomp=dof_dim*i;
-                if(dof[iiicomp]==0)
+                iiicomp=3*i;
+                if(dof[iiicomp])
                     x[icomp]=tmp_x[0]*M2[0][0]
                     +tmp_x[1]*M2[1][0]
                     +tmp_x[2]*M2[2][0];
                 
-                if(dof[iiicomp+1]==0)
+                if(dof[iiicomp+1])
                     x[icomp+1]=tmp_x[1]*M2[1][1]
                     +tmp_x[2]*M2[2][1];
                 
-                if(dof[iiicomp+2]==0)
+                if(dof[iiicomp+2])
                     x[icomp+2]=tmp_x[2]*M2[2][2];
                     
             }
@@ -830,8 +822,8 @@ void MD_nh::update_x(type0 dlt)
     {
         for(int i=0;i<natms;i++)
         {
-            icomp=x_dim*i;
-            iicomp=x_d_dim*i;
+            icomp=3*i;
+            iicomp=3*i;
             x[icomp]+=x_d[iicomp]*dlt;
             x[icomp+1]+=x_d[iicomp+1]*dlt;
             x[icomp+2]+=x_d[iicomp+2]*dlt;
@@ -848,7 +840,7 @@ void MD_nh::update_x(type0 dlt)
     
     for(int i=0;i<natms;i++)
     {
-        icomp=x_dim*i;
+        icomp=3*i;
         x[icomp]-=x_ave_tot[0];
         x[icomp+1]-=x_ave_tot[1];
         x[icomp+2]-=x_ave_tot[2];
@@ -863,12 +855,12 @@ void MD_nh::update_x_d(type0 dlt)
 {
     
     type0* x_d=mapp->x_d->begin();
-    type0* f=mapp->f->begin();
+    type0* f=forcefield->f->begin();
     md_type* type=mapp->type->begin();
     
     bool* dof=NULL;
     if(dof_xst)
-        dof=mapp->dof->begin();
+        dof=mapp->x_dof->begin();
 
     type0* mass=atom_types->mass;
     int natms=atoms->natms;
@@ -879,8 +871,8 @@ void MD_nh::update_x_d(type0 dlt)
     
     for(int i=0;i<natms;i++)
     {
-        icomp=x_d_dim*i;
-        iicomp=f_dim*i;
+        icomp=3*i;
+        iicomp=3*i;
         
         x_d[icomp]+=f[iicomp]*dlt/mass[type[i]];
         x_d[icomp+1]+=f[iicomp+1]*dlt/mass[type[i]];
@@ -888,12 +880,12 @@ void MD_nh::update_x_d(type0 dlt)
         
         if(dof_xst)
         {
-            iiicomp=dof_dim*i;
-            if(dof[iiicomp]==1)
+            iiicomp=3*i;
+            if(!dof[iiicomp])
                 x_d[icomp]=0.0;
-            if(dof[iiicomp+1]==1)
+            if(!dof[iiicomp+1])
                 x_d[icomp+1]=0.0;
-            if(dof[iiicomp+2]==1)
+            if(!dof[iiicomp+2])
                 x_d[icomp+2]=0.0;
             
         }
@@ -978,7 +970,7 @@ void MD_nh::update_NH_T(type0 dlt)
     type0* x_d=mapp->x_d->begin();
     for(int i=0;i<natoms;i++)
         for(int j=0;j<3;j++)
-            x_d[i*x_d_dim+j]*=velfac;
+            x_d[i*3+j]*=velfac;
     
 }
 /*--------------------------------------------
@@ -1082,7 +1074,7 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
     
     bool* dof=NULL;
     if(dof_xst)
-        dof=mapp->dof->begin();
+        dof=mapp->x_dof->begin();
     
     
     type0* x_d=mapp->x_d->begin();
@@ -1101,7 +1093,7 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
         tmp_ke_curr[i]=0.0;
     for(int i=0;i<natms;i++)
     {
-        icomp=x_d_dim*i;
+        icomp=3*i;
         x_d[icomp]*=tmp_fac[0];
         x_d[icomp+1]*=tmp_fac[1];
         x_d[icomp+2]*=tmp_fac[2];
@@ -1116,10 +1108,10 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
         
         if(dof_xst)
         {
-            iicomp=dof_dim*i;
-            if(dof[iicomp]==1) x_d[icomp]=0.0;
-            if(dof[iicomp+1]==1) x_d[icomp+1]=0.0;
-            if(dof[iicomp+2]==1) x_d[icomp+2]=0.0;
+            iicomp=3*i;
+            if(!dof[iicomp]) x_d[icomp]=0.0;
+            if(!dof[iicomp+1]) x_d[icomp+1]=0.0;
+            if(!dof[iicomp+2]) x_d[icomp+2]=0.0;
         }
         
         tmp_ke_curr[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
@@ -1141,8 +1133,8 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
  --------------------------------------------*/
 void MD_nh::zero_f()
 {
-    type0* f=mapp->f->begin();
-    for(int i=0;i<atoms->natms*f_dim;i++)
+    type0* f=forcefield->f->begin();
+    for(int i=0;i<atoms->natms*3;i++)
         f[i]=0.0;
 }
 /*--------------------------------------------
@@ -1152,7 +1144,7 @@ void MD_nh::create_vel(int seed,type0 temperature)
 {
     bool* dof=NULL;
     if(dof_xst)
-        dof=mapp->dof->begin();
+        dof=mapp->x_dof->begin();
     
     type0* x_d=mapp->x_d->begin();
     md_type* type=mapp->type->begin();
@@ -1168,15 +1160,15 @@ void MD_nh::create_vel(int seed,type0 temperature)
     class Random* random=new Random(mapp,seed);
     for(int i=0;i<natms;i++)
     {
-        icomp=x_d_dim*i;
+        icomp=3*i;
         for(int j=0;j<3;j++)
             x_d[icomp+j]=random->gaussian()/(sqrt(mass[type[i]]));
         if(dof_xst)
         {
-            iicomp=dof_dim*i;
-            if(dof[iicomp]==1) x_d[icomp]=0.0;
-            if(dof[iicomp+1]==1) x_d[icomp+1]=0.0;
-            if(dof[iicomp+2]==1) x_d[icomp+2]=0.0;
+            iicomp=3*i;
+            if(!dof[iicomp]) x_d[icomp]=0.0;
+            if(!dof[iicomp+1]) x_d[icomp+1]=0.0;
+            if(!dof[iicomp+2]) x_d[icomp+2]=0.0;
         }
 
         temp[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
@@ -1204,7 +1196,7 @@ void MD_nh::create_vel(int seed,type0 temperature)
     type0 facsq=ke_des/ke_cur;
     for(int i=0;i<natms;i++)
         for(int j=0;j<3;j++)
-            x_d[i*x_d_dim+j]*=factor;
+            x_d[i*3+j]*=factor;
     
     for(int i=0;i<6;i++)
         ke_curr[i]*=facsq;
@@ -1234,7 +1226,7 @@ void MD_nh::init_vel(type0 temperature)
     
     for(int i=0;i<natms;i++)
     {
-        icomp=x_d_dim*i;
+        icomp=3*i;
         temp[0]+=mass[type[i]]*x_d[icomp]*x_d[icomp];
         temp[1]+=mass[type[i]]*x_d[icomp+1]*x_d[icomp+1];
         temp[2]+=mass[type[i]]*x_d[icomp+2]*x_d[icomp+2];

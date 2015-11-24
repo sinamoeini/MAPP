@@ -11,3 +11,4 @@
 #include "command_fix.h"
 #include "command_change_box.h"
 #include "command_precision.h"
+#include "command_clock_coef.h"

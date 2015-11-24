@@ -80,8 +80,8 @@ void EAMFileReader::setup()
         
         set_funcfl();
     }
+    
     set_arrays();
-
 }
 /*--------------------------------------------
  
@@ -430,32 +430,46 @@ void EAMFileReader::set_setfl()
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
     
-    
-    if(mapp->read_line(fp,line)==-1)
-        error->abort("%s file ended immaturely",files[0]);
-    
-    
     int ipos=0;
     int tot=tot_no_types*(nrho+nr)+tot_no_types*(tot_no_types+1)*nr/2;
-    
     type0* tmp;
     CREATE1D(tmp,tot);
+    for(int ityp=0;ityp<tot_no_types;ityp++)
+    {
+        if(mapp->read_line(fp,line)==-1)
+            error->abort("%s file ended immaturely",files[0]);
+        int lim=(ityp+1)*(nrho+nr);
+        while (ipos<lim)
+        {
+            if(mapp->read_line(fp,line)==-1)
+                error->abort("%s file ended immaturely",files[0]);
+            
+            nargs=mapp->parse_line(line,args,args_cpcty);
+            for(int i=0;i<nargs;i++)
+            {
+                tmp[ipos]=atof(args[i]);
+                ipos++;
+            }
+        }
+        if(ipos!=lim)
+            error->abort("unknown line in file %s:",files[0],line);
+    }
+    
     while (ipos<tot)
     {
         if(mapp->read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
         
         nargs=mapp->parse_line(line,args,args_cpcty);
-        
-        if(ipos+nargs>tot)
-            error->abort("%s file ended immaturely",files[0]);
-        
         for(int i=0;i<nargs;i++)
         {
             tmp[ipos]=atof(args[i]);
             ipos++;
         }
     }
+    
+    if(ipos!=tot)
+        error->abort("unknown line in file %s:",files[0],line);
     
     delete [] line;
     if(args_cpcty)
@@ -492,9 +506,8 @@ void EAMFileReader::set_setfl()
             
             ipos+=nr;
         }
-        
     }
-
+    
     
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
@@ -522,7 +535,6 @@ void EAMFileReader::set_setfl()
             }
         }
     }
-    
     
     delete [] tmp;
     
@@ -956,56 +968,55 @@ void EAMFileReader::set_arrays()
 {
     if(mapp->mode==MD_mode)
     {
-        for(int i=0;i<no_types;i++)
-            interpolate_7(nrho,drho,F_arr[i]);
+        for(int itype=0;itype<no_types;itype++)
+            interpolate_7(nrho,drho,F_arr[itype]);
         
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<i+1;j++)
-                interpolate_7(nr,dr,phi_r_arr[type2phi[i][j]]);
+        for(int itype=0;itype<no_types;itype++)
+            for(int jtype=0;jtype<itype+1;jtype++)
+                interpolate_7(nr,dr,phi_r_arr[type2phi[itype][jtype]]);
         
         if(eam_mode==FUNC_FL || eam_mode==SET_FL)
         {
-            for(int i=0;i<no_types;i++)
-                interpolate_7(nr,dr,rho_arr[i]);
+            for(int itype=0;itype<no_types;itype++)
+                interpolate_7(nr,dr,rho_arr[type2rho[itype][0]]);
         }
         else if(eam_mode==FINNIS_FL)
         {
-            for(int i=0;i<no_types;i++)
-                for(int j=0;j<no_types;j++)
-                    interpolate_7(nr,dr,rho_arr[type2rho[i][j]]);
+            for(int itype=0;itype<no_types;itype++)
+                for(int jtype=0;jtype<no_types;jtype++)
+                    interpolate_7(nr,dr,rho_arr[type2rho[itype][jtype]]);
         }
         
     }
     else if(mapp->mode==DMD_mode)
     {
-        for(int i=0;i<no_types;i++)
-            interpolate_5(nrho,drho,F_arr[i]);
+        for(int itype=0;itype<no_types;itype++)
+            interpolate_5(nrho,drho,F_arr[itype]);
         
-        for(int i=0;i<no_types;i++)
-            for(int j=0;j<i+1;j++)
-                interpolate_4(nr,dr,phi_r_arr[type2phi[i][j]]);
+        for(int itype=0;itype<no_types;itype++)
+            for(int jtype=0;jtype<itype+1;jtype++)
+                interpolate_4(nr,dr,phi_r_arr[type2phi[itype][jtype]]);
         
         if(eam_mode==FUNC_FL || eam_mode==SET_FL)
         {
-            for(int i=0;i<no_types;i++)
-                for(int j=0;j<no_types;j++)
-                    for(int k=0;k<nr;k++)
-                        rho_arr[i][k][0]*=static_cast<type0>(k)*dr;
+            for(int itype=0;itype<no_types;itype++)
+                for(int k=0;k<nr;k++)
+                    rho_arr[type2rho[itype][0]][k][0]*=static_cast<type0>(k)*dr;
             
-            for(int i=0;i<no_types;i++)
-                interpolate_4(nr,dr,rho_arr[i]);
+            for(int itype=0;itype<no_types;itype++)
+                interpolate_4(nr,dr,rho_arr[type2rho[itype][0]]);
         }
         else if(eam_mode==FINNIS_FL)
         {
          
-            for(int i=0;i<no_types;i++)
-                for(int j=0;j<no_types;j++)
+            for(int itype=0;itype<no_types;itype++)
+                for(int jtype=0;jtype<no_types;jtype++)
                     for(int k=0;k<nr;k++)
-                        rho_arr[type2rho[i][j]][k][0]*=static_cast<type0>(k)*dr;
+                        rho_arr[type2rho[itype][jtype]][k][0]*=static_cast<type0>(k)*dr;
           
-            for(int i=0;i<no_types;i++)
-                for(int j=0;j<no_types;j++)
-                    interpolate_4(nr,dr,rho_arr[type2rho[i][j]]);
+            for(int itype=0;itype<no_types;itype++)
+                for(int jtype=0;jtype<no_types;jtype++)
+                    interpolate_4(nr,dr,rho_arr[type2rho[itype][jtype]]);
         }
     }
     

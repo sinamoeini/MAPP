@@ -31,7 +31,7 @@ ForceField_eam::~ForceField_eam()
  force calculation
  --------------------------------------------*/
 void ForceField_eam::
-force_calc(bool st_clc,type0* en_st)
+force_calc(bool st_clc)
 {
     if(max_pairs<neighbor->no_pairs)
     {
@@ -47,7 +47,7 @@ force_calc(bool st_clc,type0* en_st)
     }
     
     type0* x=mapp->x->begin();
-    type0* f=mapp->f->begin();
+    type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
     md_type* type=mapp->type->begin();
     
@@ -64,10 +64,10 @@ force_calc(bool st_clc,type0* en_st)
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    nrgy_strss[0]=0.0;
+    nrgy_strss_lcl[0]=0.0;
     if (st_clc)
         for(int i=1;i<7;i++)
-            nrgy_strss[i]=0.0;
+            nrgy_strss_lcl[i]=0.0;
     
     int natms=atoms->natms;
     
@@ -119,15 +119,15 @@ force_calc(bool st_clc,type0* en_st)
                     
                 fpair=-dphi_dr*r_inv;
                 
-                f[icomp]+=fpair*dx0;
-                f[icomp+1]+=fpair*dx1;
-                f[icomp+2]+=fpair*dx2;
+                fvec[icomp]+=fpair*dx0;
+                fvec[icomp+1]+=fpair*dx1;
+                fvec[icomp+2]+=fpair*dx2;
                 
                 if(jatm<natms)
                 {
-                    f[jcomp]-=fpair*dx0;
-                    f[jcomp+1]-=fpair*dx1;
-                    f[jcomp+2]-=fpair*dx2;
+                    fvec[jcomp]-=fpair*dx0;
+                    fvec[jcomp+1]-=fpair*dx1;
+                    fvec[jcomp+2]-=fpair*dx2;
                 }
                 
                 if(jatm>=natms)
@@ -136,16 +136,16 @@ force_calc(bool st_clc,type0* en_st)
                     phi*=0.5;
                 }
                 
-                nrgy_strss[0]+=phi;
+                nrgy_strss_lcl[0]+=phi;
                 
                 if (st_clc)
                 {
-                    nrgy_strss[1]-=fpair*dx0*dx0;
-                    nrgy_strss[2]-=fpair*dx1*dx1;
-                    nrgy_strss[3]-=fpair*dx2*dx2;
-                    nrgy_strss[4]-=fpair*dx1*dx2;
-                    nrgy_strss[5]-=fpair*dx2*dx0;
-                    nrgy_strss[6]-=fpair*dx0*dx1;
+                    nrgy_strss_lcl[1]-=fpair*dx0*dx0;
+                    nrgy_strss_lcl[2]-=fpair*dx1*dx1;
+                    nrgy_strss_lcl[3]-=fpair*dx2*dx2;
+                    nrgy_strss_lcl[4]-=fpair*dx1*dx2;
+                    nrgy_strss_lcl[5]-=fpair*dx2*dx0;
+                    nrgy_strss_lcl[6]-=fpair*dx0*dx1;
                 }
                 
                 drhoi_dr[istart]=-drho_i_dr*r_inv;
@@ -165,7 +165,7 @@ force_calc(bool st_clc,type0* en_st)
         tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
         if(rho[iatm]>rho_max)
             tmp0+=tmp1*(rho[iatm]-rho_max);
-        nrgy_strss[0]+=tmp0;
+        nrgy_strss_lcl[0]+=tmp0;
         rho[iatm]=tmp1;
         
     }
@@ -192,15 +192,15 @@ force_calc(bool st_clc,type0* en_st)
                 dx1=x[icomp+1]-x[jcomp+1];
                 dx2=x[icomp+2]-x[jcomp+2];
                 
-                f[icomp]+=dx0*fpair;
-                f[icomp+1]+=dx1*fpair;
-                f[icomp+2]+=dx2*fpair;
+                fvec[icomp]+=dx0*fpair;
+                fvec[icomp+1]+=dx1*fpair;
+                fvec[icomp+2]+=dx2*fpair;
                 
                 if(jatm<natms)
                 {
-                    f[jcomp]-=dx0*fpair;
-                    f[jcomp+1]-=dx1*fpair;
-                    f[jcomp+2]-=dx2*fpair;
+                    fvec[jcomp]-=dx0*fpair;
+                    fvec[jcomp+1]-=dx1*fpair;
+                    fvec[jcomp+2]-=dx2*fpair;
                 }
                 
                 if(jatm>=natms)
@@ -208,12 +208,12 @@ force_calc(bool st_clc,type0* en_st)
                 
                 if(st_clc)
                 {
-                    nrgy_strss[1]-=fpair*dx0*dx0;
-                    nrgy_strss[2]-=fpair*dx1*dx1;
-                    nrgy_strss[3]-=fpair*dx2*dx2;
-                    nrgy_strss[4]-=fpair*dx1*dx2;
-                    nrgy_strss[5]-=fpair*dx2*dx0;
-                    nrgy_strss[6]-=fpair*dx0*dx1;
+                    nrgy_strss_lcl[1]-=fpair*dx0*dx0;
+                    nrgy_strss_lcl[2]-=fpair*dx1*dx1;
+                    nrgy_strss_lcl[3]-=fpair*dx2*dx2;
+                    nrgy_strss_lcl[4]-=fpair*dx1*dx2;
+                    nrgy_strss_lcl[5]-=fpair*dx2*dx0;
+                    nrgy_strss_lcl[6]-=fpair*dx0*dx1;
                 }
 
             }
@@ -224,14 +224,14 @@ force_calc(bool st_clc,type0* en_st)
     if(st_clc)
     {
         for(int i=0;i<7;i++)
-            en_st[i]=0.0;
+            nrgy_strss[i]=0.0;
         
-        MPI_Allreduce(nrgy_strss,en_st,7,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,7,MPI_TYPE0,MPI_SUM,world);
 
     }
     else
     {
-        MPI_Allreduce(nrgy_strss,en_st,1,MPI_TYPE0,MPI_SUM,world);
+        MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,1,MPI_TYPE0,MPI_SUM,world);
     }
 }
 /*--------------------------------------------
@@ -361,12 +361,15 @@ void ForceField_eam::coef(int nargs,char** args)
     delete eam_reader;
     eam_reader=new EAMFileReader(mapp);
     eam_reader->file_format(args[1]);
+
     int iarg=2;
     while(iarg<nargs)
     {
         eam_reader->add_file(args[iarg],iarg-2);
         iarg++;
     }
+    
+    setup();
 }
 /*--------------------------------------------
  setup
@@ -391,6 +394,7 @@ void ForceField_eam::setup()
     
     int no_types=atom_types->no_types;
     memcpy(cut_sq,eam_reader->cut_sq,(no_types*(no_types+1)/2)*sizeof(type0));
+
 }
 
  

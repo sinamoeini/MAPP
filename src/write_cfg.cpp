@@ -352,6 +352,10 @@ void Write_cfg::write_file_dmd(int stp)
                 fprintf(fp,"auxiliary[%d] = c_%d [reduced unit]\n",icomp++,idim);
         }
         // write the body
+        /*
+        bool* types_written;
+        CREATE1D(types_written,atom_types->no_types);
+        */
         if(sorting)
         {
             for(int ivec=3;ivec<ndump_vecs;ivec++)
@@ -369,6 +373,11 @@ void Write_cfg::write_file_dmd(int stp)
                 }
                 
             }
+            
+            for(int itype=0;itype<atom_types->no_types;itype++)
+                fprintf(fp,"%lf \n%s \n",atom_types->mass[itype]
+                        ,atom_types->atom_names[itype]);
+            
             int tot_natms=atoms->tot_natms;
             type0* c=mapp->c->begin_dump();
             int c_dim=mapp->c->orig_dim;
@@ -379,7 +388,7 @@ void Write_cfg::write_file_dmd(int stp)
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
             
-            int itype=-1;
+            int itype=atom_types->no_types-1;
             int jtype;
             int iatm;
             for(int i=0;i<tot_natms;i++)
@@ -424,17 +433,17 @@ void Write_cfg::write_file_dmd(int stp)
                 }
                 
             }
-            int tot_natms=atoms->tot_natms;
             
             for(int itype=0;itype<atom_types->no_types;itype++)
                 fprintf(fp,"%lf \n%s \n",atom_types->mass[itype]
                         ,atom_types->atom_names[itype]);
             
+            int tot_natms=atoms->tot_natms;
             type0* c=mapp->c->begin_dump();
             int c_dim=mapp->c->orig_dim;
             
             
-            int itype=-1;
+            int itype=atom_types->no_types-1;
             int jtype;
             for(int iatm=0;iatm<tot_natms;iatm++)
             {

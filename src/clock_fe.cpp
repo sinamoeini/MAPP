@@ -86,19 +86,27 @@ Clock_fe::~Clock_fe()
  --------------------------------------------*/
 void Clock_fe::allocate()
 {
-    CREATE1D(y,dof_lcl);
-    CREATE1D(dy,dof_lcl);
+    vecs_1=new Vec<type0>*[2];
+    vecs_1[0]=new Vec<type0>(atoms,c_dim);
+    vecs_1[1]=new Vec<type0>(atoms,c_dim);
+    reset();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Clock_fe::reset()
+{
+    y=vecs_1[0]->begin();
+    dy=vecs_1[1]->begin();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 void Clock_fe::deallocate()
 {
-    if(dof_lcl)
-    {
-        delete [] y;
-        delete [] dy;
-    }
+    delete vecs_1[1];
+    delete vecs_1[0];
+    delete [] vecs_1;
 }
 /*--------------------------------------------
  init
@@ -173,7 +181,7 @@ void Clock_fe::run()
         
         if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
         {
-            forcefield_dmd->enst_calc_timer(1,nrgy_strss);
+            forcefield_dmd->force_calc_timer(true);
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,tot_t);
@@ -181,9 +189,6 @@ void Clock_fe::run()
         
         del_t_tmp=del_t;
         ord_dt(del_t,err);
-
-
-        
         
         memcpy(y,c,dof_lcl*sizeof(type0));
         memcpy(dy,c_d,dof_lcl*sizeof(type0));
@@ -191,9 +196,7 @@ void Clock_fe::run()
         istep++;
         step_no++;
     }
-    
 }
-
 /*--------------------------------------------
  run
  --------------------------------------------*/

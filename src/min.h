@@ -17,7 +17,6 @@ namespace MAPP_NS
     class Min : protected InitPtrs
     {
     private:
-        int ns_alloc;
         XMath* xmath;
         ForceFieldDMD* forcefield_dmd;
         type0 max_dx;
@@ -28,14 +27,16 @@ namespace MAPP_NS
         int err;
         type0 f_h;
         type0 curr_energy;
-        type0* nrgy_strss;
+        type0*& nrgy_strss;
         
         int pe_idx;
         int stress_idx;
-        int sts_flag;
+        bool sts_flag;
         
         void force_calc();
         void prepare_affine_h();
+        type0 calc_ndofs();
+        type0 ndofs;
         
         ThermoDynamics* thermo;
         
@@ -54,9 +55,6 @@ namespace MAPP_NS
         VecTens<type0> f;
         VecTens<type0> f0;
         
-        type0 df_norm_0;
-        type0 df_norm_1;
-        
     public:
         Min(MAPP *);
         virtual ~Min();
@@ -66,6 +64,9 @@ namespace MAPP_NS
         virtual void fin();
         
         
+        type0 calc_ave_f_norm();
+        bool output_flag;
+
         type0 F(type0);
         type0 dF(type0,type0&);
         void ls_prep(type0&,type0&,type0&);

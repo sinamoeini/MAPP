@@ -5,15 +5,16 @@
 #include "error.h"
 #include "memory.h"
 #include "timer.h"
+#include "min_styles.h"
 #include <limits>
 #define INITIAL_STEP_MODE 1
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock::Clock(MAPP* mapp):InitPtrs(mapp)
+Clock::Clock(MAPP* mapp):InitPtrs(mapp),
+nrgy_strss(forcefield->nrgy_strss)
 {
-    ns_alloc=0;
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before clock");
@@ -34,14 +35,7 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
         delete [] args[i];
     if(nargs)
         delete [] args;
-    
-    
-    int dim=atoms->dimension;
-    if(dim)
-    {
-        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
-        ns_alloc=1;
-    }
+
     
     
     c_dim=mapp->c->dim;
@@ -52,49 +46,87 @@ Clock::Clock(MAPP* mapp):InitPtrs(mapp)
     min_del_t=std::numeric_limits<type0>::epsilon();
     initial_del_t=-1.0;
     max_t=1.0e7;
-    
+    f_tol=1.0e-5;
+    min=NULL;
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Clock::~Clock()
 {
-    if(ns_alloc)
-        delete [] nrgy_strss;
     delete thermo;
+    delete min;
+}
+/*--------------------------------------------
+ destructor
+ --------------------------------------------*/
+void Clock::coef(int nargs,char** args)
+{
+    if(!strcmp(args[1],"min"))
+    {
+        #define Min_Style
+        #define MinStyle(class_name,style_name)   \
+        else if(strcmp(args[2],#style_name)==0)   \
+        {if(min!=NULL)delete min;                 \
+        min= new class_name(mapp,nargs-1,args+1);}\
+
+        if(0){}
+        #include "min_styles.h"
+        else
+            error->abort("wrong style of minimization"
+            ": %s",args[2]);
+        #undef Min_Style
+        
+        min->output_flag=false;
+    }
+    else if(!strcmp(args[1],"f_tol"))
+    {
+        f_tol=atof(args[2]);
+    }
 }
 /*--------------------------------------------
  rectify
  --------------------------------------------*/
 void Clock::rectify(type0* f)
 {
-    if(mapp->cdof==NULL)
+    if(mapp->c_dof==NULL)
         return;
-    bool* cdof=mapp->cdof->begin();
-    
-    int tot=(atoms->natms)*(atom_types->no_types);
-    for(int i=0;i<tot;i++) if(cdof[i]==1) f[i]=0.0;
+    bool* cdof=mapp->c_dof->begin();
+
+    for(int i=0;i<atoms->natms*c_dim;i++)
+        f[i]*=cdof[i];
 }
 /*--------------------------------------------
  default init
  --------------------------------------------*/
 void Clock::init()
 {
+    nmin=0;
     old_skin=atoms->get_skin();
-    atoms->set_skin(0.0);
+    
     if(mapp->c_d==NULL)
         mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
-    if(mapp->f==NULL)
-        mapp->f=new Vec<type0>(atoms,mapp->x->dim);
     
-    vecs_comm=new VecLst(atoms);
-    vecs_comm->add_updt(mapp->c);
-    vecs_comm->add_updt(mapp->ctype);
-    atoms->init(vecs_comm,false);
-    
-    
+    if(min==NULL)
+    {
+        atoms->set_skin(0.0);
+        vecs_comm=new VecLst(atoms);
+        vecs_comm->add_updt(mapp->c);
+        vecs_comm->add_updt(mapp->ctype);
+        atoms->init(vecs_comm,false);
+    }
+    else
+    {
+        min->init();
+        min->run();
+        nmin++;
+        init_f_norm=min->calc_ave_f_norm();
+    }
+
+    forcefield_dmd->force_calc_timer(true);
+    forcefield_dmd->dynamic_flag=false;
+
     neighbor_dmd->create_2nd_list();
-    forcefield_dmd->force_calc_timer(1,nrgy_strss);
     forcefield_dmd->dc_timer();
     
     thermo->update(fe_idx,nrgy_strss[0]);
@@ -123,12 +155,32 @@ void Clock::fin()
     if(write!=NULL)
         write->fin();
     thermo->fin();
-    atoms->fin();
+    if(min==NULL)
+    {
+        atoms->fin();
+        delete vecs_comm;
+    }
+    else
+    {
+        min->fin();
+    }
     print_stats();
     timer->print_stats();
     neighbor->print_stats();
-    delete vecs_comm;
     atoms->set_skin(old_skin);
+    forcefield_dmd->dynamic_flag=true;
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
+void Clock::print_stats()
+{
+    if(atoms->my_p==0)
+    {
+        fprintf(output,"clock stats:\n");
+        fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
+        fprintf(output,"no. minimizations performed: %d\n",nmin);
+    }
 }
 /*--------------------------------------------
  constructor
@@ -908,43 +960,45 @@ int ClockImplicit::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
     return 0;
 }
 /*--------------------------------------------
+ 
+ --------------------------------------------*/
+void ClockImplicit::reset()
+{
+    a=vecs_0[0]->begin();
+    y_0=vecs_0[1]->begin();
+    y_1=vecs_0[2]->begin();
+    g=vecs_0[3]->begin();
+    h=vecs_0[4]->begin();
+    g0=vecs_0[5]->begin();
+    c0=vecs_0[6]->begin();
+}
+/*--------------------------------------------
  destructor
  --------------------------------------------*/
 void ClockImplicit::allocate()
 {
-    CREATE1D(y_0,dof_lcl);
-    CREATE1D(y_1,dof_lcl);
-    CREATE1D(a,dof_lcl);
-    CREATE1D(g,dof_lcl);
-    CREATE1D(g0,dof_lcl);
-    CREATE1D(c0,dof_lcl);
-    CREATE1D(h,dof_lcl);
+    vecs_0=new Vec<type0>*[7];
+    for(int ivec=0;ivec<7;ivec++)
+        vecs_0[ivec]=new Vec<type0>(atoms,c_dim);
+    reset();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 void ClockImplicit::deallocate()
 {
-    if(dof_lcl)
-    {
-        delete [] y_0;
-        delete [] y_1;
-        delete [] a;
-        delete [] g;
-        delete [] g0;
-        delete [] c0;
-        delete [] h;
-    }
+    for(int ivec=0;ivec<7;ivec++)
+        delete vecs_0[ivec];
+    delete [] vecs_0;
 }
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
 void ClockImplicit::print_stats()
 {
+    Clock::print_stats();
     if(atoms->my_p==0)
     {
-        fprintf(output,"clock stats:\n");
-        fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
         fprintf(output,"max timestep: %e\n",max_succ_dt);
         fprintf(output,"max    order: %d\n",max_succ_q);
         fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
@@ -1059,10 +1113,9 @@ void ClockExplicit::fin()
  --------------------------------------------*/
 void ClockExplicit::print_stats()
 {
+    Clock::print_stats();
     if(atoms->my_p==0)
     {
-        fprintf(output,"clock stats:\n");
-        fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
         fprintf(output,"max timestep: %e\n",max_succ_dt);
         fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
         fprintf(output,"rejected interpolation attempts: %d\n",intp_rej);
