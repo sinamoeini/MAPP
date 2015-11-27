@@ -36,7 +36,7 @@ atoms(new Atoms(this,3)),
 x(atoms->x),
 id(atoms->id)
 {
-    init_dubeg(0);
+    init_dubeg(false);
     
     memory=new Memory(this);
     error=new Error(this);
@@ -558,9 +558,9 @@ int MAPP::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
 /*--------------------------------------------
 
  --------------------------------------------*/
-void MAPP::init_dubeg(int i)
+void MAPP::init_dubeg(bool i)
 {
-    if(i==0)
+    if(!i)
     {
         my_debug=NULL;
         return;

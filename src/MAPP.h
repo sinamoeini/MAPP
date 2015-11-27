@@ -82,7 +82,7 @@ namespace MAPP_NS
         void test();
         
         int read_line(FILE*,char*&,int&,int&);
-        void init_dubeg(int);
+        void init_dubeg(bool);
         void fin_dubeg();
         FILE* my_debug;
     };

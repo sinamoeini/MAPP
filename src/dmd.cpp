@@ -272,12 +272,7 @@ void DMD::init()
     else
     {
         min->init();
-        if(min_flag!=NO_FLAG)
-            min->run();
-        else
-        {
-            error->warning("no criteria has been set for performing minimizations");
-        }
+        min->run();
         if(min_flag==F_FLAG)
             f_norm0=min->calc_ave_f_norm();
         nmin++;
@@ -368,7 +363,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     type0 ratio;
     type0 g0_g0,g_g,g_g0;
     type0 curr_cost;
-    type0 tol=ncs*m_tol*m_tol;
+    type0 tol=nc_dofs*m_tol*m_tol;
     int line_search_succ,iter=0;
     
     if(pre_cond==1)

@@ -2386,13 +2386,19 @@ type0 ForceField_eam_dmd::ddc_norm_ncrd()
     type0* s=s_ptr->begin();
     type0* mu=mu_ptr->begin();
     type0* t=t_ptr->begin();
+    
     type0 fi,fj,exp_fi,exp_fj,norm_lcl;
     type0 tmp0,s_ij,w_ij,w_ji;
     int istart;
     
-    calc_mu_ncrd();
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
     
     int natms=atoms->natms;
+    
+    calc_mu_ncrd();
     for(int i=0;i<natms*c_dim;i++)
         s[i]=0.0;
     
@@ -2430,10 +2436,7 @@ type0 ForceField_eam_dmd::ddc_norm_ncrd()
     for(int i=0;i<natms*c_dim;i++)
         t[i]=0.0;
     
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    istart=0;
+   istart=0;
     for(int iatm=0;iatm<natms;iatm++)
     {
         for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
