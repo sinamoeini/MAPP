@@ -1,24 +1,24 @@
-#include "command_clock_coef.h"
+#include "command_dmd_coef.h"
 #include "error.h"
-#include "clock.h"
+#include "dmd.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_clock_coef::Command_clock_coef
+Command_dmd_coef::Command_dmd_coef
 (MAPP* mapp,int nargs,char** args)
 :InitPtrs(mapp)
 {
-    if(mapp->clock==NULL)
+    if(mapp->dmd==NULL)
         error->abort("cannot add the coefficients"
-        " before the forcefield is initiated");
-    mapp->clock->coef(nargs,args);
+        " before the dmd is initiated");
+    mapp->dmd->coef(nargs,args);
+
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Command_clock_coef::~Command_clock_coef()
+Command_dmd_coef::~Command_dmd_coef()
 {
-
 }
 

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <limits>
-#include "clock_mbdf.h"
+#include "dmd_mbdf.h"
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
@@ -10,16 +10,16 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_mbdf::Clock_mbdf(MAPP* mapp,int nargs
-,char** args):ClockImplicit(mapp)
+DMD_mbdf::DMD_mbdf(MAPP* mapp,int nargs
+,char** args):DMDImplicit(mapp)
 {
-    pre_cond=2;
+    pre_cond=1;
     max_order=5;
     
     if(nargs>2)
     {
         if(nargs%2!=0)
-            error->abort("every keyword in clock mbdf should be followed by it's value");
+            error->abort("every keyword in dmd mbdf should be followed by it's value");
         int iarg=2;
         while(iarg<nargs)
         {
@@ -27,12 +27,6 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int nargs
             {
                 iarg++;
                 max_step=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"max_t")==0)
-            {
-                iarg++;
-                max_t=atof(args[iarg]);
                 iarg++;
             }
             else if(strcmp(args[iarg],"max_iter")==0)
@@ -70,54 +64,40 @@ Clock_mbdf::Clock_mbdf(MAPP* mapp,int nargs
                 iarg++;
                 initial_del_t=atof(args[iarg]);
                 if(initial_del_t<=0.0)
-                    error->abort("initial_del_t in clock mbdf should be greater than 0.0");
+                    error->abort("initial_del_t in dmd mbdf should be greater than 0.0");
                 iarg++;
             }
             else
-                error->abort("unknown keyword in clock mbdf: %s",args[iarg]);
+                error->abort("unknown keyword in dmd mbdf: %s",args[iarg]);
         }
     }
     
-    if(min_gamma<0.0)
-        error->abort("min_gamma in clock mbdf should be greater than 0.0");
-    if(gamma_red<=0.0 || gamma_red>=1.0)
-        error->abort("gamma_red in clock mbdf should be between 0.0 & 1.0");
-    if(slope<=0.0 || slope>=1.0)
-        error->abort("slope in clock mbdf should be between 0.0 & 1.0");
     if(max_step<0)
-        error->abort("max_step in clock mbdf should be greater than 0");
+        error->abort("max_step in dmd mbdf should be greater than 0");
     if(max_iter<=0)
-        error->abort("max_iter in clock mbdf should be greater than 0");
+        error->abort("max_iter in dmd mbdf should be greater than 0");
     if(max_order<=0)
-        error->abort("max_order in clock mbdf should be greater than 0");
+        error->abort("max_order in dmd mbdf should be greater than 0");
     if(m_tol<=0.0)
-        error->abort("m_tol in clock mbdf should be greater than 0.0");
+        error->abort("m_tol in dmd mbdf should be greater than 0.0");
     if(a_tol<=0.0)
-        error->abort("a_tol in clock mbdf should be greater than 0.0");
+        error->abort("a_tol in dmd mbdf should be greater than 0.0");
     if(min_del_t<=0.0)
-        error->abort("min_del_t in clock mbdf should be greater than 0.0");
-    if(max_t<=0.0)
-        error->abort("max_t in clock mbdf should be greater than 0.0");
-    
-    
-    if(initial_del_t!=-1.0 && initial_del_t>max_t)
-        error->abort("max_t in clock mbdf should be greater than initial_del_t");
-    if(min_del_t>max_t)
-        error->abort("max_t in clock mbdf should be greater than min_del_t");
+        error->abort("min_del_t in dmd mbdf should be greater than 0.0");
     
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_mbdf::~Clock_mbdf()
+DMD_mbdf::~DMD_mbdf()
 {
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_mbdf::allocate()
+void DMD_mbdf::allocate()
 {
-    ClockImplicit::allocate();
+    DMDImplicit::allocate();
     
     vecs_1=new Vec<type0>*[max_order+2];
     for(int ivec=0;ivec<max_order+2;ivec++)
@@ -128,14 +108,13 @@ void Clock_mbdf::allocate()
     CREATE1D(alph_err,max_order+2);
     CREATE1D(t,max_order+1);
     CREATE1D(y,max_order+1);
-    
-    reset();
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Clock_mbdf::reset()
+void DMD_mbdf::reset()
 {
+    DMDImplicit::reset();
     for(int i=0;i<max_order+1;i++)
         y[i]=vecs_1[i]->begin();
     dy=vecs_1[max_order+1]->begin();
@@ -143,7 +122,7 @@ void Clock_mbdf::reset()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_mbdf::deallocate()
+void DMD_mbdf::deallocate()
 {
     
     delete [] y;
@@ -156,177 +135,125 @@ void Clock_mbdf::deallocate()
         delete vecs_1[ivec];
     delete [] vecs_1;
     
-    ClockImplicit::deallocate();
+    DMDImplicit::deallocate();
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_mbdf::init()
+type0 DMD_mbdf::est_dt()
 {
-    ClockImplicit::init();
-    allocate();
-    
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
-    
-    if(initial_del_t<0.0)
-    {
-        type0 sum,sum_lcl;
-        sum_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
-            if(c[i]>=0.0)
-                sum_lcl+=c_d[i]*c_d[i];
-        sum=0.0;
-        MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
-        sum=sqrt(sum/static_cast<type0>(dof_tot));
-        initial_del_t=MIN(2.0*a_tol/sum,1.0e-3*max_t);
-    }
-
-    init_stp_adj(initial_del_t);
-    
-    for(int i=0;i<max_order+1;i++)
-        t[i]=0.0;
-    
-    t[0]=0.0;
-    t[1]=-initial_del_t;
-    memcpy(y[0],c,dof_lcl*sizeof(type0));
-    memcpy(y[1],c,dof_lcl*sizeof(type0));
-    memcpy(dy,c_d,dof_lcl*sizeof(type0));
-
+    type0 sum,sum_lcl;
+    sum_lcl=0.0;
+    for(int i=0;i<ncs;i++)
+        if(c[i]>=0.0)
+            sum_lcl+=c_d[i]*c_d[i];
+    sum=0.0;
+    MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
+    sum=sqrt(sum/nc_dofs);
+    type0 del_t=MIN(2.0*a_tol/sum,1.0e-3*(max_t-tot_t));
+    init_stp_adj(del_t);
+    return del_t;
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_mbdf::fin()
+void DMD_mbdf::init()
 {
-    ClockImplicit::fin();
+    DMDImplicit::init();
+    allocate();
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void DMD_mbdf::fin()
+{
+    DMDImplicit::fin();
     deallocate();
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_mbdf::run()
+void DMD_mbdf::run()
 {
     if(max_step==0)
         return;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
-    
-    type0* tmp_y;
-    
+
     type0 del_t=initial_del_t,del_t_tmp;
-    type0 err,cost;
-    int q=1;
-    int err_chk;
+    type0 cost,err;
+    int q;
     int initial_phase,const_stps;
     int istep;
-    bool thermo_flag;
+    bool min_run=false;
+
     
-    initial_phase=1;
-    const_stps=0;
     istep=0;
-    err=0.0;
-    
     while (istep<max_step && tot_t<max_t)
     {
-        err_chk=1;
-        while (err_chk)
-        {
-            interpolate(initial_phase,const_stps,del_t,q);
-            solve_n_err(cost,err);
-            
-            if(err<1.0 && cost<1.0)
-                err_chk=0;
-            
-            if(err_chk)
-                fail_stp_adj(initial_phase,const_stps,MAX(err,cost),del_t,q);
-        }
+        reset();
+        type0* c=mapp->c->begin();
+        type0* c_d=mapp->c_d->begin();
+        type0* tmp_y;
+        del_t=est_dt();
+        memcpy(y[0],c,ncs*sizeof(type0));
+        memcpy(y[1],c,ncs*sizeof(type0));
+        memcpy(dy,c_d,ncs*sizeof(type0));
+        for(int i=0;i<max_order+1;i++) t[i]=0.0;
+        t[0]=0.0;
+        t[1]=-del_t;
+        q=1;
+        initial_phase=1;
+        const_stps=0;
         
-        max_succ_dt=MAX(max_succ_dt,del_t);
-        max_succ_q=MAX(max_succ_q,q);
-        tot_t+=del_t;
-        
-        if(write!=NULL)
-            write->write();
-        thermo->thermo_print();
-        thermo_flag=(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t);
-        
-        if(thermo_flag)
+        while (istep<max_step && tot_t<max_t && !min_run)
         {
-            forcefield_dmd->force_calc_timer(true);
-        }
-        
-        del_t_tmp=del_t;
-        if(min==NULL)
-        {
-            if(thermo_flag)
-                forcefield_dmd->force_calc_timer(true);
-            
-            ord_dt(initial_phase,const_stps,del_t,q);
-        }
-        else
-        {
-            type0 f_norm=min->calc_ave_f_norm();
-            if(f_norm-init_f_norm>=f_tol)
+            err=1.0;
+            while (err>=1.0)
             {
-                forcefield_dmd->dynamic_flag=true;
-                min->run();
-                nmin++;
-                forcefield_dmd->dynamic_flag=false;
-                init_f_norm=min->calc_ave_f_norm();
-                reset();
-                type0 sum,sum_lcl;
-                sum_lcl=0.0;
-                for(int i=0;i<dof_lcl;i++)
-                    if(c[i]>=0.0)
-                        sum_lcl+=c_d[i]*c_d[i];
-                sum=0.0;
-                MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
-                sum=sqrt(sum/static_cast<type0>(dof_tot));
-                type0 del_t_=MIN(2.0*a_tol/sum,1.0e-3*(max_t-tot_t));
-                init_stp_adj(del_t_);
-                t[0]=0.0;
-                t[1]=-del_t_;
-                q=1;
-                initial_phase=1;
-                const_stps=0;
-            }
-            else
-                ord_dt(initial_phase,const_stps,del_t,q);
-        }
-        
+                interpolate(initial_phase,const_stps,del_t,q);
+                solve_n_err(cost,err);
+                err=MAX(err,cost);
+                if(err<1.0)
+                    continue;
                 
-        tmp_y=y[max_order];
-        for(int i=max_order;i>0;i--)
-        {
-            t[i]=t[i-1]-del_t_tmp;
-            y[i]=y[i-1];
+                fail_stp_adj(initial_phase,const_stps,err,del_t,q);
+                memcpy(c,y[0],ncs*sizeof(type0));
+                memcpy(c_d,dy,ncs*sizeof(type0));
+            }
+            
+            max_succ_q=MAX(max_succ_q,q);
+            
+            min_run=decide_min(istep,del_t);
+            if(min_run) continue;
+
+            del_t_tmp=del_t;
+            ord_dt(initial_phase,const_stps,del_t,q);
+            
+            tmp_y=y[max_order];
+            for(int i=max_order;i>0;i--)
+            {
+                t[i]=t[i-1]-del_t_tmp;
+                y[i]=y[i-1];
+            }
+            y[0]=tmp_y;
+            memcpy(y[0],c,ncs*sizeof(type0));
+            memcpy(dy,c_d,ncs*sizeof(type0));
         }
 
-        y[0]=tmp_y;
-        memcpy(y[0],c,dof_lcl*sizeof(type0));
-        memcpy(dy,c_d,dof_lcl*sizeof(type0));
-        
-        if(thermo_flag)
-        {
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
-        }
-        
-        step_no++;
-        istep++;
+        if(!min_run) continue;
+        do_min();
+        min_run=false;
     }
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q)
+void DMD_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q)
 {
     type0 tmp0;
     
-    type0 c0;
+    type0 k0;
     type0 err_prefac0,err_prefac1;
     
     type0* c=mapp->c->begin();
@@ -338,13 +265,13 @@ void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q
     
     while(err_chk)
     {
-        c0=0.0;
+        k0=0.0;
         
         
         for(int i=0;i<q+1;i++)
         {
-            c0+=1.0/(1.0-t[i]/del_t);
-            //c0+=1.0/(del_t-t[i]);
+            k0+=1.0/(1.0-t[i]/del_t);
+            //k0+=1.0/(del_t-t[i]);
             
             tmp0=1.0;
             for(int j=0;j<q+1;j++)
@@ -356,7 +283,7 @@ void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q
         
         for(int i=0;i<q+1;i++)
         {
-            tmp0=c0-1.0/(1.0-t[i]/del_t);
+            tmp0=k0-1.0/(1.0-t[i]/del_t);
             dalpha_y[i]=alpha_y[i]*tmp0/del_t;
         }
         
@@ -370,7 +297,7 @@ void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q
         
         err_chk_lcl=0;
         idof=0;
-        while(idof<dof_lcl && err_chk_lcl==0)
+        while(idof<ncs && err_chk_lcl==0)
         {
             if(c[idof]>=0.0)
             {
@@ -408,9 +335,9 @@ void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q
             }
             else
             {
-                memcpy(y[1],y[0],dof_lcl*sizeof(type0));
-                memcpy(y_0,y[0],dof_lcl*sizeof(type0));
-                for(int i=0;i<dof_lcl;i++)
+                memcpy(y[1],y[0],ncs*sizeof(type0));
+                memcpy(y_0,y[0],ncs*sizeof(type0));
+                for(int i=0;i<ncs;i++)
                     if(c[i]>=0.0)
                         a[i]=-y_0[i];
                 err_chk=0;
@@ -431,7 +358,7 @@ void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q
             intp_rej++;
     }
     
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         if(y[0][i]>=0.0)
         {
@@ -447,7 +374,7 @@ void Clock_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q
 /*--------------------------------------------
  step addjustment after success
  --------------------------------------------*/
-void Clock_mbdf::ord_dt(int& init_phase,int& const_stps,type0& del_t,int& q)
+void DMD_mbdf::ord_dt(int& init_phase,int& const_stps,type0& del_t,int& q)
 {
     if(init_phase)
     {
@@ -490,7 +417,7 @@ void Clock_mbdf::ord_dt(int& init_phase,int& const_stps,type0& del_t,int& q)
         type0* c=mapp->c->begin();
         type0* c_d=mapp->c_d->begin();
         
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
             {
@@ -674,14 +601,14 @@ void Clock_mbdf::ord_dt(int& init_phase,int& const_stps,type0& del_t,int& q)
 /*--------------------------------------------
  max step size
  --------------------------------------------*/
-type0 Clock_mbdf::err_est(int q,type0 del_t)
+type0 DMD_mbdf::err_est(int q,type0 del_t)
 {
-    type0 tmp0,err_lcl,err,c0;
+    type0 tmp0,err_lcl,err,k0;
     type0* c=mapp->c->begin();
     
-    c0=1.0;
+    k0=1.0;
     for(int i=0;i<q;i++)
-        c0*=static_cast<type0>(i+1)/(1.0-t[i]/del_t);
+        k0*=static_cast<type0>(i+1)/(1.0-t[i]/del_t);
     
     for(int i=0;i<q;i++)
     {
@@ -694,7 +621,7 @@ type0 Clock_mbdf::err_est(int q,type0 del_t)
     }
     
     err_lcl=0.0;
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
         {
@@ -705,14 +632,14 @@ type0 Clock_mbdf::err_est(int q,type0 del_t)
         }
     }
     MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
-    err=sqrt(err/static_cast<type0>(dof_tot))/a_tol;
-    err*=fabs(c0);
+    err=sqrt(err/nc_dofs)/a_tol;
+    err*=fabs(k0);
     return err;
 }
 /*--------------------------------------------
  step addjustment after failure
  --------------------------------------------*/
-inline void Clock_mbdf::fail_stp_adj(int& init_phase,int& const_stps,type0 err,type0& del_t,int& q)
+inline void DMD_mbdf::fail_stp_adj(int& init_phase,int& const_stps,type0 err,type0& del_t,int& q)
 {
     const_stps=0;
     init_phase=0;
@@ -750,7 +677,7 @@ inline void Clock_mbdf::fail_stp_adj(int& init_phase,int& const_stps,type0 err,t
 /*--------------------------------------------
  init
  --------------------------------------------*/
-inline void Clock_mbdf::init_stp_adj(type0& del_t)
+inline void DMD_mbdf::init_stp_adj(type0& del_t)
 {
     if(del_t>max_t-tot_t)
         del_t=max_t-tot_t;
@@ -789,13 +716,13 @@ inline void Clock_mbdf::init_stp_adj(type0& del_t)
 /*--------------------------------------------
  step addjustment after success
  --------------------------------------------*/
-inline type0 Clock_mbdf::precond_rat_adj(type0 del_t)
+inline type0 DMD_mbdf::precond_rat_adj(type0 del_t)
 {
     type0 r_lcl=1.0,r,tmp;
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
         {

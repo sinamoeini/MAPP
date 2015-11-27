@@ -1,11 +1,11 @@
-#ifdef Clock_Style
-    ClockStyle(Clock_mbdf,mbdf)
+#ifdef DMD_Style
+    DMDStyle(DMD_mbdf,mbdf)
 #else
-#ifndef __MAPP__clock_mbdf__
-#define __MAPP__clock_mbdf__
-#include "clock.h"
+#ifndef __MAPP__dmd_mbdf__
+#define __MAPP__dmd_mbdf__
+#include "dmd.h"
 namespace MAPP_NS {
-    class Clock_mbdf :public ClockImplicit
+    class DMD_mbdf :public DMDImplicit
     {
     private:
     protected:
@@ -32,9 +32,10 @@ namespace MAPP_NS {
         inline void fail_stp_adj(int&,int&,type0,type0&,int&);
         inline void init_stp_adj(type0&);
         inline type0 precond_rat_adj(type0);
+        type0 est_dt();
     public:
-        Clock_mbdf(MAPP *,int,char**);
-        ~Clock_mbdf();
+        DMD_mbdf(MAPP *,int,char**);
+        ~DMD_mbdf();
         void run();
         void init();
         void fin();

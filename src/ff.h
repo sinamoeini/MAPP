@@ -63,7 +63,7 @@ namespace MAPP_NS
         virtual void dc()=0;
         virtual type0 dc_en_proj(bool,type0*,type0&)=0;
         virtual type0 ddc_norm()=0;
-        virtual type0 imp_cost_grad(bool,type0,type0*,type0*)=0;
+        virtual type0 imp_cost_grad(bool,type0,type0,type0*,type0*)=0;
         virtual type0 dc_norm_grad(bool,type0*,type0*)=0;
         virtual type0 en_grad(bool,type0*,type0*)=0;
     public:
@@ -74,7 +74,7 @@ namespace MAPP_NS
         virtual void fin()=0;
         virtual void coef(int,char**)=0;
         
-        type0 imp_cost_grad_timer(bool,type0,type0*,type0*);
+        type0 imp_cost_grad_timer(bool,type0,type0,type0*,type0*);
         type0 dc_norm_grad_timer(bool,type0*,type0*);
         type0 en_grad_timer(bool,type0*,type0*);
         void dc_timer();

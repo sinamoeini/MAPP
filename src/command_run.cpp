@@ -2,7 +2,7 @@
 #include "command_run.h"
 #include "error.h"
 #include "md.h"
-#include "clock.h"
+#include "dmd.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -29,14 +29,14 @@ Command_run::Command_run(MAPP* mapp,int nargs,char** args)
     }
     else if(mapp->mode==DMD_mode)
     {
-        if(mapp->clock==NULL)
-            error->abort("before run, clock should be initialized");
-        if(nargs!=1)
-            error->abort("run should have no argument");
+        if(mapp->dmd==NULL)
+            error->abort("before run, dmd should be initialized");
+        if(nargs!=2)
+            error->abort("run should have 1 argument");
         
-        mapp->clock->init();
-        mapp->clock->run();
-        mapp->clock->fin();
+        mapp->dmd->init();
+        mapp->dmd->run(atof(args[1]));
+        mapp->dmd->fin();
         
     }
 

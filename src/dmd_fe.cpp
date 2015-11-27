@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "clock_fe.h"
+#include "dmd_fe.h"
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
@@ -9,13 +9,13 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_fe::Clock_fe(MAPP* mapp,int nargs
-,char** args):ClockExplicit(mapp)
+DMD_fe::DMD_fe(MAPP* mapp,int nargs
+,char** args):DMDExplicit(mapp)
 {
     if(nargs>2)
     {
         if(nargs%2!=0)
-            error->abort("every keyword in clock adams should be followed by it's value");
+            error->abort("every keyword in dmd adams should be followed by it's value");
         int iarg=2;
         while(iarg<nargs)
         {
@@ -23,12 +23,6 @@ Clock_fe::Clock_fe(MAPP* mapp,int nargs
             {
                 iarg++;
                 max_step=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"max_t")==0)
-            {
-                iarg++;
-                max_t=atof(args[iarg]);
                 iarg++;
             }
             else if(strcmp(args[iarg],"a_tol")==0)
@@ -48,35 +42,27 @@ Clock_fe::Clock_fe(MAPP* mapp,int nargs
                 iarg++;
                 initial_del_t=atof(args[iarg]);
                 if(initial_del_t<=0.0)
-                    error->abort("initial_del_t in clock fe should be greater than 0.0");
+                    error->abort("initial_del_t in dmd fe should be greater than 0.0");
                 iarg++;
             }
             else
-                error->abort("unknown keyword in clock fe: %s",args[iarg]);
+                error->abort("unknown keyword in dmd fe: %s",args[iarg]);
         }
     }
         
 
     if(max_step<0)
-        error->abort("max_step in clock fe should be greater than 0");
+        error->abort("max_step in dmd fe should be greater than 0");
     if(a_tol<=0.0)
-        error->abort("a_tol in clock fe should be greater than 0.0");
+        error->abort("a_tol in dmd fe should be greater than 0.0");
     if(min_del_t<=0.0)
-        error->abort("min_del_t in clock fe should be greater than 0.0");
-    if(max_t<=0.0)
-        error->abort("max_t in clock fe should be greater than 0.0");
-    
-    
-    if(initial_del_t!=-1.0 && initial_del_t>max_t)
-        error->abort("max_t in clock fe should be greater than initial_del_t");
-    if(min_del_t>max_t)
-        error->abort("max_t in clock fe should be greater than min_del_t");
+        error->abort("min_del_t in dmd fe should be greater than 0.0");
 
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_fe::~Clock_fe()
+DMD_fe::~DMD_fe()
 {
 
     
@@ -84,123 +70,112 @@ Clock_fe::~Clock_fe()
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void Clock_fe::allocate()
+void DMD_fe::allocate()
 {
     vecs_1=new Vec<type0>*[2];
     vecs_1[0]=new Vec<type0>(atoms,c_dim);
     vecs_1[1]=new Vec<type0>(atoms,c_dim);
-    reset();
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Clock_fe::reset()
+void DMD_fe::reset()
 {
+    DMDExplicit::reset();
     y=vecs_1[0]->begin();
     dy=vecs_1[1]->begin();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void Clock_fe::deallocate()
+void DMD_fe::deallocate()
 {
     delete vecs_1[1];
     delete vecs_1[0];
     delete [] vecs_1;
 }
 /*--------------------------------------------
- init
- --------------------------------------------*/
-void Clock_fe::init()
-{
-    ClockExplicit::init();
-    allocate();
-    
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
 
-    
-    if(initial_del_t<0.0)
-    {
-        type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(static_cast<type0>(dof_tot));
-        initial_del_t=MIN(sqrt(4.0*a_tol/sum),1.0e-3*max_t);
-    }
-    
-    init_stp_adj(initial_del_t);
-    
-    
-    memcpy(y,c,dof_lcl*sizeof(type0));
-    memcpy(dy,c_d,dof_lcl*sizeof(type0));
+ --------------------------------------------*/
+type0 DMD_fe::est_dt()
+{
+    type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
+    type0 del_t=MIN(sqrt(4.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    init_stp_adj(del_t);
+    return del_t;
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_fe::fin()
+void DMD_fe::init()
 {
-    ClockExplicit::fin();
+    DMDExplicit::init();
+    allocate();
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void DMD_fe::fin()
+{
+    DMDExplicit::fin();
     deallocate();
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::run()
+void DMD_fe::run()
 {
     if(max_step==0)
         return;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
     
-    type0 del_t=initial_del_t,del_t_tmp;
+    type0 del_t,del_t_tmp;
     type0 err=0.0;
-    int err_chk;
     int istep;
-    
+    bool min_run=false;
     istep=0;
     while (istep<max_step && tot_t<max_t)
     {
+        reset();
+        type0* c=mapp->c->begin();
+        type0* c_d=mapp->c_d->begin();
+        del_t=est_dt();
         
-        err_chk=1;
-        while (err_chk)
+        memcpy(y,c,ncs*sizeof(type0));
+        memcpy(dy,c_d,ncs*sizeof(type0));
+        
+        while (istep<max_step && tot_t<max_t && !min_run)
         {
-            interpolate_n_err(err,del_t);
+            err=1.0;
+            while(err>=1.0)
+            {
+                interpolate_n_err(err,del_t);
+                if(err<1.0)
+                    continue;
+                
+                fail_stp_adj(err,del_t);
+                memcpy(c,y,ncs*sizeof(type0));
+                memcpy(c_d,dy,ncs*sizeof(type0));
+            }
             
-            if(err<1.0)
-                err_chk=0;
-            fail_stp_adj(err,del_t);
+            min_run=decide_min(istep,del_t);
+            if(min_run) continue;
+            
+            del_t_tmp=del_t;
+            ord_dt(del_t,err);
+            
+            memcpy(y,c,ncs*sizeof(type0));
+            memcpy(dy,c_d,ncs*sizeof(type0));
         }
         
-        max_succ_dt=MAX(max_succ_dt,del_t);
-        tot_t+=del_t;
-
-        
-        
-        if(write!=NULL)
-            write->write();
-        thermo->thermo_print();
-        
-        if(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t)
-        {
-            forcefield_dmd->force_calc_timer(true);
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
-        }
-        
-        del_t_tmp=del_t;
-        ord_dt(del_t,err);
-        
-        memcpy(y,c,dof_lcl*sizeof(type0));
-        memcpy(dy,c_d,dof_lcl*sizeof(type0));
-        
-        istep++;
-        step_no++;
+        if(!min_run) continue;
+        do_min();
+        min_run=false;
     }
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
+void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -212,13 +187,13 @@ void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
     {
         r=r_lcl=1.0;
         idof=0;
-        while(idof<dof_lcl && r_lcl==1.0)
+        while(idof<ncs && r_lcl==1.0)
         {
             if(y[idof]>=0.0)
             {
                 c[idof]=y[idof]+0.5*del_t*dy[idof];
                 
-                if(c[idof]<0.0 ||c[idof]>1.0)
+                if(c[idof]<0.0 || c[idof]>1.0)
                 {
                     while (c[idof]<0.0)
                     {
@@ -269,7 +244,7 @@ void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
         forcefield_dmd->dc_timer();
         
         err_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
                 err_lcl+=(c_d[i]-dy[i])*(c_d[i]-dy[i]);
@@ -277,7 +252,7 @@ void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
         
         err=0.0;
         MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
-        err=0.5*del_t*sqrt(err/static_cast<type0>(dof_tot))/a_tol;
+        err=0.5*del_t*sqrt(err/nc_dofs)/a_tol;
         
         if(err>=1.0)
         {
@@ -286,7 +261,7 @@ void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
         }
         r=r_lcl=1.0;
         idof=0;
-        while(idof<dof_lcl && r_lcl==1.0)
+        while(idof<ncs && r_lcl==1.0)
         {
             if(y[idof]>=0.0)
             {
@@ -349,7 +324,7 @@ void Clock_fe::interpolate_n_err(type0& err,type0& del_t)
 /*--------------------------------------------
  run
  --------------------------------------------*/
-void Clock_fe::ord_dt(type0& del_t,type0 err)
+void DMD_fe::ord_dt(type0& del_t,type0 err)
 {
     type0 r;
     r=0.9/err;
@@ -385,7 +360,7 @@ void Clock_fe::ord_dt(type0& del_t,type0 err)
 /*--------------------------------------------
  init
  --------------------------------------------*/
-inline void Clock_fe::init_stp_adj(type0& del_t)
+inline void DMD_fe::init_stp_adj(type0& del_t)
 {
     if(del_t>max_t-tot_t)
         del_t=max_t-tot_t;
@@ -407,7 +382,7 @@ inline void Clock_fe::init_stp_adj(type0& del_t)
 /*--------------------------------------------
  step addjustment after failure
  --------------------------------------------*/
-inline void Clock_fe::fail_stp_adj(type0 err,type0& del_t)
+inline void DMD_fe::fail_stp_adj(type0 err,type0& del_t)
 {
     if(max_t-tot_t<=2.0*min_del_t)
     {

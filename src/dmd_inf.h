@@ -1,13 +1,18 @@
-#ifdef Clock_Style
-    ClockStyle(Clock_inf,inf)
+#ifdef DMD_Style
+    DMDStyle(DMD_inf,inf)
 #else
-#ifndef __MAPP__clock_inf__
-#define __MAPP__clock_inf__
-#include "clock.h"
+#ifndef __MAPP__dmd_inf__
+#define __MAPP__dmd_inf__
+#include "dmd.h"
 
 namespace MAPP_NS
 {
-    
+    enum
+    {
+        LS_BT,
+        LS_GS,
+        LS_BRENT
+    };
     enum
     {
         MIN_MOD_EN_DC_PROJ,
@@ -16,10 +21,10 @@ namespace MAPP_NS
     };
     
     
-    class Clock_inf :public ClockImplicit
+    class DMD_inf :public DMDImplicit
     {
     private:
-        type0 epsilon,epsilon_sqrt,golden,max_a,h_norm;
+        type0 epsilon,epsilon_sqrt,golden,max_a,h_norm,prev_val,min_gamma,slope,gamma_red;
         int mod,max_step;
         type0* g_orig;
         type0* c1;
@@ -38,11 +43,12 @@ namespace MAPP_NS
         int line_search_brent(type0&,type0&,type0);
         int test0();
         int test1(type0,type0,type0);
+        int ls_mode;
         
-        
+        type0 est_dt(){return 0;}
     public:
-        Clock_inf(MAPP *,int,char**);
-        ~Clock_inf();
+        DMD_inf(MAPP *,int,char**);
+        ~DMD_inf();
         void run();
         void init();
         void fin();

@@ -391,7 +391,6 @@ type0 Min::calc_ndofs()
     type0 ndofs_lcl=0.0;
     if(mapp->mode==DMD_mode)
     {
-
         type0* c=mapp->c->begin();
         int c_dim=mapp->c->dim;
         if(mapp->x_dof==NULL)

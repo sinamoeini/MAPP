@@ -1,20 +1,22 @@
-#ifndef __MAPP__clock__
-#define __MAPP__clock__
+#ifndef __MAPP__dmd__
+#define __MAPP__dmd__
 #include "init.h"
 #include "ff.h"
 #include "neighbor_dmd.h"
 #include "thermo_dynamics.h"
 #include "min.h"
+#include "ls_styles.h"
 namespace MAPP_NS
 {
     enum
     {
-        LS_BT,
-        LS_GS,
-        LS_BRENT
+        NO_FLAG,
+        F_FLAG,
+        CD_FLAG,
+        STEP_FLAG
     };
     
-    class Clock : protected InitPtrs
+    class DMD : protected InitPtrs
     {
     private:
     protected:
@@ -31,7 +33,8 @@ namespace MAPP_NS
         int c_dim;
         
         // dofs
-        int dof_tot,dof_lcl;
+        int ncs;
+        type0 nc_dofs;
         type0 old_skin;
         void rectify(type0*);
         
@@ -44,21 +47,38 @@ namespace MAPP_NS
         Min* min;
         int nmin;
         type0 f_tol;
-        type0 init_f_norm;
-    public:
-        Clock(MAPP *);
-        virtual ~Clock();
+        type0 f_norm0;
+        type0 c_d_norm;
+        int istep;
+        type0 cd_tol;
+        int step_tol;
+        int dstep;
+        int min_flag;
+        void reset();
+        type0 calc_nc_dofs();
+        virtual type0 est_dt()=0;
+        bool decide_min(int&,type0&);
+        void do_min();
+
+        type0 max_succ_dt;
         virtual void run()=0;
+    public:
+        DMD(MAPP *);
+        virtual ~DMD();
+        void run(type0);
         virtual void init();
         virtual void fin();
         void coef(int,char**);
+        void dmd_min(int,char**);
     };
 
-    class ClockImplicit: public Clock
+    class DMDImplicit: public DMD
     {
     private:
-        type0 epsilon;
-        type0 golden;
+        type0 g_h;
+        type0 h_h;
+        
+        LineSearch<DMDImplicit>* ls_dmd;
     protected:
         int max_order;
         // variables & vectors for implicit integrator
@@ -71,24 +91,17 @@ namespace MAPP_NS
         type0* h;
         type0* g0;
         type0* c0;
+        type0* c1;
         
         // parameters for implicit integrator
         type0 err_prefac;
-        
         //parameters for the solver
-        type0 prev_val;
         int pre_cond;
         int max_iter;
-        type0 m_tol,min_gamma,slope,gamma_red;
+        type0 m_tol,max_a;
         
-        int ls_mode;
 
-        inline type0 cost_func(type0);
-        int line_search_gs(type0&,type0&,type0);
-        int line_search_bt(type0&,type0&,type0);
-        int line_search_brent(type0&,type0&,type0);
         void solve_n_err(type0&,type0&);
-
         
         virtual void allocate();
         virtual void deallocate();
@@ -97,32 +110,37 @@ namespace MAPP_NS
         virtual void fin();
         void print_stats();
         int max_succ_q;
-        type0 max_succ_dt;
         int solve_rej;
         int solve_acc;
         int intg_rej;
         int intp_rej;
 
         void reset();
-        int test(type0,type0,type0);
-
+        int test();
+        virtual type0 est_dt()=0;
     public:
-        ClockImplicit(MAPP*);
-        virtual ~ClockImplicit();
+        DMDImplicit(MAPP*);
+        virtual ~DMDImplicit();
+        
+        type0 F(type0);
+        type0 dF(type0,type0&);
+        void ls_prep(type0&,type0&,type0&);
+        void F_reset();
     };
     
     
-    class ClockExplicit: public Clock
+    class DMDExplicit: public DMD
     {
     private:
     protected:
+        void reset();
         void print_stats();
-        type0 max_succ_dt;
         int intg_rej;
         int intp_rej;
+        virtual type0 est_dt()=0;
     public:
-        ClockExplicit(MAPP*);
-        ~ClockExplicit();
+        DMDExplicit(MAPP*);
+        ~DMDExplicit();
         virtual void run()=0;
         virtual void init();
         virtual void fin();

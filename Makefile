@@ -24,9 +24,9 @@ clean:
 prep:
 	@mkdir -p $(OBJ); \
 	cd src; \
-	rm -rf clock_styles.h; \
-	for i in `ls clock_*.h`; do \
-	echo \#include \"$$i\" >>clock_styles.h; \
+	rm -rf dmd_styles.h; \
+	for i in `ls dmd_*.h`; do \
+	echo \#include \"$$i\" >>dmd_styles.h; \
 	done; \
 	rm -rf command_styles.h; \
 	for i in `ls command_*.h`; do \

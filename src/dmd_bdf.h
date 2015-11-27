@@ -1,12 +1,12 @@
-#ifdef Clock_Style
-    ClockStyle(Clock_bdf,bdf)
+#ifdef DMD_Style
+    DMDStyle(DMD_bdf,bdf)
 #else
-#ifndef __MAPP__clock_bdf__
-#define __MAPP__clock_bdf__
-#include "clock.h"
+#ifndef __MAPP__dmd_bdf__
+#define __MAPP__dmd_bdf__
+#include "dmd.h"
 namespace MAPP_NS
 {
-    class Clock_bdf :public ClockImplicit
+    class DMD_bdf :public DMDImplicit
     {
     private:
     protected:
@@ -34,10 +34,12 @@ namespace MAPP_NS
         void deallocate();
         inline void fail_stp_adj(type0,type0&,int&);
         inline void init_stp_adj(type0&);
+        type0 est_dt();
     public:
-        Clock_bdf(MAPP *,int,char**);
-        ~Clock_bdf();
+        DMD_bdf(MAPP *,int,char**);
+        ~DMD_bdf();
         void run();
+        void run0();
         void init();
         void fin();
     };

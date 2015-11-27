@@ -1,12 +1,12 @@
-#ifdef Clock_Style
-    ClockStyle(Clock_fe,fe)
+#ifdef DMD_Style
+    DMDStyle(DMD_fe,fe)
 #else
-#ifndef __MAPP__clock_fe__
-#define __MAPP__clock_fe__
-#include "clock.h"
+#ifndef __MAPP__dmd_fe__
+#define __MAPP__dmd_fe__
+#include "dmd.h"
 namespace MAPP_NS
 {
-    class Clock_fe :public ClockExplicit
+    class DMD_fe :public DMDExplicit
     {
     private:
     protected:
@@ -22,9 +22,10 @@ namespace MAPP_NS
         void deallocate();
         inline void fail_stp_adj(type0,type0&);
         inline void init_stp_adj(type0&);
+        type0 est_dt();
     public:
-        Clock_fe(MAPP *,int,char**);
-        ~Clock_fe();
+        DMD_fe(MAPP *,int,char**);
+        ~DMD_fe();
         void run();
         void init();
         void fin();

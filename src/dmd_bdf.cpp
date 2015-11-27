@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <limits>
-#include "clock_bdf.h"
+#include "dmd_bdf.h"
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
@@ -10,15 +10,15 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_bdf::Clock_bdf(MAPP* mapp,int nargs
-,char** args):ClockImplicit(mapp)
+DMD_bdf::DMD_bdf(MAPP* mapp,int nargs
+,char** args):DMDImplicit(mapp)
 {
     max_order=6;
     
     if(nargs>2)
     {
         if(nargs%2!=0)
-            error->abort("every keyword in clock bdf should be followed by it's value");
+            error->abort("every keyword in dmd bdf should be followed by it's value");
         int iarg=2;
         while(iarg<nargs)
         {
@@ -26,12 +26,6 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int nargs
             {
                 iarg++;
                 max_step=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"max_t")==0)
-            {
-                iarg++;
-                max_t=atof(args[iarg]);
                 iarg++;
             }
             else if(strcmp(args[iarg],"max_iter")==0)
@@ -69,53 +63,39 @@ Clock_bdf::Clock_bdf(MAPP* mapp,int nargs
                 iarg++;
                 initial_del_t=atof(args[iarg]);
                 if(initial_del_t<=0.0)
-                    error->abort("initial_del_t in clock bdf should be greater than 0.0");
+                    error->abort("initial_del_t in dmd bdf should be greater than 0.0");
                 iarg++;
             }
             else
-                error->abort("unknown keyword in clock bdf: %s",args[iarg]);
+                error->abort("unknown keyword in dmd bdf: %s",args[iarg]);
         }
     }
-    
-    if(min_gamma<0.0)
-        error->abort("min_gamma in clock bdf should be greater than 0.0");
-    if(gamma_red<=0.0 || gamma_red>=1.0)
-        error->abort("gamma_red in clock bdf should be between 0.0 & 1.0");
-    if(slope<=0.0 || slope>=1.0)
-        error->abort("slope in clock bdf should be between 0.0 & 1.0");
+
     if(max_step<0)
-        error->abort("max_step in clock bdf should be greater than 0");
+        error->abort("max_step in dmd bdf should be greater than 0");
     if(max_iter<=0)
-        error->abort("max_iter in clock bdf should be greater than 0");
+        error->abort("max_iter in dmd bdf should be greater than 0");
     if(max_order<=0)
-        error->abort("max_order in clock bdf should be greater than 0");
+        error->abort("max_order in dmd bdf should be greater than 0");
     if(m_tol<=0.0)
-        error->abort("m_tol in clock bdf should be greater than 0.0");
+        error->abort("m_tol in dmd bdf should be greater than 0.0");
     if(a_tol<=0.0)
-        error->abort("a_tol in clock bdf should be greater than 0.0");
+        error->abort("a_tol in dmd bdf should be greater than 0.0");
     if(min_del_t<=0.0)
-        error->abort("min_del_t in clock bdf should be greater than 0.0");
-    if(max_t<=0.0)
-        error->abort("max_t in clock bdf should be greater than 0.0");
-    
-    
-    if(initial_del_t!=-1.0 && initial_del_t>max_t)
-        error->abort("max_t in clock bdf should be greater than initial_del_t");
-    if(min_del_t>max_t)
-        error->abort("max_t in clock bdf should be greater than min_del_t");
+        error->abort("min_del_t in dmd bdf should be greater than 0.0");
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_bdf::~Clock_bdf()
+DMD_bdf::~DMD_bdf()
 {
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void Clock_bdf::allocate()
+void DMD_bdf::allocate()
 {
-    ClockImplicit::allocate();
+    DMDImplicit::allocate();
     vecs_1=new Vec<type0>*[max_order+2];
     for(int ivec=0;ivec<max_order+2;ivec++)
         vecs_1[ivec]=new Vec<type0>(atoms,c_dim);
@@ -125,14 +105,13 @@ void Clock_bdf::allocate()
     CREATE1D(y,max_order);
     CREATE1D(alpha_y,max_order);
     CREATE1D(dalpha_y,max_order);
-    
-    reset();
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Clock_bdf::reset()
+void DMD_bdf::reset()
 {
+    DMDImplicit::reset();    
     for(int i=0;i<max_order;i++)
         y[i]=vecs_1[i]->begin();
     dy=vecs_1[max_order]->begin();
@@ -141,7 +120,7 @@ void Clock_bdf::reset()
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void Clock_bdf::deallocate()
+void DMD_bdf::deallocate()
 {
     if(max_order)
     {
@@ -155,168 +134,125 @@ void Clock_bdf::deallocate()
         delete vecs_1[ivec];
     delete [] vecs_1;
     
-    ClockImplicit::deallocate();
+    DMDImplicit::deallocate();
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_bdf::init()
+type0 DMD_bdf::est_dt()
 {
-    ClockImplicit::init();
+    type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
+    type0 del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    init_stp_adj(del_t);
+    return del_t;
+}
+/*--------------------------------------------
+ init
+ --------------------------------------------*/
+void DMD_bdf::init()
+{
+    DMDImplicit::init();
     allocate();
-    
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
-    
-    if(initial_del_t<0.0)
-    {
-        type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(static_cast<type0>(dof_tot));
-        initial_del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*max_t);
-    }
-    
-    init_stp_adj(initial_del_t);
-    
-    for(int i=0;i<max_order;i++)
-        t[i]=0.0;
-    memcpy(y[0],c,dof_lcl*sizeof(type0));
-    memcpy(dy,c_d,dof_lcl*sizeof(type0));
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_bdf::fin()
+void DMD_bdf::fin()
 {
-    ClockImplicit::fin();
+    DMDImplicit::fin();
     deallocate();
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_bdf::run()
+void DMD_bdf::run()
 {
     if(max_step==0)
         return;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
     
-    type0* tmp_y;
-    
-    type0 del_t=initial_del_t,del_t_tmp;
+    type0 del_t,del_t_tmp;
     type0 cost,err=0.0;
-    int q=1;
-    int err_chk;
+    int q;
     int istep;
-    bool thermo_flag;
+    bool min_run=false;
     
     istep=0;
     while (istep<max_step && tot_t<max_t)
     {
-        err_chk=1;
-        while (err_chk)
-        {
-            interpolate(del_t,q);
-            solve_n_err(cost,err);
-            
-            if(err<1.0 && cost<1.0)
-                err_chk=0;
-            
-            if(err_chk)
-                fail_stp_adj(MAX(cost,err),del_t,q);
-        }
+        reset();
+        type0* c=mapp->c->begin();
+        type0* c_d=mapp->c_d->begin();
+        type0* tmp_y;
+        del_t=est_dt();
         
-        max_succ_dt=MAX(max_succ_dt,del_t);
-        max_succ_q=MAX(max_succ_q,q);
-        tot_t+=del_t;
-        
-        if(write!=NULL)
-            write->write();
-        thermo->thermo_print();
-        thermo_flag=(thermo->test_prev_step()|| istep==max_step-1 || tot_t>=max_t);
-        
-
-        del_t_tmp=del_t;
-        if(min==NULL)
+        memcpy(y[0],c,ncs*sizeof(type0));
+        memcpy(dy,c_d,ncs*sizeof(type0));
+        for(int i=0;i<max_order;i++) t[i]=0.0;
+        q=1;
+        while (istep<max_step && tot_t<max_t && !min_run)
         {
-            if(thermo_flag)
-                forcefield_dmd->force_calc_timer(true);
-
-            ord_dt(del_t,q,err);
-        }
-        else
-        {
-            type0 f_norm=min->calc_ave_f_norm();
-            if(f_norm-init_f_norm>=f_tol)
+            err=1.0;
+            while(err>=1.0)
             {
-                forcefield_dmd->dynamic_flag=true;
-                min->run();
-                nmin++;
-                forcefield_dmd->dynamic_flag=false;
-                init_f_norm=min->calc_ave_f_norm();
-                reset();
-                c=mapp->c->begin();
-                c_d=mapp->c_d->begin();
-                neighbor_dmd->create_2nd_list();
-                forcefield_dmd->dc_timer();
-                type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(static_cast<type0>(dof_tot));
-                type0 del_t_=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
-                init_stp_adj(del_t_);
-                for(int i=0;i<max_order;i++)
-                    t[i]=0.0;
-                q=1;
+                interpolate(del_t,q);
+                solve_n_err(cost,err);
+                if(err<1.0)
+                    continue;
+                
+                fail_stp_adj(err,del_t,q);
+                memcpy(c,y[0],ncs*sizeof(type0));
+                memcpy(c_d,dy,ncs*sizeof(type0));
             }
-            else
-                ord_dt(del_t,q,err);
-
-        }
+            
+            max_succ_q=MAX(max_succ_q,q);
 
 
-        
-        tmp_y=y[max_order-1];
-        for(int i=max_order-1;i>0;i--)
-        {
-            t[i]=t[i-1]-del_t_tmp;
-            y[i]=y[i-1];
+            min_run=decide_min(istep,del_t);
+            if(min_run) continue;
+            
+            del_t_tmp=del_t;
+            ord_dt(del_t,q,err);
+            
+            tmp_y=y[max_order-1];
+            for(int i=max_order-1;i>0;i--)
+            {
+                t[i]=t[i-1]-del_t_tmp;
+                y[i]=y[i-1];
+            }
+            y[0]=tmp_y;
+            memcpy(y[0],c,ncs*sizeof(type0));
+            memcpy(dy,c_d,ncs*sizeof(type0));
         }
         
-        y[0]=tmp_y;
-        memcpy(y[0],c,dof_lcl*sizeof(type0));
-        memcpy(dy,c_d,dof_lcl*sizeof(type0));
-        
-        if(thermo_flag)
-        {
-            thermo->update(fe_idx,nrgy_strss[0]);
-            thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
-        }
-        step_no++;
-        istep++;
+        if(!min_run) continue;
+        do_min();
+        min_run=false;
     }
 }
 /*--------------------------------------------
  calculate the coefficients
  --------------------------------------------*/
-void Clock_bdf::interpolate(type0& del_t,int& q)
+void DMD_bdf::interpolate(type0& del_t,int& q)
 {
-    type0 tmp0,tmp1,c0,c1,c2;
-
+    type0 tmp0,tmp1,k0,k1,k2;
+    
     int idof;
     int err_chk=1;
     int err_chk_lcl;
     
     while(err_chk)
     {
-        c0=1.0;
-        c1=c2=0.0;
+        k0=1.0;
+        k1=k2=0.0;
         for(int i=1;i<q;i++)
         {
             tmp0=del_t/t[i];
             tmp1=t[i]/del_t;
-            c0*=1.0-tmp0;
-            c1+=tmp0;
-            c2+=1.0/(1.0-tmp1);
+            k0*=1.0-tmp0;
+            k1+=tmp0;
+            k2+=1.0/(1.0-tmp1);
         }
-        alpha_y[0]=c0*(1.0+c1);
+        alpha_y[0]=k0*(1.0+k1);
         for(int i=1;i<q;i++)
         {
             tmp1=del_t/t[i];
@@ -326,19 +262,19 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
                     tmp0*=(del_t-t[j])/(t[i]-t[j]);
             alpha_y[i]=tmp0;
         }
-        dalpha_y[0]=c0*(c1+c2+c1*c2)/del_t;
+        dalpha_y[0]=k0*(k1+k2+k1*k2)/del_t;
         for(int i=1;i<q;i++)
-            dalpha_y[i]=alpha_y[i]*(2.0+c2-1.0/(1.0-t[i]/del_t))/del_t;
+            dalpha_y[i]=alpha_y[i]*(2.0+k2-1.0/(1.0-t[i]/del_t))/del_t;
         
         
-        alpha_dy=c0*del_t;
-        dalpha_dy=c0*(1.0+c2);
+        alpha_dy=k0*del_t;
+        dalpha_dy=k0*(1.0+k2);
         
-        beta=del_t/(1.0+c2);
+        beta=del_t/(1.0+k2);
         
         err_chk_lcl=0;
         idof=0;
-        while(idof<dof_lcl && err_chk_lcl==0)
+        while(idof<ncs && err_chk_lcl==0)
         {
             if(y[0][idof]>=0.0)
             {
@@ -385,7 +321,7 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
                     else
                     {
                         type0 r_lcl=1.0,r;
-                        for(int i=0;i<dof_lcl;i++)
+                        for(int i=0;i<ncs;i++)
                         {
                             if(y[0][i]>=0.0)
                             {
@@ -409,16 +345,17 @@ void Clock_bdf::interpolate(type0& del_t,int& q)
                 }
             }
         }
-        err_prefac=fabs(-1.0/((1.0+c0)*(1.0+c2)));
+        err_prefac=fabs(-1.0/((1.0+k0)*(1.0+k2)));
         
         if(err_chk)
             intp_rej++;
     }
+
 }
 /*--------------------------------------------
  find the new del_t and order
  --------------------------------------------*/
-void Clock_bdf::ord_dt(type0& del_t,int& q
+void DMD_bdf::ord_dt(type0& del_t,int& q
 ,type0 err)
 {
     type0* c=mapp->c->begin();
@@ -466,7 +403,7 @@ void Clock_bdf::ord_dt(type0& del_t,int& q
         }
     }
     
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
         if(c[i]>=0.0)
             e_n[i]=c[i]-y_0[i];
 
@@ -474,39 +411,39 @@ void Clock_bdf::ord_dt(type0& del_t,int& q
 /*--------------------------------------------
  error calculation
  --------------------------------------------*/
-void Clock_bdf::ratio_calc(int q,type0 del_t,
+void DMD_bdf::ratio_calc(int q,type0 del_t,
 type0& lo_ratio,type0& hi_ratio)
 {
     type0* c=mapp->c->begin();
     type0 lo_err,hi_err,lo_err_lcl,hi_err_lcl;
     type0 tmp0,tmp1;
-    type0 c0,c2;
+    type0 k0,k2;
     
     lo_ratio=hi_ratio=0.0;
     
-    c0=1.0;
-    c2=0.0;
+    k0=1.0;
+    k2=0.0;
     for(int i=1;i<q;i++)
     {
         tmp0=del_t/t[i];
         tmp1=t[i]/del_t;
-        c0*=1.0-tmp0;
-        c2+=1.0/(1.0-tmp1);
+        k0*=1.0-tmp0;
+        k2+=1.0/(1.0-tmp1);
     }
     
     
     if(q>1)
     {
         type0 a0;
-        a0=fabs(-1.0/(static_cast<type0>(q-1)*(1.0+c2)*(1.0-t[q-1]/del_t)));
+        a0=fabs(-1.0/(static_cast<type0>(q-1)*(1.0+k2)*(1.0-t[q-1]/del_t)));
         
         lo_err_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
             {
                 tmp0=c[i];
-                tmp0-=c0*y[0][i];
+                tmp0-=k0*y[0][i];
                 for(int j=1;j<q;j++)
                     tmp0-=(t[j]/del_t)*alpha_y[j]*y[j][i];
                 
@@ -516,7 +453,7 @@ type0& lo_ratio,type0& hi_ratio)
         
         lo_err=0.0;
         MPI_Allreduce(&lo_err_lcl,&lo_err,1,MPI_TYPE0,MPI_SUM,world);
-        lo_err=sqrt(lo_err/static_cast<type0>(dof_tot))/a_tol;
+        lo_err=sqrt(lo_err/nc_dofs)/a_tol;
         lo_err*=a0;
         lo_ratio=pow(0.5/lo_err,1.0/static_cast<type0>(q));
     }
@@ -524,17 +461,17 @@ type0& lo_ratio,type0& hi_ratio)
     if(q<max_order && t[1]!=0.0)
     {
         type0 a0,a1;
-        type0 c3;
+        type0 k3;
         
-        c3=1.0;
+        k3=1.0;
         for(int i=0;i<q-1;i++)
-            c3*=1.0/(1.0-t[1]/t[i+2]);
+            k3*=1.0/(1.0-t[1]/t[i+2]);
         
-        a0=fabs(-(1.0-t[q]/del_t)/(static_cast<type0>((q+1)*(q+2))*(1.0+c0)*(1.0+c2)));
-        a1=c0*(1.0+c0)*del_t*del_t/((1.0+c3)*t[1]*t[q]);
+        a0=fabs(-(1.0-t[q]/del_t)/(static_cast<type0>((q+1)*(q+2))*(1.0+k0)*(1.0+k2)));
+        a1=k0*(1.0+k0)*del_t*del_t/((1.0+k3)*t[1]*t[q]);
         
         hi_err_lcl=0.0;
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
             {
@@ -544,7 +481,7 @@ type0& lo_ratio,type0& hi_ratio)
         }
         hi_err=0.0;
         MPI_Allreduce(&hi_err_lcl,&hi_err,1,MPI_TYPE0,MPI_SUM,world);
-        hi_err=sqrt(hi_err/static_cast<type0>(dof_tot))/a_tol;
+        hi_err=sqrt(hi_err/nc_dofs)/a_tol;
         hi_err*=a0;
         hi_ratio=pow(0.5/hi_err,1.0/static_cast<type0>(q+2));
     }
@@ -553,7 +490,7 @@ type0& lo_ratio,type0& hi_ratio)
 /*--------------------------------------------
  step addjustment after failure
  --------------------------------------------*/
-inline void Clock_bdf::fail_stp_adj(type0 err,type0& del_t,int& q)
+inline void DMD_bdf::fail_stp_adj(type0 err,type0& del_t,int& q)
 {
     if(max_t-tot_t<=2.0*min_del_t)
     {
@@ -588,7 +525,7 @@ inline void Clock_bdf::fail_stp_adj(type0 err,type0& del_t,int& q)
 /*--------------------------------------------
  init
  --------------------------------------------*/
-inline void Clock_bdf::init_stp_adj(type0& del_t)
+inline void DMD_bdf::init_stp_adj(type0& del_t)
 {
     if(del_t>max_t-tot_t)
         del_t=max_t-tot_t;
@@ -606,5 +543,6 @@ inline void Clock_bdf::init_stp_adj(type0& del_t)
                 del_t=max_t-tot_t-min_del_t;
         }
     }
+
 }
 

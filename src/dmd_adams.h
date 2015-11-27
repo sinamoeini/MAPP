@@ -1,11 +1,11 @@
-#ifdef Clock_Style
-    ClockStyle(Clock_adams,adams)
+#ifdef DMD_Style
+    DMDStyle(DMD_adams,adams)
 #else
-#ifndef __MAPP__clock_adams__
-#define __MAPP__clock_adams__
-#include "clock.h"
+#ifndef __MAPP__dmd_adams__
+#define __MAPP__dmd_adams__
+#include "dmd.h"
 namespace MAPP_NS {
-    class Clock_adams :public ClockImplicit
+    class DMD_adams :public DMDImplicit
     {
     private:
     protected:
@@ -28,7 +28,6 @@ namespace MAPP_NS {
         void interpolate(type0&,int&);
         void ord_dt(type0&,int&,type0);
         void ratio_calc(int,type0,type0&,type0&);
-            
         void allocate();
         void deallocate();
         inline void fail_stp_adj(type0,type0&,int&);
@@ -36,9 +35,10 @@ namespace MAPP_NS {
         
         type0** xi;
         type0** wi;
+        type0 est_dt();        
     public:
-        Clock_adams(MAPP *,int,char**);
-        ~Clock_adams();
+        DMD_adams(MAPP *,int,char**);
+        ~DMD_adams();
         void run();
         void init();
         void fin();

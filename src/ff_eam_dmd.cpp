@@ -1058,12 +1058,12 @@ inline type0 ForceField_eam_dmd::mod_log(type0 x)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad(
-bool cost_grad,type0 alpha,type0* a,type0* g)
+bool cost_grad,type0 tol,type0 alpha,type0* a,type0* g)
 {
     if(CRD_ENBL)
-        return imp_cost_grad_crd(cost_grad,alpha,a,g);
+        return imp_cost_grad_crd(cost_grad,tol,alpha,a,g);
     else
-        return imp_cost_grad_ncrd(cost_grad,alpha,a,g);
+        return imp_cost_grad_ncrd(cost_grad,tol,alpha,a,g);
 }
 /*--------------------------------------------
  claculate F and dF and dFF
@@ -1210,7 +1210,7 @@ void ForceField_eam_dmd::dc_ncrd()
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_crd
-(bool cost_grad,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 tol,type0 alpha,type0* a,type0* g)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -1283,7 +1283,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
     
-    if(!cost_grad)
+    if(!cost_grad || (cost_grad && ans<tol))
         return ans;
     
     /*
@@ -1415,7 +1415,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_ncrd
-(bool cost_grad,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 tol,type0 alpha,type0* a,type0* g)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -1486,7 +1486,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
 
-    if(!cost_grad)
+    if(!cost_grad || (cost_grad && ans<tol))
         return ans;
     
     /*
@@ -2372,7 +2372,6 @@ type0 ForceField_eam_dmd::ddc_norm_crd()
 
     MPI_Allreduce(&norm_lcl,&tmp0,1,MPI_TYPE0,MPI_SUM,world);
     return sqrt(tmp0);
-    
 }
 /*--------------------------------------------
  calculate norm of d^2c/dt^2

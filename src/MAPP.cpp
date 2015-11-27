@@ -15,7 +15,6 @@
 #include "read_styles.h"
 #include "ff_styles.h"
 #include "min_styles.h"
-#include "clock_styles.h"
 #include "command_styles.h"
 #include "md_styles.h"
 #include "ls_styles.h"
@@ -49,7 +48,7 @@ id(atoms->id)
     write=NULL;
     md=NULL;
     min=NULL;
-    clock=NULL;
+    dmd=NULL;
 
     
     type=NULL;
@@ -129,7 +128,6 @@ MAPP::~MAPP()
     delete write;
     delete md;
     delete min;
-    delete clock;
 
     delete neighbor;
     delete atom_types;
@@ -155,68 +153,12 @@ void MAPP::read_file()
     {
         nargs=parse_line(cmd,args,args_cpcty);
         if(nargs==0) continue;
-
-        if(0);
-        else if(strcmp(args[0],"read")==0) read_style(nargs,args);
-        else if(strcmp(args[0],"min")==0) min_style(nargs,args);
-        else if(strcmp(args[0],"md")==0) md_style(nargs,args);
-        else if(strcmp(args[0],"clock")==0) clock_style(nargs,args);
-        else if(strcmp(args[0],"ls")==0) ls_style(nargs,args);
-        else if(strcmp(args[0],"ff")==0) ff_style(nargs,args);
-        else if(strcmp(args[0],"write")==0) write_style(nargs,args);
-        else command_style(nargs,args);
-
+        command_style(nargs,args);
         no_commands++;
     }
     
     if(args_cpcty) delete [] args;
     if(cmd_cpcty) delete [] cmd;
-}
-/*--------------------------------------------
- differnt read styles
- --------------------------------------------*/
-void MAPP::read_style(int nargs,char** args)
-{
-    if(nargs<2)
-        error->abort("wrong command: %s",args[0]);
-    
-    Read* read;
-    #define Read_Style
-    #define ReadStyle(class_name,style_name)    \
-    else if(strcmp(args[1],#style_name)==0)     \
-    read= new class_name(this,nargs,args);
-    
-    if(0){}
-    #include "read_styles.h"
-    else
-        error->abort("wrong style of read: %s",args[1]);
-    #undef Read_Style
-    delete read;
-}
-/*--------------------------------------------
- differnt forcefield styles
- --------------------------------------------*/
-void MAPP::ff_style(int nargs,char** args)
-{
-    if(nargs!=2)
-        error->abort("wrong command: %s",args[0]);
-    
-    if(forcefield!=NULL)
-        delete forcefield;
-    
-    #define FF_Style
-    #define FFStyle(class_name,style_name)     \
-    else if(strcmp(args[1],#style_name)==0)    \
-    forcefield=new class_name(this);
-    
-    //different forcefileds
-    if(0){}
-    #include "ff_styles.h"
-    else
-        error->abort("unknown forcefield: %s"
-                     ,args[1]);
-    
-    #undef FF_Style
 }
 /*--------------------------------------------
  differnt command styles
@@ -228,7 +170,7 @@ void MAPP::command_style(int nargs,char** args)
     #define CommandStyle(class_name,style_name) \
     else if(strcmp(args[0],#style_name)==0){    \
     class class_name* command =                 \
-    new class_name(this,nargs,args);             \
+    new class_name(this,nargs,args);            \
     delete command;}
     
     if (strcmp(args[0],"rm")==0)
@@ -242,147 +184,8 @@ void MAPP::command_style(int nargs,char** args)
     else
         error->abort("unknown command:"
                      " %s",args[0]);
+    #undef CommandStyle
     #undef Command_Style
-    
-    
-}
-/*--------------------------------------------
- differnt forcefield styles
- --------------------------------------------*/
-void MAPP::ls_style(int nargs,char** args)
-{
-    if(nargs<2)
-        error->abort("wrong command: %s",args[0]);
-    
-    if(ls!=NULL)
-        delete ls;
-    
-    #define LS_Style
-    #define LSStyle(class_name,style_name)     \
-    else if(strcmp(args[1],#style_name)==0)    \
-    ls=new class_name<Min>(this,nargs,args);
-    
-    if(0){}
-    #include "ls_styles.h"
-    else
-        error->abort("unknown line search: %s"
-                     ,args[1]);
-    
-    #undef LS_Style
-}
-/*--------------------------------------------
- differnt minimization styles
- --------------------------------------------*/
-void MAPP::min_style(int nargs,char** args)
-{
-    if(nargs<2)
-        error->abort("wrong command: %s"
-        ,args[0]);
-    if(min!=NULL)
-        delete min;
-    
-    #define Min_Style
-    #define MinStyle(class_name,style_name)     \
-    else if(strcmp(args[1],#style_name)==0)     \
-        {if(min!=NULL)delete min;               \
-        min= new class_name(this,nargs,args);   \
-        min->init();min->run();min->fin();      \
-        delete min;min=NULL;}
-    
-    if(0){}
-    #include "min_styles.h"
-    else
-        error->abort("wrong style of minimization"
-        ": %s",args[1]);
-    
-    #undef Min_Style
-}
-/*--------------------------------------------
- differnt MD styles
- --------------------------------------------*/
-void MAPP::md_style(int nargs,char** args)
-{
-    if(nargs<2)
-        error->abort("wrong command: %s"
-        ,args[0]);
-    
-    int nh_xist=0;
-    type0 t_step = 0.0,boltz=0.0;
-    if(md!=NULL)
-    {
-        nh_xist=1;
-        t_step=md->dt;
-        boltz=md->boltz;
-        delete md;
-    }
-    #define MD_Style
-    #define MDStyle(class_name,style_name)      \
-    else if(strcmp(args[1],#style_name)==0)     \
-    md= new class_name(this,nargs,args);
-
-    if(0){}
-    #include "md_styles.h"
-    else
-        error->abort("wrong style of md: %s"
-        ,args[1]);
-    #undef MD_Style
-    if(nh_xist)
-    {
-        md->dt=t_step;
-        md->boltz=boltz;
-    }
-}
-/*--------------------------------------------
- differnt read styles
- --------------------------------------------*/
-void MAPP::write_style(int nargs,char** args)
-{
-    if(nargs<2)
-        error->abort("wrong command: %s",args[0]);
-
-    if(write!=NULL)
-        delete write;
-
-    #define Write_Style
-    #define WriteStyle(class_name,style_name)   \
-    else if(strcmp(args[1],#style_name)==0)     \
-    write= new class_name(this,nargs,args);
-    
-    if(0){}
-    #include "write_styles.h"
-    else
-        error->abort("wrong style of write:"
-            " %s",args[1]);
-    #undef Write_Style
-}
-/*--------------------------------------------
- differnt clock styles
- --------------------------------------------*/
-void MAPP::clock_style(int nargs,char** args)
-{
-    if(nargs<2)
-        error->abort("wrong command: %s"
-        ,args[0]);
-    
-    if(clock!=NULL)
-    {
-        delete clock;
-        clock=NULL;
-    }
-    
-    #define Clock_Style
-    #define ClockStyle(class_name,style_name)\
-    else if(strcmp(args[1],#style_name)==0)  \
-    {clock= new class_name(this,nargs,args);}
-
-    
-    if(0){}
-    #include "clock_styles.h"
-    else
-        error->abort("wrong style of clock"
-                     ": %s",args[1]);
-    
-    #undef Clock_Style
 }
 /*--------------------------------------------
  parse a command line:

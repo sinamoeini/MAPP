@@ -86,8 +86,8 @@ namespace MAPP_NS
         void dc_ncrd();
         type0 dc_en_proj_crd(bool,type0*,type0&);
         type0 dc_en_proj_ncrd(bool,type0*,type0&);
-        type0 imp_cost_grad_crd(bool,type0,type0*,type0*);
-        type0 imp_cost_grad_ncrd(bool,type0,type0*,type0*);
+        type0 imp_cost_grad_crd(bool,type0,type0,type0*,type0*);
+        type0 imp_cost_grad_ncrd(bool,type0,type0,type0*,type0*);
         type0 ddc_norm_crd();
         type0 ddc_norm_ncrd();
         type0 dc_norm_grad_crd(bool,type0*,type0*);
@@ -101,7 +101,7 @@ namespace MAPP_NS
         void dc();
         type0 dc_en_proj(bool,type0*,type0&);
         type0 ddc_norm();
-        type0 imp_cost_grad(bool,type0,type0*,type0*);
+        type0 imp_cost_grad(bool,type0,type0,type0*,type0*);
         type0 dc_norm_grad(bool,type0*,type0*);
         type0 en_grad(bool,type0*,type0*);
     public:

@@ -43,8 +43,7 @@ namespace MAPP_NS
         class Write* write;
         class MD* md;
         class Min* min;
-        class Clock* clock;
-
+        class DMD* dmd;
 
         /* 
          * atomic vectors
@@ -71,13 +70,6 @@ namespace MAPP_NS
         FILE* input_file;
         
         void read_file();
-        void min_style(int,char**);
-        void ff_style(int,char**);
-        void md_style(int,char**);
-        void ls_style(int,char**);
-        void clock_style(int,char**);
-        void read_style(int,char**);
-        void write_style(int,char**);
         void command_style(int,char**);
         
         //extra functions that can be used by other files

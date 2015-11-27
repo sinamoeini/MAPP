@@ -352,10 +352,7 @@ void Write_cfg::write_file_dmd(int stp)
                 fprintf(fp,"auxiliary[%d] = c_%d [reduced unit]\n",icomp++,idim);
         }
         // write the body
-        /*
-        bool* types_written;
-        CREATE1D(types_written,atom_types->no_types);
-        */
+
         if(sorting)
         {
             for(int ivec=3;ivec<ndump_vecs;ivec++)

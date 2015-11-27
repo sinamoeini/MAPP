@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <limits>
-#include "clock_inf.h"
+#include "dmd_inf.h"
 #include "ff.h"
 #include "write.h"
 #include "error.h"
@@ -12,9 +12,10 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Clock_inf::Clock_inf(MAPP* mapp,int nargs
-,char** args):ClockImplicit(mapp)
+DMD_inf::DMD_inf(MAPP* mapp,int nargs
+,char** args):DMDImplicit(mapp)
 {
+    error->abort("this dmd style is not ready yet");
     epsilon=std::numeric_limits<type0>::epsilon();
     epsilon_sqrt=sqrt(epsilon);
     golden=0.5+0.5*sqrt(5.0);
@@ -55,53 +56,53 @@ Clock_inf::Clock_inf(MAPP* mapp,int nargs
                 iarg++;
             }
             else
-                error->abort("unknown keyword in clock int: %s",args[iarg]);
+                error->abort("unknown keyword in dmd int: %s",args[iarg]);
         }
     }
     
     if(max_step<=0)
-        error->abort("max_step in clock bdf should be greater than 0");
+        error->abort("max_step in dmd bdf should be greater than 0");
     if(a_tol<=0.0)
-        error->abort("a_tol in clock bdf should be greater than 0.0");
+        error->abort("a_tol in dmd bdf should be greater than 0.0");
 
 
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Clock_inf::~Clock_inf()
+DMD_inf::~DMD_inf()
 {
     
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void Clock_inf::allocate()
+void DMD_inf::allocate()
 {
-    ClockImplicit::allocate();
-    CREATE1D(c1,dof_lcl);
-    CREATE1D(g_orig,dof_lcl);
+    DMDImplicit::allocate();
+    CREATE1D(c1,ncs);
+    CREATE1D(g_orig,ncs);
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-void Clock_inf::deallocate()
+void DMD_inf::deallocate()
 {
 
-    if(dof_lcl)
+    if(ncs)
     {
         delete [] c1;
         delete [] g_orig;
     }
-    ClockImplicit::deallocate();
+    DMDImplicit::deallocate();
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_inf::init()
+void DMD_inf::init()
 {
     
-    ClockImplicit::init();
+    DMDImplicit::init();
     allocate();
 
     ls_mode=LS_GS;
@@ -109,15 +110,15 @@ void Clock_inf::init()
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_inf::fin()
+void DMD_inf::fin()
 {
-    ClockImplicit::fin();
+    DMDImplicit::fin();
     deallocate();
 }
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void Clock_inf::run()
+void DMD_inf::run()
 {
     type0* c=mapp->c->begin();
     
@@ -136,7 +137,7 @@ void Clock_inf::run()
         curr_cost=forcefield_dmd->dc_en_proj_timer(1,h,g_h);
         rectify(h);
         inner0=0.0;
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
             {
@@ -157,11 +158,11 @@ void Clock_inf::run()
         rectify(g_orig);
         
         /* set the first trajectory */
-        memcpy(h,g,dof_lcl*sizeof(type0));
+        memcpy(h,g,ncs*sizeof(type0));
         
         /* calculate g.h g_0.g_0 */
         inner0=0.0;
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
             if(c[i]>=0.0)
                 inner0+=g_orig[i]*g[i];
         g0_g0=0.0;
@@ -175,8 +176,8 @@ void Clock_inf::run()
     while(err==0)
     {
 
-        memcpy(c0,c,dof_lcl*sizeof(type0));
-        memcpy(g0,g,dof_lcl*sizeof(type0));
+        memcpy(c0,c,ncs*sizeof(type0));
+        memcpy(g0,g,ncs*sizeof(type0));
         
         cost=curr_cost;
         
@@ -214,7 +215,7 @@ void Clock_inf::run()
             curr_cost=forcefield_dmd->dc_en_proj_timer(1,h,g_h);
             rectify(h);
             inner0=0.0;
-            for(int i=0;i<dof_lcl;i++)
+            for(int i=0;i<ncs;i++)
             {
                 if(c[i]>=0.0)
                 {
@@ -234,11 +235,11 @@ void Clock_inf::run()
             rectify(g_orig);
             
             /* set the first trajectory */
-            memcpy(h,g,dof_lcl*sizeof(type0));
+            memcpy(h,g,ncs*sizeof(type0));
             
             /* calculate g.h g_0.g_0 */
             inner0=inner1=0.0;
-            for(int i=0;i<dof_lcl;i++)
+            for(int i=0;i<ncs;i++)
                 if(c[i]>=0.0)
                 {
                     inner0+=g_orig[i]*g0[i];
@@ -256,7 +257,7 @@ void Clock_inf::run()
             
             /* calculate g_h */
             inner0=0.0;
-            for(int i=0;i<dof_lcl;i++)
+            for(int i=0;i<ncs;i++)
             {
                 if(c[i]>=0.0)
                 {
@@ -270,7 +271,7 @@ void Clock_inf::run()
             /* if g_h is negative start from the begining */
             if(g_h<0.0)
             {
-                memcpy(h,g,dof_lcl*sizeof(type0));
+                memcpy(h,g,ncs*sizeof(type0));
                 g_h=g_g;
             }
         }
@@ -297,20 +298,20 @@ void Clock_inf::run()
 /*--------------------------------------------
  find the the cost function given gamma
  --------------------------------------------*/
-inline type0 Clock_inf::cost_func(type0 gamma)
+inline type0 DMD_inf::cost_func(type0 gamma)
 {
     type0 tmp;
     type0* c=mapp->c->begin();
     
     if(gamma<max_a)
     {
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
             if(c0[i]>=0.0)
                 c[i]=c0[i]+gamma*h[i];
     }
     else
     {
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
             if(c0[i]>=0.0)
                 c[i]=c1[i];
     }
@@ -328,19 +329,19 @@ inline type0 Clock_inf::cost_func(type0 gamma)
 /*--------------------------------------------
  find the the cost function given gamma
  --------------------------------------------*/
-inline type0 Clock_inf::dcost_func(type0 gamma,type0& df)
+inline type0 DMD_inf::dcost_func(type0 gamma,type0& df)
 {
     type0* c=mapp->c->begin();
     
     if(gamma<max_a)
     {
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
             if(c0[i]>=0.0)
                 c[i]=c0[i]+gamma*h[i];
     }
     else
     {
-        for(int i=0;i<dof_lcl;i++)
+        for(int i=0;i<ncs;i++)
             if(c0[i]>=0.0)
                 c[i]=c1[i];
     }
@@ -349,7 +350,7 @@ inline type0 Clock_inf::dcost_func(type0 gamma,type0& df)
     
     type0 cost=forcefield_dmd->en_grad_timer(1,g_orig,g);
     type0 inner0=0.0;
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
         {
@@ -363,13 +364,13 @@ inline type0 Clock_inf::dcost_func(type0 gamma,type0& df)
 /*--------------------------------------------
  find the the cost function given gamma
  --------------------------------------------*/
-inline void Clock_inf::ls_prep()
+inline void DMD_inf::ls_prep()
 {
     type0 h_norm_lcl;
     type0 max_a_lcl;
     max_a_lcl=numeric_limits<type0>::infinity();
     h_norm_lcl=0.0;
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         if(c0[i]>=0.0)
         {
@@ -395,7 +396,7 @@ inline void Clock_inf::ls_prep()
         error->abort("h_norm is zero");
     
     
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         if(c0[i]>=0.0)
         {
@@ -422,7 +423,7 @@ inline void Clock_inf::ls_prep()
 /*--------------------------------------------
  given the direction h do the lin seach
  --------------------------------------------*/
-int Clock_inf::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
+int DMD_inf::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 a1,fa1,a2,fa2;
     type0 r,q,ulim,u,fu;
@@ -446,7 +447,7 @@ int Clock_inf::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
             return 1;
         }
         type0* c=mapp->c->begin();
-        memcpy(c,c0,dof_lcl*sizeof(type0));
+        memcpy(c,c0,ncs*sizeof(type0));
         atoms->update(mapp->c);
         return 0;
     }
@@ -497,7 +498,7 @@ int Clock_inf::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
         if(fa1>=fa0)
         {
             type0* c=mapp->c->begin();
-            memcpy(c,c0,dof_lcl*sizeof(type0));
+            memcpy(c,c0,ncs*sizeof(type0));
             atoms->update(mapp->c);
             return 0;
         }
@@ -659,7 +660,7 @@ int Clock_inf::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
 /*--------------------------------------------
  given the direction h do the lin seach
  --------------------------------------------*/
-int Clock_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
+int DMD_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 a1,fa1,a2,fa2;
     type0 r,q,ulim,u,fu;
@@ -688,7 +689,7 @@ int Clock_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
             return 1;
         }
         type0* c=mapp->c->begin();
-        memcpy(c,c0,dof_lcl*sizeof(type0));
+        memcpy(c,c0,ncs*sizeof(type0));
         atoms->update(mapp->c);
         return 0;
 
@@ -728,7 +729,7 @@ int Clock_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
             return 1;
         }
         type0* c=mapp->c->begin();
-        memcpy(c,c0,dof_lcl*sizeof(type0));
+        memcpy(c,c0,ncs*sizeof(type0));
         atoms->update(mapp->c);
         return 0;
     }
@@ -952,7 +953,7 @@ int Clock_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
-int Clock_inf::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
+int DMD_inf::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
 {
     type0 u,a=0.0,fa2;
     
@@ -968,7 +969,7 @@ int Clock_inf::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
             return 1;
         }
         type0* c=mapp->c->begin();
-        memcpy(c,c0,dof_lcl*sizeof(type0));
+        memcpy(c,c0,ncs*sizeof(type0));
         atoms->update(mapp->c);
         return 0;
     }
@@ -1017,14 +1018,14 @@ int Clock_inf::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
     
     
     type0* c=mapp->c->begin();
-    memcpy(c,c0,dof_lcl*sizeof(type0));
+    memcpy(c,c0,ncs*sizeof(type0));
     atoms->update(mapp->c);
     return 0;
 }
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
-int Clock_inf::test1(type0 a0,type0 fa0,type0 dfa0)
+int DMD_inf::test1(type0 a0,type0 fa0,type0 dfa0)
 {
 
     dfa0*=-1.0;
@@ -1034,7 +1035,7 @@ int Clock_inf::test1(type0 a0,type0 fa0,type0 dfa0)
     type0* mu;
     atoms->vectors[atoms->find("mu")]->ret(mu);
     
-    for(int i=0;i<dof_lcl;i++)
+    for(int i=0;i<ncs;i++)
     {
         
         if(c0[i]>=0.0)
@@ -1061,7 +1062,7 @@ int Clock_inf::test1(type0 a0,type0 fa0,type0 dfa0)
          u+=frac;
      }
 
-     memcpy(c,c0,dof_lcl*sizeof(type0));
+     memcpy(c,c0,ncs*sizeof(type0));
      atoms->update(mapp->c);
     
 
@@ -1071,7 +1072,7 @@ int Clock_inf::test1(type0 a0,type0 fa0,type0 dfa0)
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
-int Clock_inf::test0()
+int DMD_inf::test0()
 {
 
 
