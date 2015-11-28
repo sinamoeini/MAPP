@@ -64,26 +64,7 @@ DMD::~DMD()
  --------------------------------------------*/
 void DMD::coef(int nargs,char** args)
 {
-    if(!strcmp(args[1],"min"))
-    {
-        dmd_min(nargs-1,args+1);
-        /*
-        #define Min_Style
-        #define MinStyle(class_name,style_name)   \
-        else if(strcmp(args[2],#style_name)==0)   \
-        {if(min!=NULL)delete min;                 \
-        min= new class_name(mapp,nargs-1,args+1);}\
-
-        if(0){}
-        #include "min_styles.h"
-        else
-            error->abort("wrong style of minimization"
-            ": %s",args[2]);
-        #undef Min_Style
-        #undef MinStyle
-        min->output_flag=false;*/
-    }
-    else if(!strcmp(args[1],"f_tol"))
+    if(!strcmp(args[1],"f_tol"))
     {
         f_tol=atof(args[2]);
         min_flag=F_FLAG;
