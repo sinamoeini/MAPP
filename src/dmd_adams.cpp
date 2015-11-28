@@ -195,8 +195,8 @@ void DMD_adams::init()
  --------------------------------------------*/
 void DMD_adams::fin()
 {
+    deallocate();    
     DMDImplicit::fin();
-    deallocate();
 }
 /*--------------------------------------------
  init

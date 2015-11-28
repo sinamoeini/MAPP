@@ -12,7 +12,7 @@ Command_min::Command_min
     if(nargs<2)
         error->abort("wrong command: %s"
         ,args[0]);
-    Min*& min=mapp->min;
+    Min* min=mapp->min;
     if(min!=NULL)
         delete min;
     
@@ -30,8 +30,8 @@ Command_min::Command_min
         error->abort("wrong style of minimization"
         ": %s",args[1]);
     
-    #undef MinStyle
     #undef Min_Style
+
     
 }
 /*--------------------------------------------

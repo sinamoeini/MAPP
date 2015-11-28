@@ -117,8 +117,8 @@ void DMD_fe::init()
  --------------------------------------------*/
 void DMD_fe::fin()
 {
+    deallocate();    
     DMDExplicit::fin();
-    deallocate();
 }
 /*--------------------------------------------
  run

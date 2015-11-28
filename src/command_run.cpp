@@ -37,7 +37,6 @@ Command_run::Command_run(MAPP* mapp,int nargs,char** args)
         mapp->dmd->init();
         mapp->dmd->run(atof(args[1]));
         mapp->dmd->fin();
-        
     }
 
 }

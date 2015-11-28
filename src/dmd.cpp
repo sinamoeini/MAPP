@@ -294,18 +294,20 @@ void DMD::fin()
     if(write!=NULL)
         write->fin();
     thermo->fin();
+    
     if(min==NULL)
     {
         atoms->fin();
         delete vecs_comm;
+        atoms->set_skin(old_skin);
     }
     else
+    {
         min->fin();
-
+    }
     print_stats();
     timer->print_stats();
     neighbor->print_stats();
-    atoms->set_skin(old_skin);
     forcefield_dmd->dynamic_flag=true;
 }
 /*--------------------------------------------

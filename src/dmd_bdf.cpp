@@ -142,7 +142,6 @@ void DMD_bdf::deallocate()
 type0 DMD_bdf::est_dt()
 {
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
-    printf("sum %32.20lf\n",sum);
     type0 del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
     init_stp_adj(del_t);
     return del_t;
@@ -160,8 +159,8 @@ void DMD_bdf::init()
  --------------------------------------------*/
 void DMD_bdf::fin()
 {
-    DMDImplicit::fin();
     deallocate();
+    DMDImplicit::fin();
 }
 /*--------------------------------------------
  init

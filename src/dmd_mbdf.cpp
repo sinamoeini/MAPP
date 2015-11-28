@@ -169,8 +169,8 @@ void DMD_mbdf::init()
  --------------------------------------------*/
 void DMD_mbdf::fin()
 {
+    deallocate();    
     DMDImplicit::fin();
-    deallocate();
 }
 /*--------------------------------------------
  run
