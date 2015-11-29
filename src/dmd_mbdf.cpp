@@ -213,7 +213,6 @@ void DMD_mbdf::run()
             {
                 interpolate(initial_phase,const_stps,del_t,q);
                 solve_n_err(cost,err);
-                err=MAX(err,cost);
                 if(err<1.0)
                     continue;
                 
@@ -271,8 +270,6 @@ void DMD_mbdf::interpolate(int& init_phase,int& const_stps,type0& del_t,int& q)
         for(int i=0;i<q+1;i++)
         {
             k0+=1.0/(1.0-t[i]/del_t);
-            //k0+=1.0/(del_t-t[i]);
-            
             tmp0=1.0;
             for(int j=0;j<q+1;j++)
                 if(i!=j)

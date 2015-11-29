@@ -346,8 +346,8 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     type0 ratio;
     type0 g0_g0,g_g,g_g0;
     type0 curr_cost;
-    type0 tol=nc_dofs*m_tol*m_tol;
-    int line_search_succ,iter=0;
+    type0 tol=sqrt(nc_dofs)*m_tol;
+    int line_search_succ=0,iter=0;
     
     if(pre_cond==1)
     {
@@ -365,6 +365,10 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     if(curr_cost>=tol)
     {
         rectify(g);
+        for(int i=0;i<ncs;i++)
+            if((c[i]==0 && g[i]<0.0)
+            || (c[i]==1.0 && g[i]>0.0))
+                g[i]=0.0;
         memcpy(h,g,ncs*sizeof(type0));
                 
         inner0=0.0;
@@ -391,7 +395,11 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
             }
             curr_cost=forcefield_dmd->imp_cost_grad_timer(true,tol,beta,a,g);
             rectify(g);
-
+            for(int i=0;i<ncs;i++)
+                if((c[i]==0 && g[i]<0.0)
+                   || (c[i]==1.0 && g[i]>0.0))
+                    g[i]=0.0;
+            
             inner0=inner1=0.0;
             for(int i=0;i<ncs;i++)
             {
@@ -445,7 +453,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     err=sqrt(err/nc_dofs)/a_tol;
     c_d_norm=sqrt(c_d_norm/nc_dofs);
     err*=err_prefac;
-    cost=sqrt(curr_cost/nc_dofs)/m_tol;
+    cost=curr_cost/tol;
     
     
     if(iter)
@@ -457,7 +465,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     }
     if(err>=1.0)
         intg_rej++;
-    //printf("%32.20lf %32.20lf %e %d \n",err,cost,c_d_norm,iter);
+    //printf("%32.20lf %32.20lf %d max_a %e\n",err,cost,line_search_succ,max_a);
     
 }
 /*--------------------------------------------

@@ -16,6 +16,21 @@ namespace MAPP_NS
         B_F_MAX_ALPHA,
         B_F_DOWNHILL
     };
+    /*
+    const char *ls_msg[]=
+    {
+        "success",
+        "not downhill direction",
+        "gradient is 0",
+        "reached minimum alpha",
+
+        "tolerance reached",
+        "maximum iteration",
+        
+        "bracketing success",
+        "bracketing reached maximum alpha",
+        "bracketing not downhill",        
+    };*/
     
     template<class Func>
     class LineSearch
