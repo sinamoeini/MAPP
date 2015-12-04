@@ -10,6 +10,7 @@
 #include "ls.h"
 namespace MAPP_NS
 {
+    class Min;
     enum {MD_mode,DMD_mode};
     
     class MAPP
@@ -42,7 +43,7 @@ namespace MAPP_NS
         class ForceField* forcefield;
         class Write* write;
         class MD* md;
-        class Min* min;
+        //class Min* min;
         class DMD* dmd;
 
         /* 
@@ -79,8 +80,8 @@ namespace MAPP_NS
         int hash_remover(char*,char*&);
         int hash_remover(char*&);
         int concatenate(int,char**,char*&);
-        void test();
-        
+        void test0();
+        void test1();
         int read_line(FILE*,char*&,int&,int&);
         void init_dubeg(bool);
         void fin_dubeg();

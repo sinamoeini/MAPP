@@ -440,7 +440,7 @@ namespace MAPP_NS
         
         Vec<type0>*& x;
     protected:
-    public:
+    public:        
         Xchng(Atoms*,vec**,int);
         ~Xchng();
         void full_xchng();

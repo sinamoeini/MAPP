@@ -7,7 +7,6 @@
 #include "timer.h"
 #include "min_styles.h"
 #include <limits>
-#define INITIAL_STEP_MODE 1
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -91,7 +90,7 @@ void DMD::dmd_min(int nargs,char** args)
     #define MinStyle(class_name,style_name)   \
     else if(strcmp(args[1],#style_name)==0)   \
     {if(min!=NULL)delete min;                 \
-    min= new class_name(mapp,nargs,args);}\
+    min= new class_name(mapp,nargs,args);}
 
     if(0){}
     #include "min_styles.h"
@@ -124,6 +123,7 @@ void DMD::run(type0 t)
 void DMD::do_min()
 {
     forcefield_dmd->dynamic_flag=true;
+    min->force_calc();
     min->run();
     nmin++;
     if(min_flag==F_FLAG)
@@ -238,6 +238,7 @@ void DMD::init()
     if(nc_dofs==0.0)
         error->abort("cannot start a dmd with no degrees of freedom");
 
+    
     if(mapp->c_d==NULL)
         mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
 
@@ -341,39 +342,46 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     type0* c_d=mapp->c_d->begin();
     
     type0 gamma;
-    type0 inner0,inner1,tmp0;
+    type0 inner[2],inner_lcl[2],tmp0;
     type0 err_lcl;
     type0 ratio;
     type0 g0_g0,g_g,g_g0;
     type0 curr_cost;
-    type0 tol=sqrt(nc_dofs)*m_tol;
+    type0 tol=sqrt(nc_dofs)*MIN(m_tol,a_tol/fabs(err_prefac));
     int line_search_succ=0,iter=0;
-    
-    if(pre_cond==1)
+   /*
+    if(pre_cond==2)
     {
         memcpy(c,y_0,ncs*sizeof(type0));
+        tol=sqrt(nc_dofs)*m_tol;
         atoms->update(mapp->c);
     }
-    else if(pre_cond==2)
+    else if(pre_cond==1)
     {
-        memcpy(c,y_1,ncs*sizeof(type0));
+        for(int i=0;i<ncs;i++)
+        {
+            c[i]=beta*c_d[i]-a[i];
+            if(c[i]>1.0)
+                c[i]=1.0;
+            if(c[i]<0.0)
+                c[i]=0.0;
+        }
         atoms->update(mapp->c);
-    }
-    
+    }*/
+
     curr_cost=forcefield_dmd->imp_cost_grad_timer(true,tol,beta,a,g);
+
     
     if(curr_cost>=tol)
     {
         rectify(g);
-        for(int i=0;i<ncs;i++)
-            if((c[i]==0 && g[i]<0.0)
-            || (c[i]==1.0 && g[i]>0.0))
-                g[i]=0.0;
+
+        
         memcpy(h,g,ncs*sizeof(type0));
                 
-        inner0=0.0;
-        for(int i=0;i<ncs;i++) inner0+=g[i]*g[i];
-        MPI_Allreduce(&inner0,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
+        inner_lcl[0]=0.0;
+        for(int i=0;i<ncs;i++) inner_lcl[0]+=g[i]*g[i];
+        MPI_Allreduce(&inner_lcl,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
         h_h=g_h=g0_g0;
         
         iter=0;
@@ -382,9 +390,8 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
         {
             memcpy(g0,g,ncs*sizeof(type0));
             memcpy(c0,c,ncs*sizeof(type0));
-
+            
             line_search_succ=ls_dmd->line_min(curr_cost,gamma,1);
-
             
             if(line_search_succ!=LS_S)
                 continue;
@@ -393,36 +400,41 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
                 iter++;
                 continue;
             }
-            curr_cost=forcefield_dmd->imp_cost_grad_timer(true,tol,beta,a,g);
+            curr_cost=forcefield_dmd->imp_cost_grad_timer(true,-1,beta,a,g);
             rectify(g);
-            for(int i=0;i<ncs;i++)
-                if((c[i]==0 && g[i]<0.0)
-                   || (c[i]==1.0 && g[i]>0.0))
-                    g[i]=0.0;
+
             
-            inner0=inner1=0.0;
+            inner_lcl[0]=inner_lcl[1]=0.0;
             for(int i=0;i<ncs;i++)
             {
-                inner0+=g[i]*g0[i];
-                inner1+=g[i]*g[i];
+                inner_lcl[0]+=g[i]*g0[i];
+                inner_lcl[1]+=g[i]*g[i];
             }
             
-            MPI_Allreduce(&inner0,&g_g0,1,MPI_TYPE0,MPI_SUM,world);
-            MPI_Allreduce(&inner1,&g_g,1,MPI_TYPE0,MPI_SUM,world);
+            MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
+            g_g0=inner[0];
+            g_g=inner[1];
             ratio=(g_g-g_g0)/g0_g0;
             
-            inner0=inner1=0.0;
-            for(int i=0;i<ncs;i++)
+            inner_lcl[0]=inner_lcl[1]=0.0;
+            int bound_chk_lcl=1,bound_chk;
+            for(int i=0;i<ncs && bound_chk_lcl;i++)
             {
                 h[i]*=ratio;
                 h[i]+=g[i];
-                inner0+=h[i]*g[i];
-                inner1+=h[i]*h[i];
+                if((c[i]==0.0 && h[i]<0.0) || (c[i]==1.0 && h[i]>0.0))
+                    bound_chk_lcl=0;
+                inner_lcl[0]+=h[i]*g[i];
+                inner_lcl[1]+=h[i]*h[i];
             }
-            MPI_Allreduce(&inner0,&g_h,1,MPI_TYPE0,MPI_SUM,world);
-            MPI_Allreduce(&inner1,&h_h,1,MPI_TYPE0,MPI_SUM,world);
-            
-            if(g_h<0.0)
+            MPI_Allreduce(&bound_chk_lcl,&bound_chk,1,MPI_INT,MPI_MIN,world);
+            if(bound_chk)
+            {
+                MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
+                g_h=inner[0];
+                h_h=inner[1];
+            }
+            if(g_h<0.0 || bound_chk==0)
             {
                 memcpy(h,g,ncs*sizeof(type0));
                 h_h=g_h=g_g;
@@ -453,8 +465,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     err=sqrt(err/nc_dofs)/a_tol;
     c_d_norm=sqrt(c_d_norm/nc_dofs);
     err*=err_prefac;
-    cost=curr_cost/tol;
-    
+    cost=curr_cost/(tol);
     
     if(iter)
     {
@@ -465,7 +476,26 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     }
     if(err>=1.0)
         intg_rej++;
-    //printf("%32.20lf %32.20lf %d max_a %e\n",err,cost,line_search_succ,max_a);
+    
+    //printf("%lf %lf %d %e \n",err,cost,iter,c_d_norm);
+    
+    /*
+    if(line_search_succ==8 )
+    {
+        for(int i=0;i<ncs;i++)
+            if(h[i]!=0.0)
+                printf("%e %e %e %e %e\n",c[i],h[i],g[i],c_d[i],dy0[i]);
+        error->abort("");
+        test();
+    }*/
+    /*
+    if(line_search_succ==8 && step_no==30)
+    {
+        for(int i=0;i<ncs;i++)
+            if(h[i]!=0.0)
+            printf("%e %e %e %e %e\n",c[i],h[i],g[i],c_d[i],dy0[i]);
+        error->abort("");
+    }*/
     
 }
 /*--------------------------------------------

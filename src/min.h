@@ -33,7 +33,6 @@ namespace MAPP_NS
         int stress_idx;
         bool sts_flag;
         
-        void force_calc();
         void prepare_affine_h();
         type0 calc_ndofs();
         type0 ndofs;
@@ -63,7 +62,7 @@ namespace MAPP_NS
         virtual void init();
         virtual void fin();
         
-        
+        void force_calc();
         type0 calc_ave_f_norm();
         bool output_flag;
 

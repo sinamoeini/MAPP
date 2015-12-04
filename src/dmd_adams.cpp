@@ -232,11 +232,13 @@ void DMD_adams::run()
             {
                 interpolate(del_t,q);
                 solve_n_err(cost,err);
+                err=MIN(err,cost);
                 if(err<1.0) continue;
                 
                 fail_stp_adj(err,del_t,q);
                 memcpy(c,y,ncs*sizeof(type0));
-                memcpy(c_d,dy[0],ncs*sizeof(type0));
+                memcpy(c_d,dy[0],ncs*sizeof(type0));                
+                atoms->update(mapp->c);
             }
             
             max_succ_q=MAX(max_succ_q,q);

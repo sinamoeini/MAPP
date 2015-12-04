@@ -36,7 +36,7 @@ atoms(new Atoms(this,3)),
 x(atoms->x),
 id(atoms->id)
 {
-    init_dubeg(false);
+    init_dubeg(true);
     
     memory=new Memory(this);
     error=new Error(this);
@@ -47,7 +47,7 @@ id(atoms->id)
     forcefield=NULL;
     write=NULL;
     md=NULL;
-    min=NULL;
+    //min=NULL;
     dmd=NULL;
 
     
@@ -107,7 +107,7 @@ id(atoms->id)
     read_file();
 
     
-    test();
+    test0();
     
     if(input_file!=stdin)
         fclose(input_file);
@@ -127,7 +127,7 @@ MAPP::~MAPP()
     delete forcefield;
     delete write;
     delete md;
-    delete min;
+    //delete min;
 
     delete neighbor;
     delete atom_types;
@@ -177,7 +177,10 @@ void MAPP::command_style(int nargs,char** args)
     {
         char* cmd_line;
         int lngth=concatenate(nargs,args,cmd_line);
-        system(cmd_line);
+        int shell_cmd_chk=0;
+        if(atoms->my_p==0)
+            shell_cmd_chk=system(cmd_line);
+        MPI_Bcast(&shell_cmd_chk,1,MPI_INT,0,world);
         if(lngth) delete [] cmd_line;
     }
     #include "command_styles.h"
@@ -584,7 +587,7 @@ void MAPP::fin_dubeg()
 /*--------------------------------------------
  test
  --------------------------------------------*/
-void MAPP::test()
+void MAPP::test1()
 {
     
     /*
@@ -716,7 +719,12 @@ void MAPP::test()
      */
 
 }
-
+/*--------------------------------------------
+ test
+ --------------------------------------------*/
+void MAPP::test0()
+{    
+}
 
 
 

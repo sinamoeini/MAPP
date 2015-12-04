@@ -312,7 +312,6 @@ void Min::force_calc()
         for(int i=0;i<atoms->natms*x_dim;i++)
             fvec[i]*=dof[i];
     }
-
 }
 /*--------------------------------------------
  
@@ -709,6 +708,13 @@ void Min::F_reset()
 {
     x=x0;
     atoms->update(mapp->x);
+    if(chng_box)
+    {
+        if(dim==3)
+            M3INV_TRI_LOWER(atoms->H,atoms->B);
+        else
+            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
+    }
 }
 
 

@@ -71,13 +71,9 @@ Min_cg::~Min_cg()
 void Min_cg::init()
 {
     Min::init();
-
-    
     atoms->init(vecs_comm,chng_box);
-        
     force_calc();
     curr_energy=nrgy_strss[0];
-    
     if(output_flag)
     {
         thermo->init();
@@ -92,13 +88,14 @@ void Min_cg::run()
 {
     if(max_iter==0) return;
     
+    curr_energy=nrgy_strss[0];
     type0 prev_energy;
     type0 alpha;
     int istp=0;
     type0 f0_f0,f_f,f_f0;
     type0 ratio;
     err=LS_S;
-    
+
     h=f;
     f_h=f0_f0=f*f;
     
@@ -139,7 +136,7 @@ void Min_cg::run()
         
         if(istp+1==max_iter)
             err=MIN_F_MAX_ITER;
-
+        
         force_calc();
         
         istp++;
@@ -147,7 +144,7 @@ void Min_cg::run()
         
         if(err)
             continue;
-        
+
         f_f=f*f;
         f_f0=f*f0;
         

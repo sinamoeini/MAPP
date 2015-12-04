@@ -22,7 +22,7 @@ Command_dmd::Command_dmd
     #define DMD_Style
     #define DMDStyle(class_name,style_name)\
     else if(strcmp(args[1],#style_name)==0)\
-    {mapp->dmd= new class_name(mapp,nargs,args);}
+    {mapp->dmd=new class_name(mapp,nargs,args);}
 
     
     if(0){}

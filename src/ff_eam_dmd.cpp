@@ -639,6 +639,8 @@ void ForceField_eam_dmd::allocate()
     CREATE1D(c_0,no_types);
     CREATE1D(f_t,no_types);
     CREATE1D(Q_nrm,no_types);
+    CREATE1D(dummy,2*no_types);
+    CREATE1D(dummy_lcl,2*no_types);
 }
 /*-------------------------------------------
  
@@ -651,6 +653,8 @@ void ForceField_eam_dmd::deallocate()
     delete [] c_0;
     delete [] f_t;
     delete [] Q_nrm;
+    delete [] dummy_lcl;
+    delete [] dummy;
     no_types=0;
 
 }
@@ -1603,10 +1607,63 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
         }
     }
     
-    for(int i=0;i<c_dim*natms;i++)
-        if(c[i]>=0.0)
-            g[i]/=ans;
     
+    for(int i=0;i<c_dim*natms;i++)
+        g[i]/=ans;
+    
+    
+    type0* sum=dummy;
+    type0* sum_lcl=dummy_lcl;
+    type0* cnt=dummy+no_types;
+    type0* cnt_lcl=dummy_lcl+no_types;
+    type0* corr=sum_lcl;
+    int iterate=1;
+    int iterate_lcl;
+
+    while(iterate)
+    {
+        iterate_lcl=0;
+        for(int i=0;i<no_types;i++)
+            sum_lcl[i]=cnt_lcl[i]=0.0;
+        
+        for(int i=0;i<c_dim*natms;i++)
+        {
+            if(c[i]>=0.0)
+            {
+                if((cv[i/c_dim]==0.0 && g[i]>0.0) || (cv[i/c_dim]==1.0 && g[i]<0.0))
+                {
+                    g[i]=0.0;
+                    iterate_lcl=1;
+                }
+                else
+                {
+                    sum_lcl[type[i]]+=g[i];
+                    cnt_lcl[type[i]]++;
+                }
+                
+            }
+            else
+            {
+                g[i]=0.0;
+            }
+            
+            
+        }
+        MPI_Allreduce(&iterate_lcl,&iterate,1,MPI_INT,MPI_MAX,world);
+        if(iterate==0) continue;
+        
+        MPI_Allreduce(dummy_lcl,dummy,2*no_types,MPI_TYPE0,MPI_SUM,world);
+        
+        for(int i=0;i<no_types;i++)
+            corr[i]=-sum[i]/cnt[i];
+        
+        for(int i=0;i<c_dim*natms;i++)
+            if(g[i]!=0.0)
+                g[i]+=corr[type[i]];
+    }
+
+
+
     return ans;
     
 }

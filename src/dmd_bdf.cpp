@@ -196,12 +196,14 @@ void DMD_bdf::run()
             {
                 interpolate(del_t,q);
                 solve_n_err(cost,err);
+                err=MAX(err,cost);
                 if(err<1.0)
                     continue;
                 
                 fail_stp_adj(err,del_t,q);
                 memcpy(c,y[0],ncs*sizeof(type0));
                 memcpy(c_d,dy,ncs*sizeof(type0));
+                atoms->update(mapp->c);
             }
             
             max_succ_q=MAX(max_succ_q,q);

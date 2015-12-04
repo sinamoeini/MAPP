@@ -1064,7 +1064,6 @@ void Atoms::Xchng::full_xchng()
             }
         }
 
-
         byte* buff_tmp;
         for(int idir=0;idir<2;idir++)
         {
@@ -1940,11 +1939,13 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      ?. create a new xchng
      */
     xchng=new Xchng(this,vec_list->xchng_vecs,vec_list->nxchng_vecs);
-
     /*
      ?. do x2s()
      */
+    
+
     x2s(natms);
+
     /*
      ?. do the xchng
      */
@@ -1954,7 +1955,6 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      ?. update natms
      */
     natms=x->vec_sz;
-    
     /*
      ?. initiate forcefield and neighbor,
      and obtain max_cut
@@ -1967,7 +1967,6 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      ?. create the new swaps (it does calculate max_cut_s)
      */
     swap=new Swap(this,vec_list->updt_vecs,vec_list->nupdt_vecs);
-    
     
     /*
      ?. set natms_ph to 0
@@ -1989,7 +1988,6 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
         vecs[ivec]->resize(natms+natms_ph);
     }
     
-    
     type0* x_vec=x->begin();
     type0* x0_vec=x0->begin();
     int x_dim=x->dim;
@@ -2005,7 +2003,6 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
             for(int idim=0;idim<dimension;idim++)
                 x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
     }
-
     timer->stop(COMM_TIME_mode);
 }
 /*--------------------------------------------
