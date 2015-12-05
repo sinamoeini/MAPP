@@ -97,7 +97,18 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 {
     type0 u,fu,r,q,ulim;
    
-    b=0.01*max_a;
+    q=1.0e-14/(max_a*fabs(dfa));
+    if(0.01<q && q<1.0)
+    {
+        b=q*max_a;
+    }
+    else if(q<=1.0)
+    {
+        b=max_a;
+    }
+    else
+        b=0.01*max_a;
+    
     fb=func->F(b);
     
     if(fb>=fa)
