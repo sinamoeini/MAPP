@@ -53,6 +53,7 @@ namespace MAPP_NS
         virtual int line_min(type0&,type0&,int)=0;
         virtual void init(Func*);
         void test(type0,type0,type0);
+
     };
 
 }
@@ -99,13 +100,9 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
    
     q=1.0e-14/(max_a*fabs(dfa));
     if(0.01<q && q<1.0)
-    {
         b=q*max_a;
-    }
-    else if(q<=1.0)
-    {
+    else if(q>=1.0)
         b=max_a;
-    }
     else
         b=0.01*max_a;
     
