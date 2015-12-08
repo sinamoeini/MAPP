@@ -220,7 +220,7 @@ type0 DMD::calc_nc_dofs()
                 ndofs_lcl++;
     }
     
-    type0 ndofs;
+    type0 ndofs=0.0;
     MPI_Allreduce(&ndofs_lcl,&ndofs,1,MPI_TYPE0,MPI_SUM,world);
 
     
@@ -238,7 +238,6 @@ void DMD::init()
     if(nc_dofs==0.0)
         error->abort("cannot start a dmd with no degrees of freedom");
 
-    
     if(mapp->c_d==NULL)
         mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
 
@@ -259,7 +258,6 @@ void DMD::init()
             f_norm0=min->calc_ave_f_norm();
         nmin++;
     }
-
     forcefield_dmd->force_calc_timer(true);
     thermo->update(fe_idx,nrgy_strss[0]);
     thermo->update(stress_idx,6,&nrgy_strss[1]);
@@ -320,6 +318,7 @@ void DMD::reset()
  --------------------------------------------*/
 DMDImplicit::DMDImplicit(MAPP* mapp):DMD(mapp)
 {
+    iter_dcr_thrsh=3;
     max_iter=20;
     m_tol=sqrt(numeric_limits<type0>::epsilon());
     pre_cond=1;
@@ -336,7 +335,7 @@ DMDImplicit::~DMDImplicit()
 /*--------------------------------------------
  solve the implicit equation
  --------------------------------------------*/
-void DMDImplicit::solve_n_err(type0& cost,type0& err)
+int DMDImplicit::solve_n_err(type0& cost,type0& err)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -345,38 +344,21 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     type0 inner[2],inner_lcl[2],tmp0;
     type0 err_lcl;
     type0 ratio;
-    type0 g0_g0,g_g,g_g0;
+    type0 g0_g0=-1.0,g_g,g_g0;
     type0 curr_cost;
-    type0 tol=sqrt(nc_dofs)*MIN(m_tol,a_tol/fabs(err_prefac));
+    type0 tol=sqrt(nc_dofs)*m_tol;
+    type0 mm_tol=MIN(m_tol,a_tol/fabs(err_prefac));
     int line_search_succ=0,iter=0;
-   /*
-    if(pre_cond==2)
-    {
-        memcpy(c,y_0,ncs*sizeof(type0));
-        tol=sqrt(nc_dofs)*m_tol;
-        atoms->update(mapp->c);
-    }
-    else if(pre_cond==1)
-    {
-        for(int i=0;i<ncs;i++)
-        {
-            c[i]=beta*c_d[i]-a[i];
-            if(c[i]>1.0)
-                c[i]=1.0;
-            if(c[i]<0.0)
-                c[i]=0.0;
-        }
-        atoms->update(mapp->c);
-    }*/
 
-    curr_cost=forcefield_dmd->imp_cost_grad_timer(true,tol,beta,a,g);
+    
+    memcpy(c,y_0,ncs*sizeof(type0));
+    atoms->update(mapp->c);
+    curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,tol,beta,a,g);
 
     
     if(curr_cost>=tol)
     {
         rectify(g);
-
-        
         memcpy(h,g,ncs*sizeof(type0));
                 
         inner_lcl[0]=0.0;
@@ -400,7 +382,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
                 iter++;
                 continue;
             }
-            curr_cost=forcefield_dmd->imp_cost_grad_timer(true,-1,beta,a,g);
+            curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,tol,beta,a,g);
             rectify(g);
 
             
@@ -418,7 +400,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
             
             inner_lcl[0]=inner_lcl[1]=0.0;
             int bound_chk_lcl=1,bound_chk;
-            for(int i=0;i<ncs && bound_chk_lcl;i++)
+            for(int i=0;i<ncs;i++)
             {
                 h[i]*=ratio;
                 h[i]+=g[i];
@@ -427,6 +409,7 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
                 inner_lcl[0]+=h[i]*g[i];
                 inner_lcl[1]+=h[i]*h[i];
             }
+            
             MPI_Allreduce(&bound_chk_lcl,&bound_chk,1,MPI_INT,MPI_MIN,world);
             if(bound_chk)
             {
@@ -434,7 +417,8 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
                 g_h=inner[0];
                 h_h=inner[1];
             }
-            if(g_h<0.0 || bound_chk==0)
+
+            if(g_h<0.0  || bound_chk==0)
             {
                 memcpy(h,g,ncs*sizeof(type0));
                 h_h=g_h=g_g;
@@ -477,26 +461,14 @@ void DMDImplicit::solve_n_err(type0& cost,type0& err)
     if(err>=1.0)
         intg_rej++;
     
-    //printf("%lf %lf %d %e \n",err,cost,iter,c_d_norm);
-    
+
     /*
-    if(line_search_succ==8 )
-    {
-        for(int i=0;i<ncs;i++)
-            if(h[i]!=0.0)
-                printf("%e %e %e %e %e\n",c[i],h[i],g[i],c_d[i],dy0[i]);
-        error->abort("");
-        test();
-    }*/
-    /*
-    if(line_search_succ==8 && step_no==30)
-    {
-        for(int i=0;i<ncs;i++)
-            if(h[i]!=0.0)
-            printf("%e %e %e %e %e\n",c[i],h[i],g[i],c_d[i],dy0[i]);
-        error->abort("");
-    }*/
+    if(atoms->my_p==0)
+        printf("%lf %lf %d %e %d %lf %e\n",err,cost,iter,c_d_norm,line_search_succ,g0_g0,max_a);
+     */
     
+    
+    return iter;
 }
 /*--------------------------------------------
  find the the cost function given gamma
@@ -518,6 +490,7 @@ void DMDImplicit::ls_prep(type0& dfa,type0& h_norm,type0& max_a_)
             c1[i]=(0.0-c0[i])/h[i];
             max_a_lcl=MIN(c1[i],max_a_lcl);
         }
+
     }
     MPI_Allreduce(&max_a_lcl,&max_a_,1,MPI_TYPE0,MPI_MIN,world);
     h_norm=sqrt(h_h);
@@ -571,7 +544,7 @@ type0 DMDImplicit::F(type0 alpha)
     
     atoms->update(mapp->c);
     
-    return forcefield_dmd->imp_cost_grad_timer(0,1.0,beta,a,g);
+    return forcefield_dmd->imp_cost_grad_timer(false,0.0,1.0,beta,a,g);
 }
 /*--------------------------------------------
  inner product of f and h
@@ -595,7 +568,7 @@ type0 DMDImplicit::dF(type0 alpha,type0& drev)
     
     atoms->update(mapp->c);
     
-    type0 cost=forcefield_dmd->imp_cost_grad_timer(true,-1.0,beta,a,g);
+    type0 cost=forcefield_dmd->imp_cost_grad_timer(true,0.0,-1.0,beta,a,g);
     type0 inner0=0.0;
     for(int i=0;i<ncs;i++)
         if(c[i]>=0.0)
@@ -622,20 +595,19 @@ void DMDImplicit::reset()
     DMD::reset();
     a=vecs_0[0]->begin();
     y_0=vecs_0[1]->begin();
-    y_1=vecs_0[2]->begin();
-    g=vecs_0[3]->begin();
-    h=vecs_0[4]->begin();
-    g0=vecs_0[5]->begin();
-    c0=vecs_0[6]->begin();
-    c1=vecs_0[7]->begin();
+    g=vecs_0[2]->begin();
+    h=vecs_0[3]->begin();
+    g0=vecs_0[4]->begin();
+    c0=vecs_0[5]->begin();
+    c1=vecs_0[6]->begin();
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 void DMDImplicit::allocate()
 {
-    vecs_0=new Vec<type0>*[8];
-    for(int ivec=0;ivec<8;ivec++)
+    vecs_0=new Vec<type0>*[7];
+    for(int ivec=0;ivec<7;ivec++)
         vecs_0[ivec]=new Vec<type0>(atoms,c_dim);
 }
 /*--------------------------------------------
@@ -643,7 +615,7 @@ void DMDImplicit::allocate()
  --------------------------------------------*/
 void DMDImplicit::deallocate()
 {
-    for(int ivec=0;ivec<8;ivec++)
+    for(int ivec=0;ivec<7;ivec++)
         delete vecs_0[ivec];
     delete [] vecs_0;
 }
@@ -688,25 +660,26 @@ void DMDImplicit::fin()
  --------------------------------------------*/
 int DMDImplicit::test()
 {
-    type0 dfa,h_norm,max_a;
+    type0 dfa,h_norm;
     ls_prep(dfa,h_norm,max_a);
     dfa=-g_h;
-    max_a=1.0e-7;
     int no=100;
     type0 frac=1.0e-2*max_a;
     type0 fu,u=0.0;
     type0 fa=F(0.0);
     
-    fprintf(mapp->my_debug,"--------------------- %d\n",step_no);
-    fprintf(mapp->my_debug,"u fu f_x u*dfa\n");
+    if(atoms->my_p==0) printf("--------------------- %d\n",step_no);
+    if(atoms->my_p==0) printf("u fu f_x u*dfa\n");
     
     for(int i=0;i<no;i++)
     {
         fu=F(u);
-        fprintf(mapp->my_debug,"%22.20lf %22.20lf %22.20lf \n",u,fu,fa+u*dfa);
+        if(atoms->my_p==0)printf("%22.20lf %22.20lf %22.20lf \n",u,fu-fa,u*dfa);
         u+=frac;
     }
     F_reset();
+    if(atoms->my_p==0) printf("---------------------n");
+    error->abort("");
     return 0;
 }
 /*--------------------------------------------

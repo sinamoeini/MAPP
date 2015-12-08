@@ -1062,12 +1062,12 @@ inline type0 ForceField_eam_dmd::mod_log(type0 x)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad(
-bool cost_grad,type0 tol,type0 alpha,type0* a,type0* g)
+bool cost_grad,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
 {
     if(CRD_ENBL)
-        return imp_cost_grad_crd(cost_grad,tol,alpha,a,g);
+        return imp_cost_grad_crd(cost_grad,m_tol,tol,alpha,a,g);
     else
-        return imp_cost_grad_ncrd(cost_grad,tol,alpha,a,g);
+        return imp_cost_grad_ncrd(cost_grad,m_tol,tol,alpha,a,g);
 }
 /*--------------------------------------------
  claculate F and dF and dFF
@@ -1214,7 +1214,7 @@ void ForceField_eam_dmd::dc_ncrd()
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_crd
-(bool cost_grad,type0 tol,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -1419,7 +1419,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_ncrd
-(bool cost_grad,type0 tol,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -1609,8 +1609,12 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     
     
     for(int i=0;i<c_dim*natms;i++)
-        g[i]/=ans;
-    
+    {
+        if(fabs(s[i])<m_tol)
+            g[i]=0.0;
+        else
+            g[i]/=ans;
+    }
     
     type0* sum=dummy;
     type0* sum_lcl=dummy_lcl;

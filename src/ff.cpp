@@ -129,11 +129,11 @@ type0 ForceField::energy_calc_timer()
  
  --------------------------------------------*/
 type0 ForceFieldDMD::imp_cost_grad_timer(bool
-chk,type0 tol,type0 alpha,type0* a,type0* g)
+chk,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
 {
     type0 en;
     timer->start(FORCE_TIME_mode);
-    en=imp_cost_grad(chk,tol,alpha,a,g);
+    en=imp_cost_grad(chk,m_tol,tol,alpha,a,g);
     timer->stop(FORCE_TIME_mode);
     return en;
 }

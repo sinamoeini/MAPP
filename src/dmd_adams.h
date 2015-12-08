@@ -4,17 +4,20 @@
 #ifndef __MAPP__dmd_adams__
 #define __MAPP__dmd_adams__
 #include "dmd.h"
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     class DMD_adams :public DMDImplicit
     {
     private:
+        type0** xi; type0** wi;
+        void ratio_calc(int,type0,type0&,type0&);
     protected:
         // stuff for book keeping
         type0* t;
         type0** dy;
         type0* y;
+        type0* e_n;
         Vec<type0>** vecs_1;
-        void reset();
         
         // stuff for coefficients
         type0 alpha_y;
@@ -22,20 +25,16 @@ namespace MAPP_NS {
         type0 dalpha_y;
         type0* dalpha_dy;
         
-        //stuff for error calculation
-        type0* e_n;
-        
-        void interpolate(type0&,int&);
-        void ord_dt(type0&,int&,type0);
-        void ratio_calc(int,type0,type0&,type0&);
         void allocate();
         void deallocate();
-        inline void fail_stp_adj(type0,type0&,int&);
-        inline void init_stp_adj(type0&);
+
         
-        type0** xi;
-        type0** wi;
-        type0 est_dt();        
+        //functions to be accessed by run()
+        void reset();
+        type0 est_dt();
+        void interpolate(type0&,int&);
+        void ord_dt(type0,type0&,int&);
+        void fail_stp_adj(type0,type0,type0&,int&);        
     public:
         DMD_adams(MAPP *,int,char**);
         ~DMD_adams();

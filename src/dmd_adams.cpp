@@ -127,6 +127,17 @@ DMD_adams::~DMD_adams()
     }
 }
 /*--------------------------------------------
+ 
+ --------------------------------------------*/
+void DMD_adams::reset()
+{
+    DMDImplicit::reset();
+    for(int i=0;i<max_order;i++)
+        dy[i]=vecs_1[i]->begin();
+    y=vecs_1[max_order]->begin();
+    e_n=vecs_1[max_order+1]->begin();
+}
+/*--------------------------------------------
  destructor
  --------------------------------------------*/
 void DMD_adams::allocate()
@@ -141,17 +152,6 @@ void DMD_adams::allocate()
     CREATE1D(dy,max_order);
     CREATE1D(alpha_dy,max_order);
     CREATE1D(dalpha_dy,max_order);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void DMD_adams::reset()
-{
-    DMDImplicit::reset();
-    for(int i=0;i<max_order;i++)
-        dy[i]=vecs_1[i]->begin();
-    y=vecs_1[max_order]->begin();
-    e_n=vecs_1[max_order+1]->begin();
 }
 /*--------------------------------------------
  destructor
@@ -171,16 +171,6 @@ void DMD_adams::deallocate()
     delete [] vecs_1;
     
     DMDImplicit::deallocate();
-}
-/*--------------------------------------------
-
- --------------------------------------------*/
-type0 DMD_adams::est_dt()
-{
-    type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
-    type0 del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
-    init_stp_adj(del_t);
-    return del_t;
 }
 /*--------------------------------------------
  init
@@ -219,6 +209,8 @@ void DMD_adams::run()
         type0* c=mapp->c->begin();
         type0* c_d=mapp->c_d->begin();
         type0* tmp_dy;
+        int iter=-1,iter_0=-1;
+        iter_dcr_cntr=-1;        
         del_t=est_dt();
         
         memcpy(y,c,ncs*sizeof(type0));
@@ -228,18 +220,26 @@ void DMD_adams::run()
         while (istep<max_step && tot_t<max_t && !min_run)
         {
             err=1.0;
-            while(err>=1.0)
+            cost=1.0;
+            while (MAX(cost,err)>=1.0)
             {
                 interpolate(del_t,q);
-                solve_n_err(cost,err);
-                err=MIN(err,cost);
-                if(err<1.0) continue;
-                
-                fail_stp_adj(err,del_t,q);
-                memcpy(c,y,ncs*sizeof(type0));
-                memcpy(c_d,dy[0],ncs*sizeof(type0));                
+                if(atoms->my_p==0) printf("%d %e: ",q,del_t);
+                iter=solve_n_err(cost,err);
+                if(MAX(cost,err)<1.0)
+                    continue;
+                if(cost>=1.0)
+                    iter_0=-1;
+             
                 atoms->update(mapp->c);
             }
+            
+            if(iter_0!=-1 && (iter<iter_0 || iter==0))
+                iter_dcr_cntr++;
+            else
+                iter_dcr_cntr=0;
+            
+            iter_0=iter;
             
             max_succ_q=MAX(max_succ_q,q);
 
@@ -247,7 +247,7 @@ void DMD_adams::run()
             if(min_run) continue;
             
             del_t_tmp=del_t;
-            ord_dt(del_t,q,err);
+            ord_dt(err,del_t,q);
             
             tmp_dy=dy[max_order-1];
             for(int i=max_order-1;i>0;i--)
@@ -266,11 +266,35 @@ void DMD_adams::run()
     }
 }
 /*--------------------------------------------
+
+ --------------------------------------------*/
+inline type0 DMD_adams::est_dt()
+{
+    type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
+    type0 del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    if(del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=max_t-tot_t;
+        }
+        else
+        {
+            if(del_t<min_del_t)
+                del_t=min_del_t;
+            else if(del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+        }
+    }
+    return del_t;
+}
+/*--------------------------------------------
  calculate the coefficients
  --------------------------------------------*/
-void DMD_adams::interpolate(type0& del_t,int& q)
+inline void DMD_adams::interpolate(type0& del_t,int& q)
 {
-    
     int n;
     type0 tmp0,tmp1;
     type0 k0,k1,k2;
@@ -412,11 +436,12 @@ void DMD_adams::interpolate(type0& del_t,int& q)
 /*--------------------------------------------
  find the new del_t and order
  --------------------------------------------*/
-void DMD_adams::ord_dt(type0& del_t,int& q
-,type0 err)
+inline void DMD_adams::ord_dt(type0 err,
+type0& del_t,int& q)
 {
     type0* c=mapp->c->begin();
     type0 lo_r,hi_r,r;
+    int tmp_q=q;
 
     r=pow(0.5/err,1.0/static_cast<type0>(q+1));
     ratio_calc(q,del_t,lo_r,hi_r);
@@ -431,6 +456,9 @@ void DMD_adams::ord_dt(type0& del_t,int& q
         q--;
         r=lo_r;
     }
+        
+    if(iter_dcr_cntr<iter_dcr_thrsh)
+        r=MIN(r,1.0);
     
     if(r>=2.0)
         r=2.0;
@@ -439,6 +467,10 @@ void DMD_adams::ord_dt(type0& del_t,int& q
     else
         r=1.0;
     
+    if(r>1.0)
+        iter_dcr_cntr=0;
+    
+    bool const_stp_chk=false;
     if(r*del_t>max_t-tot_t)
         del_t=max_t-tot_t;
     else
@@ -456,10 +488,17 @@ void DMD_adams::ord_dt(type0& del_t,int& q
             else
             {
                 del_t*=r;
+                if(r==1.0)
+                    const_stp_chk=true;
             }
         }
     }
-        
+    
+    if(const_stp_chk && tmp_q==q)
+        const_stps++;
+    else
+        const_stps=0;
+    
     for(int i=0;i<ncs;i++)
         if(c[i]>=0.0)
             e_n[i]=c[i]-y_0[i];
@@ -467,7 +506,7 @@ void DMD_adams::ord_dt(type0& del_t,int& q
 /*--------------------------------------------
  find the new del_t and order
  --------------------------------------------*/
-void DMD_adams::ratio_calc(int q,type0 del_t,
+inline void DMD_adams::ratio_calc(int q,type0 del_t,
 type0& lo_ratio,type0& hi_ratio)
 {
     type0* c=mapp->c->begin();
@@ -578,7 +617,7 @@ type0& lo_ratio,type0& hi_ratio)
 /*--------------------------------------------
  step addjustment after failure
  --------------------------------------------*/
-inline void DMD_adams::fail_stp_adj(type0 err,type0& del_t,int& q)
+inline void DMD_adams::fail_stp_adj(type0 err,type0 m_err,type0& del_t,int& q)
 {
     if(max_t-tot_t<=2.0*min_del_t)
     {
@@ -598,8 +637,10 @@ inline void DMD_adams::fail_stp_adj(type0 err,type0& del_t,int& q)
         }
         else
         {
-            type0 r=pow(0.5/err,1.0/static_cast<type0>(q+1));
-            r=MAX(r,0.5);
+            type0 r=pow(0.5/MAX(err,m_err),1.0/static_cast<type0>(q+1));
+            
+            r=MAX(r,0.1);
+            r=MIN(r,0.9);
             
             if(r*del_t<min_del_t)
                 del_t=min_del_t;
@@ -610,25 +651,4 @@ inline void DMD_adams::fail_stp_adj(type0 err,type0& del_t,int& q)
         }
     }
 }
-/*--------------------------------------------
- init
- --------------------------------------------*/
-inline void DMD_adams::init_stp_adj(type0& del_t)
-{
-    if(del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
-    else
-    {
-        if(max_t-tot_t<=2.0*min_del_t)
-        {
-            del_t=max_t-tot_t;
-        }
-        else
-        {
-            if(del_t<min_del_t)
-                del_t=min_del_t;
-            else if(del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-        }
-    }
-}
+

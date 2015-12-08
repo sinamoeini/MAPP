@@ -66,6 +66,9 @@ namespace MAPP_NS
             *A=new T[dim*dim];
             for(int idim=1;idim<dim;idim++)
                 A[idim]=A[idim-1]+dim;
+            for(int idim=0;idim<dim;idim++)
+                for(int jdim=0;jdim<dim;jdim++)
+                    A[idim][jdim]=0.0;
         }
         void init(Atoms* atoms,Vec<T>*& v,bool bc)
         {
@@ -82,6 +85,9 @@ namespace MAPP_NS
             *A=new T[dim*dim];
             for(int idim=1;idim<dim;idim++)
                 A[idim]=A[idim-1]+dim;
+            for(int idim=0;idim<dim;idim++)
+                for(int jdim=0;jdim<dim;jdim++)
+                    A[idim][jdim]=0.0;
         }
         void init(Atoms* atoms,Vec<T>*& v,T**& A_,bool bc)
         {

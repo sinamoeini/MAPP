@@ -86,7 +86,6 @@ namespace MAPP_NS
         Vec<type0>** vecs_0;
         type0* a;
         type0* y_0;
-        type0* y_1;
         type0* g;
         type0* h;
         type0* g0;
@@ -98,11 +97,12 @@ namespace MAPP_NS
         //parameters for the solver
         int pre_cond;
         int max_iter;
+        int iter_dcr_cntr,iter_dcr_thrsh;
         type0 m_tol,max_a;
         
 
-        void solve_n_err(type0&,type0&);
-        
+        int solve_n_err(type0&,type0&);
+        int const_stps;
         virtual void allocate();
         virtual void deallocate();
         
