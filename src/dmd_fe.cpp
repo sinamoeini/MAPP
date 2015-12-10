@@ -37,14 +37,6 @@ DMD_fe::DMD_fe(MAPP* mapp,int nargs
                 min_del_t=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(args[iarg],"initial_del_t")==0)
-            {
-                iarg++;
-                initial_del_t=atof(args[iarg]);
-                if(initial_del_t<=0.0)
-                    error->abort("initial_del_t in dmd fe should be greater than 0.0");
-                iarg++;
-            }
             else
                 error->abort("unknown keyword in dmd fe: %s",args[iarg]);
         }
@@ -121,6 +113,26 @@ void DMD_fe::fin()
     DMDExplicit::fin();
 }
 /*--------------------------------------------
+ restart a simulation
+ --------------------------------------------*/
+void DMD_fe::restart(type0& del_t,int& q)
+{
+    type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
+    del_t=MIN(sqrt(4.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    init_stp_adj(del_t);
+    
+    memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+}
+/*--------------------------------------------
+ store the vectors
+ --------------------------------------------*/
+void DMD_fe::store_vecs(type0 del_t)
+{
+    memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+}
+/*--------------------------------------------
  run
  --------------------------------------------*/
 void DMD_fe::run()
@@ -130,18 +142,13 @@ void DMD_fe::run()
     
     type0 del_t,del_t_tmp;
     type0 err=0.0;
+    int q;
     int istep;
     bool min_run=false;
     istep=0;
     while (istep<max_step && tot_t<max_t)
     {
-        reset();
-        type0* c=mapp->c->begin();
-        type0* c_d=mapp->c_d->begin();
-        del_t=est_dt();
-        
-        memcpy(y,c,ncs*sizeof(type0));
-        memcpy(dy,c_d,ncs*sizeof(type0));
+        restart(del_t,q);
         
         while (istep<max_step && tot_t<max_t && !min_run)
         {
@@ -153,8 +160,6 @@ void DMD_fe::run()
                     continue;
                 
                 fail_stp_adj(err,del_t);
-                memcpy(c,y,ncs*sizeof(type0));
-                memcpy(c_d,dy,ncs*sizeof(type0));
             }
             
             min_run=decide_min(istep,del_t);
@@ -162,9 +167,8 @@ void DMD_fe::run()
             
             del_t_tmp=del_t;
             ord_dt(del_t,err);
-            
-            memcpy(y,c,ncs*sizeof(type0));
-            memcpy(dy,c_d,ncs*sizeof(type0));
+            store_vecs(del_t_tmp);
+
         }
         
         if(!min_run) continue;
@@ -398,8 +402,8 @@ inline void DMD_fe::fail_stp_adj(type0 err,type0& del_t)
         else
         {
             type0 r=0.9/err;
-            r=MAX(r,0.5);            
-
+            r=MAX(r,0.5);
+            
             if(r*del_t<min_del_t)
                 del_t=min_del_t;
             else if(r*del_t>max_t-tot_t-min_del_t)
@@ -409,4 +413,5 @@ inline void DMD_fe::fail_stp_adj(type0 err,type0& del_t)
         }
     }
 }
+
 

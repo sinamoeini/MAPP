@@ -79,7 +79,6 @@ DMD_inf::~DMD_inf()
  --------------------------------------------*/
 void DMD_inf::allocate()
 {
-    DMDImplicit::allocate();
     CREATE1D(c1,ncs);
     CREATE1D(g_orig,ncs);
 }
@@ -94,30 +93,12 @@ void DMD_inf::deallocate()
         delete [] c1;
         delete [] g_orig;
     }
-    DMDImplicit::deallocate();
 }
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void DMD_inf::init()
-{
-    
-    DMDImplicit::init();
-    allocate();
 
-    ls_mode=LS_GS;
-}
 /*--------------------------------------------
  init
  --------------------------------------------*/
-void DMD_inf::fin()
-{
-    DMDImplicit::fin();
-    deallocate();
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
+/*
 void DMD_inf::run()
 {
     type0* c=mapp->c->begin();
@@ -130,7 +111,7 @@ void DMD_inf::run()
     int line_search_succ,err;
     prev_val=-1.0;
     
-    /* find the steepest descent direction and cost */
+
     
     if(mod==MIN_MOD_EN_DC_PROJ)
     {
@@ -157,10 +138,8 @@ void DMD_inf::run()
         rectify(g);
         rectify(g_orig);
         
-        /* set the first trajectory */
         memcpy(h,g,ncs*sizeof(type0));
         
-        /* calculate g.h g_0.g_0 */
         inner0=0.0;
         for(int i=0;i<ncs;i++)
             if(c[i]>=0.0)
@@ -200,7 +179,6 @@ void DMD_inf::run()
        
         if(line_search_succ==0)
         {
-            //test1(0.0,cost,g_h);
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             err=1;
@@ -234,10 +212,8 @@ void DMD_inf::run()
             rectify(g);
             rectify(g_orig);
             
-            /* set the first trajectory */
             memcpy(h,g,ncs*sizeof(type0));
             
-            /* calculate g.h g_0.g_0 */
             inner0=inner1=0.0;
             for(int i=0;i<ncs;i++)
                 if(c[i]>=0.0)
@@ -252,10 +228,8 @@ void DMD_inf::run()
             
             ratio=(g_g-g_g0)/g0_g0;
             
-            /* update g_0.g_0 */
             g0_g0=g_g;
             
-            /* calculate g_h */
             inner0=0.0;
             for(int i=0;i<ncs;i++)
             {
@@ -268,7 +242,6 @@ void DMD_inf::run()
             }
             MPI_Allreduce(&inner0,&g_h,1,MPI_TYPE0,MPI_SUM,world);
             
-            /* if g_h is negative start from the begining */
             if(g_h<0.0)
             {
                 memcpy(h,g,ncs*sizeof(type0));
@@ -294,7 +267,7 @@ void DMD_inf::run()
 
     }
 
-}
+}*/
 /*--------------------------------------------
  find the the cost function given gamma
  --------------------------------------------*/

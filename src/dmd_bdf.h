@@ -24,22 +24,23 @@ namespace MAPP_NS
         type0* alpha_y;
         type0 dalpha_dy;
         type0* dalpha_y;
+
+        
+        
+        
+        
         
         void allocate();
         void deallocate();
         
         //functions to be accessed by run()
-        void reset();
-        type0 est_dt();
+        void restart(type0&,int&);
+        void store_vecs(type0);
         void interpolate(type0&,int&);
-        void ord_dt(type0,type0&,int&);
-        void fail_stp_adj(type0,type0,type0&,int&);        
+        void ord_dt(type0,type0,int,type0&,int&);
     public:
         DMD_bdf(MAPP*,int,char**);
         ~DMD_bdf();
-        void run();
-        void init();
-        void fin();
     };
 }
 

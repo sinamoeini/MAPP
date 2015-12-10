@@ -20,9 +20,11 @@ namespace MAPP_NS
         
         void allocate();
         void deallocate();
-        inline void fail_stp_adj(type0,type0&);
         inline void init_stp_adj(type0&);
+        void restart(type0&,int&);
+        void store_vecs(type0);
         type0 est_dt();
+        void fail_stp_adj(type0,type0&); 
     public:
         DMD_fe(MAPP *,int,char**);
         ~DMD_fe();

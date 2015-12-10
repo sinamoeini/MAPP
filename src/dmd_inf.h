@@ -44,14 +44,15 @@ namespace MAPP_NS
         int test0();
         int test1(type0,type0,type0);
         int ls_mode;
-        
-        type0 est_dt(){return 0;}
+                
+        void restart(type0&,int&){};
+        void store_vecs(type0){};
+        void interpolate(type0&,int&){};
+        void ord_dt(type0,type0,int,type0&,int&){};
     public:
         DMD_inf(MAPP *,int,char**);
         ~DMD_inf();
-        void run();
-        void init();
-        void fin();
+
     };
 }
 

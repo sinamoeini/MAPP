@@ -8,6 +8,7 @@
 #include "atom_types.h"
 #include "memory.h"
 #include "error.h"
+#include <xmmintrin.h>
 using namespace MAPP_NS;
 /*--------------------------------------------
  Fisher-Sinclair (FS) potential

@@ -43,7 +43,6 @@ nrgy_strss(forcefield->nrgy_strss)
     
     a_tol=sqrt(2.0*numeric_limits<type0>::epsilon());
     min_del_t=std::numeric_limits<type0>::epsilon();
-    initial_del_t=-1.0;
     max_t=1.0e7;
     f_tol=1.0e-5;
     cd_tol=1.0e-4;
@@ -109,9 +108,6 @@ void DMD::run(type0 t)
 {
     if(t<=0.0)
         error->abort("max_t in dmd should be greater than 0.0");
-    
-    if(initial_del_t!=-1.0 && initial_del_t>t)
-        error->abort("max_t in dmd should be greater than initial_del_t");
     if(min_del_t>t)
         error->abort("max_t in dmd should be greater than min_del_t");
     max_t=t;
@@ -239,7 +235,11 @@ void DMD::init()
         error->abort("cannot start a dmd with no degrees of freedom");
 
     if(mapp->c_d==NULL)
+    {
         mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
+        for(int i=0;i<atoms->natms*c_d_norm;i++)
+            mapp->c_d->begin()[i]=0.0;
+    }
 
     if(min==NULL)
     {
@@ -321,9 +321,18 @@ DMDImplicit::DMDImplicit(MAPP* mapp):DMD(mapp)
     iter_dcr_thrsh=3;
     max_iter=20;
     m_tol=sqrt(numeric_limits<type0>::epsilon());
-    pre_cond=1;
-    char** args=NULL;
-    ls_dmd=new LineSearch_brent<DMDImplicit>(mapp,0,args);
+    
+    
+    char** args;
+    int nargs=mapp->parse_line("ls brent max_iter 10",args);
+    
+    ls_dmd=new LineSearch_brent<DMDImplicit>(mapp,nargs,args);
+    
+    for(int i=0;i<nargs;i++)
+        delete [] args[i];
+    if(nargs)
+        delete [] args;
+    
     ls_dmd->init(this);
 }
 /*--------------------------------------------
@@ -331,6 +340,7 @@ DMDImplicit::DMDImplicit(MAPP* mapp):DMD(mapp)
  --------------------------------------------*/
 DMDImplicit::~DMDImplicit()
 {
+    delete ls_dmd;
 }
 /*--------------------------------------------
  solve the implicit equation
@@ -384,7 +394,6 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
             }
             curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,tol,beta,a,g);
             rectify(g);
-
             
             inner_lcl[0]=inner_lcl[1]=0.0;
             for(int i=0;i<ncs;i++)
@@ -465,7 +474,7 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
     /*
     if(atoms->my_p==0)
         printf("%lf %lf %d %e %d %lf %e\n",err,cost,iter,c_d_norm,line_search_succ,g0_g0,max_a);
-     */
+    */
     
     
     return iter;
@@ -602,24 +611,6 @@ void DMDImplicit::reset()
     c1=vecs_0[6]->begin();
 }
 /*--------------------------------------------
- destructor
- --------------------------------------------*/
-void DMDImplicit::allocate()
-{
-    vecs_0=new Vec<type0>*[7];
-    for(int ivec=0;ivec<7;ivec++)
-        vecs_0[ivec]=new Vec<type0>(atoms,c_dim);
-}
-/*--------------------------------------------
- destructor
- --------------------------------------------*/
-void DMDImplicit::deallocate()
-{
-    for(int ivec=0;ivec<7;ivec++)
-        delete vecs_0[ivec];
-    delete [] vecs_0;
-}
-/*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
 void DMDImplicit::print_stats()
@@ -627,6 +618,7 @@ void DMDImplicit::print_stats()
     DMD::print_stats();
     if(atoms->my_p==0)
     {
+        fprintf(output,"final   average velocity: %e\n",c_d_norm);
         fprintf(output,"max timestep: %e\n",max_succ_dt);
         fprintf(output,"max    order: %d\n",max_succ_q);
         fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
@@ -647,13 +639,176 @@ void DMDImplicit::init()
     intg_rej=0;
     intp_rej=0;
     
+    vecs_0=new Vec<type0>*[7];
+    for(int ivec=0;ivec<7;ivec++)
+        vecs_0[ivec]=new Vec<type0>(atoms,c_dim);
+    allocate();
 }
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
 void DMDImplicit::fin()
 {
+    deallocate();
+    for(int ivec=0;ivec<7;ivec++)
+        delete vecs_0[ivec];
+    delete [] vecs_0;
     DMD::fin();
+}
+/*--------------------------------------------
+ step addjustment after failure
+ --------------------------------------------*/
+inline void DMDImplicit::fail_stp_adj(type0 err,type0 m_err,type0& del_t,int& q)
+{
+    const_stps=0;
+    
+    if(max_t-tot_t<=2.0*min_del_t)
+    {
+        if(q>1)
+            q--;
+        else
+            error->abort("reached minimum order & del_t (%e)",del_t);
+    }
+    else
+    {
+        if(del_t==min_del_t)
+        {
+            if(q>1)
+                q--;
+            else
+                error->abort("reached minimum order & del_t (%e)",del_t);
+        }
+        else
+        {
+            type0 r=pow(0.5/MAX(err,m_err),1.0/static_cast<type0>(q+1));
+            
+            r=MIN(r,0.9);
+            
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+                del_t*=r;
+        }
+    }
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void DMDImplicit::run()
+{
+    if(max_step==0)
+        return;
+
+    type0 del_t,del_t_tmp;
+    type0 cost,err;
+    int q;
+    int istep;
+    bool min_run=false;
+    
+    istep=0;
+    while (istep<max_step && tot_t<max_t)
+    {
+        
+        restart(del_t,q);
+        const_stps=0;
+        int iter=-1,iter_0=-1;
+
+        while (istep<max_step && tot_t<max_t && !min_run)
+        {
+            err=1.0;
+            cost=1.0;
+            while (MAX(cost,err)>=1.0)
+            {
+                interpolate(del_t,q);
+                //if(atoms->my_p==0) printf("%e %d: ",del_t,q);
+                iter=solve_n_err(cost,err);
+                if(MAX(cost,err)<1.0)
+                    continue;
+                if(cost>=1.0)
+                    iter_0=-1;
+                
+                fail_stp_adj(err,cost,del_t,q);
+            }
+            
+            if(iter_0!=-1 && (iter<iter_0 || iter==0))
+                iter_dcr_cntr++;
+            else
+                iter_dcr_cntr=0;
+            
+            iter_0=iter;
+            
+            max_succ_q=MAX(max_succ_q,q);
+            
+            min_run=decide_min(istep,del_t);
+            if(min_run) continue;
+
+            del_t_tmp=del_t;
+            ord_dt(err,del_t,q);
+            store_vecs(del_t_tmp);
+
+        }
+
+        if(!min_run) continue;
+        do_min();
+        min_run=false;
+    }
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+inline void DMDImplicit::ord_dt(type0 err,type0& del_t,int& q)
+{
+    type0 r;
+    int del_q;
+    ord_dt(err,del_t,q,r,del_q);
+    
+    
+    
+    if(iter_dcr_cntr<iter_dcr_thrsh && const_stps<=10)
+        r=MIN(r,1.0);
+    
+    if(r>=2.0)
+        r=2.0;
+    else if(r<=0.5)
+        r=0.5;
+    else
+        r=1.0;
+    
+    if(r>1.0)
+        iter_dcr_cntr=0;
+    
+    bool const_stp_chk=false;
+    if(r*del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=2.0*min_del_t;
+        }
+        else
+        {
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+            {
+                del_t*=r;
+                if(r==1.0)
+                    const_stp_chk=true;
+            }
+        }
+    }
+    
+    if(const_stp_chk && del_q==0)
+        const_stps++;
+    else
+        const_stps=0;
+    
+    q+=del_q;
 }
 /*--------------------------------------------
  given the direction h do the line search

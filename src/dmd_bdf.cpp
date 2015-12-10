@@ -58,14 +58,6 @@ DMD_bdf::DMD_bdf(MAPP* mapp,int nargs
                 min_del_t=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(args[iarg],"initial_del_t")==0)
-            {
-                iarg++;
-                initial_del_t=atof(args[iarg]);
-                if(initial_del_t<=0.0)
-                    error->abort("initial_del_t in dmd bdf should be greater than 0.0");
-                iarg++;
-            }
             else
                 error->abort("unknown keyword in dmd bdf: %s",args[iarg]);
         }
@@ -91,22 +83,10 @@ DMD_bdf::~DMD_bdf()
 {
 }
 /*--------------------------------------------
- 
- --------------------------------------------*/
-void DMD_bdf::reset()
-{
-    DMDImplicit::reset();    
-    for(int i=0;i<max_order;i++)
-        y[i]=vecs_1[i]->begin();
-    dy=vecs_1[max_order]->begin();
-    e_n=vecs_1[max_order+1]->begin();
-}
-/*--------------------------------------------
  destructor
  --------------------------------------------*/
 void DMD_bdf::allocate()
 {
-    DMDImplicit::allocate();
     vecs_1=new Vec<type0>*[max_order+2];
     for(int ivec=0;ivec<max_order+2;ivec++)
         vecs_1[ivec]=new Vec<type0>(atoms,c_dim);
@@ -133,109 +113,23 @@ void DMD_bdf::deallocate()
     for(int ivec=0;ivec<max_order+2;ivec++)
         delete vecs_1[ivec];
     delete [] vecs_1;
+}
+/*--------------------------------------------
+ restart a simulation
+ --------------------------------------------*/
+inline void DMD_bdf::restart(type0& del_t,int& q)
+{
+    reset();
+    for(int i=0;i<max_order;i++)
+        y[i]=vecs_1[i]->begin();
+    dy=vecs_1[max_order]->begin();
+    e_n=vecs_1[max_order+1]->begin();
     
-    DMDImplicit::deallocate();
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void DMD_bdf::init()
-{
-    DMDImplicit::init();
-    allocate();
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void DMD_bdf::fin()
-{
-    deallocate();
-    DMDImplicit::fin();
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void DMD_bdf::run()
-{
-    if(max_step==0)
-        return;
-    
-    type0 del_t,del_t_tmp;
-    type0 cost,err=0.0;
-    int q;
-    int istep;
-    bool min_run=false;
-    
-    istep=0;
-    while (istep<max_step && tot_t<max_t)
-    {
-        reset();
-        type0* c=mapp->c->begin();
-        type0* c_d=mapp->c_d->begin();
-        type0* tmp_y;
-        int iter=-1,iter_0=-1;
-        iter_dcr_cntr=-1;
-        del_t=est_dt();
-        
-        memcpy(y[0],c,ncs*sizeof(type0));
-        memcpy(dy,c_d,ncs*sizeof(type0));
-        for(int i=0;i<max_order;i++) t[i]=0.0;
-        q=1;
-        while (istep<max_step && tot_t<max_t && !min_run)
-        {
-            err=1.0;
-            cost=1.0;
-            while (MAX(cost,err)>=1.0)
-            {
-                interpolate(del_t,q);
-                //if(atoms->my_p==0) printf("%d %e: ",q,del_t);
-                iter=solve_n_err(cost,err);
-                if(MAX(cost,err)<1.0)
-                    continue;
-                if(cost>=1.0)
-                    iter_0=-1;
-                
-                fail_stp_adj(err,cost,del_t,q);
-            }
-            
-            if(iter_0!=-1 && (iter<iter_0 || iter==0))
-                iter_dcr_cntr++;
-            else
-                iter_dcr_cntr=0;
-
-            iter_0=iter;
-            
-            max_succ_q=MAX(max_succ_q,q);
-
-            min_run=decide_min(istep,del_t);
-            if(min_run) continue;
-            
-            del_t_tmp=del_t;
-            ord_dt(err,del_t,q);
-            
-            tmp_y=y[max_order-1];
-            for(int i=max_order-1;i>0;i--)
-            {
-                t[i]=t[i-1]-del_t_tmp;
-                y[i]=y[i-1];
-            }
-            y[0]=tmp_y;
-            memcpy(y[0],c,ncs*sizeof(type0));
-            memcpy(dy,c_d,ncs*sizeof(type0));
-        }
-        
-        if(!min_run) continue;
-        do_min();
-        min_run=false;
-    }
-}
-/*--------------------------------------------
- estimate the initial time step
- --------------------------------------------*/
-inline type0 DMD_bdf::est_dt()
-{
+    iter_dcr_cntr=-1;
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
-    type0 del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    del_t=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    
+    
     if(del_t>max_t-tot_t)
         del_t=max_t-tot_t;
     else
@@ -252,7 +146,28 @@ inline type0 DMD_bdf::est_dt()
                 del_t=max_t-tot_t-min_del_t;
         }
     }
-    return del_t;
+    memcpy(y[0],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+    for(int i=0;i<max_order;i++) t[i]=0.0;
+    q=1;
+}
+/*--------------------------------------------
+ store the vectors
+ --------------------------------------------*/
+inline void DMD_bdf::store_vecs(type0 del_t)
+{
+    type0* tmp_y=y[max_order-1];
+    for(int i=max_order-1;i>0;i--)
+    {
+        t[i]=t[i-1]-del_t;
+        y[i]=y[i-1];
+    }
+    y[0]=tmp_y;
+    memcpy(y[0],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+    for(int i=0;i<ncs;i++)
+        if(y[0][i]>=0.0)
+            e_n[i]=y[0][i]-y_0[i];
 }
 /*--------------------------------------------
  calculate the coefficients
@@ -350,11 +265,17 @@ inline void DMD_bdf::interpolate(type0& del_t,int& q)
                         {
                             if(y[0][i]>=0.0)
                             {
-                                tmp0=y[0][i]+r_lcl*del_t*dy[i];
-                                if(tmp0>1.0)
-                                    r_lcl=0.999*((1.0-y[0][i])/(del_t*dy[i]));
-                                if(tmp0<0.0)
-                                    r_lcl=-0.999*((y[0][i])/(del_t*dy[i]));
+                                tmp0=(r_lcl*del_t)*dy[i]+y[0][i];
+                                while(tmp0>1.0)
+                                {
+                                    r_lcl-=(tmp0-1.0)/(del_t*dy[i]);
+                                    tmp0=(r_lcl*del_t)*dy[i]+y[0][i];
+                                }
+                                while(tmp0<0.0)
+                                {
+                                    r_lcl-=(tmp0)/(del_t*dy[i]);
+                                    tmp0=(r_lcl*del_t)*dy[i]+y[0][i];
+                                }
                             }
                         }
                         
@@ -378,76 +299,26 @@ inline void DMD_bdf::interpolate(type0& del_t,int& q)
 
 }
 /*--------------------------------------------
- find the new del_t and order
+ step addjustment after success
  --------------------------------------------*/
-inline void DMD_bdf::ord_dt(type0 err,
-type0& del_t,int& q)
+inline void DMD_bdf::ord_dt(type0 err,type0 del_t,int q,type0& r,int& del_q)
 {
-    type0* c=mapp->c->begin();
-    type0 lo_r,hi_r,r;
-    int tmp_q=q;
+    type0 lo_r,hi_r;
     
     r=pow(0.5/err,1.0/static_cast<type0>(q+1));
     ratio_calc(q,del_t,lo_r,hi_r);
     
+    del_q=0;
     if(hi_r>lo_r && hi_r>r)
     {
-        q++;
+        del_q++;
         r=hi_r;
     }
     else if(lo_r>hi_r && lo_r>r)
     {
-        q--;
+        del_q--;
         r=lo_r;
     }
-        
-    if(iter_dcr_cntr<iter_dcr_thrsh)
-        r=MIN(r,1.0);
-    
-    if(r>=2.0)
-        r=2.0;
-    else if(r<=0.5)
-        r=0.5;
-    else
-        r=1.0;
-    
-    if(r>1.0)
-        iter_dcr_cntr=0;
-    
-    bool const_stp_chk=false;
-    if(r*del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
-    else
-    {
-        if(max_t-tot_t<=2.0*min_del_t)
-        {
-            del_t=2.0*min_del_t;
-        }
-        else
-        {
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-            else
-            {
-                del_t*=r;
-                if(r==1.0)
-                    const_stp_chk=true;
-            }
-        }
-    }
-    
-    if(const_stp_chk && tmp_q==q)
-        const_stps++;
-    else
-        const_stps=0;
-    
-    for(int i=0;i<ncs;i++)
-        if(c[i]>=0.0)
-            e_n[i]=c[i]-y_0[i];
-
-    //if(atoms->my_p==0) printf("r del_t::: %e %e  %d\n",r,del_t,iter_dcr_cntr);
 }
 /*--------------------------------------------
  error calculation
@@ -528,40 +399,4 @@ type0& lo_ratio,type0& hi_ratio)
     }
     
 }
-/*--------------------------------------------
- step addjustment after failure
- --------------------------------------------*/
-inline void DMD_bdf::fail_stp_adj(type0 err,type0 m_err,type0& del_t,int& q)
-{
-    if(max_t-tot_t<=2.0*min_del_t)
-    {
-        if(q>1)
-            q--;
-        else
-            error->abort("reached minimum order & del_t (%e)",del_t);
-    }
-    else
-    {
-        if(del_t==min_del_t)
-        {
-            if(q>1)
-                q--;
-            else
-                error->abort("reached minimum order & del_t (%e)",del_t);
-        }
-        else
-        {
-            type0 r=pow(0.5/MAX(err,m_err),1.0/static_cast<type0>(q+1));
-            
-            r=MAX(r,0.5);
-            r=MIN(r,0.9);
-            
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-            else
-                del_t*=r;
-        }
-    }
-}
+

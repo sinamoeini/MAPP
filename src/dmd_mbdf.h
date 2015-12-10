@@ -28,17 +28,14 @@ namespace MAPP_NS {
         void deallocate();
         
         //functions to be accessed by run()
-        void reset();
-        type0 est_dt();
+        void restart(type0&,int&);
+        void store_vecs(type0);        
         void interpolate(type0&,int&);
-        void ord_dt(type0,type0&,int&);
-        void fail_stp_adj(type0,type0,type0&,int&);        
+        void ord_dt(type0,type0,int,type0&,int&);
     public:
         DMD_mbdf(MAPP*,int,char**);
         ~DMD_mbdf();
-        void run();
-        void init();
-        void fin();
+
     };
 }
 

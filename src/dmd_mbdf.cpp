@@ -13,7 +13,6 @@ using namespace MAPP_NS;
 DMD_mbdf::DMD_mbdf(MAPP* mapp,int nargs
 ,char** args):DMDImplicit(mapp)
 {
-    pre_cond=1;
     max_order=5;
     
     if(nargs>2)
@@ -59,14 +58,6 @@ DMD_mbdf::DMD_mbdf(MAPP* mapp,int nargs
                 min_del_t=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(args[iarg],"initial_del_t")==0)
-            {
-                iarg++;
-                initial_del_t=atof(args[iarg]);
-                if(initial_del_t<=0.0)
-                    error->abort("initial_del_t in dmd mbdf should be greater than 0.0");
-                iarg++;
-            }
             else
                 error->abort("unknown keyword in dmd mbdf: %s",args[iarg]);
         }
@@ -97,8 +88,6 @@ DMD_mbdf::~DMD_mbdf()
  --------------------------------------------*/
 void DMD_mbdf::allocate()
 {
-    DMDImplicit::allocate();
-    
     vecs_1=new Vec<type0>*[max_order+2];
     for(int ivec=0;ivec<max_order+2;ivec++)
         vecs_1[ivec]=new Vec<type0>(atoms,c_dim);
@@ -108,16 +97,6 @@ void DMD_mbdf::allocate()
     CREATE1D(alph_err,max_order+2);
     CREATE1D(t,max_order+1);
     CREATE1D(y,max_order+1);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void DMD_mbdf::reset()
-{
-    DMDImplicit::reset();
-    for(int i=0;i<max_order+1;i++)
-        y[i]=vecs_1[i]->begin();
-    dy=vecs_1[max_order+1]->begin();
 }
 /*--------------------------------------------
  init
@@ -134,112 +113,18 @@ void DMD_mbdf::deallocate()
     for(int ivec=0;ivec<max_order+2;ivec++)
         delete vecs_1[ivec];
     delete [] vecs_1;
+}
+/*--------------------------------------------
+ restart a simulation
+ --------------------------------------------*/
+inline void DMD_mbdf::restart(type0& del_t,int& q)
+{
+    reset();
+    for(int i=0;i<max_order+1;i++)
+        y[i]=vecs_1[i]->begin();
+    dy=vecs_1[max_order+1]->begin();
     
-    DMDImplicit::deallocate();
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void DMD_mbdf::init()
-{
-    DMDImplicit::init();
-    allocate();
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-void DMD_mbdf::fin()
-{
-    deallocate();    
-    DMDImplicit::fin();
-}
-/*--------------------------------------------
- run
- --------------------------------------------*/
-void DMD_mbdf::run()
-{
-    if(max_step==0)
-        return;
-
-    type0 del_t=initial_del_t,del_t_tmp;
-    type0 cost,err;
-    int q;
-    int istep;
-    bool min_run=false;
-    
-    istep=0;
-    while (istep<max_step && tot_t<max_t)
-    {
-        reset();
-        type0* c=mapp->c->begin();
-        type0* c_d=mapp->c_d->begin();
-        type0* tmp_y;
-        int iter=-1,iter_0=-1;
-        iter_dcr_cntr=-1;        
-        del_t=est_dt();
-        
-        memcpy(y[0],c,ncs*sizeof(type0));
-        memcpy(y[1],c,ncs*sizeof(type0));
-        memcpy(dy,c_d,ncs*sizeof(type0));
-        for(int i=0;i<max_order+1;i++) t[i]=0.0;
-        t[0]=0.0;
-        t[1]=-del_t;
-        q=1;
-        init_phase=true;
-        const_stps=0;
-        
-        while (istep<max_step && tot_t<max_t && !min_run)
-        {
-            err=1.0;
-            cost=1.0;
-            while (MAX(cost,err)>=1.0)
-            {
-                interpolate(del_t,q);
-                iter=solve_n_err(cost,err);
-                if(MAX(cost,err)<1.0)
-                    continue;
-                if(cost>=1.0)
-                    iter_0=-1;
-                
-                fail_stp_adj(err,cost,del_t,q);
-            }
-            
-            if(iter_0!=-1 && (iter<iter_0 || iter==0))
-                iter_dcr_cntr++;
-            else
-                iter_dcr_cntr=0;
-            
-            iter_0=iter;
-            
-            max_succ_q=MAX(max_succ_q,q);
-            
-            min_run=decide_min(istep,del_t);
-            if(min_run) continue;
-
-            del_t_tmp=del_t;
-            ord_dt(cost,del_t,q);
-            
-            tmp_y=y[max_order];
-            for(int i=max_order;i>0;i--)
-            {
-                t[i]=t[i-1]-del_t_tmp;
-                y[i]=y[i-1];
-            }
-            y[0]=tmp_y;
-            memcpy(y[0],c,ncs*sizeof(type0));
-            memcpy(dy,c_d,ncs*sizeof(type0));
-        }
-
-        if(!min_run) continue;
-        do_min();
-        min_run=false;
-    }
-}
-/*--------------------------------------------
- init
- --------------------------------------------*/
-inline type0 DMD_mbdf::est_dt()
-{
+    iter_dcr_cntr=-1;
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     type0 sum,sum_lcl;
@@ -250,7 +135,9 @@ inline type0 DMD_mbdf::est_dt()
     sum=0.0;
     MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
     sum=sqrt(sum/nc_dofs);
-    type0 del_t=MIN(2.0*a_tol/sum,1.0e-3*(max_t-tot_t));
+    del_t=MIN(2.0*a_tol/sum,1.0e-3*(max_t-tot_t));
+    
+    
     if(del_t>max_t-tot_t)
         del_t=max_t-tot_t;
     else
@@ -267,7 +154,31 @@ inline type0 DMD_mbdf::est_dt()
                 del_t=max_t-tot_t-min_del_t;
         }
     }
-    return del_t;
+    
+    memcpy(y[0],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(y[1],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+    for(int i=0;i<max_order+1;i++) t[i]=0.0;
+    t[0]=0.0;
+    t[1]=-del_t;
+    q=1;
+    init_phase=false;
+}
+/*--------------------------------------------
+ store the vectors
+ --------------------------------------------*/
+inline void DMD_mbdf::store_vecs(type0 del_t)
+{
+    
+    type0* tmp_y=y[max_order];
+    for(int i=max_order;i>0;i--)
+    {
+        t[i]=t[i-1]-del_t;
+        y[i]=y[i-1];
+    }
+    y[0]=tmp_y;
+    memcpy(y[0],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
 }
 /*--------------------------------------------
  init
@@ -382,65 +293,34 @@ inline void DMD_mbdf::interpolate(type0& del_t,int& q)
 /*--------------------------------------------
  step addjustment after success
  --------------------------------------------*/
-inline void DMD_mbdf::ord_dt(type0 m_err,type0& del_t,int& q)
+inline void DMD_mbdf::ord_dt(type0 err,type0 del_t,int q,type0& r,int& del_q)
 {
+    del_q=0;
     if(init_phase)
     {
-        type0 r=2.0;
-        if(q<max_order)
-            q++;
-        
-        if(r*del_t>max_t-tot_t)
-        {
-            init_phase=false;
-            del_t=max_t-tot_t;
-        }
-        else
-        {
-            
-            if(max_t-tot_t<=2.0*min_del_t)
-            {
-                init_phase=false;
-                del_t=2.0*min_del_t;
-            }
-            else
-            {
-                if(r*del_t<min_del_t)
-                {
-                    init_phase=false;
-                    del_t=min_del_t;
-                }
-                else if(r*del_t>=max_t-tot_t-min_del_t)
-                {
-                    init_phase=false;
-                    del_t=max_t-tot_t-min_del_t;
-                }
-                else
-                    del_t*=r;
-            }
-        }
+        r=2.0;
+        if(q<max_order) del_q=1;
+        return;
     }
     
     
     type0 terkm2=0.0,terkm1=0.0,terk=0.0,terkp1=0.0;
     type0 est;
     
-    int terkm2_flag,terkm1_flag,terk_flag,terkp1_flag
-    ,tmp_q=q;
+    bool terkm2_flag,terkm1_flag,terkp1_flag;
     
-    terk_flag=1;
-    terkp1_flag=0;
-    terkm1_flag=0;
-    terkm2_flag=0;
+    terkp1_flag=false;
+    terkm1_flag=false;
+    terkm2_flag=false;
     
     if(q>2)
-        terkm2_flag=1;
+        terkm2_flag=true;
     if(q>1)
-        terkm1_flag=1;
-    
+        terkm1_flag=true;
     
     if(const_stps==q+2 && q<max_order)
-        terkp1_flag=1;
+        terkp1_flag=true;
+    
     
     if(terkm2_flag)
         terkm2=err_est(q-1,del_t);
@@ -448,32 +328,27 @@ inline void DMD_mbdf::ord_dt(type0 m_err,type0& del_t,int& q)
     if(terkm1_flag)
         terkm1=err_est(q,del_t);
     
-    if(terk_flag)
-        terk=err_est(q+1,del_t);
+    terk=err*static_cast<type0>(q+1);
     
     if(terkp1_flag)
         terkp1=err_est(q+2,del_t);
-    
-    tmp_q=q;
     
     if(q>2)
     {
         if(MAX(terkm1,terkm2)<=terk)
         {
             est=terkm1/static_cast<type0>(q);
-            q--;
+            del_q--;
         }
         else
         {
             if(terkp1<terk && terkp1_flag)
             {
                 est=terkp1/static_cast<type0>(q+2);
-                q++;
+                del_q++;
             }
             else
-            {
-                est=terk/static_cast<type0>(q+1);
-            }
+                est=err;
         }
     }
     else if(q==2)
@@ -481,81 +356,33 @@ inline void DMD_mbdf::ord_dt(type0 m_err,type0& del_t,int& q)
         if(terkm1<=0.5*terk)
         {
             est=terkm1/static_cast<type0>(q);
-            q--;
+            del_q--;
         }
         else if(terkp1_flag && terk<terkm1)
         {
             if(terkp1<terk)
             {
                 est=terkp1/static_cast<type0>(q+2);
-                q++;
+                del_q++;
             }
             else
-            {
-                est=terk/static_cast<type0>(q+1);
-            }
+                est=err;
         }
         else
-        {
-            est=terk/static_cast<type0>(q+1);
-        }
+            est=err;
     }
     else
     {
         if(terkp1_flag && terkp1<0.5*terk)
         {
             est=terkp1/static_cast<type0>(q+2);
-            q++;
+            del_q++;
         }
         else
-        {
-            est=terk/static_cast<type0>(q+1);
-        }
+            est=err;
     }
     
-    type0 r=pow(0.5/est,1.0/static_cast<type0>(q+1));
-    
-    if(iter_dcr_cntr<iter_dcr_thrsh)
-        r=MIN(r,1.0);
-    
-    if(r>=2.0)
-        r=2.0;
-    else if(r<=0.5)
-        r=0.5;
-    else
-        r=1.0;
-    
-    if(r>1.0)
-        iter_dcr_cntr=0;
-    
-    bool const_stp_chk=false;
-    if(r*del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
-    else
-    {
-        if(max_t-tot_t<=2.0*min_del_t)
-        {
-            del_t=2.0*min_del_t;
-        }
-        else
-        {
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-            else
-            {
-                del_t*=r;
-                if(r==1.0)
-                    const_stp_chk=true;
-            }
-        }
-    }
-    
-    if(const_stp_chk && tmp_q==q)
-        const_stps++;
-    else
-        const_stps=0;
+    r=pow(0.5/est,1.0/static_cast<type0>(q+1+del_q));
     
 }
 /*--------------------------------------------
@@ -596,42 +423,4 @@ inline type0 DMD_mbdf::err_est(int q,type0 del_t)
     err*=fabs(k0);
     return err;
 }
-/*--------------------------------------------
- step addjustment after failure
- --------------------------------------------*/
-inline void DMD_mbdf::fail_stp_adj(type0 err,type0 m_err,type0& del_t,int& q)
-{
-    const_stps=0;
-    init_phase=false;
-    if(max_t-tot_t<=2.0*min_del_t)
-    {
-        if(q>1)
-            q--;
-        else
-            error->abort("reached minimum order & del_t (%e)",del_t);
-    }
-    else
-    {
-        if(del_t==min_del_t)
-        {
-            if(q>1)
-                q--;
-            else
-                error->abort("reached minimum order & del_t (%e)",del_t);
-        }
-        else
-        {
-            type0 r=pow(0.5/MAX(err,m_err),1.0/static_cast<type0>(q+1));
 
-            r=MAX(r,0.1);
-            r=MIN(r,0.9);
-            
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-            else
-                del_t*=r;
-        }
-    }
-}
