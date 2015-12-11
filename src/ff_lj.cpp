@@ -8,17 +8,12 @@
 #include "atom_types.h"
 #include "memory.h"
 #include "error.h"
+//#define AHEAD 6
+#ifdef AHEAD
 #include <xmmintrin.h>
+#endif
+
 using namespace MAPP_NS;
-/*--------------------------------------------
- Fisher-Sinclair (FS) potential
- ref: 
- T. T. Lau, C. J. Forst, X. Lin, J. D. Gale,
- S. Yip, & K. J. Van Vliet
- Many-Body Potential for Point Defect Clusters
- in Fe-C Alloys
- Phys. Rev. Lett. Vol. 98, pp. 215501, 2007
- --------------------------------------------*/
 
 /*--------------------------------------------
  constructor
@@ -103,10 +98,104 @@ void ForceField_lj::fin()
 void ForceField_lj::
 force_calc(bool st_clc)
 {
+
+#ifdef AHEAD
+    type0* x=mapp->x->begin();
+    type0* y=x;
+    type0* fvec=f->begin();
+    type0* fvecy=fvec;
+    md_type* type=mapp->type->begin();
+    md_type* typey=type;
+    
+    int natms=atoms->natms;
+    int iatm,jatm;
+    int itype,jtype,curs,icomp,jcomp;
+    type0 dx0,dx1,dx2,rsq,sig,eps,csq;
+    type0 sig2,sig6,sig12,fpair,en;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    nrgy_strss_lcl[0]=0.0;
+    if (st_clc)
+        for(int i=1;i<7;i++)
+            nrgy_strss_lcl[i]=0.0;
+    int pair_no=0;
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        itype=type[iatm];
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            
+            
+            jatm=neighbor_list[iatm][j];
+            jtype=type[jatm];
+            curs=COMP(itype,jtype);
+            icomp=3*iatm;
+            jcomp=3*jatm;
+            dx0=x[icomp]-y[jcomp];
+            dx1=x[icomp+1]-y[jcomp+1];
+            dx2=x[icomp+2]-y[jcomp+2];
+            
+            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+            
+            csq=cut_sq[curs];
+            if (rsq<csq)
+            {
+                sig=sigma[curs];
+                eps=epsilon[curs];
+                sig2=sig*sig/rsq;
+                sig6=sig2*sig2*sig2;
+                sig12=sig6*sig6;
+                
+                fpair=24.0*eps*(2.0*sig12-sig6)/rsq;
+                en=4.0*eps*(sig12-sig6)
+                +offset[curs];
+                
+                fvec[icomp]+=fpair*dx0;
+                fvec[icomp+1]+=fpair*dx1;
+                fvec[icomp+2]+=fpair*dx2;
+                if(jatm<natms)
+                {
+                    fvecy[jcomp]-=fpair*dx0;
+                    fvecy[jcomp+1]-=fpair*dx1;
+                    fvecy[jcomp+2]-=fpair*dx2;
+                }
+                
+                
+                if(jatm>=natms)
+                {
+                    fpair*=0.5;
+                    en*=0.5;
+                }
+                nrgy_strss_lcl[0]+=en;
+                
+                if (st_clc)
+                {
+                    nrgy_strss_lcl[1]-=fpair*dx0*dx0;
+                    nrgy_strss_lcl[2]-=fpair*dx1*dx1;
+                    nrgy_strss_lcl[3]-=fpair*dx2*dx2;
+                    nrgy_strss_lcl[4]-=fpair*dx1*dx2;
+                    nrgy_strss_lcl[5]-=fpair*dx2*dx0;
+                    nrgy_strss_lcl[6]-=fpair*dx0*dx1;
+                }
+                
+            }
+            
+            if(pair_no+AHEAD<neighbor->no_pairs)
+            {
+                int katm=neighbor_list[iatm][j+AHEAD];
+                _mm_prefetch((char*)(y+katm*3),_MM_HINT_T0);
+                _mm_prefetch((char*)(typey+katm),_MM_HINT_T0);
+            }
+            pair_no++;
+        }
+    }
+#else
     type0* x=mapp->x->begin();
     type0* fvec=f->begin();
     md_type* type=mapp->type->begin();
-
+    
     int natms=atoms->natms;
     int iatm,jatm;
     int itype,jtype,curs,icomp,jcomp;
@@ -159,8 +248,8 @@ force_calc(bool st_clc)
                     fvec[jcomp+1]-=fpair*dx1;
                     fvec[jcomp+2]-=fpair*dx2;
                 }
-
-               
+                
+                
                 if(jatm>=natms)
                 {
                     fpair*=0.5;
@@ -180,6 +269,8 @@ force_calc(bool st_clc)
             }
         }
     }
+#endif
+
     
     if(st_clc)
     {

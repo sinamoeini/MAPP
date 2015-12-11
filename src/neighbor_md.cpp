@@ -6,6 +6,7 @@
 #include "ff.h"
 #include "memory.h"
 #include "timer.h"
+//#define ROW
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -32,12 +33,19 @@ void Neighbor_md::fin()
 {
     if(neighbor_list_size_size)
     {
+#ifdef ROW
+        delete [] *neighbor_list;
+        delete [] neighbor_list;
+#else
         for(int i=0;i<neighbor_list_size_size;i++)
             if(neighbor_list_size[i])
                 delete [] neighbor_list[i];
-        
         delete [] neighbor_list;
-        delete [] neighbor_list_size;
+#endif
+        
+
+        
+        delete [] neighbor_list_size;        
     }
     neighbor_list_size_size=0;
 
@@ -58,12 +66,18 @@ void Neighbor_md::create_list(bool box_change)
     
     if(neighbor_list_size_size)
     {
+#ifdef ROW
+        delete [] *neighbor_list;
+        delete [] neighbor_list;
+#else
         for(int i=0;i<neighbor_list_size_size;i++)
             if(neighbor_list_size[i])
                 delete [] neighbor_list[i];
+        delete [] neighbor_list;
+#endif
 
         delete [] neighbor_list_size;
-        delete [] neighbor_list;
+
 
     }
     
@@ -191,9 +205,30 @@ void Neighbor_md::create_list(bool box_change)
         delete [] atm_bin;
     atm_bin_size=0;
     
+    
+#ifdef ROW
+    int** neighbor_list_=new int*[neighbor_list_size_size];
+    *neighbor_list_=new int[no_pairs];
+    int* arr=*neighbor_list_;
+    for(int i=0;i<neighbor_list_size_size;i++)
+    {
+        memcpy(arr,neighbor_list[i],sizeof(int)*neighbor_list_size[i]);
+        neighbor_list_[i]=arr;
+        arr+=neighbor_list_size[i];
+    }
+    
+    if(neighbor_list_size_size)
+    {
+        for(int i=0;i<neighbor_list_size_size;i++)
+            if(neighbor_list_size[i])
+                delete [] neighbor_list[i];
+        delete [] neighbor_list;
+    }
+    
+    neighbor_list=neighbor_list_;
+#endif
+    
     no_neigh_lists++;
-    
-    
     timer->stop(NEIGH_TIME_mode);
 }
 

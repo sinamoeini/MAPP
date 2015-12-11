@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "min_styles.h"
 #include <limits>
+//#define DMD_DEBUG
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -356,92 +357,93 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
     type0 ratio;
     type0 g0_g0=-1.0,g_g,g_g0;
     type0 curr_cost;
-    type0 tol=sqrt(nc_dofs)*m_tol;
-    type0 mm_tol=MIN(m_tol,a_tol/fabs(err_prefac));
-    int line_search_succ=0,iter=0;
+    type0 tol=m_tol;
+    type0 mm_tol=tol/sqrt(nc_dofs);
+    int ls_succ=LS_S,iter=0;
 
     
     memcpy(c,y_0,ncs*sizeof(type0));
     atoms->update(mapp->c);
-    curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,tol,beta,a,g);
-
+    curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,beta,a,g);
+    rectify(g);
+    inner_lcl[0]=0.0;
+    for(int i=0;i<ncs;i++) inner_lcl[0]+=g[i]*g[i];
+    MPI_Allreduce(&inner_lcl,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
     
-    if(curr_cost>=tol)
+    memcpy(h,g,ncs*sizeof(type0));
+    h_h=g_h=g0_g0;
+    
+    while(g0_g0!=0.0 && iter<max_iter && ls_succ==LS_S)
     {
-        rectify(g);
-        memcpy(h,g,ncs*sizeof(type0));
-                
-        inner_lcl[0]=0.0;
-        for(int i=0;i<ncs;i++) inner_lcl[0]+=g[i]*g[i];
-        MPI_Allreduce(&inner_lcl,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
-        h_h=g_h=g0_g0;
+        memcpy(g0,g,ncs*sizeof(type0));
+        memcpy(c0,c,ncs*sizeof(type0));
         
-        iter=0;
-        line_search_succ=LS_S;
-        while(curr_cost>tol && iter<max_iter && line_search_succ==LS_S)
+        
+        ls_succ=ls_dmd->line_min(curr_cost,gamma,1);
+        iter++;
+        
+        if(ls_succ!=LS_S)
+            continue;
+        curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,beta,a,g);
+        rectify(g);
+        
+        inner_lcl[0]=inner_lcl[1]=0.0;
+        for(int i=0;i<ncs;i++)
         {
-            memcpy(g0,g,ncs*sizeof(type0));
-            memcpy(c0,c,ncs*sizeof(type0));
-            
-            line_search_succ=ls_dmd->line_min(curr_cost,gamma,1);
-            
-            if(line_search_succ!=LS_S)
-                continue;
-            if(curr_cost<=tol)
-            {
-                iter++;
-                continue;
-            }
-            curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,tol,beta,a,g);
-            rectify(g);
-            
-            inner_lcl[0]=inner_lcl[1]=0.0;
-            for(int i=0;i<ncs;i++)
-            {
-                inner_lcl[0]+=g[i]*g0[i];
-                inner_lcl[1]+=g[i]*g[i];
-            }
-            
-            MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
-            g_g0=inner[0];
-            g_g=inner[1];
-            ratio=(g_g-g_g0)/g0_g0;
-            
-            inner_lcl[0]=inner_lcl[1]=0.0;
-            int bound_chk_lcl=1,bound_chk;
-            for(int i=0;i<ncs;i++)
-            {
-                h[i]*=ratio;
-                h[i]+=g[i];
-                if((c[i]==0.0 && h[i]<0.0) || (c[i]==1.0 && h[i]>0.0))
-                    bound_chk_lcl=0;
-                inner_lcl[0]+=h[i]*g[i];
-                inner_lcl[1]+=h[i]*h[i];
-            }
-            
-            MPI_Allreduce(&bound_chk_lcl,&bound_chk,1,MPI_INT,MPI_MIN,world);
-            if(bound_chk)
-            {
-                MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
-                g_h=inner[0];
-                h_h=inner[1];
-            }
-
-            if(g_h<0.0  || bound_chk==0)
-            {
-                memcpy(h,g,ncs*sizeof(type0));
-                h_h=g_h=g_g;
-            }
-            
-            g0_g0=g_g;
-            iter++;
+            inner_lcl[0]+=g[i]*g0[i];
+            inner_lcl[1]+=g[i]*g[i];
         }
+        
+        MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
+        g_g0=inner[0];
+        g_g=inner[1];
+        ratio=(g_g-g_g0)/g0_g0;
+        
+        if(g_g==0.0)
+        {
+            g0_g0=0.0;
+            continue;
+        }
+        
+        int bound_chk_lcl=1,bound_chk;
+        for(int i=0;i<ncs;i++)
+        {
+            h[i]*=ratio;
+            h[i]+=g[i];
+            if((c[i]==0.0 && h[i]<0.0) || (c[i]==1.0 && h[i]>0.0))
+                bound_chk_lcl=0;
+            inner_lcl[0]+=h[i]*g[i];
+            inner_lcl[1]+=h[i]*h[i];
+        }
+        
+        MPI_Allreduce(&bound_chk_lcl,&bound_chk,1,MPI_INT,MPI_MIN,world);
+        if(bound_chk)
+        {
+            MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
+            g_h=inner[0];
+            h_h=inner[1];
+        }
+        
+        if(g_h<0.0  || bound_chk==0)
+        {
+            memcpy(h,g,ncs*sizeof(type0));
+            h_h=g_h=g_g;
+        }
+        
+        g0_g0=g_g;
     }
     
     rectify(c_d);
     
     err_lcl=0.0;
     type0 c_d_norm_lcl=0.0;
+    type0 c_d_max_lcl=0.0;
+    type0 c_d_max;
+    type0 err_max_lcl=0.0;
+    type0 err_max;
+    type0 cost_max_lcl=0.0;
+    type0 cost_max;
+    
     for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
@@ -449,16 +451,23 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
             tmp0=(y_0[i]-c[i]);
             err_lcl+=tmp0*tmp0;
             c_d_norm_lcl+=c_d[i]*c_d[i];
+            c_d_max_lcl=MAX(c_d_max_lcl,fabs(c_d[i]));
+            err_max_lcl=MAX(err_max_lcl,fabs(tmp0));
+            cost_max_lcl=MAX(cost_max_lcl,fabs(c[i]+a[i]-beta*c_d[i]));
         }
     }
     
     err=0.0;
     MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&c_d_max_lcl,&c_d_max,1,MPI_TYPE0,MPI_MAX,world);
+    MPI_Allreduce(&err_max_lcl,&err_max,1,MPI_TYPE0,MPI_MAX,world);
+    MPI_Allreduce(&cost_max_lcl,&cost_max,1,MPI_TYPE0,MPI_MAX,world);
     MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
     err=sqrt(err/nc_dofs)/a_tol;
     c_d_norm=sqrt(c_d_norm/nc_dofs);
     err*=err_prefac;
-    cost=curr_cost/(tol);
+
+    cost=cost_max/m_tol;
     
     if(iter)
     {
@@ -470,13 +479,13 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
     if(err>=1.0)
         intg_rej++;
     
-
-    /*
+    
+#ifdef DMD_DEBUG
     if(atoms->my_p==0)
-        printf("%lf %lf %d %e %d %lf %e\n",err,cost,iter,c_d_norm,line_search_succ,g0_g0,max_a);
-    */
+        printf("%lf %lf %d %e %d %lf %e | Max %e %e\n",err,cost,iter,c_d_norm,ls_succ,g0_g0,max_a,c_d_max,err_prefac*err_max/a_tol);
+#endif
     
-    
+
     return iter;
 }
 /*--------------------------------------------
@@ -553,7 +562,7 @@ type0 DMDImplicit::F(type0 alpha)
     
     atoms->update(mapp->c);
     
-    return forcefield_dmd->imp_cost_grad_timer(false,0.0,1.0,beta,a,g);
+    return forcefield_dmd->imp_cost_grad_timer(false,0.0,beta,a,g);
 }
 /*--------------------------------------------
  inner product of f and h
@@ -577,7 +586,7 @@ type0 DMDImplicit::dF(type0 alpha,type0& drev)
     
     atoms->update(mapp->c);
     
-    type0 cost=forcefield_dmd->imp_cost_grad_timer(true,0.0,-1.0,beta,a,g);
+    type0 cost=forcefield_dmd->imp_cost_grad_timer(true,0.0,beta,a,g);
     type0 inner0=0.0;
     for(int i=0;i<ncs;i++)
         if(c[i]>=0.0)
@@ -722,7 +731,9 @@ void DMDImplicit::run()
             while (MAX(cost,err)>=1.0)
             {
                 interpolate(del_t,q);
-                //if(atoms->my_p==0) printf("%e %d: ",del_t,q);
+#ifdef DMD_DEBUG
+                if(atoms->my_p==0) printf("%e %d: ",del_t,q);
+#endif
                 iter=solve_n_err(cost,err);
                 if(MAX(cost,err)<1.0)
                     continue;
@@ -760,14 +771,12 @@ void DMDImplicit::run()
  --------------------------------------------*/
 inline void DMDImplicit::ord_dt(type0 err,type0& del_t,int& q)
 {
-    type0 r;
-    int del_q;
-    ord_dt(err,del_t,q,r,del_q);
-    
-    
-    
-    if(iter_dcr_cntr<iter_dcr_thrsh && const_stps<=10)
-        r=MIN(r,1.0);
+    type0 r=1.0;
+    int del_q=0;
+   
+    if(iter_dcr_cntr>iter_dcr_thrsh && const_stps>q+1)
+        ord_dt(err,del_t,q,r,del_q);
+
     
     if(r>=2.0)
         r=2.0;

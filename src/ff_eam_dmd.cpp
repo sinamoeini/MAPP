@@ -24,6 +24,7 @@ ForceField_eam_dmd(MAPP* mapp): ForceFieldDMD(mapp)
     no_i=0;
     max_pairs=0;
     min_log=log(std::numeric_limits<type0>::min());
+    kbT=beta=-1.0;
 }
 /*--------------------------------------------
  destructor
@@ -568,6 +569,10 @@ void ForceField_eam_dmd::init()
 {
     neighbor->pair_wise=1;
     
+    if(kbT==-1.0)
+        error->abort("temperature for the siumulation has not been set");
+    
+    
     cv_ptr=new Vec<type0>(atoms,1);
     E_ptr=new Vec<type0>(atoms,c_dim);
     dE_ptr=new Vec<type0>(atoms,c_dim);
@@ -727,7 +732,7 @@ void ForceField_eam_dmd::read_file(char* file_name)
         rsq_crd[i]=f_t[i]=Q_nrm[i]=-1.0;
     
     alpha_min=alpha_max=0.0;
-    kbT=-1.0;
+    kbT=beta=-1.0;
 
     while(mapp->read_line(fp,line)!=-1)
     {
@@ -750,23 +755,7 @@ void ForceField_eam_dmd::read_file(char* file_name)
             if(tmp0<=0.0)
                 error->abort("temperature for ff eam_dmd "
                 "should be greater than 0.0");
-            
-            type0 kb=8.617332478e-5;
-            type0 hbar=6.5821192815e-16;
-            type0 mass;
-            type0 deb_l;
-            
-            for(int i=0;i<no_types;i++)
-            {
-                mass=atom_types->mass[i];
-                mass*=1.0364269184093291236e-28;
-                deb_l=hbar*hbar*2.0/(mass*kb*tmp0);
-                c_0[i]=1.5*kb*tmp0*(log(deb_l)-1.0);
-            }
-            
-            kbT=kb*tmp0;
-            beta=1.0/kbT;
-            
+            set_temp(tmp0);
         }
         else if(sscanf(line,"r_crd(%d) = %lf",&icmp,&tmp0)==2)
         {
@@ -840,10 +829,7 @@ void ForceField_eam_dmd::read_file(char* file_name)
     
     if(no_i==0)
         error->abort("degree was not set by %s file ",file_name);
-    
-    if(kbT==-1.0)
-        error->abort("T was not set by %s file ",file_name);
-    
+   
     if(alpha_max==0.0)
         error->abort("miximum alpha was not set by %s file ",file_name);
     
@@ -919,6 +905,27 @@ void ForceField_eam_dmd::read_file(char* file_name)
         if(rsq_crd[itype]>cut_sq[COMP(itype,itype)])
             error->abort("r_crd(%s) set by file %s should be less than %lf"
             ,file_name,atom_types->atom_names[itype],sqrt(cut_sq[COMP(itype,itype)]));
+}
+/*--------------------------------------------
+ set the temperature in the simulation
+ --------------------------------------------*/
+void ForceField_eam_dmd::set_temp(type0 T)
+{
+    type0 kb=8.617332478e-5;
+    type0 hbar=6.5821192815e-16;
+    type0 mass;
+    type0 deb_l;
+    
+    for(int i=0;i<no_types;i++)
+    {
+        mass=atom_types->mass[i];
+        mass*=1.0364269184093291236e-28;
+        deb_l=hbar*hbar*2.0/(mass*kb*T);
+        c_0[i]=1.5*kb*T*(log(deb_l)-1.0);
+    }
+    
+    kbT=kb*T;
+    beta=1.0/kbT;
 }
 /*--------------------------------------------
  Gaussian-Hermite quadrature weights and
@@ -1062,12 +1069,12 @@ inline type0 ForceField_eam_dmd::mod_log(type0 x)
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad(
-bool cost_grad,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
+bool cost_grad,type0 m_tol,type0 alpha,type0* a,type0* g)
 {
     if(CRD_ENBL)
-        return imp_cost_grad_crd(cost_grad,m_tol,tol,alpha,a,g);
+        return imp_cost_grad_crd(cost_grad,m_tol,alpha,a,g);
     else
-        return imp_cost_grad_ncrd(cost_grad,m_tol,tol,alpha,a,g);
+        return imp_cost_grad_ncrd(cost_grad,m_tol,alpha,a,g);
 }
 /*--------------------------------------------
  claculate F and dF and dFF
@@ -1214,7 +1221,7 @@ void ForceField_eam_dmd::dc_ncrd()
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_crd
-(bool cost_grad,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 m_tol,type0 alpha,type0* a,type0* g)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -1253,6 +1260,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
     
     inner0=0.0;
+    type0 max_s_lcl=0.0,max_s;
     for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
     {
         itype=type[ic_dim];
@@ -1282,13 +1290,16 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
             }
         }
         inner0+=s[ic_dim]*s[ic_dim];
+        max_s_lcl=MAX(max_s_lcl,fabs(s[ic_dim]));        
     }
     ans=0.0;
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&max_s_lcl,&max_s,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
     
-    if(!cost_grad || (cost_grad && ans<tol))
+    if(!cost_grad || (cost_grad && max_s<m_tol))
         return ans;
+    
     
     /*
      beginning of level 4
@@ -1419,7 +1430,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_crd
  claculate F and dF and dFF
  --------------------------------------------*/
 type0 ForceField_eam_dmd::imp_cost_grad_ncrd
-(bool cost_grad,type0 m_tol,type0 tol,type0 alpha,type0* a,type0* g)
+(bool cost_grad,type0 m_tol,type0 alpha,type0* a,type0* g)
 {
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
@@ -1456,6 +1467,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
     
     inner0=0.0;
+    type0 max_s_lcl=0.0,max_s;
     for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
     {
         itype=type[ic_dim];
@@ -1485,12 +1497,14 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
             
         }
         inner0+=s[ic_dim]*s[ic_dim];
+        max_s_lcl=MAX(max_s_lcl,fabs(s[ic_dim]));
     }
     ans=0.0;
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&max_s_lcl,&max_s,1,MPI_TYPE0,MPI_SUM,world);
     ans=sqrt(ans);
 
-    if(!cost_grad || (cost_grad && ans<tol))
+    if(!cost_grad || (cost_grad && max_s<m_tol))
         return ans;
     
     /*

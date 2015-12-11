@@ -21,3 +21,4 @@
 #include "command_step_tally.h"
 #include "command_time_step.h"
 #include "command_write.h"
+#include "command_temp.h"
