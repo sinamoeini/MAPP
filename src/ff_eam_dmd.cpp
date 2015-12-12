@@ -1501,7 +1501,7 @@ type0 ForceField_eam_dmd::imp_cost_grad_ncrd
     }
     ans=0.0;
     MPI_Allreduce(&inner0,&ans,1,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(&max_s_lcl,&max_s,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&max_s_lcl,&max_s,1,MPI_TYPE0,MPI_MAX,world);
     ans=sqrt(ans);
 
     if(!cost_grad || (cost_grad && max_s<m_tol))

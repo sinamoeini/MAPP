@@ -489,6 +489,127 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
     return iter;
 }
 /*--------------------------------------------
+ run
+ --------------------------------------------*/
+void DMDImplicit::run()
+{
+    if(max_step==0)
+        return;
+
+    type0 del_t,del_t_tmp;
+    type0 cost,err;
+    int q;
+    int istep;
+    bool min_run=false;
+    
+    istep=0;
+    while (istep<max_step && tot_t<max_t)
+    {
+        
+        restart(del_t,q);
+        const_stps=0;
+        int iter=-1,iter_0=-1;
+
+        while (istep<max_step && tot_t<max_t && !min_run)
+        {
+            err=1.0;
+            cost=1.0;
+            while (MAX(cost,err)>=1.0)
+            {
+                interpolate(del_t,q);
+#ifdef DMD_DEBUG
+                if(atoms->my_p==0) printf("%e %d: ",del_t,q);
+#endif
+                iter=solve_n_err(cost,err);
+                if(MAX(cost,err)<1.0)
+                    continue;
+                if(cost>=1.0)
+                    iter_0=-1;
+                
+                fail_stp_adj(err,cost,del_t,q);
+            }
+            
+            if(iter_0!=-1 && (iter<iter_0 || iter==0))
+                iter_dcr_cntr++;
+            else
+                iter_dcr_cntr=0;
+            
+            iter_0=iter;
+            
+            max_succ_q=MAX(max_succ_q,q);
+            
+            min_run=decide_min(istep,del_t);
+            if(min_run) continue;
+
+            del_t_tmp=del_t;
+            ord_dt(err,del_t,q);
+            store_vecs(del_t_tmp);
+
+        }
+
+        if(!min_run) continue;
+        do_min();
+        min_run=false;
+    }
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+inline void DMDImplicit::ord_dt(type0 err,type0& del_t,int& q)
+{
+    type0 r=1.0;
+    int del_q=0;
+   
+    if(iter_dcr_cntr>iter_dcr_thrsh || const_stps>50)
+        ord_dt(err,del_t,q,r,del_q);
+
+    
+    if(r>=2.0)
+        r=2.0;
+    else if(r<=0.5)
+        r=0.5;
+    else
+        r=1.0;
+    
+    if(r>1.0)
+        iter_dcr_cntr=0;
+    
+    bool const_stp_chk=false;
+    if(r*del_t>max_t-tot_t)
+        del_t=max_t-tot_t;
+    else
+    {
+        if(max_t-tot_t<=2.0*min_del_t)
+        {
+            del_t=2.0*min_del_t;
+        }
+        else
+        {
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>=max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+            {
+                del_t*=r;
+                if(r==1.0)
+                    const_stp_chk=true;
+            }
+        }
+    }
+    
+    if(const_stp_chk && del_q==0)
+        const_stps++;
+    else
+        const_stps=0;
+    
+    q+=del_q;
+#ifdef DMD_DEBUG
+    if(atoms->my_p==0)
+        printf("%lf %d \n",r,const_stps);
+#endif
+}
+/*--------------------------------------------
  find the the cost function given gamma
  --------------------------------------------*/
 void DMDImplicit::ls_prep(type0& dfa,type0& h_norm,type0& max_a_)
@@ -701,123 +822,6 @@ inline void DMDImplicit::fail_stp_adj(type0 err,type0 m_err,type0& del_t,int& q)
                 del_t*=r;
         }
     }
-}
-/*--------------------------------------------
- run
- --------------------------------------------*/
-void DMDImplicit::run()
-{
-    if(max_step==0)
-        return;
-
-    type0 del_t,del_t_tmp;
-    type0 cost,err;
-    int q;
-    int istep;
-    bool min_run=false;
-    
-    istep=0;
-    while (istep<max_step && tot_t<max_t)
-    {
-        
-        restart(del_t,q);
-        const_stps=0;
-        int iter=-1,iter_0=-1;
-
-        while (istep<max_step && tot_t<max_t && !min_run)
-        {
-            err=1.0;
-            cost=1.0;
-            while (MAX(cost,err)>=1.0)
-            {
-                interpolate(del_t,q);
-#ifdef DMD_DEBUG
-                if(atoms->my_p==0) printf("%e %d: ",del_t,q);
-#endif
-                iter=solve_n_err(cost,err);
-                if(MAX(cost,err)<1.0)
-                    continue;
-                if(cost>=1.0)
-                    iter_0=-1;
-                
-                fail_stp_adj(err,cost,del_t,q);
-            }
-            
-            if(iter_0!=-1 && (iter<iter_0 || iter==0))
-                iter_dcr_cntr++;
-            else
-                iter_dcr_cntr=0;
-            
-            iter_0=iter;
-            
-            max_succ_q=MAX(max_succ_q,q);
-            
-            min_run=decide_min(istep,del_t);
-            if(min_run) continue;
-
-            del_t_tmp=del_t;
-            ord_dt(err,del_t,q);
-            store_vecs(del_t_tmp);
-
-        }
-
-        if(!min_run) continue;
-        do_min();
-        min_run=false;
-    }
-}
-/*--------------------------------------------
- run
- --------------------------------------------*/
-inline void DMDImplicit::ord_dt(type0 err,type0& del_t,int& q)
-{
-    type0 r=1.0;
-    int del_q=0;
-   
-    if(iter_dcr_cntr>iter_dcr_thrsh && const_stps>q+1)
-        ord_dt(err,del_t,q,r,del_q);
-
-    
-    if(r>=2.0)
-        r=2.0;
-    else if(r<=0.5)
-        r=0.5;
-    else
-        r=1.0;
-    
-    if(r>1.0)
-        iter_dcr_cntr=0;
-    
-    bool const_stp_chk=false;
-    if(r*del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
-    else
-    {
-        if(max_t-tot_t<=2.0*min_del_t)
-        {
-            del_t=2.0*min_del_t;
-        }
-        else
-        {
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-            else
-            {
-                del_t*=r;
-                if(r==1.0)
-                    const_stp_chk=true;
-            }
-        }
-    }
-    
-    if(const_stp_chk && del_q==0)
-        const_stps++;
-    else
-        const_stps=0;
-    
-    q+=del_q;
 }
 /*--------------------------------------------
  given the direction h do the line search
