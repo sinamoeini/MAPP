@@ -560,7 +560,7 @@ inline void DMDImplicit::ord_dt(type0 err,type0& del_t,int& q)
     type0 r=1.0;
     int del_q=0;
    
-    if(iter_dcr_cntr>iter_dcr_thrsh || const_stps>50)
+    if(iter_dcr_cntr>iter_dcr_thrsh || const_stps>=10)
         ord_dt(err,del_t,q,r,del_q);
 
     
