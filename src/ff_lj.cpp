@@ -84,7 +84,7 @@ void ForceField_lj::deallocate()
  --------------------------------------------*/
 void ForceField_lj::init()
 {
-    neighbor->pair_wise=1;
+    neighbor->pair_wise=true;
 }
 /*--------------------------------------------
  after a run

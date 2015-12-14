@@ -395,7 +395,7 @@ void ForceField_fsm::read_file(char* file_name)
  --------------------------------------------*/
 void ForceField_fsm::init()
 {
-    neighbor->pair_wise=1;
+    neighbor->pair_wise=true;
     
     rho_ptr=new Vec<type0>(atoms,1);
 }

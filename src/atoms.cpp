@@ -1722,7 +1722,7 @@ void Atoms::auto_grid()
         fprintf(output,"automatic grid performed: ");
         
         for(int i=0;i<dimension-1;i++)
-            fprintf(output,"%d\u00D7",comm->tot_p_grid[i]);
+            fprintf(output,"%dx",comm->tot_p_grid[i]);
         
         fprintf(output,"%d",comm->tot_p_grid[dimension-1]);
         
@@ -1748,7 +1748,7 @@ void Atoms::man_grid(int* n)
         fprintf(output,"manual grid performed: ");
         
         for(int i=0;i<dimension-1;i++)
-            fprintf(output,"%d\u00D7",comm->tot_p_grid[i]);
+            fprintf(output,"%dx",comm->tot_p_grid[i]);
         
         fprintf(output,"%d",comm->tot_p_grid[dimension-1]);
         

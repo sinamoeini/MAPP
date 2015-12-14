@@ -396,7 +396,7 @@ void ForceField_fs::read_file(char* file_name)
  --------------------------------------------*/
 void ForceField_fs::init()
 {
-    neighbor->pair_wise=1;
+    neighbor->pair_wise=true;
     
     rho_ptr=new Vec<type0>(atoms,1);
 }

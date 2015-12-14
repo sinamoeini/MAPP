@@ -484,7 +484,8 @@ int DMDImplicit::solve_n_err(type0& cost,type0& err)
     if(atoms->my_p==0)
         printf("%lf %lf %d %e %d %lf %e | Max %e %e\n",err,cost,iter,c_d_norm,ls_succ,g0_g0,max_a,c_d_max,err_prefac*err_max/a_tol);
 #endif
-    
+    if(ls_succ==8)
+        cost=2.0;
 
     return iter;
 }
@@ -881,12 +882,14 @@ void DMDExplicit::init()
     max_succ_dt=0.0;
     intg_rej=0;
     intp_rej=0;
+    allocate();
 }
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
 void DMDExplicit::fin()
 {
+    deallocate();
     DMD::fin();
 }
 /*--------------------------------------------
@@ -900,5 +903,79 @@ void DMDExplicit::print_stats()
         fprintf(output,"max timestep: %e\n",max_succ_dt);
         fprintf(output,"rejected integration   attempts: %d\n",intg_rej);
         fprintf(output,"rejected interpolation attempts: %d\n",intp_rej);
+    }
+}
+/*--------------------------------------------
+ step addjustment after failure
+ --------------------------------------------*/
+inline void DMDExplicit::fail_stp_adj(type0 err,type0& del_t)
+{
+    if(max_t-tot_t<=2.0*min_del_t)
+    {
+        error->abort("reached minimum order & del_t (%e)",del_t);
+    }
+    else
+    {
+        if(del_t==min_del_t)
+        {
+            
+            error->abort("reached minimum order & del_t (%e)",del_t);
+        }
+        else
+        {
+            type0 r=0.9/err;
+            r=MAX(r,0.5);
+            
+            if(r*del_t<min_del_t)
+                del_t=min_del_t;
+            else if(r*del_t>max_t-tot_t-min_del_t)
+                del_t=max_t-tot_t-min_del_t;
+            else
+                del_t*=r;
+        }
+    }
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void DMDExplicit::run()
+{
+    if(max_step==0)
+        return;
+    
+    type0 del_t,del_t_tmp;
+    type0 err=0.0;
+    int q;
+    int istep;
+    bool min_run=false;
+    istep=0;
+    while (istep<max_step && tot_t<max_t)
+    {
+        restart(del_t,q);
+        
+        while (istep<max_step && tot_t<max_t && !min_run)
+        {
+            err=1.0;
+            while(err>=1.0)
+            {
+                interpolate_n_err(err,del_t);
+                if(err<1.0)
+                    continue;
+                
+                fail_stp_adj(err,del_t);
+            }
+            
+            min_run=decide_min(istep,del_t);
+            if(min_run) continue;
+            
+            del_t_tmp=del_t;
+            ord_dt(del_t,err);
+            store_vecs(del_t_tmp);
+            
+        }
+        
+        if(!min_run) continue;
+        do_min();
+        min_run=false;
     }
 }

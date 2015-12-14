@@ -155,14 +155,25 @@ namespace MAPP_NS
         void print_stats();
         int intg_rej;
         int intp_rej;
-        virtual type0 est_dt()=0;
-               
+        
+        // allocation and deallocation functions
+        // specific to each style
+        // pure virtual
+        virtual void allocate()=0;
+        virtual void deallocate()=0;
+        
+        virtual void restart(type0&,int&)=0;
+        virtual void store_vecs(type0)=0;
+        virtual void ord_dt(type0&,type0)=0;
+        virtual void interpolate_n_err(type0&,type0&)=0;
+        
+        void fail_stp_adj(type0,type0&);
+        void run();
     public:
         DMDExplicit(MAPP*);
         ~DMDExplicit();
-        virtual void run()=0;
-        virtual void init();
-        virtual void fin();
+        void init();
+        void fin();
     };
 }
 

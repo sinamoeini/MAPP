@@ -579,7 +579,7 @@ int form)
  --------------------------------------------*/
 void ForceField_meam::init()
 {
-    neighbor->pair_wise=0;
+    neighbor->pair_wise=false;
     rho_vec_ptr=new Vec<type0>(atoms,1);
     rho_ptr=new Vec<type0>(atoms,rho_dim);
 }

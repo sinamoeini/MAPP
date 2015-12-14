@@ -567,7 +567,7 @@ type0 ForceField_eam_dmd::energy_calc()
  --------------------------------------------*/
 void ForceField_eam_dmd::init()
 {
-    neighbor->pair_wise=1;
+    neighbor->pair_wise=true;
     
     if(kbT==-1.0)
         error->abort("temperature for the siumulation has not been set");

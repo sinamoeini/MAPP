@@ -329,7 +329,7 @@ type0 ForceField_eam::energy_calc()
  --------------------------------------------*/
 void ForceField_eam::init()
 {
-    neighbor->pair_wise=1;
+    neighbor->pair_wise=true;
     
     rho_ptr=new Vec<type0>(atoms,1);
 }

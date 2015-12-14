@@ -12,7 +12,7 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Neighbor::Neighbor(MAPP* mapp):InitPtrs(mapp)
 {
-    pair_wise=1;
+    pair_wise=true;
     dim=atoms->dimension;
     
     CREATE1D(tot_bin_grid,dim);
