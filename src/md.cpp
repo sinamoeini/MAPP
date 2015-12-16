@@ -22,7 +22,7 @@ nrgy_strss(forcefield->nrgy_strss)
     
     char** args;
     int nargs=mapp->parse_line("KE Temp. "
-    "PE S_xx S_yy S_zz S_yz S_zx S_xy",args);
+    "PE S[0][0] S[1][1] S[2][2] S[1][2] S[2][0] S[0][1]",args);
     ke_idx=0;
     temp_idx=1;
     pe_idx=2;

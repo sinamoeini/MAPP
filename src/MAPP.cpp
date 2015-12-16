@@ -65,7 +65,7 @@ id(atoms->id)
     input_file=stdin;
     output=stdout;
 
-    if (atoms->my_p==0)
+    if(atoms->my_p==0)
         fprintf(output,"MAPP Version: %s\n",
         (char*) MAPP_VERSION);
     
@@ -117,7 +117,7 @@ id(atoms->id)
  --------------------------------------------*/
 MAPP::~MAPP()
 {
-    if (atoms->my_p==0)
+    if(atoms->my_p==0)
       fprintf(output,"Finito\n");
     
     if(output!=stdout)
@@ -173,7 +173,7 @@ void MAPP::command_style(int nargs,char** args)
     new class_name(this,nargs,args);            \
     delete command;}
     
-    if (strcmp(args[0],"rm")==0)
+    if(strcmp(args[0],"rm")==0)
     {
         char* cmd_line;
         int lngth=concatenate(nargs,args,cmd_line);
@@ -215,11 +215,11 @@ int MAPP::parse_line(const char* line,char**& args)
     
     while (cursor < length
            && line[cursor]!='#'){
-        if (isspace(line[cursor]))
+        if(isspace(line[cursor]))
             cursor++;
         else
         {
-            if (nargs==0 && line[cursor]=='#')
+            if(nargs==0 && line[cursor]=='#')
                 return 0;
             int i = 0;
             while(!isspace(line[cursor])
@@ -233,7 +233,7 @@ int MAPP::parse_line(const char* line,char**& args)
         }
     }
     
-    if (nargs==0) return 0;
+    if(nargs==0) return 0;
     
     CREATE1D(args,nargs);
     
@@ -245,7 +245,7 @@ int MAPP::parse_line(const char* line,char**& args)
     
     while (cursor<length&&line[cursor]!='#')
     {
-        if ( isspace(line[cursor]))
+        if( isspace(line[cursor]))
             cursor++;
         else
         {
@@ -281,10 +281,10 @@ int MAPP::hash_remover(char* line,char*& newline)
     int icursor=0;
     while (cursor < strlen(line)&& line[cursor]!='#')
     {
-        if (isspace(line[cursor]))
+        if(isspace(line[cursor]))
             cursor++;
         else
-        {   if (nargs!=0)
+        {   if(nargs!=0)
             newline[icursor++]=' ';
             while(!isspace(line[cursor])
                   && cursor < strlen(line))
@@ -535,7 +535,7 @@ int MAPP::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
     
     MPI_Bcast(&ipos,1,MPI_INT,0,world);
     
-    if (file_cmplt && ipos)
+    if(file_cmplt && ipos)
         error->abort("file ended unexpectedly");
     
     if(file_cmplt)

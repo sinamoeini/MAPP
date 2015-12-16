@@ -78,8 +78,8 @@ force_calc(bool st_clc)
     type0 p,c_iv;
 
     
-    if (st_clc)
-        for (int i=1;i<7;i++)
+    if(st_clc)
+        for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
     int natms=atoms->natms;
@@ -517,7 +517,7 @@ type0 ForceField_eam_dmd::energy_calc()
                         
                         E[ic_dim]+=c[jc_dim]*rho_jt_it_0;
                         
-                        if (jatm<natms)
+                        if(jatm<natms)
                         {
                             E[jc_dim]+=c[ic_dim]*rho_it_jt_0;
                             en+=c[ic_dim]*c[jc_dim]*phi_it_jt_0;
@@ -617,7 +617,7 @@ void ForceField_eam_dmd::fin()
  --------------------------------------------*/
 void ForceField_eam_dmd::coef(int nargs,char** args)
 {
-    if (nargs!=2)
+    if(nargs!=2)
         error->abort("wrong coeff command "
         "for ff dmd");
     
@@ -1052,7 +1052,7 @@ dmat1(type0 fi,type0 crdi,type0 fj,type0 crdj
 type0 ForceField_eam_dmd::calc_ent(type0 x)
 {
     type0 ans=x*log(x);
-    if (isnan(ans))
+    if(isnan(ans))
         return 0.0;
     return ans;
 }
@@ -1061,7 +1061,7 @@ type0 ForceField_eam_dmd::calc_ent(type0 x)
  --------------------------------------------*/
 inline type0 ForceField_eam_dmd::mod_log(type0 x)
 {
-    if (x==0.0)
+    if(x==0.0)
         return min_log;
     return log(x);
 }

@@ -531,7 +531,7 @@ int DMD_inf::line_search_gs(type0& a0,type0& fa0,type0 dfa0)
             }
             
         }
-        else if (a2<u)
+        else if(a2<u)
         {
             u=MIN(u,ulim);
             fu=cost_func(u);
@@ -761,7 +761,7 @@ int DMD_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
             }
             
         }
-        else if (a2<u)
+        else if(a2<u)
         {
             u=MIN(u,ulim);
             fu=cost_func(u);
@@ -837,7 +837,7 @@ int DMD_inf::line_search_brent(type0& a0,type0& fa0,type0 dfa0)
             {
                 d=p/q;
                 u=x+d;
-                if (u-a0<tol2 || a1-u<tol2)
+                if(u-a0<tol2 || a1-u<tol2)
                 {
                     if(xm-x>=0.0)
                         d=fabs(tol1);
@@ -959,7 +959,7 @@ int DMD_inf::line_search_bt(type0& a0,type0& fa0,type0 dfa0)
         {
             u=MIN(max_a,-prev_val/dfa0);
         }
-        else if (INITIAL_STEP_MODE==2)
+        else if(INITIAL_STEP_MODE==2)
         {
             u=MIN(max_a,-2.0*(fa0-prev_val)/dfa0);
             prev_val=fa0;

@@ -128,7 +128,7 @@ void Read_cfg::read_header(FILE* fp)
         if(atoms->my_p==0)
             fgetpos(fp,&pos);
         
-        if (nargs==0)
+        if(nargs==0)
             continue;
         
         
@@ -162,7 +162,7 @@ void Read_cfg::read_header(FILE* fp)
             entry_count=tmpno;
             ext_cfg=1;
             int mincomp=3+(3*vel_chk);
-            if (entry_count < mincomp)
+            if(entry_count < mincomp)
                 error->abort("entry_count in %s should at least be equal to %d",file_name,mincomp);
         }
         else if(sscanf(line,"R = %lf %*s",&tmp)==1)
@@ -179,7 +179,7 @@ void Read_cfg::read_header(FILE* fp)
         {
             icmp--;
             jcmp--;
-            if (icmp>2 || icmp<0)
+            if(icmp>2 || icmp<0)
                 error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp>2 || jcmp<0)
                 error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
@@ -189,7 +189,7 @@ void Read_cfg::read_header(FILE* fp)
         {
             icmp--;
             jcmp--;
-            if (icmp>2 || icmp<0)
+            if(icmp>2 || icmp<0)
                 error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp>2 || jcmp<0)
                 error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
@@ -199,7 +199,7 @@ void Read_cfg::read_header(FILE* fp)
         {
             icmp--;
             jcmp--;
-            if (icmp>2 || icmp<0)
+            if(icmp>2 || icmp<0)
                 error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp>2 || jcmp<0)
                 error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
@@ -270,7 +270,7 @@ void Read_cfg::set_box()
         }
     M3EQV(H_x,H_x_d);
     
-    if (M3DET(H_x)==0.0)
+    if(M3DET(H_x)==0.0)
         error->abort("determinant of H in %s file is 0.0",file_name);
     
     XMath* xmath= new XMath();
@@ -278,7 +278,7 @@ void Read_cfg::set_box()
     delete xmath;
     
     M3EQV(atoms->H,H_x);
-    M3INV_TRI_LOWER(atoms->H,atoms->B);
+    M3INV_LT(atoms->H,atoms->B);
     
 }
 /*--------------------------------------------
@@ -303,12 +303,12 @@ void Read_cfg::read_atom(FILE* fp)
         {
             nargs=mapp->parse_line(line,args,args_cpcty);
             
-            if (nargs==0)
+            if(nargs==0)
                 continue;
             
             if(ext_cfg)
             {
-                if (nargs!=1 && nargs!=entry_count)
+                if(nargs!=1 && nargs!=entry_count)
                     error->abort("invalid line in %s file: %s",file_name,line);
                 if(nargs==1)
                 {
@@ -359,10 +359,10 @@ void Read_cfg::read_atom(FILE* fp)
         {
             nargs=mapp->parse_line(line,args,args_cpcty);
             
-            if (nargs==0)
+            if(nargs==0)
                 continue;
 
-            if (nargs!=1 && nargs!=entry_count)
+            if(nargs!=1 && nargs!=entry_count)
                 error->abort("invalid line in %s file: %s",file_name,line);
             if(nargs==1)
             {
@@ -580,7 +580,7 @@ void Read_cfg::set_vecs()
     int tot_no=0;
     MPI_Allreduce(&loc_no,&tot_no,1,MPI_INT,MPI_SUM,world);
     
-    if (tot_no!=atoms->tot_natms)
+    if(tot_no!=atoms->tot_natms)
         error->abort("the number of atoms dont match"
         " recheck your cfg file: %d %d",
         atoms->tot_natms,tot_no);

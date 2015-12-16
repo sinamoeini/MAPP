@@ -209,7 +209,7 @@ int LineSearch_brent<Func>::line_min(type0& nrgy
             {
                 d=p/q;
                 u=x+d;
-                if (u-a<tol2 || b-u<tol2)
+                if(u-a<tol2 || b-u<tol2)
                 {
                     if(xm-x>=0.0)
                         d=fabs(tol1);

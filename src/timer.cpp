@@ -30,7 +30,7 @@ Timer::~Timer()
         delete [] mode_names;
     }
     
-    if (level2mode_capacity)
+    if(level2mode_capacity)
         delete [] level2mode;
 }
 /*--------------------------------------------

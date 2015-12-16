@@ -71,11 +71,11 @@ TYPE* Memory::grow(TYPE*& array,long oldsize,
 long newsize,const char* name,int line_no,
 const char* file,const char* function)
 {
-    if (oldsize==0)
+    if(oldsize==0)
     {
         return create(array,newsize,name,line_no,file,function);
     }
-    else if (oldsize==newsize)
+    else if(oldsize==newsize)
     {
         return array;
     }

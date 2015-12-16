@@ -909,7 +909,7 @@ void EAMFileReader::allocate()
         rho_phi_ncomp=7;
         F_ncomp=7;
     }
-    else if (mapp->mode==DMD_mode)
+    else if(mapp->mode==DMD_mode)
     {
         rho_phi_ncomp=4;
         F_ncomp=5;
@@ -1076,7 +1076,7 @@ type0 EAMFileReader::interpolate(type0* arr
         coef3=0.5*(-arr[n-3]+3.0*arr[n-2]-2.0*arr[n-1]);
         return ((coef3*p+coef2)*p+coef1)*p+coef0;
     }
-    else if (k==n-1)
+    else if(k==n-1)
     {
         coef1=arr[n-1]-arr[n-2];
         return coef0+coef1*p;

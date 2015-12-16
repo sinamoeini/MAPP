@@ -30,7 +30,7 @@ void Error::abort(const char* msg,...)
     va_start (args, msg);
     vsprintf (err_msg,msg, args);
     
-    if (my_no==0)
+    if(my_no==0)
         printf("ABORTED! %s \n"
                ,err_msg);
     va_end (args);
@@ -51,7 +51,7 @@ void Error::abort(int line,const char* file
     va_start (args, msg);
     vsprintf (err_msg,msg, args);
     
-    if (my_no==0)
+    if(my_no==0)
         printf("ABORTED! %s \n"
                ,err_msg);
     
@@ -69,7 +69,7 @@ void Error::abort(int line,const char* file
     start++;
     int fin=static_cast<int>(strlen(file));
     
-    if (my_no==0)
+    if(my_no==0)
     {
         printf("For more details see ");
         for(int i=start;i<fin;i++)
@@ -92,7 +92,7 @@ void Error::warning(const char *msg,...)
     va_start (args, msg);
     vsprintf (war_msg,msg, args);
     
-    if (my_no==0)
+    if(my_no==0)
         printf("WARNING: %s \n"
                ,war_msg);
     va_end (args);

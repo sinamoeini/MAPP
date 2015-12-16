@@ -65,7 +65,7 @@ force_calc(bool st_clc)
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     nrgy_strss_lcl[0]=0.0;
-    if (st_clc)
+    if(st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
@@ -138,7 +138,7 @@ force_calc(bool st_clc)
                 
                 nrgy_strss_lcl[0]+=phi;
                 
-                if (st_clc)
+                if(st_clc)
                 {
                     nrgy_strss_lcl[1]-=fpair*dx0*dx0;
                     nrgy_strss_lcl[2]-=fpair*dx1*dx1;
@@ -352,7 +352,7 @@ void ForceField_eam::fin()
  --------------------------------------------*/
 void ForceField_eam::coef(int nargs,char** args)
 {
-    if (nargs<3)
+    if(nargs<3)
         error->abort("ff_coef for ff eam "
         "should at least have 2 arguments");
     

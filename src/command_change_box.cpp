@@ -115,7 +115,7 @@ Command_change_box::Command_change_box(MAPP* mapp
         delete [] A;
     
     if(dim==3)
-        M3INV_TRI_LOWER(atoms->H,atoms->B);
+        M3INV_LT(atoms->H,atoms->B);
     else
     {
         XMath* xmath=new XMath();

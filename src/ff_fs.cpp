@@ -43,7 +43,7 @@ ForceField_fs::~ForceField_fs()
  --------------------------------------------*/
 void ForceField_fs::coef(int nargs,char** args)
 {
-    if (nargs!=2)
+    if(nargs!=2)
         error->abort("wrong coeff command "
         "for Finnis-Sinclair Force Field");
     
@@ -452,7 +452,7 @@ force_calc(bool st_clc)
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     nrgy_strss_lcl[0]=0.0;
-    if (st_clc)
+    if(st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
@@ -535,7 +535,7 @@ force_calc(bool st_clc)
                     
                     nrgy_strss_lcl[0]+=en;
                     
-                    if (st_clc)
+                    if(st_clc)
                     {
                         nrgy_strss_lcl[1]-=phi_coef*dx0*dx0;
                         nrgy_strss_lcl[2]-=phi_coef*dx1*dx1;

@@ -17,10 +17,10 @@ namespace MAPP_NS
         void allocate();
         void deallocate();
         
-        void ord_dt(type0&,type0);
-        void interpolate_n_err(type0&,type0&);
         void restart(type0&,int&);
         void store_vecs(type0);
+        void interpolate_n_err(type0&,type0&);        
+        void ord_dt(type0&,type0);
     public:
         DMD_fe(MAPP *,int,char**);
         ~DMD_fe();

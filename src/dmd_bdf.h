@@ -24,11 +24,6 @@ namespace MAPP_NS
         type0* alpha_y;
         type0 dalpha_dy;
         type0* dalpha_y;
-
-        
-        
-        
-        
         
         void allocate();
         void deallocate();

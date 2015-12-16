@@ -167,7 +167,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
                 fb=fu;
                 return B_S;
             }
-            else if (fu>fb)
+            else if(fu>fb)
             {
                 c=u;
                 fc=fu;

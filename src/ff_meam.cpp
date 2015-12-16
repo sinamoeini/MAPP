@@ -248,17 +248,17 @@ void ForceField_meam::G_gam(type0 Gamma,int ibar
         else
             G=sqrt(1.0+Gamma);
     }
-    else if (ibar==1)
+    else if(ibar==1)
     {
         G=exp(Gamma*0.5);
     }
-    else if (ibar==3)
+    else if(ibar==3)
     {
         G=2.0/(1.0+exp(-Gamma));
     }
-    else if (ibar==-5)
+    else if(ibar==-5)
     {
-        if ((1.0+Gamma)>=0.0)
+        if((1.0+Gamma)>=0.0)
         {
             G = sqrt(1.0+Gamma);
         }
@@ -293,19 +293,19 @@ void ForceField_meam::dG_gam(type0 Gamma,int ibar
             dG=0.5/G;
         }
     }
-    else if (ibar==1)
+    else if(ibar==1)
     {
         G=exp(Gamma*0.5);
         dG=0.5*G;
     }
-    else if (ibar==3)
+    else if(ibar==3)
     {
         G=2.0/(1.0+exp(-Gamma));
         dG=G*(1.0-0.5*G);
     }
-    else if (ibar==-5)
+    else if(ibar==-5)
     {
-        if ((1.0+Gamma)>=0.0)
+        if((1.0+Gamma)>=0.0)
         {
             G=sqrt(1.0+Gamma);
             dG=0.5/G;
@@ -328,7 +328,7 @@ void ForceField_meam::fcut(type0 xi,type0& fc)
     {
         fc=1.0;
     }
-    else if (xi<=0.0)
+    else if(xi<=0.0)
     {
         fc=0.0;
     }
@@ -352,7 +352,7 @@ void ForceField_meam::dfcut(type0 xi,type0& fc
         fc=1.0;
         dfc=0.0;
     }
-    else if (xi<0.0)
+    else if(xi<0.0)
     {
         fc=0.0;
         dfc=0.0;
@@ -606,8 +606,8 @@ void ForceField_meam::force_calc
 (bool st_clc)
 {
     nrgy_strss_lcl[0]=0.0;
-    if (st_clc)
-        for (int i=1;i<7;i++)
+    if(st_clc)
+        for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
     reset();
@@ -751,7 +751,7 @@ void ForceField_meam::force_calc
                                                 sikj=1.0;
                                                 dfikj=0.0;
                                             }
-                                            else if (cikj<0.0)
+                                            else if(cikj<0.0)
                                             {
                                                 sikj=0.0;
                                                 dfikj=0.0;
@@ -2134,7 +2134,7 @@ void ForceField_meam::setup()
     dr=1.1*rc_meam/static_cast<type0>(nr);
     dr_inv=1.0/dr;
     compute_pair_meam();
-    for (int i=0;i<no_types*(no_types+1)/2;i++)
+    for(int i=0;i<no_types*(no_types+1)/2;i++)
         cut_sq[i]=rc_meam*rc_meam;
 }
 /*--------------------------------------------

@@ -219,7 +219,7 @@ void ThermoDynamics::init()
  --------------------------------------------*/
 void ThermoDynamics::fin()
 {
-    if (step_no!=print_step-step_tally)
+    if(step_no!=print_step-step_tally)
         val_print();
     tail_print();
 }
@@ -228,7 +228,7 @@ void ThermoDynamics::fin()
  --------------------------------------------*/
 int ThermoDynamics::test_prev_step()
 {
-    if (step_no+1==print_step)
+    if(step_no+1==print_step)
         return 1;
     else
         return 0;

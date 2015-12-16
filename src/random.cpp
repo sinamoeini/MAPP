@@ -42,7 +42,7 @@ type0 Random::uniform()
     first = seed/RNG_Q;
     second = seed%RNG_Q;
     rnd = RNG_A*second-RNG_R*first;
-    if (rnd > 0)
+    if(rnd > 0)
         seed=rnd;
     else
         seed=rnd+RNG_M;

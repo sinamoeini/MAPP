@@ -17,22 +17,27 @@ namespace MAPP_NS {
         bool dof_xst;
         type0 MTK_1,MTK_2;
         type0 ke_cur,ke_tar,t_tar,t_cur;
-        type0* ke_curr;
-        type0 t_freq,*tau_freq,tau_freq_m;
+        type0 t_freq,tau_freq_m;
         type0 dt2,dt4,dt8;
         type0 no_dof;
-        int chk_stress;
-        int chk_create_vel,seed;
-        type0** M1;
-        type0** M2;
+        int stress_mode;
+        int seed;
+        bool crt_vel;
+
+        type0 M[2][3][3];
+        type0 B_ref[3][3];
+        type0 vol0;
         
-        type0* tmp_fac;
-        type0* tmp_ke_curr;
-        type0* tmp_x;
-        
-        int* chk_tau;
-        type0* tau_tar;
-        type0* v_per_atm;
+        type0 ke_vec[6];
+        type0 ke_vec_lcl[6];
+        bool H_dof[6];
+        type0 virial_pe[6];
+        type0 tau_freq[6];
+        type0 tau_tar[6];
+        type0 sigma_tar[6];
+        type0 omega_m[6];
+        type0 omega_d[6];
+
         
         int no_it_eta,no_ch_eta;
         type0* eta_m;
@@ -44,9 +49,6 @@ namespace MAPP_NS {
         type0* peta_d;
         type0* peta_dd;
         
-        type0* omega_m;
-        type0* omega_d;
-                
         void update_H(type0);
         void update_x(type0);
         void update_x_d(type0);
@@ -54,20 +56,24 @@ namespace MAPP_NS {
         void update_NH_tau(type0);
         void update_omega_d(type0);
         void update_x_d_xpnd(type0);
-        
-        void zero_f();
-        void couple();
-        
+                
         void create_vel(int,type0);
         void init_vel(type0);
         
-        type0* x_ave;
-        type0* x_ave_tot;
+        type0 dx_ave_lcl[3];
+        type0 dx_ave[3];
         
-        int omega_denom;
+        type0 omega_denom;
+        
+        void calc_sigma(int);
+        int nreset;
+        type0 tau_hydro;
+        type0 vol;
+        void keywords(int,char**,int&);
+        void modify_vrial();
     protected:
     public:
-        MD_nh(MAPP *,int,char**);
+        MD_nh(MAPP*,int,char**);
         ~MD_nh();
         void init();
         void fin();

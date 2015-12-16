@@ -41,7 +41,7 @@ ForceField_lj::~ForceField_lj()
 void ForceField_lj::coef(int nargs,char** args)
 {
     
-    if (nargs!=2)
+    if(nargs!=2)
         error->abort("wrong coeff command "
         "for lj Force Field");
     
@@ -117,7 +117,7 @@ force_calc(bool st_clc)
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     nrgy_strss_lcl[0]=0.0;
-    if (st_clc)
+    if(st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     int pair_no=0;
@@ -140,7 +140,7 @@ force_calc(bool st_clc)
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             csq=cut_sq[curs];
-            if (rsq<csq)
+            if(rsq<csq)
             {
                 sig=sigma[curs];
                 eps=epsilon[curs];
@@ -170,7 +170,7 @@ force_calc(bool st_clc)
                 }
                 nrgy_strss_lcl[0]+=en;
                 
-                if (st_clc)
+                if(st_clc)
                 {
                     nrgy_strss_lcl[1]-=fpair*dx0*dx0;
                     nrgy_strss_lcl[2]-=fpair*dx1*dx1;
@@ -206,7 +206,7 @@ force_calc(bool st_clc)
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
     nrgy_strss_lcl[0]=0.0;
-    if (st_clc)
+    if(st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
@@ -227,7 +227,7 @@ force_calc(bool st_clc)
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             csq=cut_sq[curs];
-            if (rsq<csq)
+            if(rsq<csq)
             {
                 sig=sigma[curs];
                 eps=epsilon[curs];
@@ -257,7 +257,7 @@ force_calc(bool st_clc)
                 }
                 nrgy_strss_lcl[0]+=en;
                 
-                if (st_clc)
+                if(st_clc)
                 {
                     nrgy_strss_lcl[1]-=fpair*dx0*dx0;
                     nrgy_strss_lcl[2]-=fpair*dx1*dx1;
@@ -325,7 +325,7 @@ type0 ForceField_lj::energy_calc()
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             csq=cut_sq[curs];
-            if (rsq<csq)
+            if(rsq<csq)
             {
                 sig=sigma[curs];
                 eps=epsilon[curs];

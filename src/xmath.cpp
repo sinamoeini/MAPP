@@ -732,7 +732,7 @@ void SPARSE::add(int i0,int i1,double elem)
                      "is higher than the number "
                      "columns/rows");
     
-    if (elem==0.0)
+    if(elem==0.0)
         return;
     
     int no=0;
@@ -769,7 +769,7 @@ void SPARSE::add(int size,int* i0_lst,int* i1_lst,double* elem_lst)
         i0=i0_lst[i];
         i1=i1_lst[i];
         
-        if (elem==0.0)
+        if(elem==0.0)
             continue;
 
         
@@ -852,7 +852,7 @@ void SPARSE::sort(int r_c)
     int end;
     int pos=strt;
     
-    if (r_c==0)
+    if(r_c==0)
     {
         while(pos<no_elem)
         {
@@ -863,9 +863,9 @@ void SPARSE::sort(int r_c)
                     break;
             }
             end=pos;
-            for (int j=strt;j<end;j++)
+            for(int j=strt;j<end;j++)
             {
-                for (int k=j+1;k<end;k++)
+                for(int k=j+1;k<end;k++)
                 {
                     if(idx1[j]>idx1[k])
                     {
@@ -883,7 +883,7 @@ void SPARSE::sort(int r_c)
             strt=pos;
         }
     }
-    else if (r_c==1)
+    else if(r_c==1)
     {
         while(pos<no_elem)
         {
@@ -894,9 +894,9 @@ void SPARSE::sort(int r_c)
                     break;
             }
             end=pos;
-            for (int j=strt;j<end;j++)
+            for(int j=strt;j<end;j++)
             {
-                for (int k=j+1;k<end;k++)
+                for(int k=j+1;k<end;k++)
                 {
                     if(idx0[j]>idx0[k])
                     {
@@ -933,7 +933,7 @@ void SPARSE::vectorize(int r_c)
     no_vec=0;
     int strt=0;
     int pos=strt;
-    if (r_c==0)
+    if(r_c==0)
     {
         while(pos<no_elem)
         {
@@ -955,7 +955,7 @@ void SPARSE::vectorize(int r_c)
             strt=pos;
         }
     }
-    else if (r_c==1)
+    else if(r_c==1)
     {
         while(pos<no_elem)
         {
@@ -1093,10 +1093,10 @@ double* b,int size): InitPtrs(mapp)
                     val+=A->mtrx[crsi0]*A->mtrx[crsi1];
                 crsi0++;
             }
-            if (val!=0.0)
+            if(val!=0.0)
             {
                 comp0=idx_vec[i0]-lcl_lo;
-                if (idx_vec[i1]>=lcl_lo && idx_vec[i1]<lcl_hi)
+                if(idx_vec[i1]>=lcl_lo && idx_vec[i1]<lcl_hi)
                 {
                     comp1=idx_vec[i1]-lcl_lo;
                     
@@ -1116,7 +1116,7 @@ double* b,int size): InitPtrs(mapp)
                         comm_idx++;
                     comm_idx--;*/
                     comm_idx=(idx_vec[i1]/(size/totp));
-                    if (comm_idx>totp-1)
+                    if(comm_idx>totp-1)
                         comm_idx=totp-1;
                     comm_idx-=myno+1;
                     if(comm_idx<0)
@@ -1258,16 +1258,16 @@ void SOLVEAXb::xchng(double* vec)
             rcvp+=totp;
         for(int j=0;j<comm_snd_size[i];j++)
             buff_snd[i][j]=vec[comm_snd_lst[i][j]];
-        if (comm_rcv_size[i])
+        if(comm_rcv_size[i])
         {
             MPI_Irecv(&vec[curs],comm_rcv_size[i],
                       MPI_DOUBLE,rcvp,0,world,
                       &request);
         }
-        if (comm_snd_size[i])
+        if(comm_snd_size[i])
             MPI_Send(&buff_snd[i][0],comm_snd_size[i],
                      MPI_DOUBLE,sndp,0,world);
-        if (comm_rcv_size[i])
+        if(comm_rcv_size[i])
             MPI_Wait(&request,&status);
         curs+=comm_rcv_size[i];
     }
@@ -1440,13 +1440,13 @@ SPARSE_P(MAPP* mapp,int n0,int n1): InitPtrs(mapp)
 SPARSE_P::~SPARSE_P()
 {
 
-    if (lcl_no_elem)
+    if(lcl_no_elem)
     {
         delete [] lcl_idx0;
         delete [] lcl_idx1;
         delete [] lcl_mtrx;
     }
-    if (lcl_no_vec)
+    if(lcl_no_vec)
     {
         delete [] lcl_idx_vec;
         delete [] lcl_init_pos;
@@ -1463,7 +1463,7 @@ void SPARSE_P::add(int i0,int i1,double elem)
                      "is higher than the number "
                      "columns/rows");
     
-    if (elem==0.0)
+    if(elem==0.0)
         return;
     
     if(i0<lo_h0 || i0>=hi_h0)
@@ -1504,7 +1504,7 @@ void SPARSE_P::addd(int i0,int i1,double elem)
                      "is higher than the number "
                      "columns/rows");
     
-    if (elem==0.0)
+    if(elem==0.0)
         return;
     
     if(i0<lo_h0 || i0>=hi_h0)
@@ -1549,7 +1549,7 @@ void SPARSE_P::add(int size,int* i0_lst,int* i1_lst,double* elem_lst)
         i0=i0_lst[i];
         i1=i1_lst[i];
         
-        if (elem==0.0)
+        if(elem==0.0)
             continue;
         
         if(i0<lo_h0 || i0>=hi_h0)
@@ -1638,7 +1638,7 @@ void SPARSE_P::sort(int r_c)
     int end;
     int pos=strt;
     
-    if (r_c==0)
+    if(r_c==0)
     {
         while(pos<lcl_no_elem)
         {
@@ -1649,9 +1649,9 @@ void SPARSE_P::sort(int r_c)
                     break;
             }
             end=pos;
-            for (int j=strt;j<end;j++)
+            for(int j=strt;j<end;j++)
             {
-                for (int k=j+1;k<end;k++)
+                for(int k=j+1;k<end;k++)
                 {
                     if(lcl_idx1[j]>lcl_idx1[k])
                     {
@@ -1669,7 +1669,7 @@ void SPARSE_P::sort(int r_c)
             strt=pos;
         }
     }
-    else if (r_c==1)
+    else if(r_c==1)
     {
         while(pos<no_elem)
         {
@@ -1680,9 +1680,9 @@ void SPARSE_P::sort(int r_c)
                     break;
             }
             end=pos;
-            for (int j=strt;j<end;j++)
+            for(int j=strt;j<end;j++)
             {
-                for (int k=j+1;k<end;k++)
+                for(int k=j+1;k<end;k++)
                 {
                     if(lcl_idx0[j]>lcl_idx0[k])
                     {
@@ -1719,7 +1719,7 @@ void SPARSE_P::vectorize(int r_c)
     lcl_no_vec=0;
     int strt=0;
     int pos=strt;
-    if (r_c==0)
+    if(r_c==0)
     {
         while(pos<lcl_no_elem)
         {
@@ -1741,7 +1741,7 @@ void SPARSE_P::vectorize(int r_c)
             strt=pos;
         }
     }
-    else if (r_c==1)
+    else if(r_c==1)
     {
         while(pos<lcl_no_elem)
         {
@@ -1827,7 +1827,7 @@ void COMB::comb_rec(int no,int tot,int pos
 ,int max_no,int*& lvl,int*& tmp,int* y
 ,int y_pos,int y_tot)
 {
-    if (no!=0)
+    if(no!=0)
     {
         for(int i=pos;i<tot;i++)
         {
@@ -1839,7 +1839,7 @@ void COMB::comb_rec(int no,int tot,int pos
     else
     {
         if(y_pos==0)
-            for (int i=0;i<tot;i++)
+            for(int i=0;i<tot;i++)
                 tmp[i]=-1;
         int p=0;
         int pp=0;

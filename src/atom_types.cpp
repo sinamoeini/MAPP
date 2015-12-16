@@ -43,7 +43,7 @@ int AtomTypes::add_type(type0 m,char* name)
         if(!strcmp(name,atom_names[i]))
             type=i+1;
     
-    if (type)
+    if(type)
         return (type-1);
     
     GROW(atom_names,no_types,no_types+1);

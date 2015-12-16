@@ -34,7 +34,7 @@ nrgy_strss(forcefield->nrgy_strss)
     if(mapp->mode==MD_mode)
         nargs=mapp->parse_line(
         "PE S_xx S_yy S_zz S_yz S_zx S_xy",args);
-    else if (mapp->mode==DMD_mode)
+    else if(mapp->mode==DMD_mode)
         nargs=mapp->parse_line(
         "FE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     
@@ -105,22 +105,22 @@ void Min::print_error()
         if(atoms->my_p==0)
             fprintf(output,"line search failed: minimum alpha reached\n");
     }
-    else if (err==MIN_S_TOLERANCE)
+    else if(err==MIN_S_TOLERANCE)
     {
         if(atoms->my_p==0)
             fprintf(output,"minimization finished: energy tolerance reached\n");
     }
-    else if (err==MIN_F_MAX_ITER)
+    else if(err==MIN_F_MAX_ITER)
     {
         if(atoms->my_p==0)
             fprintf(output,"minimization finished: maximum iteration reached\n");
     }
-    else if (err==B_F_DOWNHILL)
+    else if(err==B_F_DOWNHILL)
     {
         if(atoms->my_p==0)
             fprintf(output,"bracketing failed: not downhill direction\n");
     }
-    else if (err==B_F_MAX_ALPHA)
+    else if(err==B_F_MAX_ALPHA)
     {
         if(atoms->my_p==0)
             fprintf(output,"bracketing failed: maximum alpha reached\n");
@@ -337,7 +337,7 @@ void Min::prepare_affine_h()
         {
             for(int iatm=0;iatm<atoms->natms;iatm++)
             {
-                M3V_TRI_UPPER(N,xvec,hvec);
+                M3V_UT(N,xvec,hvec);
                 xvec+=x_dim;
                 hvec+=x_dim;
             }
@@ -538,7 +538,7 @@ type0 Min::F(type0 alpha)
     if(chng_box)
     {
         if(dim==3)
-            M3INV_TRI_LOWER(atoms->H,atoms->B);
+            M3INV_LT(atoms->H,atoms->B);
         else
             xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
     }
@@ -558,7 +558,7 @@ type0 Min::dF(type0 alpha,type0& drev)
     if(chng_box)
     {
         if(dim==3)
-            M3INV_TRI_LOWER(atoms->H,atoms->B);
+            M3INV_LT(atoms->H,atoms->B);
         else
             xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
     }
@@ -711,7 +711,7 @@ void Min::F_reset()
     if(chng_box)
     {
         if(dim==3)
-            M3INV_TRI_LOWER(atoms->H,atoms->B);
+            M3INV_LT(atoms->H,atoms->B);
         else
             xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
     }
