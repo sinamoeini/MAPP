@@ -127,7 +127,6 @@ MAPP::~MAPP()
     delete forcefield;
     delete write;
     delete md;
-    //delete min;
 
     delete neighbor;
     delete atom_types;
@@ -720,7 +719,9 @@ void MAPP::test1()
 
 }
 /*--------------------------------------------
- test
+ if mass unit is amu
+ energy unit is eV
+ t unit would be 10.1805 fs
  --------------------------------------------*/
 void MAPP::test0()
 {    

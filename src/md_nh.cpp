@@ -22,12 +22,14 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
 : MD(mapp)
 {
     //the defaults
+    drag=0.0;
     nreset=10;
     no_it_eta=1;
     no_ch_eta=3;
     no_it_peta=1;
     no_ch_peta=3;
     crt_vel=false;
+    dof_adj[0]=dof_adj[1]=dof_adj[2]=true;
     t_tar=boltz=dt=0.0;
     stress_mode=NONE;
     for(int i=0;i<6;i++)
@@ -91,7 +93,6 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
 
     while(iarg<nargs)
         keywords(nargs,args,iarg);
-
 
 }
 /*--------------------------------------------
@@ -166,6 +167,8 @@ void MD_nh::init()
     if(dt==0.0)
         error->abort("time_step should be set after md nh and before run");
     
+    tdrag=1.0-dt*t_freq*drag/static_cast<type0>(no_ch_eta);
+    
     if(stress_mode)
     {
         CREATE1D(peta_d,no_ch_peta);
@@ -177,6 +180,8 @@ void MD_nh::init()
         for(int i=0;i<6;i++)
             if(H_dof[i])
                 tau_freq_m=MAX(tau_freq_m,tau_freq[i]);
+        
+        pdrag=1.0-dt*tau_freq_m*drag/static_cast<type0>(no_ch_peta);
     }
     
     CREATE1D(eta_d,no_ch_eta);
@@ -187,14 +192,16 @@ void MD_nh::init()
         ke_vec[i]=eta_d[i]=0.0;
     
     
-    no_dof=static_cast<type0>(atoms->tot_natms*3-3);
-    ke_tar=t_tar*boltz*no_dof;
+
     dt2=0.5*dt;
     dt4=0.25*dt;
     dt8=0.125*dt;
 
     if(mapp->x_d==NULL)
+    {
         mapp->x_d=new Vec<type0>(atoms,3);
+        memset(mapp->x_d->begin(),0,atoms->natms*3*sizeof(type0));
+    }
 
 
     dof_xst=false;
@@ -216,6 +223,10 @@ void MD_nh::init()
         int ndofs[3];
         MPI_Allreduce(ndofs_lcl,ndofs,3,MPI_INT,MPI_SUM,world);
         
+        for(int i=0;i<3;i++)
+            if(ndofs[i])
+                dof_adj[i]=false;
+        
         no_dof=static_cast<type0>(ndofs[0]+ndofs[1]+ndofs[2])-3.0;
         
         
@@ -226,6 +237,7 @@ void MD_nh::init()
     }
     else
     {
+        no_dof=static_cast<type0>(atoms->tot_natms*3-3);
         if(stress_mode)
         {
             omega_denom=0.0;
@@ -234,6 +246,8 @@ void MD_nh::init()
                     omega_denom+=static_cast<type0>(atoms->tot_natms);
         }
     }
+
+    ke_tar=t_tar*boltz*no_dof;
     
     if(no_dof==0.0)
         error->abort("degrees of freedom shoud be greater than 0 for md nh");
@@ -251,9 +265,10 @@ void MD_nh::init()
         atoms->init(vecs_comm,false);
 
     if(crt_vel)
+    {
         create_vel(seed,t_tar);
-    else
-        init_vel(t_tar);
+        crt_vel=false;
+    }
     
     vol=1.0;
     for(int idim=0;idim<3;idim++)
@@ -261,9 +276,14 @@ void MD_nh::init()
     
     memset(forcefield->f->begin(),0,atoms->natms*3*sizeof(type0));
     forcefield->force_calc_timer(true);
-    for(int i=0;i<6;i++)
-        virial_pe[i]=-nrgy_strss[i+1];
-    if(dof_xst) modify_vrial();    
+
+    if(stress_mode)
+    {
+        for(int i=0;i<6;i++)
+            virial_pe[i]=-nrgy_strss[i+1];
+        if(dof_xst) modify_vrial();
+    }
+
     
     for(int j=0;j<6;j++)
     {
@@ -303,8 +323,6 @@ void MD_nh::init()
         for(int i=0;i<6;i++)
             omega_d[i]=omega_m[i]=0.0;
     }
-    
-
 }
 /*--------------------------------------------
  finalize after the run is complete
@@ -656,14 +674,23 @@ void MD_nh::update_x(type0 dlt)
     dx_ave[1]*=1.0/(atoms->tot_natms);
     dx_ave[2]*=1.0/(atoms->tot_natms);
     
-    x=mapp->x->begin();
-    for(int i=0;i<natms;i++)
+
+    if(dof_adj[0] || dof_adj[1] || dof_adj[2])
     {
-        x[0]-=dx_ave[0];
-        x[1]-=dx_ave[1];
-        x[2]-=dx_ave[2];
-        x+=3;
+        for(int i=0;i<3;i++)
+            if(!dof_adj[i])
+                dx_ave[i]=0.0;
+            
+        x=mapp->x->begin();
+        for(int i=0;i<natms;i++)
+        {
+            x[0]-=dx_ave[0];
+            x[1]-=dx_ave[1];
+            x[2]-=dx_ave[2];
+            x+=3;
+        }
     }
+
 }
 /*--------------------------------------------
  
@@ -688,13 +715,21 @@ void MD_nh::update_x_d(type0 dlt)
         {
             m=mass[type[i]];
             
-            if(!dof[0]) x_d[0]+=f[0]*dlt/m;
-            if(!dof[1]) x_d[1]+=f[1]*dlt/m;
-            if(!dof[2]) x_d[2]+=f[2]*dlt/m;
-            
-            if(dof[0]) ke_vec_lcl[0]+=m*x_d[0]*x_d[0];
-            if(dof[1]) ke_vec_lcl[1]+=m*x_d[1]*x_d[1];
-            if(dof[2]) ke_vec_lcl[2]+=m*x_d[2]*x_d[2];
+            if(dof[0])
+            {
+                x_d[0]+=f[0]*dlt/m;
+                ke_vec_lcl[0]+=m*x_d[0]*x_d[0];
+            }
+            if(dof[1])
+            {
+                x_d[1]+=f[1]*dlt/m;
+                ke_vec_lcl[1]+=m*x_d[1]*x_d[1];
+            }
+            if(dof[2])
+            {
+                x_d[2]+=f[2]*dlt/m;
+                ke_vec_lcl[2]+=m*x_d[2]*x_d[2];
+            }
             if(dof[1] && dof[2]) ke_vec_lcl[3]+=m*x_d[1]*x_d[2];
             if(dof[0] && dof[2]) ke_vec_lcl[4]+=m*x_d[0]*x_d[2];
             if(dof[0] && dof[1]) ke_vec_lcl[5]+=m*x_d[0]*x_d[1];
@@ -756,6 +791,7 @@ void MD_nh::update_NH_T(type0 dlt)
         {
             eta_d[ich]*=exfac;
             eta_d[ich]+=eta_dd[ich]*dltm2;
+            eta_d[ich]*=tdrag;
             eta_d[ich]*=exfac;
             exfac=exp(-dltm4*eta_d[ich]);
         }
@@ -772,19 +808,15 @@ void MD_nh::update_NH_T(type0 dlt)
         ke_vec[4]*=exfac*exfac;
         ke_vec[5]*=exfac*exfac;
         
-        exfac=exp(-dltm4*eta_d[1]);
-        eta_d[0]*=exfac;
-        eta_dd[0]=(ke_cur-ke_tar)/eta_m[0];
-        eta_d[0]+=eta_dd[0]*dltm2;
-        eta_d[0]*=exfac;
         
-        for(int ich=1;ich<no_ch_eta;ich++)
+        for(int ich=0;ich<no_ch_eta;ich++)
         {
             if(ich==no_ch_eta-1) exfac=1.0;
             else exfac=exp(-dltm4*eta_d[ich+1]);
             
             eta_d[ich]*=exfac;
-            eta_dd[ich]=(eta_m[ich-1]*eta_d[ich-1]*eta_d[ich-1]-boltz*t_tar)/eta_m[ich];
+            if(ich) eta_dd[ich]=(eta_m[ich-1]*eta_d[ich-1]*eta_d[ich-1]-boltz*t_tar)/eta_m[ich];
+            else eta_dd[ich]=(ke_cur-ke_tar)/eta_m[ich];
             eta_d[ich]+=eta_dd[ich]*dltm2;
             eta_d[ich]*=exfac;
         }
@@ -844,6 +876,7 @@ void MD_nh::update_NH_tau(type0 dlt)
         {
             peta_d[ich]*=exfac;
             peta_d[ich]+=peta_dd[ich]*dltm2;
+            peta_d[ich]*=pdrag;
             peta_d[ich]*=exfac;
             exfac=exp(-dltm4*peta_d[ich]);
         }
@@ -855,19 +888,14 @@ void MD_nh::update_NH_tau(type0 dlt)
         
         kec*=exfac*exfac;
         
-        exfac=exp(-dltm4*peta_d[1]);
-        peta_d[0]*=exfac;
-        peta_dd[0]=(kec-dof*boltz*t_tar)/peta_m[0];
-        peta_d[0]+=peta_dd[0]*dltm2;
-        peta_d[0]*=exfac;
-        
-        for(int ich=1;ich<no_ch_peta;ich++)
+        for(int ich=0;ich<no_ch_peta;ich++)
         {
             if(ich==no_ch_peta-1) exfac=1.0;
             else exfac=exp(-dltm4*peta_d[ich+1]);
             
             peta_d[ich]*=exfac;
-            peta_dd[ich]=(peta_m[ich-1]*peta_d[ich-1]*peta_d[ich-1]-boltz*t_tar)/peta_m[ich];
+            if(ich) peta_dd[ich]=(peta_m[ich-1]*peta_d[ich-1]*peta_d[ich-1]-boltz*t_tar)/peta_m[ich];
+            else peta_dd[ich]=(kec-dof*boltz*t_tar)/peta_m[ich];
             peta_d[ich]+=peta_dd[ich]*dltm2;
             peta_d[ich]*=exfac;
         }
@@ -1335,7 +1363,7 @@ void MD_nh::keywords(int nargs,char** args,int& iarg)
     {
         iarg++;
         no_ch_eta=atoi(args[iarg]);
-        if(no_ch_eta<3)
+        if(no_ch_eta<1)
             error->abort("eta_chains in md nh should be greater than 2");
         iarg++;
     }
@@ -1345,7 +1373,7 @@ void MD_nh::keywords(int nargs,char** args,int& iarg)
             error->abort("peta_chains in md nh is valid for npt ntaut ensemble");
         iarg++;
         no_ch_peta=atoi(args[iarg]);
-        if(no_ch_peta<3)
+        if(no_ch_peta<1)
             error->abort("peta_chains in md nh should be greater than 2");
         iarg++;
     }
@@ -1388,6 +1416,16 @@ void MD_nh::keywords(int nargs,char** args,int& iarg)
         if(atoi(args[iarg])<0)
             error->abort("nreset in md nh should be greater than 0");
         nreset=atoi(args[iarg]);
+        iarg++;
+    }
+    else if(!strcmp(args[iarg],"drag"))
+    {
+        iarg++;
+        if(nargs-iarg<1)
+            error->abort("drag in md nh must have 1 rguments");
+        if(atoi(args[iarg])<0.0)
+            error->abort("drag in md nh should be greater than 0");
+        drag=atof(args[iarg]);
         iarg++;
     }
     else error->abort("unknown keyword for md nh: %s",args[iarg]);

@@ -42,7 +42,6 @@ Command_displace::Command_displace(MAPP* mapp
             fp=fopen(args[iarg],"r");
             if(fp==NULL)
                 error->abort("file %s not found",args[iarg]);
-            fgets(line,MAXCHAR,fp);
         }
         
         while(mapp->read_line(fp,line)!=-1)
@@ -59,13 +58,15 @@ Command_displace::Command_displace(MAPP* mapp
             while(i<natms && id[i]!=iatm) i++;
             if(i!=natms)
             {
+
                 if(list_size+1>list_cpcty)
                 {
                     GROW(list,list_size,list_size+1+list_grow);
                     list_cpcty=list_size+1+list_grow;
                 }
-                
+
                 list[list_size++]=i;
+
             }
             list_size_tot++;
         }
@@ -76,20 +77,22 @@ Command_displace::Command_displace(MAPP* mapp
         iarg++;
     }
     
+    
     type0* x=mapp->x->begin();
     int x_dim=mapp->x->dim;
 
     for(int i=0;i<list_size;i++)
     {
-        iatm=list[i];
+        
         for(int idim=0;idim<dim;idim++)
-            x[i*x_dim+idim]+=disp[idim];
+            x[list[i]*x_dim+idim]+=disp[idim];
     }
     
     delete [] line;
     delete [] disp;
     
     atoms->reset();
+
 }
 /*--------------------------------------------
  destructor

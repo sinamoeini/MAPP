@@ -108,7 +108,6 @@ Command_fix::Command_fix(MAPP* mapp
             fp=fopen(args[iarg],"r");
             if(fp==NULL)
                 error->abort("file %s not found",args[iarg]);
-            fgets(line,MAXCHAR,fp);
         }
         
         while(mapp->read_line(fp,line)!=-1)
@@ -149,15 +148,15 @@ Command_fix::Command_fix(MAPP* mapp
     bool c_xst=false;
     
     for(int i=0;i<dim && x_xst==0;i++)
-        if(x_dof[i] && list_size_tot)
+        if(!x_dof[i] && list_size_tot)
             x_xst=true;
     
     for(int i=0;i<no_types && alpha_xst==0;i++)
-        if(alpha_dof[i]  && list_size_tot)
+        if(!alpha_dof[i]  && list_size_tot)
             alpha_xst=true;
     
     for(int i=0;i<no_types && c_xst==0;i++)
-        if(c_dof[i]  && list_size_tot)
+        if(!c_dof[i]  && list_size_tot)
             c_xst=true;
     
     int x_dim=0;

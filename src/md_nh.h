@@ -31,6 +31,7 @@ namespace MAPP_NS {
         type0 ke_vec[6];
         type0 ke_vec_lcl[6];
         bool H_dof[6];
+        bool dof_adj[3];
         type0 virial_pe[6];
         type0 tau_freq[6];
         type0 tau_tar[6];
@@ -69,6 +70,8 @@ namespace MAPP_NS {
         int nreset;
         type0 tau_hydro;
         type0 vol;
+        type0 drag,pdrag,tdrag;
+        
         void keywords(int,char**,int&);
         void modify_vrial();
     protected:

@@ -19,7 +19,7 @@ Command_run::Command_run(MAPP* mapp,int nargs,char** args)
             error->abort("run should have 1 argument");
         
         int steps=atoi(args[1]);
-        if(steps<=0)
+        if(steps<0)
             error->abort("run should be "
                          "greater than 0");
         
