@@ -49,13 +49,6 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
 void ForceField_eam_dmd::
 force_calc(bool st_clc)
 {
-
-    /*
-    for(int i=0;i<c_dim*atoms->natms;i++)
-        printf("%lf %d \n",mapp->c->begin()[i],mapp->ctype->begin()[i]);
-    cout <<atom_types->atom_names[0] <<endl;
-
-    */
     
     type0* x=mapp->x->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -133,8 +126,6 @@ force_calc(bool st_clc)
                         {
                             jtype=type[jc_dim];
                             
-                            //bool debug_flag=(iatm==0 && jatm==1 && itype==0 && jtype==0);
-                            
                             if(rsq>cut_sq[COMP(itype,jtype)])
                                 continue;
                             
@@ -186,10 +177,7 @@ force_calc(bool st_clc)
                                 tmp1=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv;
                                 if(rtmp<0.0)
                                     tmp0*=-1.0;
-                                /*
-                                if(debug_flag)
-                                    printf("%32.20lf %d\n",tmp0,type2rho[itype][jtype]);
-                                */
+
                                 rho_phi[rho_ij]+=wi_0[i]*tmp0;
                                 drho_phi_dr[rho_ij]+=wi_0[i]*tmp1;
                                 drho_phi_dalpha[rho_ij]+=wi_1[i]*tmp1;
@@ -219,10 +207,6 @@ force_calc(bool st_clc)
                                 drho_phi_dr[phi_ij]+=wi_0[i]*tmp1;
                                 drho_phi_dalpha[phi_ij]+=wi_1[i]*tmp1;
                             }
-                            /*
-                            if(debug_flag)
-                                printf("%d %d %32.20lf %32.20lf\n",itype,jtype,c[jc_dim]*rho_phi[rho_ji],c[ic_dim]*rho_phi[rho_ij]);
-                             */
                             
                             tmp0=PI_IN_SQ*r_inv;
                             
@@ -268,9 +252,6 @@ force_calc(bool st_clc)
                 
                 itype=type[ic_dim];
                 c_iv-=c[ic_dim];
-                /*
-                printf("%d %32.20lf %32.20lf\n",ic_dim,E[ic_dim],c[ic_dim]);
-                 */
                 p=E[ic_dim]*drho_inv;
                 
                 m=static_cast<int>(p);

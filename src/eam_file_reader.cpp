@@ -1037,7 +1037,7 @@ void EAMFileReader::set_arrays()
                 nr_--;
             }
             cut_sq[COMP(itype,jtype)]=static_cast<type0>((nr_)*(nr_))*dr*dr;
-            cut_sq[COMP(itype,jtype)]=static_cast<type0>(nr*nr)*dr*dr;
+            //cut_sq[COMP(itype,jtype)]=static_cast<type0>(nr*nr)*dr*dr;
         }
 
 }
