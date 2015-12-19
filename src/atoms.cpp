@@ -2063,7 +2063,7 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
     }
     
     
-    type0 skin_sq=skin*skin;
+    type0 skin_sq=0.25*skin*skin;
     if(box_chng)
     {
         if(nupdt_vecs==1)
