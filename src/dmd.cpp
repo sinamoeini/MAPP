@@ -238,8 +238,7 @@ void DMD::init()
     if(mapp->c_d==NULL)
     {
         mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
-        for(int i=0;i<atoms->natms*c_d_norm;i++)
-            mapp->c_d->begin()[i]=0.0;
+        memset(mapp->c_d->begin(),0,atoms->natms*c_dim*sizeof(type0));
     }
 
     if(min==NULL)

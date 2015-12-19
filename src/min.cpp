@@ -452,7 +452,7 @@ type0 Min::calc_ndofs()
 void Min::init()
 {
     // determine if the there is chng_box
-    chng_box=0;
+    chng_box=false;
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
             if(H_dof[i][j])
