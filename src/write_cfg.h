@@ -31,6 +31,7 @@ namespace MAPP_NS
         type0 thresh;
         type0 strech;
         void add_to_dump_vec_nams(const char*);
+        void open_write(int,FILE*&,FILE*&);
     public:
         Write_cfg(MAPP *,int,char**);
         ~Write_cfg();

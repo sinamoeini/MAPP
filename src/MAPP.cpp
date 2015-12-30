@@ -11,6 +11,7 @@
 #include "neighbor.h"
 #include "neighbor_md.h"
 #include "thermo_dynamics.h"
+#include "group.h"
 
 #include "read_styles.h"
 #include "ff_styles.h"
@@ -43,7 +44,8 @@ id(atoms->id)
     timer=new Timer(this);
     atom_types = new AtomTypes(this);
     neighbor=new Neighbor_md(this);
-
+    groups=new GroupCollection(this);
+    
     forcefield=NULL;
     write=NULL;
     md=NULL;
@@ -85,8 +87,7 @@ id(atoms->id)
             iarg++;
             if(iarg==nargs)
                 error->abort("no input file");
-            
-            input_file=fopen(args[iarg],"r");
+            open_file(input_file,args[iarg],"r");
             iarg++;
         }
         else if(strcmp(args[iarg],"-o")==0)
@@ -94,7 +95,7 @@ id(atoms->id)
             iarg++;
             if(iarg==nargs)
                 error->abort("no output file");
-            output=fopen(args[iarg],"w");
+            open_file(output,args[iarg],"w");
             iarg++;
         }
         else
@@ -127,7 +128,8 @@ MAPP::~MAPP()
     delete forcefield;
     delete write;
     delete md;
-
+    
+    delete groups;
     delete neighbor;
     delete atom_types;
     delete timer;
@@ -558,6 +560,23 @@ int MAPP::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
     return ipos+1;
 }
 /*--------------------------------------------
+ 
+ --------------------------------------------*/
+void MAPP::open_file(FILE*& fp,const char* file_name,const char* id)
+{
+    fp=NULL;
+    int chk=1;
+    if(atoms->my_p==0)
+    {
+        fp=fopen(file_name,id);
+        if(fp==NULL)
+            chk=0;
+    }
+    MPI_Bcast(&chk,1,MPI_INT,0,world);
+    if(!chk)
+        error->abort("file %s not found",file_name);
+}
+/*--------------------------------------------
 
  --------------------------------------------*/
 void MAPP::init_dubeg(bool i)
@@ -582,6 +601,14 @@ void MAPP::fin_dubeg()
 {
     if(my_debug!=NULL)
         fclose(my_debug);
+}
+/*--------------------------------------------
+ if mass unit is amu
+ energy unit is eV
+ t unit would be 10.1805 fs
+ --------------------------------------------*/
+void MAPP::test0()
+{
 }
 /*--------------------------------------------
  test
@@ -718,15 +745,6 @@ void MAPP::test1()
      */
 
 }
-/*--------------------------------------------
- if mass unit is amu
- energy unit is eV
- t unit would be 10.1805 fs
- --------------------------------------------*/
-void MAPP::test0()
-{    
-}
-
 
 
 

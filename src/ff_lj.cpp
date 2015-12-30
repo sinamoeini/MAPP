@@ -376,13 +376,7 @@ void ForceField_lj::read_file(char* file_name)
     for(int i=0;i<no_types*(no_types+1);i++)
         eps_chk[i]=sigma_chk[i]=eps_chk[i]=0;
     
-    
-    if(atoms->my_p==0)
-    {
-        fp=fopen(file_name,"r");
-        if(fp==NULL)
-            error->abort("ff lj file %s not found",file_name);
-    }
+    mapp->open_file(fp,file_name,"r");
     
     /*
      reading the header of the file

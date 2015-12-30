@@ -12,21 +12,22 @@ namespace MAPP_NS
     {
     private:
     public:
-        InitPtrs(MAPP* ptr):
-        mapp(ptr),
-        memory(ptr->memory),
-        error(ptr->error),
-        timer(ptr->timer),
-        forcefield(ptr->forcefield),
-        world(ptr->world),
-        atoms(ptr->atoms),
-        neighbor(ptr->neighbor),
-        ls(mapp->ls),
-        atom_types(ptr->atom_types),
-        output(ptr->output),
-        write(ptr->write),
-        step_no(ptr->step_no),
-        step_tally(ptr->step_tally)
+        InitPtrs(MAPP* _mapp):
+        mapp(_mapp),
+        memory(_mapp->memory),
+        error(_mapp->error),
+        timer(_mapp->timer),
+        forcefield(_mapp->forcefield),
+        world(_mapp->world),
+        atoms(_mapp->atoms),
+        groups(_mapp->groups),
+        neighbor(_mapp->neighbor),
+        ls(_mapp->ls),
+        atom_types(_mapp->atom_types),
+        output(_mapp->output),
+        write(_mapp->write),
+        step_no(_mapp->step_no),
+        step_tally(_mapp->step_tally)
         {}
         virtual ~InitPtrs(){}
     protected:
@@ -37,6 +38,7 @@ namespace MAPP_NS
         ForceField*& forcefield;
         MPI_Comm &world;
         Neighbor*& neighbor;
+        GroupCollection*& groups;
         Atoms*& atoms;
         LineSearch<Min>*& ls;
         AtomTypes*& atom_types;

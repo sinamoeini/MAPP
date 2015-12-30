@@ -51,12 +51,7 @@ Read_cfg::Read_cfg(MAPP* mapp,int nargs,char** args)
     
     
     FILE* fp=NULL;
-    if(atoms->my_p==0)
-    {
-        fp=fopen(file_name,"r");
-        if(fp==NULL)
-            error->abort("file %s not found",file_name);
-    }
+    mapp->open_file(fp,file_name,"r");
     
     read_header(fp);
     set_box();

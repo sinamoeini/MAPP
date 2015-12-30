@@ -141,29 +141,13 @@ void Write_cfg::write_file_md(int stp)
     for(int ivec=0;ivec<ndump_vecs;ivec++)
         dump_vecs[ivec]->gather_dump();
         
-    FILE* fp=NULL;
-    FILE* fp_usr=NULL;
+    FILE* fp;
+    FILE* fp_usr;
+    open_write(stp,fp,fp_usr);
     
     if(atoms->my_p==0)
     {
         x2s(atoms->tot_natms);
-        char* filename;
-        CREATE1D(filename,MAXCHAR);
-        sprintf (filename, "%s.%010d.cfg",file_name,stp);
-        fp=fopen(filename,"w");
-        if(fp==NULL)
-            error->abort("Cannot create file %s for write cfg",filename);
-        delete [] filename;
-        if(usr_nabled)
-        {
-            CREATE1D(filename,MAXCHAR);
-            sprintf (filename, "%s.%010d.usr",file_name,stp);
-            fp_usr=fopen(filename,"w");
-            if(fp_usr==NULL)
-                error->abort("Cannot create file %s for write cfg",filename);
-            delete [] filename;
-        }
-
         
         // write the header
         fprintf(fp,"Number of particles = %d\n",atoms->tot_natms);
@@ -289,6 +273,47 @@ void Write_cfg::write_file_md(int stp)
     
 }
 /*--------------------------------------------
+ open the write files
+ --------------------------------------------*/
+void Write_cfg::open_write(int stp,FILE*& fp,FILE*& fp_usr)
+{
+    fp=NULL;
+    fp_usr=NULL;
+    
+    char* filename;
+    CREATE1D(filename,MAXCHAR);
+    sprintf(filename,"%s.%010d.cfg",file_name,stp);
+    int chk=1;
+    if(atoms->my_p==0)
+    {
+        fp=fopen(filename,"w");
+        if(fp==NULL)
+            chk=0;
+    }
+    MPI_Bcast(&chk,1,MPI_INT,0,world);
+    if(!chk)
+        error->abort("Cannot create file %s for write cfg",filename);
+    
+
+    if(usr_nabled)
+    {
+        sprintf(filename,"%s.%010d.usr",file_name,stp);
+        chk=1;
+        if(atoms->my_p==0)
+        {
+            fp=fopen(filename,"w");
+            if(fp==NULL)
+                chk=0;
+        }
+        MPI_Bcast(&chk,1,MPI_INT,0,world);
+        if(!chk)
+            error->abort("Cannot create file %s for write cfg",filename);
+    }
+    
+    
+    delete [] filename;
+}
+/*--------------------------------------------
  write file
  --------------------------------------------*/
 void Write_cfg::write_file_dmd(int stp)
@@ -297,32 +322,13 @@ void Write_cfg::write_file_dmd(int stp)
     for(int ivec=0;ivec<ndump_vecs;ivec++)
         dump_vecs[ivec]->gather_dump(mapp->ctype);
 
+    FILE* fp;
+    FILE* fp_usr;
+    open_write(stp,fp,fp_usr);
     
-    
-    FILE* fp=NULL;
-    FILE* fp_usr=NULL;
     if(atoms->my_p==0)
     {
         x2s(atoms->tot_natms);
-
-        char* filename;
-        CREATE1D(filename,MAXCHAR);
-        sprintf (filename, "%s.%010d.cfg",file_name,stp);
-        fp=fopen(filename,"w");
-        if(fp==NULL)
-            error->abort("Cannot create file %s for write cfg",filename);
-        delete [] filename;
-        
-        if(usr_nabled)
-        {
-            CREATE1D(filename,MAXCHAR);
-            sprintf (filename, "%s.%010d.usr",file_name,stp);
-            fp_usr=fopen(filename,"w");
-            if(fp_usr==NULL)
-                error->abort("Cannot create file %s for write cfg",filename);
-            delete [] filename;
-        }
-        
         
         // write the header
         fprintf(fp,"Number of particles = %d\n",atoms->tot_natms);

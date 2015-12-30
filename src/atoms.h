@@ -157,6 +157,7 @@ namespace MAPP_NS
         class Xchng;
         class Swap;
     private:
+        unsigned long xchng_id;
         Error*& error;
         ForceField*& forcefield;
         Neighbor*& neighbor;
@@ -177,6 +178,8 @@ namespace MAPP_NS
         
         Vec<type0>* x0;
         Vec<int>* id_arch;
+        
+        void re_arrange(vec**,int);
     protected:
     public:
         MPI_Comm& world;
@@ -225,12 +228,8 @@ namespace MAPP_NS
         void update(vec**,int);
         void update(vec*);
         void reset();
-        
-        void tmp_(vec**,int);
-
+        bool xchng_chk(unsigned long&);
     };
-    
-
 }
 /*------------------------------------------------------------------------------------------------------------------------
  _____   _____       ___  ___       ___  ___   _   _   __   _   _   __   _   _____       ___   _____   _   _____   __   _  
@@ -413,6 +412,7 @@ namespace MAPP_NS
     {
     private:
         MPI_Comm& world;
+        unsigned long& xchng_id;
         
         int** neigh_p;
         int my_p;

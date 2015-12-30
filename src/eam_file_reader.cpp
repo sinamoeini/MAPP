@@ -149,13 +149,7 @@ void EAMFileReader::set_funcfl()
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
-        fp=NULL;
-        if(atoms->my_p==0)
-        {
-            fp=fopen(files[ityp],"r");
-            if(fp==NULL)
-                error->abort("ff eam_dmd file %s not found",files[ityp]);
-        }
+        mapp->open_file(fp,files[ityp],"r");
         
         for(int i=0;i<2;i++)
             if(mapp->read_line(fp,line)==-1)
@@ -360,14 +354,8 @@ void EAMFileReader::set_setfl()
     FILE* fp=NULL;
     char* line;
     CREATE1D(line,MAXCHAR);
-    
-    fp=NULL;
-    if(atoms->my_p==0)
-    {
-        fp=fopen(files[0],"r");
-        if(fp==NULL)
-            error->abort("%s file not found",files[0]);
-    }
+
+    mapp->open_file(fp,files[0],"r");
     
     for(int i=0;i<4;i++)
         if(mapp->read_line(fp,line)==-1)
@@ -554,13 +542,7 @@ void EAMFileReader::set_fs()
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    fp=NULL;
-    if(atoms->my_p==0)
-    {
-        fp=fopen(files[0],"r");
-        if(fp==NULL)
-            error->abort("%s file not found",files[0]);
-    }
+    mapp->open_file(fp,files[0],"r");
     
     for(int i=0;i<4;i++)
         if(mapp->read_line(fp,line)==-1)
@@ -865,7 +847,7 @@ void EAMFileReader::allocate()
             type2rho[ityp][jtyp]=jtyp*no_types+ityp;
         }
     
-    
+        /*
     stride=0;
     for(int ityp=0;ityp<no_types;ityp++)
     {
@@ -900,6 +882,34 @@ void EAMFileReader::allocate()
             stride++;
             
         }
+    
+    */
+
+    stride=0;
+    
+    for(int ityp=0;ityp<no_types;ityp++)
+        for(int jtyp=0;jtyp<no_types;jtyp++)
+        {
+            if(ityp==jtyp)
+            {
+                type2rho_pair_ij[ityp][jtyp]=type2rho_pair_ji[jtyp][ityp]=stride;
+                stride++;
+                type2phi_pair_ij[ityp][jtyp]=type2phi_pair_ji[jtyp][ityp]=stride;
+                stride++;
+            }
+            else
+            {
+                
+                type2rho_pair_ij[ityp][jtyp]=stride;
+                stride++;
+                type2rho_pair_ji[jtyp][ityp]=stride;
+                stride++;
+                type2phi_pair_ij[ityp][jtyp]=type2phi_pair_ji[jtyp][ityp]=stride;
+                stride++;
+                
+            }
+        }
+    
     
     int rho_phi_ncomp=0;
     int F_ncomp=0;

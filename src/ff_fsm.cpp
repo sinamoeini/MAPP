@@ -159,13 +159,7 @@ void ForceField_fsm::read_file(char* file_name)
     for(int i=0;i<no_types*(no_types+1);i++)
         k1_chk[i]=k2_chk[i]=k3_chk[i]=r_c_phi_chk[i]=r_c_rho_chk[i]=0;
     
-    
-    if(atoms->my_p==0)
-    {
-        fp=fopen(file_name,"r");
-        if(fp==NULL)
-            error->abort("ff fsm file %s not found",file_name);
-    }
+    mapp->open_file(fp,file_name,"r");
     
     /*
      reading the header of the file

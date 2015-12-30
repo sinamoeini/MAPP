@@ -45,6 +45,7 @@ namespace MAPP_NS
         class MD* md;
         //class Min* min;
         class DMD* dmd;
+        class GroupCollection* groups;
 
         /* 
          * atomic vectors
@@ -82,10 +83,13 @@ namespace MAPP_NS
         int concatenate(int,char**,char*&);
         void test0();
         void test1();
+
         int read_line(FILE*,char*&,int&,int&);
         void init_dubeg(bool);
         void fin_dubeg();
         FILE* my_debug;
+        
+        void open_file(FILE*&,const char*,const char*);
     };
 }
 

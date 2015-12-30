@@ -894,7 +894,8 @@ my_p(atoms->comm->my_p),
 s_lo(atoms->comm->s_lo),
 s_hi(atoms->comm->s_hi),
 dimension(atoms->dimension),
-x(atoms->x)
+x(atoms->x),
+xchng_id(atoms->xchng_id)
 {
     buff_grw=1024;
     
@@ -1027,6 +1028,7 @@ void Atoms::Xchng::full_xchng()
     int disp;
     type0 s,ds_lo,ds_hi;
     int iatm;
+    int xchng_lcl=0;
     
     for(int idim=0;idim<dimension;idim++)
     {
@@ -1063,7 +1065,10 @@ void Atoms::Xchng::full_xchng()
               
             }
         }
-
+        
+        if(snd_buff_sz[0]+snd_buff_sz[1])
+            xchng_lcl=1;
+        
         byte* buff_tmp;
         for(int idir=0;idir<2;idir++)
         {
@@ -1085,6 +1090,10 @@ void Atoms::Xchng::full_xchng()
             
         }
     }
+    int xchng;
+    MPI_Allreduce(&xchng_lcl,&xchng,1,MPI_INT,MPI_MAX,world);
+    if(xchng)
+        xchng_id++;
 }
 /*----------------------------------------------------------------------------------------------------------------
  _____   _____       ___  ___       ___  ___   _   _   __   _   _   _____       ___   _____   _   _____   __   _  
@@ -1578,6 +1587,7 @@ output(mapp->output),
 dimension(dim),
 nvecs(0)
 {
+    
     comm=new Communincation(this);
     tot_p=comm->tot_p;
     my_p=comm->my_p;
@@ -1590,6 +1600,7 @@ nvecs(0)
     tot_natms=0;
     natms=0;
     natms_ph=0;
+    xchng_id=0;
     
     x=new Vec<type0>(this,dimension);
     id= new Vec<int>(this,1);
@@ -1823,6 +1834,19 @@ void Atoms::restart()
         delete vecs[0];
 }
 /*--------------------------------------------
+ 
+ --------------------------------------------*/
+bool Atoms::xchng_chk(unsigned long& xchng_id_)
+{
+    if(xchng_id_==xchng_id)
+        return true;
+    else
+    {
+        xchng_id_=xchng_id;
+        return false;
+    }
+}
+/*--------------------------------------------
  init a simulation
  --------------------------------------------*/
 void Atoms::init(VecLst* vec_list_,bool box_chng_)
@@ -2016,7 +2040,7 @@ void Atoms::fin()
 
     if(vec_list->narch_vecs)
     {
-        tmp_(vec_list->arch_vecs,vec_list->narch_vecs);
+        re_arrange(vec_list->arch_vecs,vec_list->narch_vecs);
         for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
             add_vec(vec_list->arch_vecs[ivec]);
         add_vec(id_arch);
@@ -2032,8 +2056,6 @@ void Atoms::fin()
     neighbor->fin();
     forcefield->fin();
     timer->fin();
-    //delete id_arch;
-
 }
 /*--------------------------------------------
  update one vectors
@@ -2205,356 +2227,378 @@ void Atoms::reset()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Atoms::tmp_(vec** old_vecs,int nold_vecs)
+void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
 {
-    int* id_0=id->begin();
-    int* id_1=id_arch->begin();
-    
-    int id_0_sz=id->vec_sz;
-    int id_1_sz=id_arch->vec_sz;
-    int* key_0=new int[id_0_sz];
-    int* key_1=new int[id_1_sz];
-    for(int i=0;i<id_0_sz;i++)
-        key_0[i]=i;
-    for(int i=0;i<id_1_sz;i++)
-        key_1[i]=i;
-
-    auto swap=
-    [] (int* key_i,int* key_j)->void
+    auto fit_2_shrk=
+    [](int*& arr,int sz,int cpcty)->void
     {
-        if(key_i==key_j)
+        if(cpcty==sz)
             return;
-
-        int key_k=*key_i;
-        *key_i=*key_j;
-        *key_j=key_k;
+        if(sz==0)
+        {
+            delete [] arr;
+            arr=NULL;
+        }
+        
+        int* _arr=new int[sz];
+        memcpy(_arr,arr,sz*sizeof(int));
+        delete [] arr;
+        arr=_arr;
     };
     
+    auto sort_by_p=
+    [] (int*& comm_size,MPI_Comm& world,int tot_p,int my_p,
+        int* lst,int lst_sz,
+        int* slst,int* slst_ref,int slst_sz)->void
+    {
+        comm_size=new int[tot_p];
+        for(int ip=0;ip<tot_p;ip++)
+            comm_size[ip]=0;
+        
+        int* lst_sz_per_p=new int[tot_p];
+        int* _lst_=NULL;
+        MPI_Allgather(&lst_sz,1,MPI_INT,lst_sz_per_p,1,MPI_INT,world);
+        int _lst_sz_;
+        int max_lst_sz=0;
+        for(int ip=0;ip<tot_p;ip++)
+            max_lst_sz=MAX(max_lst_sz,lst_sz_per_p[ip]);
+        if(max_lst_sz)
+            _lst_=new int[max_lst_sz];
+        
+        
+        int* fnd_slst=NULL;
+        int* ufnd_slst=NULL;
+        int* fnd_slst_ref=NULL;
+        int* ufnd_slst_ref=NULL;
+        
+        
+        if(slst_sz)
+        {
+            fnd_slst=new int[slst_sz];
+            ufnd_slst=new int[slst_sz];
+            fnd_slst_ref=new int[slst_sz];
+            ufnd_slst_ref=new int[slst_sz];
+        }
+        
+        for(int ip=0;ip<tot_p;ip++)
+        {
+            _lst_sz_=lst_sz_per_p[ip];
+            if(my_p==ip)
+                memcpy(_lst_,lst,sizeof(int)*_lst_sz_);
+            MPI_Bcast(_lst_,_lst_sz_,MPI_INT,ip,world);
+            if(my_p==ip)
+                continue;
+            if(_lst_sz_ && slst_sz)
+            {
+                bool incmplt=true;
+                int slst_pos=0,_lst_pos_=0;
+                int nfnd=0;
+                int nufnd=0;
+
+                
+                while (incmplt)
+                {
+                    while(incmplt && _lst_[_lst_pos_]!=slst[slst_pos])
+                    {
+                        if(_lst_[_lst_pos_]<slst[slst_pos])
+                        {
+                            while(incmplt && _lst_[_lst_pos_]<slst[slst_pos])
+                            {
+                                _lst_pos_++;
+                                if(_lst_pos_==_lst_sz_)
+                                    incmplt=false;
+                            }
+                        }
+                        else
+                        {
+                            while(incmplt && slst[slst_pos]<_lst_[_lst_pos_])
+                            {
+                                ufnd_slst[nufnd]=slst[slst_pos];
+                                ufnd_slst_ref[nufnd]=slst_ref[slst_pos];
+                                nufnd++;
+                                slst_pos++;
+                                if(slst_pos==slst_sz)
+                                    incmplt=false;
+                            }
+                        }
+                    }
+                    
+                    while(incmplt && _lst_[_lst_pos_]==slst[slst_pos])
+                    {
+                        fnd_slst[nfnd]=slst[slst_pos];
+                        fnd_slst_ref[nfnd]=slst_ref[slst_pos];
+                        
+                        nfnd++;
+                        _lst_pos_++;
+                        slst_pos++;
+                        
+                        if(_lst_pos_==_lst_sz_ || slst_pos==slst_sz)
+                            incmplt=false;
+                    }
+                }
+                
+                memcpy(slst,fnd_slst,nfnd*sizeof(int));
+                memcpy(slst+nfnd,ufnd_slst,nufnd*sizeof(int));
+                
+                memcpy(slst_ref,fnd_slst_ref,nfnd*sizeof(int));
+                memcpy(slst_ref+nfnd,ufnd_slst_ref,nufnd*sizeof(int));
+                
+                slst+=nfnd;
+                slst_ref+=nfnd;
+                slst_sz-=nfnd;
+                comm_size[ip]=nfnd;
+            }
+        }
+        
+        delete [] fnd_slst_ref;
+        delete [] ufnd_slst_ref;
+        delete [] fnd_slst;
+        delete [] ufnd_slst;
+        delete [] _lst_;
+        delete [] lst_sz_per_p;
+        
+    };
     
+    class act
+    {
+    public:
+        virtual void eq(int)=0;
+        virtual void neq(int)=0;
+    };
+    
+    class act_arch: public act
+    {
+        /*
+         for iact to manage: it manages the arch_id
+         the arch ids are catagorized into 2 groups:
+         0. ids that are found here and we need the map for their new place: orig_inds,natms_to_kep
+         1. ids that are not found here and therefore must be sent to
+         another proc: ids_to_snd,inds_to_snd,natms_to_snd
+         */
+    public:
+        int*& idx_lst_arch;
+        int*& id_lst_snd;
+        int*& idx_lst_snd;
+        
+        int& nkep;
+        int& nsnd;
+        
+        int* id_lst_arch;
+        
+        act_arch(
+        int*& _id_lst_snd,
+        int*& _idx_lst_snd,
+        int*& _idx_lst_arch,
+        int& _nkep,
+        int& _nsnd,
+        int* _id_lst_arch):
+        id_lst_snd(_id_lst_snd),
+        idx_lst_snd(_idx_lst_snd),
+        idx_lst_arch(_idx_lst_arch),
+        nkep(_nkep),
+        nsnd(_nsnd),
+        id_lst_arch(_id_lst_arch)
+        {}
+        void eq(int idx)
+        {
+            idx_lst_arch[nkep++]=idx;
+        }
+        void neq(int idx)
+        {
+            idx_lst_snd[nsnd]=idx;
+            id_lst_snd[nsnd++]=id_lst_arch[idx];
+        }
+    };
+    
+    class act_curr: public act
+    {
+        /*
+         for jact to manage: it manages the orig_id
+         the current ids are catagorized into 2 groups:
+         0. ids that are found here and we need the map for their new place: arch_inds,natms_to_kep
+         1. ids that are not found here and therefore must be recieved from
+         another proc: ids_to_rcv,inds_to_rcv,natms_to_rcv
+         */
+        
+    public:
+        int*& idx_lst_curr;
+        int*& id_lst_rcv;
+        int*& idx_lst_rcv;
+        
+        int& nkep;
+        int& nrcv;
+        
+        int* id_lst_curr;
+        
+        act_curr(
+        int*& _id_lst_rcv,
+        int*& _idx_lst_rcv,
+        int*& _idx_lst_curr,
+        int& _nkep,
+        int& _nrcv,
+        int* _id_lst_curr):
+        id_lst_rcv(_id_lst_rcv),
+        idx_lst_rcv(_idx_lst_rcv),
+        idx_lst_curr(_idx_lst_curr),
+        nkep(_nkep),
+        nrcv(_nrcv),
+        id_lst_curr(_id_lst_curr)
+        {}
+        void eq(int idx)
+        {
+            idx_lst_curr[nkep++]=idx;
+        }
+        void neq(int idx)
+        {
+            idx_lst_rcv[nrcv]=idx;
+            id_lst_rcv[nrcv++]=id_lst_curr[idx];
+        }
+    };
+    
+    // input
+    int* id_lst_arch=id_arch->begin();
+    int* id_lst_curr=id->begin();
+    int natms_arch=id_arch->vec_sz;
+    int natms_curr=id->vec_sz;
+    int byte_sz=0;
+    for(int ivec=0;ivec<narch_vecs;ivec++)
+        byte_sz+=arch_vecs[ivec]->byte_sz;
+    
+    //output
+    int* idx_lst_arch=NULL;
+    int* idx_lst_snd=NULL;
+    int* id_lst_snd=NULL;
+    
+    int* idx_lst_curr=NULL;
+    int* idx_lst_rcv=NULL;
+    int* id_lst_rcv=NULL;
+    
+    if(natms_arch)
+    {
+        idx_lst_arch=new int[natms_arch];
+        idx_lst_snd=new int[natms_arch];
+        id_lst_snd=new int[natms_arch];
+    }
+    
+    if(natms_curr)
+    {
+        idx_lst_curr=new int[natms_curr];
+        idx_lst_rcv=new int[natms_curr];
+        id_lst_rcv=new int[natms_curr];
+    }
+    
+    
+    int nkep,nkep_arch=0,nkep_curr=0,nrcv=0,nsnd=0;
+    
+    act_arch* _act_arch_=new act_arch(id_lst_snd,idx_lst_snd,idx_lst_arch,nkep_arch,nsnd,id_lst_arch);
+    act_curr* _act_curr_=new act_curr(id_lst_rcv,idx_lst_rcv,idx_lst_curr,nkep_curr,nrcv,id_lst_curr);
+    act* _act_arch=_act_arch_;
+    act* _act_curr=_act_curr_;
     XMath* xmath=new XMath();
-    
-    xmath->quicksort(key_0,key_0+id_0_sz
-    ,[&id_0](int* key_i,int* key_j)
-    {return (id_0[*key_i]<id_0[*key_j]);}
-    ,swap);
-    
-    xmath->quicksort(key_1,key_1+id_1_sz
-    ,[&id_1](int* key_i,int* key_j)
-    {return (id_1[*key_i]<id_1[*key_j]);}
-    ,swap);
-    
+    xmath->srch_lst_lst(id_lst_arch,natms_arch,_act_arch,id_lst_curr,natms_curr,_act_curr);
+    delete _act_curr_;
+    delete _act_arch_;
     delete xmath;
     
-    int* id_to_snd=new int[id_1_sz];
-    int* to_snd=new int[id_1_sz];
-    int* id_to_rcv=new int[id_0_sz];
-    int* to_rcv=new int[id_0_sz];
-    int* to_kep=new int[id_0_sz];
-    int* new_pos=new int[id_0_sz];
-
-    int to_snd_sz=0;
-    int to_rcv_sz=0;
-    int to_kep_sz=0;
+    nkep=nkep_curr;
     
-    int ipos_0=0;
-    int ipos_1=0;
+    fit_2_shrk(idx_lst_arch,nkep_arch,natms_arch);
+    fit_2_shrk(idx_lst_snd,nsnd,natms_arch);
+    fit_2_shrk(id_lst_snd,nsnd,natms_arch);
     
-
+    fit_2_shrk(idx_lst_curr,nkep_curr,natms_curr);
+    fit_2_shrk(idx_lst_rcv,nrcv,natms_curr);
+    fit_2_shrk(id_lst_rcv,nrcv,natms_curr);
     
-    while(ipos_0<id_0_sz && ipos_1<id_1_sz)
+    
+    int* nsnd_comm;
+    int* nrcv_comm;
+    sort_by_p(nsnd_comm,world,tot_p,my_p,id_lst_rcv,nrcv,id_lst_snd,idx_lst_snd,nsnd);
+    sort_by_p(nrcv_comm,world,tot_p,my_p,id_lst_snd,nsnd,id_lst_rcv,idx_lst_rcv,nrcv);
+    
+    delete [] id_lst_snd;
+    delete [] id_lst_rcv;
+    
+    byte** snd_buff=new byte*[tot_p];
+    byte** rcv_buff=new byte*[tot_p];
+    *snd_buff=NULL;
+    *rcv_buff=NULL;
+    
+    if (nsnd)
     {
-        while(ipos_1<id_1_sz && id_0[key_0[ipos_0]]>id_1[key_1[ipos_1]])
-        {
-            id_to_snd[to_snd_sz]=id_1[key_1[ipos_1]];
-            to_snd[to_snd_sz]=key_1[ipos_1];
-            to_snd_sz++;
-            ipos_1++;
-        }
-
-        while(ipos_1<id_1_sz && ipos_0<id_0_sz && id_0[key_0[ipos_0]]==id_1[key_1[ipos_1]])
-        {
-            to_kep[to_kep_sz]=key_1[ipos_1];
-            new_pos[to_kep_sz]=key_0[ipos_0];
-            to_kep_sz++;
-            ipos_0++;
-            ipos_1++;
-        }
-
-        while(ipos_0<id_0_sz && id_0[key_0[ipos_0]]<id_1[key_1[ipos_1]])
-        {
-            id_to_rcv[to_rcv_sz]=id_0[key_0[ipos_0]];
-            to_rcv[to_rcv_sz]=key_0[ipos_0];
-            to_rcv_sz++;
-            ipos_0++;
-        }
-
-        while(ipos_0<id_0_sz && ipos_1<id_1_sz && id_0[key_0[ipos_0]]==id_1[key_1[ipos_1]])
-        {
-            to_kep[to_kep_sz]=key_1[ipos_1];
-            new_pos[to_kep_sz]=key_0[ipos_0];
-            to_kep_sz++;
-            ipos_0++;
-            ipos_1++;
-        }
+        *snd_buff=new byte[byte_sz*nsnd];
+        for(int ip=1;ip<tot_p;ip++)
+            snd_buff[ip]=snd_buff[ip-1]+byte_sz*nsnd_comm[ip-1];
+    }
+    if(nrcv)
+    {
+        *rcv_buff=new byte[byte_sz*nrcv];
+        for(int ip=1;ip<tot_p;ip++)
+            rcv_buff[ip]=rcv_buff[ip-1]+byte_sz*nrcv_comm[ip-1];
     }
     
-    while(ipos_0<id_0_sz)
-    {
-        id_to_rcv[to_rcv_sz]=id_0[key_0[ipos_0]];
-        to_rcv[to_rcv_sz]=key_0[ipos_0];
-        to_rcv_sz++;
-        ipos_0++;
-    }
+    byte* _snd_buff=*snd_buff;
+    for(int ivec=0;ivec<narch_vecs;ivec++)
+        for(int i=0;i<nsnd;i++)
+            arch_vecs[ivec]->cpy(_snd_buff,idx_lst_snd[i]);
     
-    while(ipos_1<id_1_sz)
-    {
-        id_to_snd[to_snd_sz]=id_1[key_1[ipos_1]];
-        to_snd[to_snd_sz]=key_1[ipos_1];
-        to_snd_sz++;
-        ipos_1++;
-    }
-
-    if(id_0_sz) delete [] key_0;
-    if(id_1_sz) delete [] key_1;
+    delete [] idx_lst_snd;
     
-    int* id_global=new int[tot_natms];
-    int* disp=new int[tot_p];
+    for(int ivec=0;ivec<narch_vecs;ivec++)
+        arch_vecs[ivec]->rearrange(idx_lst_arch,idx_lst_curr,nkep,natms_curr);
     
-
-    int* to_snd_sz_glbl=new int[tot_p];
-    MPI_Allgather(&to_snd_sz,1,MPI_INT,to_snd_sz_glbl,1,MPI_INT,world);
-    int to_snd_sz_tot=0;
-    for(int i=0;i<tot_p;i++)
-        to_snd_sz_tot+=to_snd_sz_glbl[i];
-
-    *disp=0;
-    int** snd_glbl=new int*[tot_p];
-    *snd_glbl=new int[to_snd_sz_tot];
-    for(int i=1;i<tot_p;i++)
-    {
-        snd_glbl[i]=snd_glbl[i-1]+to_snd_sz_glbl[i-1];
-        disp[i]=disp[i-1]+to_snd_sz_glbl[i-1];
-    }
+    delete [] idx_lst_arch;
+    delete [] idx_lst_curr;
     
-    MPI_Allgatherv(id_to_snd,to_snd_sz,MPI_INT,*snd_glbl,to_snd_sz_glbl,disp,MPI_INT,world);
-    
-    for(int ip=0;ip<tot_p;ip++)
-        for(int i=0;i<to_snd_sz_glbl[ip];i++)
-            id_global[snd_glbl[ip][i]]=ip;
-    if(to_snd_sz_tot)
-        delete [] *snd_glbl;
-    if(tot_p)
-    {
-        delete [] snd_glbl;
-        delete [] to_snd_sz_glbl;
-    }
-
-    int** to_rcv_lst=new int*[tot_p];
-    *to_rcv_lst=new int[tot_p*to_rcv_sz];
-    int* to_rcv_lst_sz=new int[tot_p];
-    *to_rcv_lst_sz=0;
-    for(int i=1;i<tot_p;i++)
-    {
-        to_rcv_lst[i]=to_rcv_lst[i-1]+to_rcv_sz;
-        to_rcv_lst_sz[i]=0;
-    }
-
-    for(int i=0;i<to_rcv_sz;i++)
-    {
-        int ip=id_global[id_to_rcv[i]];
-        to_rcv_lst[ip][to_rcv_lst_sz[ip]++]=to_rcv[i];
-    }
-    
-    int* to_rcv_=new int[to_rcv_sz];
-    int* sz_to_rcv=new int[tot_p];
-    ipos_0=0;
-    for(int idisp=1;idisp<tot_p;idisp++)
-    {
-        int ip=my_p-idisp;
-        if(ip<0) ip+=tot_p;
-        sz_to_rcv[idisp]=to_rcv_lst_sz[ip];
-        for(int i=0;i<to_rcv_lst_sz[ip];i++)
-            to_rcv_[ipos_0++]=to_rcv_lst[ip][i];
-    }
-
-    if(to_rcv_sz*tot_p)
-        delete [] *to_rcv_lst;
-    if(tot_p)
-    {
-        delete [] to_rcv_lst;
-        delete [] to_rcv_lst_sz;
-    }
-    if(id_0_sz)
-        delete [] to_rcv;
-    to_rcv=to_rcv_;
-    
-    int* to_rcv_sz_glbl=new int[tot_p];
-    MPI_Allgather(&to_rcv_sz,1,MPI_INT,to_rcv_sz_glbl,1,MPI_INT,world);
-    int to_rcv_sz_tot=0;
-    for(int i=0;i<tot_p;i++)
-        to_rcv_sz_tot+=to_rcv_sz_glbl[i];
-    
-    
-    *disp=0;
-    int** rcv_glbl=new int*[tot_p];
-    *rcv_glbl=new int[to_rcv_sz_tot];
-    for(int i=1;i<tot_p;i++)
-    {
-        rcv_glbl[i]=rcv_glbl[i-1]+to_rcv_sz_glbl[i-1];
-        disp[i]=disp[i-1]+to_rcv_sz_glbl[i-1];
-    }
-    
-    MPI_Allgatherv(id_to_rcv,to_rcv_sz,MPI_INT,*rcv_glbl,to_rcv_sz_glbl,disp,MPI_INT,world);
-    
-    for(int ip=0;ip<tot_p;ip++)
-        for(int i=0;i<to_rcv_sz_glbl[ip];i++)
-            id_global[rcv_glbl[ip][i]]=ip;
-    
-    if(to_rcv_sz_tot)
-        delete [] *rcv_glbl;
-    if(tot_p)
-    {
-        delete [] rcv_glbl;
-        delete [] to_rcv_sz_glbl;
-    }
-    
-    int** to_snd_lst=new int*[tot_p];
-    *to_snd_lst=new int[tot_p*to_snd_sz];
-    int* to_snd_lst_sz=new int[tot_p];
-    *to_snd_lst_sz=0;
-    for(int i=1;i<tot_p;i++)
-    {
-        to_snd_lst[i]=to_snd_lst[i-1]+to_snd_sz;
-        to_snd_lst_sz[i]=0;
-    }
-    
-    for(int i=0;i<to_snd_sz;i++)
-    {
-        int ip=id_global[id_to_snd[i]];
-        to_snd_lst[ip][to_snd_lst_sz[ip]++]=to_snd[i];
-    }
-    
-    int* to_snd_=new int[to_snd_sz];
-    int* sz_to_snd=new int[tot_p];
-    ipos_0=0;
-    for(int idisp=1;idisp<tot_p;idisp++)
-    {
-        int ip=my_p+idisp;
-        if(ip>=tot_p) ip-=tot_p;
-        sz_to_snd[idisp]=to_snd_lst_sz[ip];
-        for(int i=0;i<to_snd_lst_sz[ip];i++)
-            to_snd_[ipos_0++]=to_snd_lst[ip][i];
-    }
-    
-    if(to_snd_sz*tot_p)
-        delete [] *to_snd_lst;
-    if(tot_p)
-    {
-        delete [] to_snd_lst;
-        delete [] to_snd_lst_sz;
-    }
-    
-    if(id_1_sz)
-        delete [] to_snd;
-    to_snd=to_snd_;
-    
-    if(tot_natms)
-        delete [] id_global;
-    if(tot_p)
-        delete [] disp;
-
-    if(id_0_sz)
-        delete [] id_to_rcv;
-    if(id_1_sz)
-        delete [] id_to_snd;
-    
-    int tot_old_byte_sz=0;
-    for(int ivec=0;ivec<nold_vecs;ivec++)
-        tot_old_byte_sz+=old_vecs[ivec]->byte_sz;
-        
-    byte* snd_buff=new byte[to_snd_sz*tot_old_byte_sz];
-    byte* snd_buff_=snd_buff;
-    for(int i=0;i<to_snd_sz;i++)
-        for(int ivec=0;ivec<nold_vecs;ivec++)
-            old_vecs[ivec]->cpy(snd_buff_,to_snd[i]);
-
-    byte* rcv_buff=new byte[to_rcv_sz*tot_old_byte_sz];
-    byte* rcv_buff_;
-    
-    for(int ivec=0;ivec<nold_vecs;ivec++)
-    {
-        old_vecs[ivec]->rearrange(to_kep,new_pos,to_kep_sz,id_0_sz);
-        old_vecs[ivec]->resize(id_0_sz);
-    }
-    
-    if(id_0_sz)
-    {
-        delete [] to_kep;
-        delete [] new_pos;
-    }
-
     
     MPI_Status status[2];
     MPI_Request request[2];
-    int rcv_p;
-    int snd_p;
-    snd_buff_=snd_buff;
-    rcv_buff_=rcv_buff;
+    
     for(int idisp=1;idisp<tot_p;idisp++)
     {
-        rcv_p=my_p-idisp;
+        int rcv_p=my_p-idisp;
         if(rcv_p<0) rcv_p+=tot_p;
-        snd_p=my_p+idisp;
+        int snd_p=my_p+idisp;
         if(snd_p>=tot_p) snd_p-=tot_p;
         
-        if(sz_to_rcv[idisp])
+        if(nrcv_comm[rcv_p])
         {
-            MPI_Irecv(rcv_buff_,sz_to_rcv[idisp]*tot_old_byte_sz,
-            MPI_BYTE,rcv_p,
-            0,
-            world,&request[0]);
+            MPI_Irecv(rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,
+                      MPI_BYTE,rcv_p,
+                      0,
+                      world,&request[0]);
         }
         
-        if(sz_to_snd[idisp])
+        if(nsnd_comm[snd_p])
         {
-            MPI_Isend(snd_buff_,sz_to_snd[idisp]*tot_old_byte_sz,
-            MPI_BYTE,snd_p,
-            0,
-            world,&request[1]);
+            MPI_Isend(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,
+                      MPI_BYTE,snd_p,
+                      0,
+                      world,&request[1]);
         }
         
-        if(sz_to_rcv[idisp] && sz_to_snd[idisp])
+        if(nrcv_comm[rcv_p] && nsnd_comm[snd_p])
             MPI_Waitall(2,request,status);
-        else if(sz_to_rcv[idisp] && sz_to_snd[idisp]==0)
+        else if(nrcv_comm[rcv_p] && nsnd_comm[snd_p]==0)
             MPI_Waitall(1,&request[0],&status[0]);
-        else if(sz_to_rcv[idisp]==0 && sz_to_snd[idisp])
+        else if(nrcv_comm[rcv_p]==0 && nsnd_comm[snd_p])
             MPI_Waitall(1,&request[1],&status[1]);
         
-        snd_buff_+=sz_to_snd[idisp]*tot_old_byte_sz;
-        rcv_buff_+=sz_to_rcv[idisp]*tot_old_byte_sz;
     }
     
-    if(to_snd_sz*tot_old_byte_sz)
-        delete [] snd_buff;
-
-    rcv_buff_=rcv_buff;
-    for(int i=0;i<to_rcv_sz;i++)
-        for(int ivec=0;ivec<nold_vecs;ivec++)
-            old_vecs[ivec]->pst_to(rcv_buff_,to_rcv[i]);
-
-    if(to_rcv_sz*tot_old_byte_sz)
-        delete [] rcv_buff;
+    delete [] *snd_buff;
+    delete [] snd_buff;
+    delete [] nsnd_comm;
+    delete [] nrcv_comm;
     
-    if(tot_p)
-    {
-        delete [] sz_to_snd;
-        delete [] sz_to_rcv;
-    }
-    if(to_rcv_sz)
-        delete [] to_rcv;
-    if(to_snd_sz)
-        delete [] to_snd;
+    byte* _rcv_buff=*rcv_buff;
+    for(int ivec=0;ivec<narch_vecs;ivec++)
+        for(int i=0;i<nrcv;i++)
+            arch_vecs[ivec]->cpy(_rcv_buff,idx_lst_rcv[i]);
     
+    delete [] idx_lst_rcv;
+    delete [] *rcv_buff;
+    delete [] rcv_buff;
 }
 /*----------------------------------------------
   _     _   _____   _____   _       _____   _____

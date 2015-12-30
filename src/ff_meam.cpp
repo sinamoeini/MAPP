@@ -2184,9 +2184,11 @@ void ForceField_meam::read_global(char* file_name)
     byte_sz++;
     CREATE1D(buff,byte_sz);
     
+    FILE* fp;
+    mapp->open_file(fp,file_name,"r");
+    
     if(atoms->my_p==0)
     {
-        FILE* fp=fopen(file_name,"r");
         fread (buff,1,byte_sz-1,fp);
         buff[byte_sz-1]='\0';
         fclose(fp);
@@ -2382,13 +2384,7 @@ void ForceField_meam::read_local(char* file_name)
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    
-    if(atoms->my_p==0)
-    {
-        fp=fopen(file_name,"r");
-        if(fp==NULL)
-            error->abort("file %s not found",file_name);
-    }
+    mapp->open_file(fp,file_name,"r");
     
     
     int icmp,jcmp,kcmp;

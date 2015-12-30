@@ -677,15 +677,8 @@ void ForceField_eam_dmd::read_file(char* file_name)
     
     delete eam_reader;
     eam_reader=new EAMFileReader(mapp);
-    
-        
-    if(atoms->my_p==0)
-    {
-        fp=fopen(file_name,"r");
-        if(fp==NULL)
-            error->abort("ff eam_dmd file %s not found",file_name);
-    }
-    
+
+    mapp->open_file(fp,file_name,"r");
     
     CREATE1D(line,MAXCHAR);
     CREATE1D(strtmp,MAXCHAR);

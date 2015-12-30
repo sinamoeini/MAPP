@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "error.h"
 #include "atoms.h"
+#include "group.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
 /*--------------------------------------------
@@ -13,7 +14,7 @@ Command_displace::Command_displace(MAPP* mapp
     int dim=atoms->dimension;
     if(nargs<2+dim)
         error->abort("incorrect displace command");
-        
+    
     type0* disp;
     CREATE1D(disp,dim);
     for(int iarg=1;iarg<dim+1;iarg++)
@@ -21,78 +22,46 @@ Command_displace::Command_displace(MAPP* mapp
     
     int iarg=dim+1;
     
-    FILE* fp=NULL;
-    char* line;
-    
-    int natms=atoms->natms;
-    int tot_natms=atoms->tot_natms;
-    int* id=mapp->id->begin();
-    int* list=NULL;
-    int list_size=0;
-    int list_cpcty=0;
-    int list_grow=10;
-    int list_size_tot=0;
-    int iatm;
-    
-    CREATE1D(line,MAXCHAR);
-    while (iarg<nargs)
+    if(strcmp(args[iarg],"group")==0)
     {
-        if(atoms->my_p==0)
-        {
-            fp=fopen(args[iarg],"r");
-            if(fp==NULL)
-                error->abort("file %s not found",args[iarg]);
-        }
         
-        while(mapp->read_line(fp,line)!=-1)
-        {
-            nargs=mapp->hash_remover(line);
-            if(nargs==0)
-                continue;
-            
-            if(sscanf(line,"%d",&iatm)!=1)
-                error->abort("every line of file %s can contain only 1argument",args[iarg]);
-            if(iatm<0 || iatm>=tot_natms)
-                error->abort("the id of atoms in file %s should be between 0 & %d",args[iarg],tot_natms);
-            int i=0;
-            while(i<natms && id[i]!=iatm) i++;
-            if(i!=natms)
-            {
-
-                if(list_size+1>list_cpcty)
-                {
-                    GROW(list,list_size,list_size+1+list_grow);
-                    list_cpcty=list_size+1+list_grow;
-                }
-
-                list[list_size++]=i;
-
-            }
-            list_size_tot++;
-        }
-        
-        if(atoms->my_p==0)
-            fclose(fp);
-        
+    }
+    else
+        error->abort("unknown keyword %s",args[iarg]);
+    iarg++;
+    
+    int ngrps=nargs-iarg;
+    int** grp_idx=new int*[ngrps];
+    int* grp_sz=new int[ngrps];
+    
+    for(int i=0;i<ngrps;i++)
+    {
+        Group* grp=groups->find_grp(args[iarg]);
+        grp->get_idx(grp_sz[i],grp_idx[i]);
         iarg++;
     }
     
-    
     type0* x=mapp->x->begin();
+    type0* xi;
     int x_dim=mapp->x->dim;
-
-    for(int i=0;i<list_size;i++)
+    for(int igrp=0;igrp<ngrps;igrp++)
     {
-        
-        for(int idim=0;idim<dim;idim++)
-            x[list[i]*x_dim+idim]+=disp[idim];
+        for(int i=0;i<grp_sz[igrp];i++)
+        {
+            xi=x+x_dim*grp_idx[igrp][i];
+            for(int idim=0;idim<dim;idim++)
+                xi[idim]+=disp[idim];
+        }
     }
-    
-    delete [] line;
+
+    if(ngrps)
+    {
+        delete [] grp_idx;
+        delete [] grp_sz;
+    }
     delete [] disp;
     
     atoms->reset();
-
 }
 /*--------------------------------------------
  destructor
