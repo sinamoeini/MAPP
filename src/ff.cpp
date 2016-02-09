@@ -162,6 +162,16 @@ type0 ForceFieldDMD::ddc_norm_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
+void ForceFieldDMD::ddc_timer(type0* ddc_)
+{
+    timer->start(FORCE_TIME_mode);
+    ddc(ddc_);
+    timer->stop(FORCE_TIME_mode);
+
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 type0 ForceFieldDMD::en_grad_timer(
 bool chk,type0* g,type0* g_mod)
 {

@@ -43,8 +43,6 @@ namespace MAPP_NS
         /*--------------------------------------------*/
         
         /*--------------------------------------------*/
-        
-        
         int c_dim;
         int dim;
         int x_dim;
@@ -55,8 +53,6 @@ namespace MAPP_NS
         type0* Q_nrm;
         
         /*--------------------------------------------*/
-        type0* dummy;
-        type0* dummy_lcl;
         type0* rho_phi;
         type0* drho_phi_dr;
         type0* drho_phi_dalpha;
@@ -76,35 +72,64 @@ namespace MAPP_NS
         
         
         
-        type0 mat(type0,type0,type0,type0,int);
-        type0 dmat0(type0,type0,type0,type0,int);
-        type0 dmat1(type0,type0,type0,type0,int);
+        type0 mat(type0,type0,int);
+        type0 dmat(type0,type0,int);
         type0 calc_ent(type0);
         type0 mod_log(type0);
         void calc_cv(type0*,type0*,int);
+
         
-        void dc_crd();
-        void dc_ncrd();
-        type0 dc_en_proj_crd(bool,type0*,type0&);
-        type0 dc_en_proj_ncrd(bool,type0*,type0&);
-        type0 imp_cost_grad_crd(bool,type0,type0,type0*,type0*);
-        type0 imp_cost_grad_ncrd(bool,type0,type0,type0*,type0*);
-        type0 ddc_norm_crd();
-        type0 ddc_norm_ncrd();
-        type0 dc_norm_grad_crd(bool,type0*,type0*);
-        type0 dc_norm_grad_ncrd(bool,type0*,type0*);
+        void calc_mu();
         
-        void calc_mu_crd();
-        void calc_mu_ncrd();
-    protected:        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        type0* psi_IJ;
+        type0* psi_JI;
+        type0* phi_IJ;
+        
+        type0* psi_r_IJ;
+        type0* psi_r_JI;
+        type0* phi_r_IJ;
+        type0* psi_alpha_IJ;
+        type0* psi_alpha_JI;
+        type0* phi_alpha_IJ;
+        
+        
+        int* phi_psi_cmp;
+        int* phi_psi_sz;
+        int phi_psi_sz_sz;
+        int n_phi_psi;
+        type0* N_IJ;
+        type0* N_JI;
+        type0* M_IJ;
+        type0* M_JI;
+        int M_N_sz_sz;
+        Vec<type0>* M_ptr;
+        Vec<type0>* N_ptr;
+        void force_calc_static(bool);
+    protected:
         void force_calc(bool);
         type0 energy_calc();
         void dc();
         type0 dc_en_proj(bool,type0*,type0&);
         type0 ddc_norm();
+        void ddc(type0*);
+
+        
         type0 imp_cost_grad(bool,type0,type0,type0*,type0*);
         type0 dc_norm_grad(bool,type0*,type0*);
         type0 en_grad(bool,type0*,type0*);
+        
+        
+
+        
     public:
         ForceField_eam_dmd(MAPP *);
         ~ForceField_eam_dmd();
@@ -112,8 +137,10 @@ namespace MAPP_NS
         void fin();
         void coef(int,char**);
         void set_temp(type0);
-
-
+        
+        void operator()(Vec<type0>*,Vec<type0>*);
+        void init_static();
+        type0 update_J(type0,type0*,type0*);
     };
     
     

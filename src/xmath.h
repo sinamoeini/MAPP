@@ -36,68 +36,7 @@ namespace MAPP_NS
         template<typename T0,class C0>
         void srch_lst_lst(T0*,int,C0*,T0*,int,C0*);
     };
-}
-/*--------------------------------------------
- quick sort algorithm
- 
- int list_sz=1000;
- int* list=new int[list_sz];
- 
- Random* rand=new Random(this,58245647);
- for(int i=0;i<list_sz;++i)
- {
- list[i]=static_cast<int>(rand->uniform()*10000.0);
- }
- 
- XMath* xmath=new XMath();
- 
- auto comp=
- [] (int* i,int* j)->bool
- {
- return (*i<*j);
- };
- auto swap=
- [] (int* i,int* j)->void
- {
- if(i==j)
- return;
- int k=*i;
- *i=*j;
- *j=k;
- };
- 
- xmath->quicksort(list,list+list_sz,comp,swap);
- 
- for(int i=1;i<list_sz;i++)
- if(list[i]<list[i-1])
- cout<<"error"<<endl;
- 
- delete xmath;
- delete rand;
- delete [] list;
- 
- --------------------------------------------*/
-template<typename T0,class COMP,class SWAP>
-void XMath::quicksort(T0 start,T0 end,COMP comp,SWAP swap)
-{
-    if(start+1>=end)
-        return;
-    T0 pindex=start;
-    for(T0 i=start;i!=end-1;i++)
-        if(comp(i,end-1))
-        {
-            swap(i,pindex);
-            pindex++;
-        }
-    swap(end-1,pindex);
-    quicksort(start,pindex,comp,swap);
-    quicksort(pindex+1,end,comp,swap);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-namespace MAPP_NS
-{
+
     template<typename T0,class C0>
     class XMath::XVec
     {
@@ -121,7 +60,7 @@ namespace MAPP_NS
                 xvec=_xvec;
                 ikey=_ikey;
             }
-
+            
             iterator(const iterator& other)
             {
                 this->xvec=other.xvec;
@@ -147,7 +86,7 @@ namespace MAPP_NS
                 this->ikey=other.ikey;
                 return *this;
             }
-
+            
             iterator& operator +=(int i)
             {
                 ikey+=i;
@@ -208,9 +147,9 @@ namespace MAPP_NS
                 xvec->act.eq(*ikey);
             }
         };
-
+        
         XVec(XMath* xmath,T0* _data
-        ,int _size,C0& _act):
+             ,int _size,C0& _act):
         data(_data),
         size(_size),
         act(_act)
@@ -237,7 +176,7 @@ namespace MAPP_NS
         {
             delete [] key;
         }
-
+        
         XVec& operator=(XVec&& other)
         {
             this->act=other.act;
@@ -247,7 +186,7 @@ namespace MAPP_NS
             other.key=NULL;
             return *this;
         }
-
+        
         iterator begin()
         {
             return iterator(this,key);
@@ -268,6 +207,61 @@ namespace MAPP_NS
             return iterator(this,key-1);
         }
     };
+}
+/*--------------------------------------------
+ quick sort algorithm
+ 
+ example to test:
+ 
+ int list_sz=1000;
+ int* list=new int[list_sz];
+ 
+ Random* rand=new Random(this,58245647);
+ for(int i=0;i<list_sz;++i)
+     list[i]=static_cast<int>(rand->uniform()*10000.0);
+ 
+ XMath* xmath=new XMath();
+ 
+ auto comp=
+ [] (int* i,int* j)->bool
+ {
+     return (*i<*j);
+ };
+ auto swap=
+ [] (int* i,int* j)->void
+ {
+     if(i==j)
+         return;
+     int k=*i;
+     *i=*j;
+     *j=k;
+ };
+ 
+ xmath->quicksort(list,list+list_sz,comp,swap);
+ 
+ for(int i=1;i<list_sz;i++)
+     if(list[i]<list[i-1])
+         cout<<"error"<<endl;
+ 
+ delete xmath;
+ delete rand;
+ delete [] list;
+ --------------------------------------------*/
+template<typename T0,class COMP,class SWAP>
+void XMath::quicksort(T0 start,T0 end,COMP comp,SWAP swap)
+{
+    if(start+1>=end)
+        return;
+    T0 pindex=start;
+    for(T0 i=start;i!=end-1;i++)
+        if(comp(i,end-1))
+        {
+            swap(i,pindex);
+            pindex++;
+        }
+    swap(end-1,pindex);
+    quicksort(start,pindex,comp,swap);
+    quicksort(pindex+1,end,comp,swap);
 }
 /*--------------------------------------------
  
@@ -353,24 +347,9 @@ void XMath::srch_lst_lst(T0* ilst,int isize,C0* iact
         }
     }    
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 namespace MAPP_NS
 {
     class SPARSE : protected InitPtrs

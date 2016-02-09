@@ -10,7 +10,7 @@ namespace MAPP_NS
     {
     private:
         type0** xi; type0** wi;
-        void ratio_calc(int,type0,type0&,type0&);
+        void ratio_calc(type0&,type0&);
     protected:
         // stuff for book keeping
         type0* t;
@@ -30,10 +30,13 @@ namespace MAPP_NS
 
         
         //functions to be accessed by run()
-        void restart(type0&,int&);
-        void store_vecs(type0);
-        void interpolate(type0&,int&);
-        void ord_dt(type0,type0,int,type0&,int&);
+        void restart();
+        void update_for_next();
+        bool interpolate();
+        void ord_dt(type0&);
+        void err_calc();
+        void err_fac_calc();
+        void start();
     public:
         DMD_adams(MAPP *,int,char**);
         ~DMD_adams();

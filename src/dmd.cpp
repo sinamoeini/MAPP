@@ -43,8 +43,10 @@ nrgy_strss(forcefield->nrgy_strss)
     neighbor_dmd=dynamic_cast<Neighbor_dmd*>(neighbor);
     
     a_tol=sqrt(2.0*numeric_limits<type0>::epsilon());
-    min_del_t=std::numeric_limits<type0>::epsilon();
-    max_t=1.0e7;
+    dt_min=std::numeric_limits<type0>::epsilon();
+    eps=std::numeric_limits<type0>::epsilon();
+    eps_sqr=sqrt(2.0*std::numeric_limits<type0>::epsilon());
+    t_fin=1.0e7;
     f_tol=1.0e-5;
     cd_tol=1.0e-4;
     min_flag=NO_FLAG;
@@ -108,10 +110,10 @@ void DMD::dmd_min(int nargs,char** args)
 void DMD::run(type0 t)
 {
     if(t<=0.0)
-        error->abort("max_t in dmd should be greater than 0.0");
-    if(min_del_t>t)
-        error->abort("max_t in dmd should be greater than min_del_t");
-    max_t=t;
+        error->abort("t_fin in dmd should be greater than 0.0");
+    if(dt_min>t)
+        error->abort("t_fin in dmd should be greater than dt_min");
+    t_fin=t;
     run();
 }
 /*--------------------------------------------
@@ -132,14 +134,14 @@ void DMD::do_min()
 bool DMD::decide_min(int& istep,type0& del_t)
 {
     max_succ_dt=MAX(max_succ_dt,del_t);
-    tot_t+=del_t;
+    t_cur+=del_t;
     if(write!=NULL)
         write->write();
     thermo->thermo_print();
     
     bool thermo_flag=(thermo->test_prev_step()
     || istep==max_step-1
-    || tot_t>=max_t);
+    || t_cur>=t_fin);
     istep++;
     step_no++;
     if(min_flag==F_FLAG)
@@ -149,7 +151,7 @@ bool DMD::decide_min(int& istep,type0& del_t)
         {
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
+            thermo->update(time_idx,t_cur);
         }
         if(f_norm-f_norm0>=f_tol)
         {
@@ -163,7 +165,7 @@ bool DMD::decide_min(int& istep,type0& del_t)
             forcefield_dmd->force_calc_timer(true);
             thermo->update(fe_idx,nrgy_strss[0]);
             thermo->update(stress_idx,6,&nrgy_strss[1]);
-            thermo->update(time_idx,tot_t);
+            thermo->update(time_idx,t_cur);
         }
         if(min_flag==CD_FLAG)
         {
@@ -230,7 +232,7 @@ void DMD::init()
 {
     dstep=-1;
     nmin=0;
-    tot_t=0.0;
+    t_cur=0.0;
     nc_dofs=calc_nc_dofs();
     if(nc_dofs==0.0)
         error->abort("cannot start a dmd with no degrees of freedom");
@@ -240,7 +242,7 @@ void DMD::init()
         mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
         memset(mapp->c_d->begin(),0,atoms->natms*c_dim*sizeof(type0));
     }
-
+    
     if(min==NULL)
     {
         old_skin=atoms->get_skin();
@@ -265,6 +267,7 @@ void DMD::init()
     thermo->init();
     if(write!=NULL)
         write->init();
+
 }
 /*--------------------------------------------
  default fin
@@ -285,6 +288,7 @@ void DMD::fin()
     {
         min->fin();
     }
+    
     print_stats();
     timer->print_stats();
     neighbor->print_stats();
@@ -298,7 +302,7 @@ void DMD::print_stats()
     if(atoms->my_p==0)
     {
         fprintf(output,"dmd stats:\n");
-        fprintf(output,"efficiancy fac: %e\n",tot_t/timer->tot_time);
+        fprintf(output,"efficiancy fac: %e\n",t_cur/timer->tot_time);
         fprintf(output,"no. minimizations performed: %d\n",nmin);
     }
 }
@@ -310,183 +314,206 @@ void DMD::reset()
     ncs=atoms->natms*c_dim;
     forcefield_dmd->dynamic_flag=false;
     neighbor_dmd->create_2nd_list();
+    forcefield_dmd->init_static();
     forcefield_dmd->dc_timer();
     rectify(mapp->c_d->begin());
+    c_d_norm=1.0;
 }
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 DMDImplicit::DMDImplicit(MAPP* mapp):DMD(mapp)
 {
-    iter_dcr_thrsh=3;
     max_iter=20;
-    m_tol=sqrt(numeric_limits<type0>::epsilon());
     
-    
-    char** args;
-    int nargs=mapp->parse_line("ls brent max_iter 10",args);
-    
-    ls_dmd=new LineSearch_brent<DMDImplicit>(mapp,nargs,args);
-    
-    for(int i=0;i<nargs;i++)
-        delete [] args[i];
-    if(nargs)
-        delete [] args;
-    
-    ls_dmd->init(this);
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 DMDImplicit::~DMDImplicit()
 {
-    delete ls_dmd;
 }
 /*--------------------------------------------
  solve the implicit equation
  --------------------------------------------*/
-int DMDImplicit::solve_n_err(type0& cost,type0& err)
+bool DMDImplicit::solve_non_lin()
 {
+    type0 res_tol=0.005*a_tol*sqrt(nc_dofs)/err_fac;
+    type0 cost,cost0;
+    type0 denom=a_tol*sqrt(nc_dofs);
+    type0 r,r_lcl,norm=1.0,R=1.0,del,delp=0.0;
+    int iter=0,solver_iter;
     type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
     
-    type0 gamma;
-    type0 inner[2],inner_lcl[2],tmp0;
-    type0 err_lcl;
-    type0 ratio;
-    type0 g0_g0=-1.0,g_g,g_g0;
-    type0 curr_cost;
-    type0 tol=m_tol;
-    type0 mm_tol=tol/sqrt(nc_dofs);
-    int ls_succ=LS_S,iter=0;
+    type0* c_d=mapp->c_d->begin();
 
     
-    memcpy(c,y_0,ncs*sizeof(type0));
-    atoms->update(mapp->c);
-    curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,beta,a,g);
-    rectify(g);
-    inner_lcl[0]=0.0;
-    for(int i=0;i<ncs;i++) inner_lcl[0]+=g[i]*g[i];
-    MPI_Allreduce(&inner_lcl,&g0_g0,1,MPI_TYPE0,MPI_SUM,world);
     
-    memcpy(h,g,ncs*sizeof(type0));
-    h_h=g_h=g0_g0;
-    
-    while(g0_g0!=0.0 && iter<max_iter && ls_succ==LS_S)
+
+    /*
+    if(c_d_norm>=1.0)
     {
-        memcpy(g0,g,ncs*sizeof(type0));
-        memcpy(c0,c,ncs*sizeof(type0));
+        memcpy(c,y_0,ncs*sizeof(type0));
+        atoms->update(mapp->c);
+    }*/
+    
+    cost=cost0=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
+    while(cost>=1.0 && iter<max_iter)
+    {
+        for(int i=0;i<ncs;i++) del_c[i]=0.0;
+        
+        gmres->solve(res_tol,F,del_c,solver_iter,norm);
+        
+        rectify(del_c);
         
         
-        ls_succ=ls_dmd->line_min(curr_cost,gamma,1);
+        
+        r_lcl=-1.0;
+        for(int i=0;i<ncs;i++)
+        {
+            if(c[i]>=0.0)
+            {
+                c[i]+=del_c[i];
+                if(c[i]>1.0)
+                    r_lcl=MAX(r_lcl,(c[i]-1.0)/del_c[i]);
+                if(c[i]<0.0)
+                    r_lcl=MAX(r_lcl,c[i]/del_c[i]);
+            }
+            else
+                del_c[i]=0.0;
+        }
+        
+        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MAX,world);
+        
+        if(r!=-1.0)
+        {
+            for(int i=0;i<ncs;i++)
+            {
+                c[i]-=del_c[i]*r;
+                if(c[i]>1.0)
+                    c[i]=1.0;
+                if(c[i]<0.0)
+                    c[i]=0.0;
+            }
+        }
+        else
+            r=0.0;
+        
+        
+        
+        del=(1.0-r)*norm/denom;
+        
+        if(iter)
+        {
+            R=MAX(0.3*R,del/delp);
+        }
+        
+        atoms->update(mapp->c);
+        cost0=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
+        cost=MIN(cost0,MIN(1.0,R)*del*err_fac/0.1);
+
+        
+#ifdef DMD_DEBUG
+    if(atoms->my_p==0) printf("%d %e %e\n",iter,cost0,cost);
+#endif
+        
+        delp=del;
         iter++;
-        
-        if(ls_succ!=LS_S)
-            continue;
-        curr_cost=forcefield_dmd->imp_cost_grad_timer(true,mm_tol,beta,a,g);
-        rectify(g);
-        
-        inner_lcl[0]=inner_lcl[1]=0.0;
-        for(int i=0;i<ncs;i++)
-        {
-            inner_lcl[0]+=g[i]*g0[i];
-            inner_lcl[1]+=g[i]*g[i];
-        }
-        
-        MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
-        g_g0=inner[0];
-        g_g=inner[1];
-        ratio=(g_g-g_g0)/g0_g0;
-        
-        if(g_g==0.0)
-        {
-            g0_g0=0.0;
-            continue;
-        }
-        
-        int bound_chk_lcl=1,bound_chk;
-        for(int i=0;i<ncs;i++)
-        {
-            h[i]*=ratio;
-            h[i]+=g[i];
-            if((c[i]==0.0 && h[i]<0.0) || (c[i]==1.0 && h[i]>0.0))
-                bound_chk_lcl=0;
-            inner_lcl[0]+=h[i]*g[i];
-            inner_lcl[1]+=h[i]*h[i];
-        }
-        
-        MPI_Allreduce(&bound_chk_lcl,&bound_chk,1,MPI_INT,MPI_MIN,world);
-        if(bound_chk)
-        {
-            MPI_Allreduce(inner_lcl,inner,2,MPI_TYPE0,MPI_SUM,world);
-            g_h=inner[0];
-            h_h=inner[1];
-        }
-        
-        if(g_h<0.0  || bound_chk==0)
-        {
-            memcpy(h,g,ncs*sizeof(type0));
-            h_h=g_h=g_g;
-        }
-        
-        g0_g0=g_g;
     }
     
     rectify(c_d);
     
-    err_lcl=0.0;
-    type0 c_d_norm_lcl=0.0;
-    type0 c_d_max_lcl=0.0;
-    type0 c_d_max;
-    type0 err_max_lcl=0.0;
-    type0 err_max;
-    type0 cost_max_lcl=0.0;
-    type0 cost_max;
-    
-    for(int i=0;i<ncs;i++)
+
+#ifdef DMD_DEBUG
+    //if(atoms->my_p==0) printf("Error %e | cd_norm %e  %e | %e **** max_dy %e\n",err,c_d_norm,forcefield_dmd->ddc_norm_timer()/a_tol,err,max_dy/a_tol);
+#endif
+
+    if(cost<1.0)
     {
-        if(c[i]>=0.0)
+        if(iter)
+            solve_acc++;
+        return true;
+    }
+    
+    return false;
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void DMDImplicit::intp_fail()
+{
+    intp_rej++;
+    start();
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void DMDImplicit::intg_fail()
+{
+    intg_rej++;
+    if(t_fin-t_cur<=2.0*dt_min)
+    {
+        if(q>1)
+            q--;
+        else
+            error->abort("reached minimum order & del_t (%e)",dt);
+    }
+    else
+    {
+        if(dt==dt_min)
         {
-            tmp0=(y_0[i]-c[i]);
-            err_lcl+=tmp0*tmp0;
-            c_d_norm_lcl+=c_d[i]*c_d[i];
-            c_d_max_lcl=MAX(c_d_max_lcl,fabs(c_d[i]));
-            err_max_lcl=MAX(err_max_lcl,fabs(tmp0));
-            cost_max_lcl=MAX(cost_max_lcl,fabs(c[i]+a[i]-beta*c_d[i]));
+            if(q>1)
+                q--;
+            else
+                error->abort("reached minimum order & del_t (%e)",dt);
+        }
+        else
+        {
+            type0 r=pow(0.5/err,1.0/static_cast<type0>(q+1));
+            
+            if(r*dt<dt_min)
+                dt=dt_min;
+            else if(r*dt>t_fin-t_cur-dt_min)
+                dt=t_fin-t_cur-dt_min;
+            else
+                dt*=r;
         }
     }
-    
-    err=0.0;
-    MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(&c_d_max_lcl,&c_d_max,1,MPI_TYPE0,MPI_MAX,world);
-    MPI_Allreduce(&err_max_lcl,&err_max,1,MPI_TYPE0,MPI_MAX,world);
-    MPI_Allreduce(&cost_max_lcl,&cost_max,1,MPI_TYPE0,MPI_MAX,world);
-    MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
-    err=sqrt(err/nc_dofs)/a_tol;
-    c_d_norm=sqrt(c_d_norm/nc_dofs);
-    err*=err_prefac;
-
-    cost=cost_max/m_tol;
-    
-    if(iter)
+}
+/*--------------------------------------------
+ run
+ --------------------------------------------*/
+void DMDImplicit::nonl_fail()
+{
+    solve_rej++;
+    if(t_fin-t_cur<=2.0*dt_min)
     {
-        if(cost<1.0)
-            solve_acc++;
+        if(q>1)
+            q--;
         else
-            solve_rej++;
+            error->abort("reached minimum order & del_t (%e)",dt);
     }
-    if(err>=1.0)
-        intg_rej++;
-    
-    
-#ifdef DMD_DEBUG
-    if(atoms->my_p==0)
-        printf("%lf %lf %d %e %d %lf %e | Max %e %e\n",err,cost,iter,c_d_norm,ls_succ,g0_g0,max_a,c_d_max,err_prefac*err_max/a_tol);
-#endif
-    if(ls_succ==8)
-        cost=2.0;
-
-    return iter;
+    else
+    {
+        if(dt==dt_min)
+        {
+            if(q>1)
+                q--;
+            else
+                error->abort("reached minimum order & del_t (%e)",dt);
+        }
+        else
+        {
+            type0 r=0.25;
+            
+            if(r*dt<dt_min)
+                dt=dt_min;
+            else if(r*dt>t_fin-t_cur-dt_min)
+                dt=t_fin-t_cur-dt_min;
+            else
+                dt*=r;
+        }
+    }
 }
 /*--------------------------------------------
  run
@@ -496,55 +523,65 @@ void DMDImplicit::run()
     if(max_step==0)
         return;
 
-    type0 del_t,del_t_tmp;
-    type0 cost,err;
-    int q;
     int istep;
     bool min_run=false;
     
     istep=0;
-    while (istep<max_step && tot_t<max_t)
+    while (istep<max_step && t_cur<t_fin)
     {
         
-        restart(del_t,q);
-        const_stps=0;
-        int iter=-1,iter_0=-1;
-
-        while (istep<max_step && tot_t<max_t && !min_run)
+        restart();
+        start();
+        q_p=-1;
+        dt_p=0.0;
+        const_q=const_dt=0;
+        
+        while (istep<max_step && t_cur<t_fin && !min_run)
         {
             err=1.0;
-            cost=1.0;
-            while (MAX(cost,err)>=1.0)
+
+            for(;;)
             {
-                interpolate(del_t,q);
-#ifdef DMD_DEBUG
-                if(atoms->my_p==0) printf("%e %d: ",del_t,q);
-#endif
-                iter=solve_n_err(cost,err);
-                if(MAX(cost,err)<1.0)
-                    continue;
-                if(cost>=1.0)
-                    iter_0=-1;
+
+                if(!interpolate())
+                {
+                    intp_fail();
+                    if(!interpolate())
+                        error->abort("exceeded the domain");
+                }
                 
-                fail_stp_adj(err,cost,del_t,q);
+                err_fac_calc();
+                
+#ifdef DMD_DEBUG
+        //if(atoms->my_p==0) printf("del_t: %e q: %d \n",del_t,q);
+#endif
+
+                if(!solve_non_lin())
+                {
+                    nonl_fail();
+                    continue;
+                }
+                
+                err_calc();
+                
+                
+                if(err>=1.0)
+                {
+                    intg_fail();
+                    continue;
+                }
+                break;
             }
-            
-            if(iter_0!=-1 && (iter<iter_0 || iter==0))
-                iter_dcr_cntr++;
-            else
-                iter_dcr_cntr=0;
-            
-            iter_0=iter;
             
             max_succ_q=MAX(max_succ_q,q);
             
-            min_run=decide_min(istep,del_t);
+            min_run=decide_min(istep,dt);
             if(min_run) continue;
-
-            del_t_tmp=del_t;
-            ord_dt(err,del_t,q);
-            store_vecs(del_t_tmp);
-
+            
+            ord_dt();
+            q_p=q;
+            dt_p=dt;
+            update_for_next();
         }
 
         if(!min_run) continue;
@@ -555,176 +592,58 @@ void DMDImplicit::run()
 /*--------------------------------------------
  run
  --------------------------------------------*/
-inline void DMDImplicit::ord_dt(type0 err,type0& del_t,int& q)
+inline void DMDImplicit::ord_dt()
 {
-    type0 r=1.0;
-    int del_q=0;
-   
-    if(iter_dcr_cntr>iter_dcr_thrsh || const_stps>=10)
-        ord_dt(err,del_t,q,r,del_q);
+    if(dt==dt_p)
+        const_dt++;
+    else
+        const_dt=0;
 
+    if(q==q_p)
+        const_q++;
+    else
+        const_q=0;
     
-    if(r>=2.0)
-        r=2.0;
+    type0 r=1.0;
+    ord_dt(r);
+#ifdef DMD_DEBUG
+    //if(atoms->my_p==0) printf("estimated ratio %lf | err %e\n",r,err);
+#endif
+
+    if(10.0<r)
+        r=10.0;
+    else if(1.0<=r && r<1.5)
+        r=1.0;
     else if(r<=0.5)
         r=0.5;
-    else
-        r=1.0;
-    
-    if(r>1.0)
-        iter_dcr_cntr=0;
-    
+        
     bool const_stp_chk=false;
-    if(r*del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
+    if(r*dt>t_fin-t_cur)
+        dt_new=t_fin-t_cur;
     else
     {
-        if(max_t-tot_t<=2.0*min_del_t)
+        if(t_fin-t_cur<=2.0*dt_min)
         {
-            del_t=2.0*min_del_t;
+            dt_new=2.0*dt_min;
         }
         else
         {
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
+            if(r*dt<dt_min)
+                dt_new=dt_min;
+            else if(r*dt>=t_fin-t_cur-dt_min)
+                dt_new=t_fin-t_cur-dt_min;
             else
             {
-                del_t*=r;
+                dt_new=r*dt;
                 if(r==1.0)
                     const_stp_chk=true;
             }
         }
     }
     
-    if(const_stp_chk && del_q==0)
-        const_stps++;
-    else
-        const_stps=0;
-    
-    q+=del_q;
 #ifdef DMD_DEBUG
-    if(atoms->my_p==0)
-        printf("%lf %d \n",r,const_stps);
+    //if(atoms->my_p==0) printf("ratio %lf q: %d | constant_steps %d \n",r,q,const_stps);
 #endif
-}
-/*--------------------------------------------
- find the the cost function given gamma
- --------------------------------------------*/
-void DMDImplicit::ls_prep(type0& dfa,type0& h_norm,type0& max_a_)
-{
-    type0 max_a_lcl;
-    max_a_lcl=numeric_limits<type0>::infinity();
-
-    for(int i=0;i<ncs;i++)
-    {
-        if(h[i]>0.0)
-        {
-            c1[i]=(1.0-c0[i])/h[i];
-            max_a_lcl=MIN(c1[i],max_a_lcl);
-        }
-        else if(h[i]<0.0)
-        {
-            c1[i]=(0.0-c0[i])/h[i];
-            max_a_lcl=MIN(c1[i],max_a_lcl);
-        }
-
-    }
-    MPI_Allreduce(&max_a_lcl,&max_a_,1,MPI_TYPE0,MPI_MIN,world);
-    h_norm=sqrt(h_h);
-    dfa=-g_h;
-    if(max_a_==numeric_limits<type0>::infinity())
-        error->abort("h_norm is 0.0");
-    max_a=max_a_;
-    
-    for(int i=0;i<ncs;i++)
-    {
-        if(c0[i]>=0.0)
-        {
-            if(h[i]>0.0)
-            {
-                if(c1[i]>max_a)
-                    c1[i]=c0[i]+max_a*h[i];
-                else
-                    c1[i]=1.0;
-            }
-            else if(h[i]<0.0)
-            {
-                if(c1[i]>max_a)
-                    c1[i]=c0[i]+max_a*h[i];
-                else
-                    c1[i]=0.0;
-            }
-            else
-                c1[i]=c0[i];
-        }
-    }
-}
-/*--------------------------------------------
- find the the cost function given gamma
- --------------------------------------------*/
-type0 DMDImplicit::F(type0 alpha)
-{
-    type0* c=mapp->c->begin();
-    
-    if(alpha<max_a)
-    {
-        for(int i=0;i<ncs;i++)
-            if(c0[i]>=0.0)
-                c[i]=c0[i]+alpha*h[i];
-    }
-    else
-    {
-        for(int i=0;i<ncs;i++)
-            if(c0[i]>=0.0)
-                c[i]=c1[i];
-    }
-    
-    atoms->update(mapp->c);
-    
-    return forcefield_dmd->imp_cost_grad_timer(false,0.0,beta,a,g);
-}
-/*--------------------------------------------
- inner product of f and h
- --------------------------------------------*/
-type0 DMDImplicit::dF(type0 alpha,type0& drev)
-{
-    type0* c=mapp->c->begin();
-    
-    if(alpha<max_a)
-    {
-        for(int i=0;i<ncs;i++)
-            if(c0[i]>=0.0)
-                c[i]=c0[i]+alpha*h[i];
-    }
-    else
-    {
-        for(int i=0;i<ncs;i++)
-            if(c0[i]>=0.0)
-                c[i]=c1[i];
-    }
-    
-    atoms->update(mapp->c);
-    
-    type0 cost=forcefield_dmd->imp_cost_grad_timer(true,0.0,beta,a,g);
-    type0 inner0=0.0;
-    for(int i=0;i<ncs;i++)
-        if(c[i]>=0.0)
-            inner0+=g[i]*h[i];
-    
-    MPI_Allreduce(&inner0,&drev,1,MPI_TYPE0,MPI_SUM,world);
-    drev*=-1.0;
-    return cost;
-}
-/*--------------------------------------------
- inner product of f and h
- --------------------------------------------*/
-void DMDImplicit::F_reset()
-{
-    type0* c=mapp->c->begin();
-    memcpy(c,c0,ncs*sizeof(type0));
-    atoms->update(mapp->c);
 }
 /*--------------------------------------------
  
@@ -734,11 +653,9 @@ void DMDImplicit::reset()
     DMD::reset();
     a=vecs_0[0]->begin();
     y_0=vecs_0[1]->begin();
-    g=vecs_0[2]->begin();
-    h=vecs_0[3]->begin();
-    g0=vecs_0[4]->begin();
-    c0=vecs_0[5]->begin();
-    c1=vecs_0[6]->begin();
+    F=vecs_0[2]->begin();
+    del_c=vecs_0[3]->begin();
+    gmres->refresh();
 }
 /*--------------------------------------------
  given the direction h do the line search
@@ -761,6 +678,7 @@ void DMDImplicit::print_stats()
  --------------------------------------------*/
 void DMDImplicit::init()
 {
+    gmres=new GMRES<type0,ForceFieldDMD>(mapp,5,c_dim,*forcefield_dmd);
     DMD::init();
     max_succ_q=1;
     max_succ_dt=0.0;
@@ -769,8 +687,8 @@ void DMDImplicit::init()
     intg_rej=0;
     intp_rej=0;
     
-    vecs_0=new Vec<type0>*[7];
-    for(int ivec=0;ivec<7;ivec++)
+    vecs_0=new Vec<type0>*[4];
+    for(int ivec=0;ivec<4;ivec++)
         vecs_0[ivec]=new Vec<type0>(atoms,c_dim);
     allocate();
 }
@@ -780,75 +698,11 @@ void DMDImplicit::init()
 void DMDImplicit::fin()
 {
     deallocate();
-    for(int ivec=0;ivec<7;ivec++)
+    for(int ivec=0;ivec<4;ivec++)
         delete vecs_0[ivec];
     delete [] vecs_0;
     DMD::fin();
-}
-/*--------------------------------------------
- step addjustment after failure
- --------------------------------------------*/
-inline void DMDImplicit::fail_stp_adj(type0 err,type0 m_err,type0& del_t,int& q)
-{
-    const_stps=0;
-    
-    if(max_t-tot_t<=2.0*min_del_t)
-    {
-        if(q>1)
-            q--;
-        else
-            error->abort("reached minimum order & del_t (%e)",del_t);
-    }
-    else
-    {
-        if(del_t==min_del_t)
-        {
-            if(q>1)
-                q--;
-            else
-                error->abort("reached minimum order & del_t (%e)",del_t);
-        }
-        else
-        {
-            type0 r=pow(0.5/MAX(err,m_err),1.0/static_cast<type0>(q+1));
-            
-            r=MIN(r,0.9);
-            
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
-            else
-                del_t*=r;
-        }
-    }
-}
-/*--------------------------------------------
- given the direction h do the line search
- --------------------------------------------*/
-int DMDImplicit::test()
-{
-    type0 dfa,h_norm;
-    ls_prep(dfa,h_norm,max_a);
-    dfa=-g_h;
-    int no=100;
-    type0 frac=1.0e-2*max_a;
-    type0 fu,u=0.0;
-    type0 fa=F(0.0);
-    
-    if(atoms->my_p==0) printf("--------------------- %d\n",step_no);
-    if(atoms->my_p==0) printf("u fu f_x u*dfa\n");
-    
-    for(int i=0;i<no;i++)
-    {
-        fu=F(u);
-        if(atoms->my_p==0)printf("%22.20lf %22.20lf %22.20lf \n",u,fu-fa,u*dfa);
-        u+=frac;
-    }
-    F_reset();
-    if(atoms->my_p==0) printf("---------------------n");
-    error->abort("");
-    return 0;
+    delete gmres;
 }
 /*--------------------------------------------
  constructor
@@ -909,13 +763,13 @@ void DMDExplicit::print_stats()
  --------------------------------------------*/
 inline void DMDExplicit::fail_stp_adj(type0 err,type0& del_t)
 {
-    if(max_t-tot_t<=2.0*min_del_t)
+    if(t_fin-t_cur<=2.0*dt_min)
     {
         error->abort("reached minimum order & del_t (%e)",del_t);
     }
     else
     {
-        if(del_t==min_del_t)
+        if(del_t==dt_min)
         {
             
             error->abort("reached minimum order & del_t (%e)",del_t);
@@ -925,10 +779,10 @@ inline void DMDExplicit::fail_stp_adj(type0 err,type0& del_t)
             type0 r=0.9/err;
             r=MAX(r,0.5);
             
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
+            if(r*del_t<dt_min)
+                del_t=dt_min;
+            else if(r*del_t>t_fin-t_cur-dt_min)
+                del_t=t_fin-t_cur-dt_min;
             else
                 del_t*=r;
         }
@@ -948,11 +802,11 @@ void DMDExplicit::run()
     int istep;
     bool min_run=false;
     istep=0;
-    while (istep<max_step && tot_t<max_t)
+    while (istep<max_step && t_cur<t_fin)
     {
         restart(del_t,q);
         
-        while (istep<max_step && tot_t<max_t && !min_run)
+        while (istep<max_step && t_cur<t_fin && !min_run)
         {
             err=1.0;
             while(err>=1.0)

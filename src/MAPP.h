@@ -91,6 +91,7 @@ namespace MAPP_NS
         
         void open_file(FILE*&,const char*,const char*);
     };
+    
 }
 
 #endif

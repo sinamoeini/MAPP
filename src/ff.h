@@ -63,6 +63,7 @@ namespace MAPP_NS
         virtual void dc()=0;
         virtual type0 dc_en_proj(bool,type0*,type0&)=0;
         virtual type0 ddc_norm()=0;
+        virtual void ddc(type0*)=0;
         virtual type0 imp_cost_grad(bool,type0,type0,type0*,type0*)=0;
         virtual type0 dc_norm_grad(bool,type0*,type0*)=0;
         virtual type0 en_grad(bool,type0*,type0*)=0;
@@ -81,9 +82,17 @@ namespace MAPP_NS
         void dc_timer();
         type0 dc_en_proj_timer(bool,type0*,type0&);
         type0 ddc_norm_timer();
+        void ddc_timer(type0*);
         
         type0 alpha_min,alpha_max;
         bool dynamic_flag;
+        
+        
+        
+        
+        virtual void init_static()=0;
+        virtual type0 update_J(type0,type0*,type0*)=0;
+        virtual void operator()(Vec<type0>*,Vec<type0>*)=0;
     };
 }
 #endif

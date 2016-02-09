@@ -24,6 +24,11 @@
 #include <iostream>
 #include <fstream>
 
+
+
+#include "gmres.h"
+
+
 #define MAPP_VERSION "Beta"
 using namespace MAPP_NS;
 

@@ -5,7 +5,7 @@
 #include "neighbor_dmd.h"
 #include "thermo_dynamics.h"
 #include "min.h"
-#include "ls_styles.h"
+#include "gmres.h"
 namespace MAPP_NS
 {
     enum
@@ -29,7 +29,7 @@ namespace MAPP_NS
         int stress_idx;
         int time_idx;
         type0*& nrgy_strss;
-        type0 tot_t,a_tol;
+        type0 eps,eps_sqr;
         int c_dim;
         
         // dofs
@@ -41,7 +41,8 @@ namespace MAPP_NS
         virtual void print_stats();
         
         int max_step;
-        type0 min_del_t,max_t;
+        type0 t_cur,a_tol,dt_min,t_fin;
+        
         ThermoDynamics* thermo;
         
         Min* min;
@@ -61,6 +62,7 @@ namespace MAPP_NS
 
         type0 max_succ_dt;
         virtual void run()=0;
+
     public:
         DMD(MAPP *);
         virtual ~DMD();
@@ -74,33 +76,32 @@ namespace MAPP_NS
     class DMDImplicit: public DMD
     {
     private:
-        type0 g_h;
-        type0 h_h;
         
-        LineSearch<DMDImplicit>* ls_dmd;
     protected:
-        int max_order;
+        type0 dt,dt_p,dt_new;
+        int dq,q,q_p,q_max;
+        
+        int const_dt,const_q;
+        
         // variables & vectors for implicit integrator
         type0 beta;
+        type0 beta_inv;
+        
         Vec<type0>** vecs_0;
         type0* a;
         type0* y_0;
-        type0* g;
-        type0* h;
-        type0* g0;
-        type0* c0;
-        type0* c1;
+        type0* F;
+        type0* del_c;
+
         
         // parameters for implicit integrator
-        type0 err_prefac;
+        type0 err,err_fac;
 
         int max_iter;
-        int iter_dcr_cntr,iter_dcr_thrsh;
-        type0 m_tol,max_a;
-        
 
-        int solve_n_err(type0&,type0&);
-        int const_stps;
+        bool solve_non_lin();
+        
+        
 
 
         void print_stats();
@@ -111,12 +112,13 @@ namespace MAPP_NS
         int intp_rej;
         
 
-        int test();
 
 
         void reset();
-        void ord_dt(type0,type0&,int&);
-        void fail_stp_adj(type0,type0,type0&,int&);
+        void ord_dt();
+        void intg_fail();
+        void intp_fail();
+        void nonl_fail();
         
         // allocation and deallocation functions
         // specific to each style
@@ -127,12 +129,17 @@ namespace MAPP_NS
         // functions to be accessed by run
         // specific to each style
         // pure virtual
-        virtual void restart(type0&,int&)=0;
-        virtual void store_vecs(type0)=0;
-        virtual void interpolate(type0&,int&)=0;
-        virtual void ord_dt(type0,type0,int,type0&,int&)=0;
+        virtual void restart()=0;
+        virtual void update_for_next()=0;
+        virtual bool interpolate()=0;
+        virtual void err_fac_calc()=0;
+        virtual void ord_dt(type0&)=0;
+        virtual void err_calc()=0;
+        virtual void start()=0;
         
         void run();
+        
+        GMRES<type0,ForceFieldDMD>* gmres;
     public:
         DMDImplicit(MAPP*);
         virtual ~DMDImplicit();
@@ -140,10 +147,7 @@ namespace MAPP_NS
         void init();
         void fin();
         
-        type0 F(type0);
-        type0 dF(type0,type0&);
-        void ls_prep(type0&,type0&,type0&);
-        void F_reset();
+
     };
     
     

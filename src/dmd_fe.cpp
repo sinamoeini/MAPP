@@ -31,10 +31,10 @@ DMD_fe::DMD_fe(MAPP* mapp,int nargs
                 a_tol=atof(args[iarg]);
                 iarg++;
             }
-            else if(strcmp(args[iarg],"min_del_t")==0)
+            else if(strcmp(args[iarg],"dt_min")==0)
             {
                 iarg++;
-                min_del_t=atof(args[iarg]);
+                dt_min=atof(args[iarg]);
                 iarg++;
             }
             else
@@ -47,8 +47,8 @@ DMD_fe::DMD_fe(MAPP* mapp,int nargs
         error->abort("max_step in dmd fe should be greater than 0");
     if(a_tol<=0.0)
         error->abort("a_tol in dmd fe should be greater than 0.0");
-    if(min_del_t<=0.0)
-        error->abort("min_del_t in dmd fe should be greater than 0.0");
+    if(dt_min<=0.0)
+        error->abort("dt_min in dmd fe should be greater than 0.0");
 
 }
 /*--------------------------------------------
@@ -87,22 +87,22 @@ void DMD_fe::restart(type0& del_t,int& q)
     dy=vecs_1[1]->begin();
     
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
-    del_t=MIN(sqrt(4.0*a_tol/sum),1.0e-3*(max_t-tot_t));
+    del_t=MIN(sqrt(4.0*a_tol/sum),1.0e-3*(t_fin-t_cur));
     
-    if(del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
+    if(del_t>t_fin-t_cur)
+        del_t=t_fin-t_cur;
     else
     {
-        if(max_t-tot_t<=2.0*min_del_t)
+        if(t_fin-t_cur<=2.0*dt_min)
         {
-            del_t=max_t-tot_t;
+            del_t=t_fin-t_cur;
         }
         else
         {
-            if(del_t<min_del_t)
-                del_t=min_del_t;
-            else if(del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
+            if(del_t<dt_min)
+                del_t=dt_min;
+            else if(del_t>=t_fin-t_cur-dt_min)
+                del_t=t_fin-t_cur-dt_min;
         }
     }
     
@@ -161,22 +161,22 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MIN,world);
         if(r!=1.0)
         {
-            if(max_t-tot_t<=2.0*min_del_t)
+            if(t_fin-t_cur<=2.0*dt_min)
             {
                 error->abort("reached minimum del_t (%e)",del_t);
             }
             else
             {
-                if(del_t==min_del_t)
+                if(del_t==dt_min)
                 {
                     error->abort("reached minimum del_t (%e)",del_t);
                 }
                 else
                 {
-                    if(r*del_t<min_del_t)
-                        del_t=min_del_t;
-                    else if(r*del_t>max_t-tot_t-min_del_t)
-                        del_t=max_t-tot_t-min_del_t;
+                    if(r*del_t<dt_min)
+                        del_t=dt_min;
+                    else if(r*del_t>t_fin-t_cur-dt_min)
+                        del_t=t_fin-t_cur-dt_min;
                     else
                         del_t*=r;
                 }
@@ -235,22 +235,22 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MIN,world);
         if(r!=1.0)
         {
-            if(max_t-tot_t<=2.0*min_del_t)
+            if(t_fin-t_cur<=2.0*dt_min)
             {
                 error->abort("reached minimum del_t (%e)",del_t);
             }
             else
             {
-                if(del_t==min_del_t)
+                if(del_t==dt_min)
                 {
                     error->abort("reached minimum del_t (%e)",del_t);
                 }
                 else
                 {
-                    if(r*del_t<min_del_t)
-                        del_t=min_del_t;
-                    else if(r*del_t>max_t-tot_t-min_del_t)
-                        del_t=max_t-tot_t-min_del_t;
+                    if(r*del_t<dt_min)
+                        del_t=dt_min;
+                    else if(r*del_t>t_fin-t_cur-dt_min)
+                        del_t=t_fin-t_cur-dt_min;
                     else
                         del_t*=r;
                 }
@@ -281,20 +281,20 @@ void DMD_fe::ord_dt(type0& del_t,type0 err)
     else
         r=1.0;
     
-    if(r*del_t>max_t-tot_t)
-        del_t=max_t-tot_t;
+    if(r*del_t>t_fin-t_cur)
+        del_t=t_fin-t_cur;
     else
     {
-        if(max_t-tot_t<=2.0*min_del_t)
+        if(t_fin-t_cur<=2.0*dt_min)
         {
-            del_t=2.0*min_del_t;
+            del_t=2.0*dt_min;
         }
         else
         {
-            if(r*del_t<min_del_t)
-                del_t=min_del_t;
-            else if(r*del_t>=max_t-tot_t-min_del_t)
-                del_t=max_t-tot_t-min_del_t;
+            if(r*del_t<dt_min)
+                del_t=dt_min;
+            else if(r*del_t>=t_fin-t_cur-dt_min)
+                del_t=t_fin-t_cur-dt_min;
             else
             {
                 del_t*=r;

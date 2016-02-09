@@ -1,15 +1,14 @@
 #ifdef DMD_Style
-    DMDStyle(DMD_mbdf,mbdf)
+    DMDStyle(DMD_bdf_y,bdf_y)
 #else
-#ifndef __MAPP__dmd_mbdf__
-#define __MAPP__dmd_mbdf__
+#ifndef __MAPP__dmd_bdf_y__
+#define __MAPP__dmd_bdf_y__
 #include "dmd.h"
 namespace MAPP_NS {
-    class DMD_mbdf :public DMDImplicit
+    class DMD_bdf_y :public DMDImplicit
     {
     private:
-        bool init_phase;
-        type0 err_est(int,type0);
+        type0 err_est(int);
     protected:
         // stuff for book keeping
         type0* t;
@@ -28,13 +27,16 @@ namespace MAPP_NS {
         void deallocate();
         
         //functions to be accessed by run()
-        void restart(type0&,int&);
-        void store_vecs(type0);        
-        void interpolate(type0&,int&);
-        void ord_dt(type0,type0,int,type0&,int&);
+        void restart();
+        void update_for_next();        
+        bool interpolate();
+        void ord_dt(type0&);
+        void err_calc();
+        void err_fac_calc();        
+        void start();        
     public:
-        DMD_mbdf(MAPP*,int,char**);
-        ~DMD_mbdf();
+        DMD_bdf_y(MAPP*,int,char**);
+        ~DMD_bdf_y();
 
     };
 }
