@@ -179,6 +179,58 @@ inline void DMD_bdf_y::update_for_next()
     q+=dq;
 }
 /*--------------------------------------------
+ interpolation fail
+ --------------------------------------------*/
+void DMD_bdf_y::interpolate_fail()
+{
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
+    type0 sum,sum_lcl;
+    sum_lcl=0.0;
+    for(int i=0;i<ncs;i++)
+        if(c[i]>=0.0)
+            sum_lcl+=c_d[i]*c_d[i];
+    sum=0.0;
+    MPI_Allreduce(&sum_lcl,&sum,1,MPI_TYPE0,MPI_SUM,world);
+    sum=sqrt(sum/nc_dofs);
+    dt=MIN(2.0*a_tol/sum,1.0e-3*(t_fin-t_cur));
+    
+    
+    if(dt>t_fin-t_cur)
+        dt=t_fin-t_cur;
+    else
+    {
+        if(t_fin-t_cur<=2.0*dt_min)
+        {
+            dt=t_fin-t_cur;
+        }
+        else
+        {
+            if(dt<dt_min)
+                dt=dt_min;
+            else if(dt>=t_fin-t_cur-dt_min)
+                dt=t_fin-t_cur-dt_min;
+        }
+    }
+    
+    memcpy(y[0],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(y[1],mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(y_0,mapp->c->begin(),ncs*sizeof(type0));
+    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+    for(int i=0;i<q_max+1;i++) t[i]=0.0;
+    t[0]=0.0;
+    t[1]=-dt;
+    q=1;
+    
+    beta=dt;
+    beta_inv=1.0/dt;
+    
+    for(int i=0;i<ncs;i++)
+        if(c[i]>=0.0)
+            a[i]-=y_0[i]*beta_inv;
+
+}
+/*--------------------------------------------
  init
  --------------------------------------------*/
 inline bool DMD_bdf_y::interpolate()
@@ -296,7 +348,7 @@ inline void DMD_bdf_y::ord_dt(type0& r)
     if(terkm1_flag)
         terkm1=err_est(q);
     
-    terk=err*static_cast<type0>(q+1);
+    terk=err_est(q+1);
     
     if(terkp1_flag)
         terkp1=err_est(q+2);
@@ -334,10 +386,10 @@ inline void DMD_bdf_y::ord_dt(type0& r)
                 dq=1;
             }
             else
-                est=err;
+                est=terk/static_cast<type0>(q+1);
         }
         else
-            est=err;
+            est=terk/static_cast<type0>(q+1);
     }
     else
     {
@@ -347,7 +399,13 @@ inline void DMD_bdf_y::ord_dt(type0& r)
             dq=1;
         }
         else
-            est=err;
+            est=terk/static_cast<type0>(q+1);
+    }
+    
+    r=pow(0.5/err,1.0/static_cast<type0>(q+1));
+    if(dq!=0)
+    {
+        r*=pow(est,1.0/static_cast<type0>(q+dq+1))/pow(terk/static_cast<type0>(q+1),1.0/static_cast<type0>(q+1));
     }
     
     r=pow(0.5/est,1.0/static_cast<type0>(q+dq+1));

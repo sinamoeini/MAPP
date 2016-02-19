@@ -159,7 +159,21 @@ inline void DMD_adams::start()
 {
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
     dt=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(t_fin-t_cur));
-    
+    type0 dt_max_lcl=numeric_limits<type0>::infinity(),dt_max;
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
+    for(int i=0;i<ncs;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            if(c_d[i]>0.0)
+                dt_max_lcl=MIN((1.0-c[i])/c_d[i],dt_max_lcl);
+            else if(c_d[i]<0.0)
+                dt_max_lcl=MIN(-c[i]/c_d[i],dt_max_lcl);
+        }
+    }
+    MPI_Allreduce(&dt_max_lcl,&dt_max,1,MPI_TYPE0,MPI_MIN,world);
+    dt=MIN(dt,dt_max*0.9999999999999);
     
     if(dt>t_fin-t_cur)
         dt=t_fin-t_cur;
@@ -176,7 +190,8 @@ inline void DMD_adams::start()
             else if(dt>=t_fin-t_cur-dt_min)
                 dt=t_fin-t_cur-dt_min;
         }
-    };
+    }
+    
     memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
     memcpy(dy[0],mapp->c_d->begin(),ncs*sizeof(type0));
     for(int i=0;i<q_max;i++) t[i]=0.0;
@@ -202,6 +217,161 @@ inline void DMD_adams::update_for_next()
     
     dt=dt_new;
     q+=dq;
+}
+/*--------------------------------------------
+ interpolation fail
+ --------------------------------------------*/
+void DMD_adams::interpolate_fail()
+{
+    
+    type0 dt_max_lcl=inf,dt_max;
+    type0 dt_max_lcl_;
+    type0* c=mapp->c->begin();
+    type0* c_d=mapp->c_d->begin();
+    
+    for(int i=0;i<ncs;i++)
+    {
+        
+        if(c[i]>=0.0)
+        {
+            if(c_d[i]>0.0)
+            {
+                dt_max_lcl_=(1.0-c[i])/c_d[i];
+                if(dt_max_lcl_<dt_max_lcl)
+                {
+                    while(c[i]+c_d[i]*dt_max_lcl_>1.0)
+                        dt_max_lcl_=nextafter(dt_max_lcl_,0.0);
+                    
+                    dt_max_lcl=dt_max_lcl_;
+                }
+                
+            }
+            else if(c_d[i]<0.0)
+            {
+                dt_max_lcl_=-c[i]/c_d[i];
+                if(dt_max_lcl_<dt_max_lcl)
+                {
+                    while(c[i]+c_d[i]*dt_max_lcl_<0.0)
+                        dt_max_lcl_=nextafter(dt_max_lcl_,0.0);
+                    
+                    dt_max_lcl=dt_max_lcl_;
+                }
+            }
+        }
+    }
+    
+    
+    MPI_Allreduce(&dt_max_lcl,&dt_max,1,MPI_TYPE0,MPI_MIN,world);
+    
+    dt=dt_max+eps;
+    if(dt>t_fin-t_cur)
+        dt=t_fin-t_cur;
+    else
+    {
+        if(t_fin-t_cur<=2.0*dt_min)
+        {
+            dt=t_fin-t_cur;
+        }
+        else
+        {
+            if(dt<dt_min)
+                dt=dt_min;
+            else if(dt>=t_fin-t_cur-dt_min)
+                dt=t_fin-t_cur-dt_min;
+        }
+    }
+    
+    q=1;
+    type0 k0,k1=0.0,k2=0.0,y0,dy0;
+    int n;
+    type0 tmp0,tmp1;
+    
+    for(int j=0;j<q;j++)
+        alpha_dy[j]=0.0;
+    
+    n=1+q/2;
+    for(int i=0;i<n;i++)
+    {
+        tmp0=wi[n-1][i];
+        for(int j=0;j<q;j++)
+            tmp0*=xi[n-1][i]-t[j]/dt;
+        
+        for(int j=0;j<q;j++)
+            alpha_dy[j]+=tmp0/(xi[n-1][i]-t[j]/dt);
+        
+    }
+    
+    for(int i=0;i<q;i++)
+    {
+        tmp0=1.0;
+        tmp1=1.0;
+        for(int j=0;j<q;j++)
+            if(i!=j)
+            {
+                tmp0*=t[i]/dt-t[j]/dt;
+                tmp1*=1.0-t[j]/dt;
+            }
+        alpha_dy[i]*=dt/tmp0;
+        dalpha_dy[i]=tmp1/tmp0;
+    }
+    dalpha_y=0.0;
+    alpha_y=1.0;
+    
+    k0=1.0;
+    for(int i=0;i<q-1;i++)
+        k0*=1.0-t[i]/dt;
+    
+    k1=0.0;
+    k2=0.0;
+    n=1+q/2;
+    for(int i=0;i<n;i++)
+    {
+        tmp0=wi[n-1][i];
+        for(int j=0;j<q-1;j++)
+            tmp0*=xi[n-1][i]-t[j]/dt;
+        k1+=tmp0;
+        k2+=tmp0*(xi[n-1][i]-1.0);
+    }
+    
+    beta=dt*k1/k0;
+    beta_inv=k0/(dt*k1);
+    
+    bool xcd_dom=false;
+    for(int i=0;i<ncs && !xcd_dom;i++)
+    {
+        if(y[i]>=0.0)
+        {
+            dy0=dalpha_y*y[i];
+            y0=alpha_y*y[i];
+            for(int j=0;j<q;j++)
+            {
+                dy0+=dalpha_dy[j]*dy[j][i];
+                y0+=alpha_dy[j]*dy[j][i];
+            }
+            
+            
+            if(y0<=0.0)
+            {
+                y0=0.0;
+                if(dy0>0.0)
+                    dy0=0.0;
+            }
+            if(y0>1.0)
+            {
+                y0=1.0;
+                if(dy0<0.0)
+                    dy0=0.0;
+                
+            }
+            
+            y_0[i]=y0;
+            a[i]=-y0/beta+dy0;
+        }
+        else
+            y_0[i]=y[i];
+    }
+
+    
 }
 /*--------------------------------------------
  calculate the coefficients

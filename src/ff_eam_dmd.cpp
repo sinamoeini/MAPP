@@ -1144,6 +1144,7 @@ type0 ForceField_eam_dmd::ddc_norm()
     type0* ddE=E_ptr->begin();;
     type0* cv=cv_ptr->begin();
     type0* s=s_ptr->begin();
+    type0* c_d=mapp->c_d->begin();
     type0* mu=mu_ptr->begin();
     type0* t=t_ptr->begin();
     
@@ -1157,7 +1158,7 @@ type0 ForceField_eam_dmd::ddc_norm()
     calc_mu();
     
     for(int i=0;i<natms*c_dim;i++)
-        s[i]=0.0;
+        s[i]=c_d[i]=0.0;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -1181,9 +1182,11 @@ type0 ForceField_eam_dmd::ddc_norm()
             s_ij=w_ij-w_ji;
             
             s[ic_dim]+=s_ij;
+            c_d[ic_dim]+=s_ij;
             if(jc_dim<natms*c_dim)
             {
                 s[jc_dim]-=s_ij;
+                c_d[jc_dim]-=s_ij;
             }
         }
     }

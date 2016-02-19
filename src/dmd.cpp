@@ -46,6 +46,7 @@ nrgy_strss(forcefield->nrgy_strss)
     dt_min=std::numeric_limits<type0>::epsilon();
     eps=std::numeric_limits<type0>::epsilon();
     eps_sqr=sqrt(2.0*std::numeric_limits<type0>::epsilon());
+    inf=numeric_limits<type0>::infinity();
     t_fin=1.0e7;
     f_tol=1.0e-5;
     cd_tol=1.0e-4;
@@ -350,12 +351,11 @@ bool DMDImplicit::solve_non_lin()
     
     
 
-    /*
-    if(c_d_norm>=1.0)
+    if(c_d_norm>0.1)
     {
         memcpy(c,y_0,ncs*sizeof(type0));
         atoms->update(mapp->c);
-    }*/
+    }
     
     cost=cost0=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
     while(cost>=1.0 && iter<max_iter)
@@ -414,7 +414,7 @@ bool DMDImplicit::solve_non_lin()
 
         
 #ifdef DMD_DEBUG
-    if(atoms->my_p==0) printf("%d %e %e\n",iter,cost0,cost);
+    //if(atoms->my_p==0) printf("%d %e %e\n",iter,cost0,cost);
 #endif
         
         delp=del;
@@ -425,7 +425,7 @@ bool DMDImplicit::solve_non_lin()
     
 
 #ifdef DMD_DEBUG
-    //if(atoms->my_p==0) printf("Error %e | cd_norm %e  %e | %e **** max_dy %e\n",err,c_d_norm,forcefield_dmd->ddc_norm_timer()/a_tol,err,max_dy/a_tol);
+    //if(atoms->my_p==0) printf("Error of nonlinear %e %d\n",cost,iter);
 #endif
 
     if(cost<1.0)
@@ -443,6 +443,9 @@ bool DMDImplicit::solve_non_lin()
 void DMDImplicit::intp_fail()
 {
     intp_rej++;
+#ifdef DMD_DEBUG
+    if(atoms->my_p==0) printf("failed interpolation \n");
+#endif
     start();
 }
 /*--------------------------------------------
@@ -535,6 +538,7 @@ void DMDImplicit::run()
         q_p=-1;
         dt_p=0.0;
         const_q=const_dt=0;
+        intp_failure=0;
         
         while (istep<max_step && t_cur<t_fin && !min_run)
         {
@@ -544,40 +548,51 @@ void DMDImplicit::run()
             {
 
                 if(!interpolate())
-                {
-                    intp_fail();
-                    if(!interpolate())
-                        error->abort("exceeded the domain");
+                {                   
+                    intp_failure=1;
+                    intp_rej++;
+#ifdef DMD_DEBUG
+                    if(atoms->my_p==0) printf("failed interpolation \n");
+#endif
+                    interpolate_fail();
                 }
+                else
+                {
+                    if(intp_failure)
+                        intp_failure--;
+                }
+
                 
                 err_fac_calc();
                 
-#ifdef DMD_DEBUG
-        //if(atoms->my_p==0) printf("del_t: %e q: %d \n",del_t,q);
-#endif
-
                 if(!solve_non_lin())
                 {
                     nonl_fail();
                     continue;
                 }
                 
+
                 err_calc();
-                
                 
                 if(err>=1.0)
                 {
                     intg_fail();
                     continue;
                 }
+                
                 break;
             }
             
             max_succ_q=MAX(max_succ_q,q);
             
+            if(err_fac==0.0)
+            {
+                dt=t_fin-t_cur;
+            }
+            
             min_run=decide_min(istep,dt);
             if(min_run) continue;
-            
+
             ord_dt();
             q_p=q;
             dt_p=dt;
@@ -605,7 +620,11 @@ inline void DMDImplicit::ord_dt()
         const_q=0;
     
     type0 r=1.0;
-    ord_dt(r);
+    if(intp_failure==0)
+        ord_dt(r);
+    else
+        dq=0;
+
 #ifdef DMD_DEBUG
     //if(atoms->my_p==0) printf("estimated ratio %lf | err %e\n",r,err);
 #endif
@@ -642,7 +661,7 @@ inline void DMDImplicit::ord_dt()
     }
     
 #ifdef DMD_DEBUG
-    //if(atoms->my_p==0) printf("ratio %lf q: %d | constant_steps %d \n",r,q,const_stps);
+    if(atoms->my_p==0) printf("ratio %lf dq: %d \n",dt_new/dt,dq);
 #endif
 }
 /*--------------------------------------------
@@ -678,7 +697,7 @@ void DMDImplicit::print_stats()
  --------------------------------------------*/
 void DMDImplicit::init()
 {
-    gmres=new GMRES<type0,ForceFieldDMD>(mapp,5,c_dim,*forcefield_dmd);
+    gmres=new GMRES<type0,ForceFieldDMD>(mapp,max_iter,c_dim,*forcefield_dmd);
     DMD::init();
     max_succ_q=1;
     max_succ_dt=0.0;

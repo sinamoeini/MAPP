@@ -33,6 +33,7 @@ namespace MAPP_NS
         void restart();
         void update_for_next();
         bool interpolate();
+        void interpolate_fail();
         void ord_dt(type0&);
         void err_calc();
         void err_fac_calc();

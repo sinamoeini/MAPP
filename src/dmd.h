@@ -42,7 +42,7 @@ namespace MAPP_NS
         
         int max_step;
         type0 t_cur,a_tol,dt_min,t_fin;
-        
+        type0 inf;
         ThermoDynamics* thermo;
         
         Min* min;
@@ -80,6 +80,7 @@ namespace MAPP_NS
     protected:
         type0 dt,dt_p,dt_new;
         int dq,q,q_p,q_max;
+        int intp_failure;
         
         int const_dt,const_q;
         
@@ -132,6 +133,7 @@ namespace MAPP_NS
         virtual void restart()=0;
         virtual void update_for_next()=0;
         virtual bool interpolate()=0;
+        virtual void interpolate_fail()=0;
         virtual void err_fac_calc()=0;
         virtual void ord_dt(type0&)=0;
         virtual void err_calc()=0;
