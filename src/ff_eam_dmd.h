@@ -11,7 +11,6 @@ namespace MAPP_NS
     {
     private:
         int no_types;
-        type0 min_log;
         void allocate();
         void deallocate();
         
@@ -39,9 +38,7 @@ namespace MAPP_NS
         EAMFileReader* eam_reader;
         
         void read_file(char*);
-        
-        /*--------------------------------------------*/
-        
+               
         /*--------------------------------------------*/
         int c_dim;
         int dim;
@@ -70,25 +67,11 @@ namespace MAPP_NS
         /*--------------------------------------------*/
         
         
-        
-        
         type0 mat(type0,type0,int);
         type0 dmat(type0,type0,int);
         type0 calc_ent(type0);
-        type0 mod_log(type0);
-        void calc_cv(type0*,type0*,int);
-
-        
         void calc_mu();
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
         
         type0* psi_IJ;
         type0* psi_JI;
@@ -120,12 +103,6 @@ namespace MAPP_NS
         void dc();
         type0 ddc_norm();
         void ddc(type0*);
-
-        
-        
-        
-
-        
     public:
         ForceField_eam_dmd(MAPP *);
         ~ForceField_eam_dmd();
@@ -137,13 +114,8 @@ namespace MAPP_NS
         void operator()(Vec<type0>*,Vec<type0>*);
         void init_static();
         type0 update_J(type0,type0*,type0*);
-        
     };
-    
-    
-    
 }
-
 #endif
 #endif 
 

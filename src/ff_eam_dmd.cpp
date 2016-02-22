@@ -25,7 +25,6 @@ ForceField_eam_dmd(MAPP* mapp): ForceFieldDMD(mapp)
     phi_psi_sz_sz=0;
     n_phi_psi=0;
     M_N_sz_sz=0;
-    min_log=log(std::numeric_limits<type0>::min());
     kbT=beta=-1.0;
 }
 /*--------------------------------------------
@@ -670,19 +669,6 @@ void ForceField_eam_dmd::deallocate()
     no_types=0;
 
 }
-/*-------------------------------------------
-
- --------------------------------------------*/
-void ForceField_eam_dmd::calc_cv(type0* c,type0* cv,int n)
-{
-    for(int i=0;i<n;i++)
-    {
-        cv[i]=1.0;
-        for(int j=0;j<c_dim;j++)
-            if(c[i*c_dim+j]>=0.0)
-                cv[i]-=c[i*c_dim+j];
-    }
-}
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
@@ -1044,15 +1030,6 @@ type0 ForceField_eam_dmd::calc_ent(type0 x)
     if(isnan(ans))
         return 0.0;
     return ans;
-}
-/*--------------------------------------------
- return M_{ij}^{\alpha}
- --------------------------------------------*/
-inline type0 ForceField_eam_dmd::mod_log(type0 x)
-{
-    if(x==0.0)
-        return min_log;
-    return log(x);
 }
 /*--------------------------------------------
  claculate F and dF and dFF
