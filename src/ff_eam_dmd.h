@@ -38,7 +38,7 @@ namespace MAPP_NS
         EAMFileReader* eam_reader;
         
         void read_file(char*);
-               
+        
         /*--------------------------------------------*/
         int c_dim;
         int dim;

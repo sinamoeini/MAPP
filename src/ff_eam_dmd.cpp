@@ -42,7 +42,6 @@ ForceField_eam_dmd::~ForceField_eam_dmd()
         delete [] wi_1;
         delete [] wi_2;
     }
-
 }
 /*--------------------------------------------
  force calculation
