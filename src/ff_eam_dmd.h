@@ -118,14 +118,10 @@ namespace MAPP_NS
         void force_calc(bool);
         type0 energy_calc();
         void dc();
-        type0 dc_en_proj(bool,type0*,type0&);
         type0 ddc_norm();
         void ddc(type0*);
 
         
-        type0 imp_cost_grad(bool,type0,type0,type0*,type0*);
-        type0 dc_norm_grad(bool,type0*,type0*);
-        type0 en_grad(bool,type0*,type0*);
         
         
 
@@ -141,6 +137,7 @@ namespace MAPP_NS
         void operator()(Vec<type0>*,Vec<type0>*);
         void init_static();
         type0 update_J(type0,type0*,type0*);
+        
     };
     
     

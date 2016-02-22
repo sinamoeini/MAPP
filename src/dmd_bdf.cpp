@@ -211,6 +211,16 @@ inline void DMD_bdf::start()
         }
     }    
 
+    type0 c_d_norm_lcl=0.0;
+    for(int i=0;i<ncs;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            c_d_norm_lcl+=c_d[i]*c_d[i];
+        }
+    }
+    MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
+    c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
 }
 /*--------------------------------------------
  store the vectors

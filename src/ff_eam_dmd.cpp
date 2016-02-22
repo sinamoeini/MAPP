@@ -1057,22 +1057,6 @@ inline type0 ForceField_eam_dmd::mod_log(type0 x)
 /*--------------------------------------------
  claculate F and dF and dFF
  --------------------------------------------*/
-type0 ForceField_eam_dmd::imp_cost_grad(
-bool cost_grad,type0 m_tol,type0 alpha,type0* a,type0* g)
-{
-    return 0.0;
-}
-/*--------------------------------------------
- claculate F and dF and dFF
- --------------------------------------------*/
-type0 ForceField_eam_dmd::dc_en_proj(
-bool cost_grad,type0* g,type0& g_h)
-{
-    return 0.0;
-}
-/*--------------------------------------------
- claculate F and dF and dFF
- --------------------------------------------*/
 void ForceField_eam_dmd::dc()
 {
     type0* c=mapp->c->begin();
@@ -1116,22 +1100,6 @@ void ForceField_eam_dmd::dc()
             }
         }
     }
-}
-/*--------------------------------------------
- claculate F and dF and dFF
- --------------------------------------------*/
-type0 ForceField_eam_dmd::dc_norm_grad(
-bool cost_grad,type0* g,type0* g_mod)
-{
-    return 0.0;
-}
-/*--------------------------------------------
- claculate F and dF and dFF
- --------------------------------------------*/
-type0 ForceField_eam_dmd::en_grad(bool
-cost_grad,type0* g,type0* g_mod)
-{
-    return 0.0;
 }
 /*--------------------------------------------
  calculate norm of d^2c/dt^2
@@ -1434,6 +1402,14 @@ void ForceField_eam_dmd::calc_mu()
     
     nrgy_strss_lcl[0]=0.0;
     
+    for(int i=0;i<natms+atoms->natms_ph;i++)
+    {
+        cv[i]=1.0;
+        for(int j=0;j<c_dim;j++)
+            if(c[i*c_dim+j]>=0.0)
+                cv[i]-=c[i*c_dim+j];
+    }
+    
     int istart=0;
     for(int ic_dim=0;ic_dim<c_dim*natms;ic_dim++)
     {
@@ -1448,10 +1424,14 @@ void ForceField_eam_dmd::calc_mu()
             {
                 E[jc_dim]+=c[ic_dim]*psi_IJ[istart];
                 mu[jc_dim]+=c[ic_dim]*phi_IJ[istart];
+                nrgy_strss_lcl[0]+=c[ic_dim]*c[jc_dim]*phi_IJ[istart];
             }
+            else
+                nrgy_strss_lcl[0]+=0.5*c[ic_dim]*c[jc_dim]*phi_IJ[istart];
+                
             istart++;
         }
-        if(phi_psi_sz[ic_dim])
+        if(c[ic_dim]>=0.0)
         {
             itype=type[ic_dim];
             p=E[ic_dim]*drho_inv;
@@ -1472,10 +1452,12 @@ void ForceField_eam_dmd::calc_mu()
             dE[ic_dim]=tmp1;
             ddE[ic_dim]=tmp2;
             tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*(ic_dim/c_dim +1)+ic_dim]);
-            nrgy_strss_lcl[0]+=c[ic_dim]*(0.5*mu[ic_dim]+tmp2);
+            nrgy_strss_lcl[0]+=c[ic_dim]*tmp2;
             mu[ic_dim]+=tmp2;
             nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
         }
+        if(ic_dim%c_dim==c_dim-1)
+            nrgy_strss_lcl[0]+=kbT*calc_ent(cv[ic_dim/c_dim]);
     }
     
     atoms->update(dE_ptr);
@@ -1497,18 +1479,6 @@ void ForceField_eam_dmd::calc_mu()
     }
     
     atoms->update(mu_ptr);
-    
-    for(int i=0;i<natms+atoms->natms_ph;i++)
-    {
-        cv[i]=1.0;
-        for(int j=0;j<c_dim;j++)
-            if(c[i*c_dim+j]>=0.0)
-                cv[i]-=c[i*c_dim+j];
-    }
-    
-    for(int i=0;i<natms;i++)
-        nrgy_strss_lcl[0]+=kbT*calc_ent(cv[i]);
-    
 }
 /*--------------------------------------------
  create the sparse matrices

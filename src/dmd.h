@@ -101,6 +101,7 @@ namespace MAPP_NS
         int max_iter;
 
         bool solve_non_lin();
+        bool solve_non_lin_();
         
         
 
@@ -118,7 +119,6 @@ namespace MAPP_NS
         void reset();
         void ord_dt();
         void intg_fail();
-        void intp_fail();
         void nonl_fail();
         
         // allocation and deallocation functions

@@ -61,12 +61,8 @@ namespace MAPP_NS
         virtual void force_calc(bool)=0;
         virtual type0 energy_calc()=0;
         virtual void dc()=0;
-        virtual type0 dc_en_proj(bool,type0*,type0&)=0;
         virtual type0 ddc_norm()=0;
         virtual void ddc(type0*)=0;
-        virtual type0 imp_cost_grad(bool,type0,type0,type0*,type0*)=0;
-        virtual type0 dc_norm_grad(bool,type0*,type0*)=0;
-        virtual type0 en_grad(bool,type0*,type0*)=0;
     public:
         ForceFieldDMD(MAPP* mapp):ForceField(mapp)
         {dynamic_flag=true;}
@@ -76,11 +72,7 @@ namespace MAPP_NS
         virtual void coef(int,char**)=0;
         virtual void set_temp(type0)=0;
         
-        type0 imp_cost_grad_timer(bool,type0,type0,type0*,type0*);
-        type0 dc_norm_grad_timer(bool,type0*,type0*);
-        type0 en_grad_timer(bool,type0*,type0*);
         void dc_timer();
-        type0 dc_en_proj_timer(bool,type0*,type0&);
         type0 ddc_norm_timer();
         void ddc_timer(type0*);
         

@@ -346,10 +346,6 @@ bool DMDImplicit::solve_non_lin()
     int iter=0,solver_iter;
     type0* c=mapp->c->begin();
     
-    type0* c_d=mapp->c_d->begin();
-
-    
-    
 
     if(c_d_norm>0.1)
     {
@@ -411,22 +407,16 @@ bool DMDImplicit::solve_non_lin()
         atoms->update(mapp->c);
         cost0=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
         cost=MIN(cost0,MIN(1.0,R)*del*err_fac/0.1);
-
-        
-#ifdef DMD_DEBUG
-    //if(atoms->my_p==0) printf("%d %e %e\n",iter,cost0,cost);
-#endif
         
         delp=del;
         iter++;
     }
     
+    type0* c_d=mapp->c_d->begin();
     rectify(c_d);
     
 
-#ifdef DMD_DEBUG
-    //if(atoms->my_p==0) printf("Error of nonlinear %e %d\n",cost,iter);
-#endif
+
 
     if(cost<1.0)
     {
@@ -438,15 +428,96 @@ bool DMDImplicit::solve_non_lin()
     return false;
 }
 /*--------------------------------------------
- run
+ solve the implicit equation
  --------------------------------------------*/
-void DMDImplicit::intp_fail()
+bool DMDImplicit::solve_non_lin_()
 {
-    intp_rej++;
-#ifdef DMD_DEBUG
-    if(atoms->my_p==0) printf("failed interpolation \n");
-#endif
-    start();
+    
+    beta_inv=0.0;
+    memset(a,0,ncs*sizeof(type0));
+    
+    type0 res_tol=1.0e-4*a_tol*sqrt(nc_dofs);
+    type0 y_norm;
+    type0 r,r_lcl,norm=1.0,del=1.0;
+    int iter=0,solver_iter=0;
+    type0* c=mapp->c->begin();
+
+    if(atoms->my_p==0)
+        printf("c_dnorm %e at step %d \n",c_d_norm,step_no);
+    y_norm=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
+    
+    while(del!=0.0 && iter<max_iter && y_norm>1.0)
+    {
+        for(int i=0;i<ncs;i++) del_c[i]=0.0;
+        
+        gmres->solve(res_tol,F,del_c,solver_iter,norm);
+        
+        rectify(del_c);
+        
+        r_lcl=-1.0;
+        for(int i=0;i<ncs;i++)
+        {
+            if(c[i]>=0.0)
+            {
+                c[i]+=del_c[i];
+                if(c[i]>1.0)
+                    r_lcl=MAX(r_lcl,(c[i]-1.0)/del_c[i]);
+                if(c[i]<0.0)
+                    r_lcl=MAX(r_lcl,c[i]/del_c[i]);
+            }
+            else
+                del_c[i]=0.0;
+        }
+        
+        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MAX,world);
+        
+        if(r!=-1.0)
+        {
+            for(int i=0;i<ncs;i++)
+            {
+                c[i]-=del_c[i]*r;
+                if(c[i]>1.0)
+                    c[i]=1.0;
+                if(c[i]<0.0)
+                    c[i]=0.0;
+            }
+        }
+        else
+            r=0.0;
+        
+        
+        
+        del=(1.0-r)*norm/res_tol;
+        if(atoms->my_p==0)
+            printf("c_dnorm %e at step %d \n",del,solver_iter);
+               
+        atoms->update(mapp->c);
+        y_norm=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
+        iter++;
+    }
+    type0* c_d=mapp->c_d->begin();
+    rectify(c_d);
+    
+
+    
+    type0 c_d_norm_lcl=0.0;
+    for(int i=0;i<ncs;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            c_d_norm_lcl+=c_d[i]*c_d[i];
+        }
+    }
+    MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
+    c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
+   
+    if(atoms->my_p==0)
+        printf("c_dnorm %e at step %d after non linear solver iter %d\n",c_d_norm,step_no,solver_iter);
+
+    
+    if(y_norm>=1.0)
+        return false;
+    return true;
 }
 /*--------------------------------------------
  run
@@ -539,6 +610,8 @@ void DMDImplicit::run()
         dt_p=0.0;
         const_q=const_dt=0;
         intp_failure=0;
+        type0 c_d_thresh=MIN(0.5*c_d_norm,1.0);
+        c_d_thresh=MAX(c_d_thresh,1.1e-4);
         
         while (istep<max_step && t_cur<t_fin && !min_run)
         {
@@ -546,14 +619,10 @@ void DMDImplicit::run()
 
             for(;;)
             {
-
                 if(!interpolate())
-                {                   
+                {
                     intp_failure=1;
                     intp_rej++;
-#ifdef DMD_DEBUG
-                    if(atoms->my_p==0) printf("failed interpolation \n");
-#endif
                     interpolate_fail();
                 }
                 else
@@ -561,7 +630,7 @@ void DMDImplicit::run()
                     if(intp_failure)
                         intp_failure--;
                 }
-
+                
                 
                 err_fac_calc();
                 
@@ -571,7 +640,7 @@ void DMDImplicit::run()
                     continue;
                 }
                 
-
+                
                 err_calc();
                 
                 if(err>=1.0)
@@ -581,14 +650,61 @@ void DMDImplicit::run()
                 }
                 
                 break;
+                
+                /*
+                if(c_d_norm>c_d_thresh)
+                {
+                    if(!interpolate())
+                    {
+                        intp_failure=1;
+                        intp_rej++;
+                        interpolate_fail();
+                    }
+                    else
+                    {
+                        if(intp_failure)
+                            intp_failure--;
+                    }
+                    
+                    
+                    err_fac_calc();
+                    
+                    if(!solve_non_lin())
+                    {
+                        nonl_fail();
+                        continue;
+                    }
+                    
+                    
+                    err_calc();
+                    
+                    if(err>=1.0)
+                    {
+                        intg_fail();
+                        continue;
+                    }
+                    
+                    break;
+                }
+                else
+                {
+                    if(!solve_non_lin_())
+                    {
+                        c_d_thresh=MAX(0.5*c_d_norm,1.0e-4);
+                    }
+                    else
+                    {
+                        err=0.0;
+                        dt=t_fin-t_cur;
+                        q=1;
+                        dq=0;
+                        break;
+                    }
+                }
+                 */
             }
             
             max_succ_q=MAX(max_succ_q,q);
-            
-            if(err_fac==0.0)
-            {
-                dt=t_fin-t_cur;
-            }
             
             min_run=decide_min(istep,dt);
             if(min_run) continue;
@@ -620,14 +736,10 @@ inline void DMDImplicit::ord_dt()
         const_q=0;
     
     type0 r=1.0;
+    dq=0;
+
     if(intp_failure==0)
         ord_dt(r);
-    else
-        dq=0;
-
-#ifdef DMD_DEBUG
-    //if(atoms->my_p==0) printf("estimated ratio %lf | err %e\n",r,err);
-#endif
 
     if(10.0<r)
         r=10.0;
@@ -636,7 +748,6 @@ inline void DMDImplicit::ord_dt()
     else if(r<=0.5)
         r=0.5;
         
-    bool const_stp_chk=false;
     if(r*dt>t_fin-t_cur)
         dt_new=t_fin-t_cur;
     else
@@ -654,15 +765,10 @@ inline void DMDImplicit::ord_dt()
             else
             {
                 dt_new=r*dt;
-                if(r==1.0)
-                    const_stp_chk=true;
             }
         }
     }
-    
-#ifdef DMD_DEBUG
-    if(atoms->my_p==0) printf("ratio %lf dq: %d \n",dt_new/dt,dq);
-#endif
+   
 }
 /*--------------------------------------------
  

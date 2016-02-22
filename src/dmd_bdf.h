@@ -58,11 +58,7 @@ namespace MAPP_NS
             type0*& l;
             type0**& A_bar;
             
-            
-            
             void l_calc(int);
-
-            
         public:
             DMD_bdf_sub(DMD_bdf* bdf):
             t(bdf->t),

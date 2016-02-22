@@ -128,30 +128,6 @@ type0 ForceField::energy_calc_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
-type0 ForceFieldDMD::imp_cost_grad_timer(bool
-chk,type0 m_tol,type0 alpha,type0* a,type0* g)
-{
-    type0 en;
-    timer->start(FORCE_TIME_mode);
-    en=imp_cost_grad(chk,m_tol,alpha,a,g);
-    timer->stop(FORCE_TIME_mode);
-    return en;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-type0 ForceFieldDMD::dc_norm_grad_timer
-(bool chk,type0* g,type0* g_mod)
-{
-    type0 en;
-    timer->start(FORCE_TIME_mode);
-    en=dc_norm_grad(chk,g,g_mod);
-    timer->stop(FORCE_TIME_mode);
-    return en;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
 type0 ForceFieldDMD::ddc_norm_timer()
 {
     timer->start(FORCE_TIME_mode);
@@ -172,35 +148,10 @@ void ForceFieldDMD::ddc_timer(type0* ddc_)
 /*--------------------------------------------
  
  --------------------------------------------*/
-type0 ForceFieldDMD::en_grad_timer(
-bool chk,type0* g,type0* g_mod)
-{
-    type0 en;
-    timer->start(FORCE_TIME_mode);
-    en=en_grad(chk,g,g_mod);
-    timer->stop(FORCE_TIME_mode);
-    return en;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
 void ForceFieldDMD::dc_timer()
 {
     timer->start(FORCE_TIME_mode);
     dc();
     timer->stop(FORCE_TIME_mode);
 }
-/*--------------------------------------------
- 
- --------------------------------------------*/
-type0 ForceFieldDMD::dc_en_proj_timer
-(bool chk,type0* g,type0& g_h)
-{
-    type0 en;
-    timer->start(FORCE_TIME_mode);
-    en=dc_en_proj(chk,g,g_h);
-    timer->stop(FORCE_TIME_mode);
-    return en;
-}
-
 
