@@ -42,7 +42,7 @@ atoms(new Atoms(this,3)),
 x(atoms->x),
 id(atoms->id)
 {
-    init_dubeg(true);
+    init_dubeg(false);
     
     memory=new Memory(this);
     error=new Error(this);
