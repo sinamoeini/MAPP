@@ -428,6 +428,7 @@ inline void DMD_bdf::ord_dt(type0& r)
 {
 
     eta_calc();
+    
     if(eta[0]>eta[1] && eta[0]>eta[2])
     {
         dq=-1;
@@ -482,8 +483,11 @@ void DMD_bdf::eta_calc()
     
     eta[0]=eta[2]=0.0;
     
+    
+    
     if(const_q>1 && q<q_max && c_d_norm>0.1)
     {
+        
         for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
@@ -696,7 +700,7 @@ void DMD_bdf::DMD_bdf_f_flc::err_fac_calc()
     
     
     
-    if(const_q>1 && q<q_max)
+    if(const_q>=1 && q<q_max)
     {
         type0 r=1.0;
         for(int i=1;i<q;i++)
@@ -783,7 +787,7 @@ void DMD_bdf::DMD_bdf_f_vc::err_fac_calc()
     
     err_fac=fabs(1.0/(s_q*(1.0+r)*dt));
     
-    if(const_q>1 && q<q_max)
+    if(const_q>=1 && q<q_max)
     {
         type0 r_p=1.0;
         for(int i=1;i<q;i++)
@@ -859,7 +863,7 @@ void DMD_bdf::DMD_bdf_y_flc::err_fac_calc()
     
     err_fac=fabs(1.0-dt*s_qq/alpha_q);
     
-    if(const_q>1 && q<q_max)
+    if(const_q>=1 && q<q_max)
     {
         type0 r=-dt/t[q+1];
         type0 alpha_qq=alpha_q+1.0/(iq+1.0);
@@ -928,7 +932,7 @@ void DMD_bdf::DMD_bdf_y_vc::err_fac_calc()
     
     err_fac=fabs(1.0/(s_q*(dt-t[q])));
     
-    if(const_q>1 && q<q_max)
+    if(const_q>=1 && q<q_max)
     {
         type0 r=-dt/t[q+1];
         for(int i=1;i<q+1;i++)
