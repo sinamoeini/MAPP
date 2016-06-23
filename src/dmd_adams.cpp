@@ -163,6 +163,7 @@ inline void DMD_adams::start()
     type0 dt_max_lcl=numeric_limits<type0>::infinity(),dt_max;
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
+    rectify(c_d);
     for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)

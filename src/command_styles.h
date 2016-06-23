@@ -23,4 +23,3 @@
 #include "command_write.h"
 #include "command_temp.h"
 #include "command_group.h"
-#include "command_test.h"

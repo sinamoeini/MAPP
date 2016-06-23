@@ -169,6 +169,7 @@ inline void DMD_bdf::start()
     
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
+    rectify(c_d);
     type0* z_=z;
     for(int i=0;i<ncs;i++)
     {

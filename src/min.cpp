@@ -489,9 +489,9 @@ void Min::init()
         if(mapp->x_dof!=NULL)
         {
             vecs_comm->add_xchng(mapp->x_dof);
-            if(mapp->c_dof!=NULL)
-                vecs_comm->add_xchng(mapp->c_dof);
         }
+        if(mapp->c_dof!=NULL)
+            vecs_comm->add_xchng(mapp->c_dof);
     }
     
     vecs_comm->add_xchng(h());
