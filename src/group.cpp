@@ -265,7 +265,7 @@ group_name,int ntypes_,char** types)
     for(int ityp=0;ityp<ntypes;ityp++)
         type[ityp]=false;
     
-    for(int ityp=0;ityp<ntypes;ityp++)
+    for(int ityp=0;ityp<ntypes_;ityp++)
         type[atom_types->find_type(types[ityp])]=true;
     
     update();
@@ -286,11 +286,29 @@ void Group_type::update()
 {
     int natms=atoms->natms;
     int* _grp_idx=new int[natms];
-    dmd_type* _type=mapp->type->begin();
     grp_sz=0;
-    for(int i=0;i<natms;i++)
-        if(type[_type[i]])
-            _grp_idx[grp_sz++]=i;
+    if(mapp->mode==MD_mode)
+    {
+        md_type* _type=mapp->type->begin();
+        for(int i=0;i<natms;i++)
+            if(type[_type[i]])
+                _grp_idx[grp_sz++]=i;
+    }
+    else if(mapp->mode==DMD_mode)
+    {
+        int c_dim=mapp->ctype->dim;
+        dmd_type* _type=mapp->ctype->begin();
+        type0* c=mapp->c->begin();
+        for(int i=0;i<natms;i++)
+        {
+            if(type[atom_types->get_dmd_type(c_dim,_type,c)])
+                _grp_idx[grp_sz++]=i;
+            c+=c_dim;
+            _type+=c_dim;
+        }
+    }
+    
+
     grp_idx=new int[grp_sz];
     memcpy(grp_idx,_grp_idx,grp_sz*sizeof(int));
     if(natms)

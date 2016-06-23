@@ -1,5 +1,6 @@
 #include "ff_eam.h"
 #include "ff_eam_dmd.h"
+#include "ff_eam_dmd_II.h"
 #include "ff_fs.h"
 #include "ff_fsm.h"
 #include "ff_lj.h"

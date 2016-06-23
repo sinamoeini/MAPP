@@ -16,6 +16,10 @@ ForceField(MAPP* mapp) : InitPtrs(mapp)
 {
     cut_sz=0;
     ns_alloc=0;
+    cut=NULL;
+    cut_sk_sq=NULL;
+    cut_sq=NULL;
+    rsq_crd=NULL;
     
     if(atoms->tot_natms==0 || atom_types->no_types==0)
         error->abort("system configuration "
@@ -52,47 +56,52 @@ ForceField::~ForceField()
 void ForceField::cut_off_alloc()
 {
     int no_types=atom_types->no_types;
-    int cut_sz_=no_types*(no_types+1)/2;
+    int cut_sz_=no_types;
     if(cut_sz_==cut_sz)
         return;
     cut_off_dealloc();
     cut_sz=cut_sz_;
-    CREATE1D(cut_sk_sq,cut_sz);
-    CREATE1D(cut_sq,cut_sz);
-    CREATE1D(cut,cut_sz);
+    
+    CREATE_2D(cut,no_types,no_types);
+    
+    
+    CREATE_2D(cut_sq,no_types,no_types);
+    
+    
+    CREATE_2D(cut_sk_sq,no_types,no_types);
+    
     CREATE1D(rsq_crd,no_types);
 }
-
 /*--------------------------------------------
  deallocate cutoff
  --------------------------------------------*/
 void ForceField::cut_off_dealloc()
 {
-    if(cut_sz)
-    {
-        delete [] cut_sk_sq;
-        delete [] cut_sq;
-        delete [] cut;
-        delete [] rsq_crd;
-    }
-    cut_sz=0;
+    DEL_2D(cut);
+    
+    DEL_2D(cut_sq);
+    
+    
+    DEL_2D(cut_sk_sq);
+    
+    
+    delete [] rsq_crd;
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 type0 ForceField::max_cut()
 {
-    int arr_size=(atom_types->no_types)
-    *(atom_types->no_types+1)/2;
     type0 skin=atoms->get_skin();
     type0 tmp;
-    type0 max_cut=0;
-    for(int i=0;i<arr_size;i++)
-    {
-        tmp=sqrt(cut_sq[i])+skin;
-        cut_sk_sq[i]=tmp*tmp;
-        max_cut=MAX(max_cut,tmp);
-    }
+    type0 max_cut=0.0;
+    for(int i=0;i<cut_sz;i++)
+        for(int j=0;j<cut_sz;j++)
+        {
+            tmp=sqrt(cut_sq[i][j])+skin;
+            cut_sk_sq[i][j]=tmp*tmp;
+            max_cut=MAX(max_cut,tmp);
+        }
     
     return max_cut;
 }

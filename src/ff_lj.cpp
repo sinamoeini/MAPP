@@ -8,10 +8,7 @@
 #include "atom_types.h"
 #include "memory.h"
 #include "error.h"
-//#define AHEAD 6
-#ifdef AHEAD
-#include <xmmintrin.h>
-#endif
+#include "cmd.h"
 
 using namespace MAPP_NS;
 
@@ -59,10 +56,20 @@ void ForceField_lj::allocate()
         return;
     deallocate();
     no_types=atom_types->no_types;
-    int arr_size=no_types*(no_types+1)/2;
-    CREATE1D(sigma,arr_size);
-    CREATE1D(epsilon,arr_size);
-    CREATE1D(offset,arr_size);
+    
+    sigma=new type0*[no_types];
+    *sigma=new type0[no_types*no_types];
+    epsilon=new type0*[no_types];
+    *epsilon=new type0[no_types*no_types];
+    offset=new type0*[no_types];
+    *offset=new type0[no_types*no_types];
+    
+    for(int i=1;i<no_types;i++)
+    {
+        sigma[i]=sigma[i-1]+no_types;
+        epsilon[i]=epsilon[i-1]+no_types;
+        offset[i]=offset[i-1]+no_types;
+    }
 }
 /*--------------------------------------------
  allocation
@@ -72,12 +79,13 @@ void ForceField_lj::deallocate()
     if(!no_types)
         return;
     
+    delete [] *sigma;
     delete [] sigma;
+    delete [] *epsilon;
     delete [] epsilon;
+    delete [] *offset;
     delete [] offset;
-    
     no_types=0;
-    
 }
 /*--------------------------------------------
  initiate before a run
@@ -99,107 +107,15 @@ void ForceField_lj::
 force_calc(bool st_clc)
 {
 
-#ifdef AHEAD
-    type0* x=mapp->x->begin();
-    type0* y=x;
-    type0* fvec=f->begin();
-    type0* fvecy=fvec;
-    md_type* type=mapp->type->begin();
-    md_type* typey=type;
-    
-    int natms=atoms->natms;
-    int iatm,jatm;
-    int itype,jtype,curs,icomp,jcomp;
-    type0 dx0,dx1,dx2,rsq,sig,eps,csq;
-    type0 sig2,sig6,sig12,fpair,en;
-    
-    int** neighbor_list=neighbor->neighbor_list;
-    int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    nrgy_strss_lcl[0]=0.0;
-    if(st_clc)
-        for(int i=1;i<7;i++)
-            nrgy_strss_lcl[i]=0.0;
-    int pair_no=0;
-    for(iatm=0;iatm<natms;iatm++)
-    {
-        itype=type[iatm];
-        for(int j=0;j<neighbor_list_size[iatm];j++)
-        {
-            
-            
-            jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
-            curs=COMP(itype,jtype);
-            icomp=3*iatm;
-            jcomp=3*jatm;
-            dx0=x[icomp]-y[jcomp];
-            dx1=x[icomp+1]-y[jcomp+1];
-            dx2=x[icomp+2]-y[jcomp+2];
-            
-            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            
-            csq=cut_sq[curs];
-            if(rsq<csq)
-            {
-                sig=sigma[curs];
-                eps=epsilon[curs];
-                sig2=sig*sig/rsq;
-                sig6=sig2*sig2*sig2;
-                sig12=sig6*sig6;
-                
-                fpair=24.0*eps*(2.0*sig12-sig6)/rsq;
-                en=4.0*eps*(sig12-sig6)
-                +offset[curs];
-                
-                fvec[icomp]+=fpair*dx0;
-                fvec[icomp+1]+=fpair*dx1;
-                fvec[icomp+2]+=fpair*dx2;
-                if(jatm<natms)
-                {
-                    fvecy[jcomp]-=fpair*dx0;
-                    fvecy[jcomp+1]-=fpair*dx1;
-                    fvecy[jcomp+2]-=fpair*dx2;
-                }
-                
-                
-                if(jatm>=natms)
-                {
-                    fpair*=0.5;
-                    en*=0.5;
-                }
-                nrgy_strss_lcl[0]+=en;
-                
-                if(st_clc)
-                {
-                    nrgy_strss_lcl[1]-=fpair*dx0*dx0;
-                    nrgy_strss_lcl[2]-=fpair*dx1*dx1;
-                    nrgy_strss_lcl[3]-=fpair*dx2*dx2;
-                    nrgy_strss_lcl[4]-=fpair*dx1*dx2;
-                    nrgy_strss_lcl[5]-=fpair*dx2*dx0;
-                    nrgy_strss_lcl[6]-=fpair*dx0*dx1;
-                }
-                
-            }
-            
-            if(pair_no+AHEAD<neighbor->no_pairs)
-            {
-                int katm=neighbor_list[iatm][j+AHEAD];
-                _mm_prefetch((char*)(y+katm*3),_MM_HINT_T0);
-                _mm_prefetch((char*)(typey+katm),_MM_HINT_T0);
-            }
-            pair_no++;
-        }
-    }
-#else
+
     type0* x=mapp->x->begin();
     type0* fvec=f->begin();
     md_type* type=mapp->type->begin();
     
     int natms=atoms->natms;
     int iatm,jatm;
-    int itype,jtype,curs,icomp,jcomp;
-    type0 dx0,dx1,dx2,rsq,sig,eps,csq;
+    int itype,jtype,icomp,jcomp;
+    type0 dx0,dx1,dx2,rsq,sig,eps;
     type0 sig2,sig6,sig12,fpair,en;
     
     int** neighbor_list=neighbor->neighbor_list;
@@ -217,7 +133,6 @@ force_calc(bool st_clc)
         {
             jatm=neighbor_list[iatm][j];
             jtype=type[jatm];
-            curs=COMP(itype,jtype);
             icomp=3*iatm;
             jcomp=3*jatm;
             dx0=x[icomp]-x[jcomp];
@@ -226,18 +141,17 @@ force_calc(bool st_clc)
             
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
-            csq=cut_sq[curs];
-            if(rsq<csq)
+            if(rsq<cut_sq[itype][jtype])
             {
-                sig=sigma[curs];
-                eps=epsilon[curs];
+                sig=sigma[itype][jtype];
+                eps=epsilon[itype][jtype];
                 sig2=sig*sig/rsq;
                 sig6=sig2*sig2*sig2;
                 sig12=sig6*sig6;
                 
                 fpair=24.0*eps*(2.0*sig12-sig6)/rsq;
                 en=4.0*eps*(sig12-sig6)
-                +offset[curs];
+                +offset[itype][jtype];
                 
                 fvec[icomp]+=fpair*dx0;
                 fvec[icomp+1]+=fpair*dx1;
@@ -269,7 +183,6 @@ force_calc(bool st_clc)
             }
         }
     }
-#endif
 
     
     if(st_clc)
@@ -298,8 +211,8 @@ type0 ForceField_lj::energy_calc()
     int natms=atoms->natms;
     int iatm,jatm;
     
-    int itype,jtype,curs,icomp,jcomp;
-    type0 dx0,dx1,dx2,rsq,csq;
+    int itype,jtype,icomp,jcomp;
+    type0 dx0,dx1,dx2,rsq;
     type0 eps,sig,sig2,sig6,sig12;
     
     int** neighbor_list=neighbor->neighbor_list;
@@ -315,7 +228,6 @@ type0 ForceField_lj::energy_calc()
         {
             jatm=neighbor_list[iatm][j];
             jtype=type[jatm];
-            curs=COMP(itype,jtype);
             icomp=3*iatm;
             jcomp=3*jatm;
             dx0=x[icomp]-x[jcomp];
@@ -324,21 +236,20 @@ type0 ForceField_lj::energy_calc()
             
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
-            csq=cut_sq[curs];
-            if(rsq<csq)
+            if(rsq<cut_sq[itype][jtype])
             {
-                sig=sigma[curs];
-                eps=epsilon[curs];
+                sig=sigma[itype][jtype];
+                eps=epsilon[itype][jtype];
                 sig2=sig*sig/rsq;
                 sig6=sig2*sig2*sig2;
                 sig12=sig6*sig6;
                 
                 if(jatm<natms)
                     en+=4.0*eps*(sig12-sig6)
-                    +offset[curs];
+                    +offset[itype][jtype];
                 else
                     en+=2.0*eps*(sig12-sig6)
-                    +offset[curs]*0.5;
+                    +offset[itype][jtype]*0.5;
                 
             }
         }
@@ -352,178 +263,47 @@ type0 ForceField_lj::energy_calc()
  --------------------------------------------*/
 void ForceField_lj::read_file(char* file_name)
 {
-    int no_types=atom_types->no_types;
-    int* type_ref;
-    int* eps_chk;
-    int* sigma_chk;
-    int* r_c_chk;
-
-    CREATE1D(eps_chk,no_types*(no_types+1));
-    CREATE1D(sigma_chk,no_types*(no_types+1));
-    CREATE1D(r_c_chk,no_types*(no_types+1));
-
+    FileReader fr(mapp);
     
-    FILE* fp=NULL;
-    char* line;
-    CREATE1D(line,MAXCHAR);
+    fr.add_2D("sigma",sigma);
+    fr.symmetric();
+    fr.add_vlog()=vlogic("gt",0.0);
     
-    char** args=NULL;
-    int nargs;
-    int args_cpcty=0;
-    int no_types_file;
+    
+    fr.add_2D("epsilon",epsilon);
+    fr.symmetric();
+    fr.add_vlog()=vlogic("gt",0.0);
+    
+    fr.add_2D("r_c",cut);
+    fr.symmetric();
+    fr.add_vlog()=vlogic("gt",0.0);
     
 
-    for(int i=0;i<no_types*(no_types+1);i++)
-        eps_chk[i]=sigma_chk[i]=eps_chk[i]=0;
     
-    mapp->open_file(fp,file_name,"r");
-    
-    /*
-     reading the header of the file
-     find the first line and read the
-     atomic types in the file
-     */
-    
-    nargs=0;
-    while(nargs==0 && mapp->read_line(fp,line) !=-1)
-        nargs=mapp->parse_line(line,args,args_cpcty);
 
-    if(nargs==0)
-        error->abort("%s file ended immaturely",file_name);
+    fr.read_file(file_name);
     
-    
-    if(nargs<no_types)
-        error->abort("the number of atoms in %s file"
-        " is less than the number of atom types present in the system",file_name);
-    
-    no_types_file=nargs;
-    
-    
-    
-    CREATE1D(type_ref,no_types);
-    
-    for(int i=0;i<no_types_file;i++)
-        type_ref[i]=atom_types->find_type_exist(args[i]);
-    
-    if(args_cpcty)
-        delete [] args;
-    
-    
-    int icmp,jcmp,curs;
-    type0 tmp;
-    while(mapp->read_line(fp,line)!=-1)
-    {
-        if(mapp->hash_remover(line)==0)
-            continue;
-        if(sscanf(line,"r_c(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for r_c(%i,%i)",file_name,icmp,jcmp);
-            
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                if(tmp<=0.0)
-                    error->abort("r_c(%d,%d) in %s "
-                                 "file should be greater than 0.0",icmp,jcmp,file_name);
-                r_c_chk[curs]=1;
-                cut_sq[curs]=tmp*tmp;
-                type0 skin=atoms->get_skin();
-                cut_sk_sq[curs]=(tmp+skin)*(tmp+skin);
-            }
-        }
-        else if(sscanf(line,"epsilon(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for epsilon(%i,%i)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                if(tmp<=0.0)
-                    error->abort("epsilon(%d,%d) in %s "
-                                 "file should be greater than 0.0",icmp,jcmp,file_name);
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                eps_chk[curs]=1;
-                epsilon[curs]=tmp;
-            }
-        }
-        else if(sscanf(line,"sigma(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for sigma(%i,%i)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                if(tmp<=0.0)
-                    error->abort("sigma(%d,%d) in %s "
-                                 "file should be greater than 0.0",icmp,jcmp,file_name);
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                sigma_chk[curs]=1;
-                sigma[curs]=tmp;
-            }
-        }
-        else
-            error->abort("invalid line in %s file: %s",file_name,line);
-    }
-    
-    if(atoms->my_p==0)
-        fclose(fp);
-    
-     delete [] line;
-    /*
-     check wether all the values are set or not
-     */
-    
-    
-    for(int i=0;i<no_types;i++)
-        for(int j=i;j<no_types;j++)
-        {
-            curs=COMP(i,j);
-            if(eps_chk[curs]==0)
-                error->abort("epsilon(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(sigma_chk[curs]==0)
-                error->abort("sigma(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(r_c_chk[curs]==0)
-                error->abort("r_c(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-        }
-    
-    
-    //clean up
-    
-    if(no_types)
-    {
-        delete [] eps_chk;
-        delete [] sigma_chk;
-        delete [] r_c_chk;
-
-    }
-    
-    if(no_types_file)
-        delete [] type_ref;
-    
+    for(int itype=0;itype<no_types;itype++)
+        for(int jtype=0;jtype<no_types;jtype++)
+            cut_sq[itype][jtype]=cut[itype][jtype]*cut[itype][jtype];
     
     if(shift)
     {
         type0 sig2,sig6,sig12;
-        for(int icurs=0;icurs<no_types*(no_types+1)/2;icurs++)
-        {
-            sig2=sigma[icurs]*sigma[icurs]/cut_sq[icurs];
-            sig6=sig2*sig2*sig2;
-            sig12=sig6*sig6;
-            offset[icurs]=-4.0*epsilon[icurs]*(sig12-sig6);
-        }
+        for(int itype=0;itype<no_types;itype++)
+            for(int jtype=0;jtype<no_types;jtype++)
+            {
+                sig2=sigma[itype][jtype]*sigma[itype][jtype]/cut_sq[itype][jtype];
+                sig6=sig2*sig2*sig2;
+                sig12=sig6*sig6;
+                offset[itype][jtype]=-4.0*epsilon[itype][jtype]*(sig12-sig6);
+            }
     }
     else
     {
-        for(int icurs=0;icurs<no_types*(no_types+1)/2;icurs++)
-            offset[icurs]=0.0;
+        for(int itype=0;itype<no_types;itype++)
+            for(int jtype=0;jtype<no_types;jtype++)
+                offset[itype][jtype]=0.0;
     }
 }
 

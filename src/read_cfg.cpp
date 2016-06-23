@@ -33,11 +33,11 @@ Read_cfg::Read_cfg(MAPP* mapp,int nargs,char** args)
     ext_cfg=0;
     vel_chk=1;
 
-    CREATE2D(H_x,3,3);
-    CREATE2D(H_x_d,3,3);
-    CREATE2D(H0,3,3);
-    CREATE2D(eta,3,3);
-    CREATE2D(trns,3,3);
+    CREATE_2D(H_x,3,3);
+    CREATE_2D(H_x_d,3,3);
+    CREATE_2D(H0,3,3);
+    CREATE_2D(eta,3,3);
+    CREATE_2D(trns,3,3);
     
     M3ZERO(H_x);
     M3ZERO(H_x_d);
@@ -69,20 +69,12 @@ Read_cfg::Read_cfg(MAPP* mapp,int nargs,char** args)
  --------------------------------------------*/
 Read_cfg::~Read_cfg()
 {
-    for(int i=0;i<3;i++)
-    {
-        delete [] eta[i];
-        delete [] H0[i];
-        delete [] H_x[i];
-        delete [] H_x_d[i];
-        delete [] trns[i];
-    }
     
-    delete [] eta;
-    delete [] H0;
-    delete [] H_x;
-    delete [] H_x_d;
-    delete [] trns;
+    DEL_2D(eta);
+    DEL_2D(H0);
+    DEL_2D(H_x);
+    DEL_2D(H_x_d);
+    DEL_2D(trns);
     
     if(ch_buff_sz)
         delete [] ch_buff;
@@ -238,7 +230,7 @@ void Read_cfg::set_box()
 
         type0** eta_sq;
         
-        CREATE2D(eta_sq,3,3);
+        CREATE_2D(eta_sq,3,3);
         XMath* xmath=new XMath();
         if(xmath->M3sqroot(eta,eta_sq)==0)
             error->abort("eta in %s should be positive definite",file_name);
@@ -251,9 +243,7 @@ void Read_cfg::set_box()
                 for(int k=0;k<3;k++)
                     H_x[i][j]+=H0[i][k]*eta_sq[k][j];
         
-        for(int i=0;i<3;i++)
-            delete [] eta_sq[i];
-        delete [] eta_sq;
+        DEL_2D(eta_sq);
         
     }
     
@@ -626,6 +616,10 @@ void Read_cfg::set_vecs()
         mapp->ctype->change_dimension(cdim);
         mapp->x->change_dimension(0.0,dmd_no_types,dmd_no_types-cdim);
         mapp->c->change_dimension(-1.0,dmd_no_types,dmd_no_types-cdim);
+        
+        delete [] mapp->c->print_format;
+        mapp->c->print_format=new char[strlen("%e ")+1];
+        memcpy(mapp->c->print_format,"%e ",strlen("%e ")+1);
     }
 }
 

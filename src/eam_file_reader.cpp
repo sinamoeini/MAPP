@@ -14,6 +14,14 @@ EAMFileReader::EAMFileReader(MAPP* mapp)
     allocated=0;
     no_types=0;
     nfiles=0;
+    
+    type2phi=NULL;
+    type2rho=NULL;
+    type2rho_pair_ij=NULL;
+    type2rho_pair_ji=NULL;
+    type2phi_pair_ij=NULL;
+    type2phi_pair_ji=NULL;
+    cut_sq=NULL;
 }
 /*--------------------------------------------
  
@@ -749,26 +757,21 @@ void EAMFileReader::deallocate()
     if(allocated==0)
         return;
     
-    for(int i=0;i<no_types;i++)
-    {
-        delete [] type2phi[i];
-        delete [] type2rho[i];
-        delete [] type2rho_pair_ij[i];
-        delete [] type2rho_pair_ji[i];
-        delete [] type2phi_pair_ij[i];
-        delete [] type2phi_pair_ji[i];
-    }
-
-    if(no_types)
-    {
-        delete [] cut_sq;
-        delete [] type2phi;
-        delete [] type2rho;
-        delete [] type2rho_pair_ij;
-        delete [] type2rho_pair_ji;
-        delete [] type2phi_pair_ij;
-        delete [] type2phi_pair_ji;
-    }
+    DEL_2D(type2phi);
+    DEL_2D(type2rho);
+    DEL_2D(type2rho_pair_ij);
+    DEL_2D(type2rho_pair_ji);
+    DEL_2D(type2phi_pair_ij);
+    DEL_2D(type2phi_pair_ji);
+    delete [] cut_sq;
+    
+    type2phi=NULL;
+    type2rho=NULL;
+    type2rho_pair_ij=NULL;
+    type2rho_pair_ji=NULL;
+    type2phi_pair_ij=NULL;
+    type2phi_pair_ji=NULL;
+    cut_sq=NULL;
     
     
     if(eam_mode==FUNC_FL || eam_mode==SET_FL)
@@ -833,12 +836,12 @@ void EAMFileReader::deallocate()
 void EAMFileReader::allocate()
 {
     CREATE1D(cut_sq,no_types*(no_types+1)/2);
-    CREATE2D(type2phi,no_types,no_types);
-    CREATE2D(type2rho,no_types,no_types);
-    CREATE2D(type2rho_pair_ij,no_types,no_types);
-    CREATE2D(type2rho_pair_ji,no_types,no_types);
-    CREATE2D(type2phi_pair_ij,no_types,no_types);
-    CREATE2D(type2phi_pair_ji,no_types,no_types);
+    CREATE_2D(type2phi,no_types,no_types);
+    CREATE_2D(type2rho,no_types,no_types);
+    CREATE_2D(type2rho_pair_ij,no_types,no_types);
+    CREATE_2D(type2rho_pair_ji,no_types,no_types);
+    CREATE_2D(type2phi_pair_ij,no_types,no_types);
+    CREATE_2D(type2phi_pair_ji,no_types,no_types);
     
     for(int ityp=0;ityp<no_types;ityp++)
         for(int jtyp=0;jtyp<no_types;jtyp++)
@@ -846,44 +849,6 @@ void EAMFileReader::allocate()
             type2phi[ityp][jtyp]=COMP(ityp,jtyp);
             type2rho[ityp][jtyp]=jtyp*no_types+ityp;
         }
-    
-        /*
-    stride=0;
-    for(int ityp=0;ityp<no_types;ityp++)
-    {
-        type2rho_pair_ij[ityp][ityp]=type2rho_pair_ji[ityp][ityp]=stride;
-        stride++;
-    }
-    
-    for(int ityp=0;ityp<no_types;ityp++)
-        for(int jtyp=0;jtyp<no_types;jtyp++)
-        {
-            if(ityp!=jtyp)
-            {
-                type2rho_pair_ij[ityp][jtyp]=stride;
-                stride++;
-            }
-        }
-    
-    for(int ityp=0;ityp<no_types;ityp++)
-        for(int jtyp=0;jtyp<no_types;jtyp++)
-        {
-            if(ityp!=jtyp)
-            {
-                type2rho_pair_ji[ityp][jtyp]=stride;
-                stride++;
-            }
-        }
-    
-    for(int ityp=0;ityp<no_types;ityp++)
-        for(int jtyp=0;jtyp<no_types;jtyp++)
-        {
-            type2phi_pair_ij[ityp][jtyp]=type2phi_pair_ji[jtyp][ityp]=stride;
-            stride++;
-            
-        }
-    
-    */
 
     stride=0;
     

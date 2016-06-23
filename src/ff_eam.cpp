@@ -4,6 +4,7 @@
 #include "atom_types.h"
 #include "error.h"
 #include "memory.h"
+#include "cmd.h"
 using namespace MAPP_NS;
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 
@@ -89,7 +90,7 @@ force_calc(bool st_clc)
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             drhoi_dr[istart]=drhoj_dr[istart]=0.0;
-            if(rsq < cut_sq[COMP(itype,jtype)])
+            if(rsq < cut_sq[itype][jtype])
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
@@ -276,7 +277,7 @@ type0 ForceField_eam::energy_calc()
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
-            if(rsq<cut_sq[COMP(itype,jtype)])
+            if(rsq<cut_sq[itype][jtype])
             {
                 r=sqrt(rsq);
                 
@@ -352,22 +353,42 @@ void ForceField_eam::fin()
  --------------------------------------------*/
 void ForceField_eam::coef(int nargs,char** args)
 {
-    if(nargs<3)
-        error->abort("ff_coef for ff eam "
-        "should at least have 2 arguments");
     
+    char* file_format;
+    char** files;
+    int nfiles;
+    
+    Pattern cmd(error);
+    add_var(atom_types->no_types,"no. of elements in simulation");
+    
+    /*----------------------------*/
+    cmd.cmd("ff_coef");
+    cmd.add_var(file_format,"file_format");
+    cmd.add_vdesc(0,"defines the format of EAM files");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("eq","FS")
+    +vlogic("eq","SetFL")+vlogic("eq","FuncFL");
+    /*------------------------------------------------------------------------------------*/
+
+    /*----------------------------*/
+    cmd.cmd_dy("files",files,nfiles);
+    cmd.add_vdesc(0,"defines the path to the potential file/s");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=logic(file_format,"eq","FuncFL")/logic(nfiles,"eq",atom_types->no_types);
+    cmd.add_clog().link()=(logic(file_format,"eq","FS")+logic(file_format,"eq","SetFL"))
+    /logic(nfiles,"eq",1);
+    /*------------------------------------------------------------------------------------*/
+    
+    cmd.print_info();
+    cmd.scan(args,nargs);
+
     cut_off_alloc();
     
     delete eam_reader;
     eam_reader=new EAMFileReader(mapp);
-    eam_reader->file_format(args[1]);
-
-    int iarg=2;
-    while(iarg<nargs)
-    {
-        eam_reader->add_file(args[iarg],iarg-2);
-        iarg++;
-    }
+    eam_reader->file_format(file_format);
+    for(int i=0;i<nfiles;i++)
+        eam_reader->add_file(files[i],i);
     
     setup();
 }
@@ -393,7 +414,9 @@ void ForceField_eam::setup()
     type2phi=eam_reader->type2phi;
     
     int no_types=atom_types->no_types;
-    memcpy(cut_sq,eam_reader->cut_sq,(no_types*(no_types+1)/2)*sizeof(type0));
+    for(int i=0;i<no_types;i++)
+        for(int j=0;j<no_types;j++)
+            cut_sq[i][j]=eam_reader->cut_sq[COMP(i,j)];
 
 }
 

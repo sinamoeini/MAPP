@@ -7,6 +7,7 @@
 #include "write.h"
 #include "thermo_dynamics.h"
 #include "xmath.h"
+#include "cmd.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -15,59 +16,59 @@ DMD_adams::DMD_adams(MAPP* mapp,int nargs
 ,char** args):DMDImplicit(mapp)
 {
     q_max=12;
+    char* dmd_style=NULL;
     
-    if(nargs>2)
-    {
-        if(nargs%2!=0)
-            error->abort("every keyword in dmd adams should be followed by it's value");
-        int iarg=2;
-        while(iarg<nargs)
-        {
-            if(strcmp(args[iarg],"max_step")==0)
-            {
-                iarg++;
-                max_step=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"max_iter")==0)
-            {
-                iarg++;
-                max_iter=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"q_max")==0)
-            {
-                iarg++;
-                q_max=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"a_tol")==0)
-            {
-                iarg++;
-                a_tol=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"dt_min")==0)
-            {
-                iarg++;
-                dt_min=atof(args[iarg]);
-                iarg++;
-            }
-            else
-                error->abort("unknown keyword in dmd adams: %s",args[iarg]);
-        }
-    }
+    Pattern cmd(error);
+    
+    /*----------------------------*/
+    cmd.cmd("dmd");
+    cmd.add_var(dmd_style,"style");
+    cmd.add_vdesc(0,"defines the style of dmd");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("eq","adams");
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("max_step");
+    cmd.add_var(max_step,"nstep");
+    cmd.add_vdesc(0,"defines maximum number of steps");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("max_iter");
+    cmd.add_var(max_iter,"niter");
+    cmd.add_vdesc(0,"defines maximum number of iterations");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("q_max");
+    cmd.add_var(q_max,"q");
+    cmd.add_vdesc(0,"defines maximum order of bdf");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0)*vlogic("le",12);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("a_tol");
+    cmd.add_var(a_tol,"tol");
+    cmd.add_vdesc(0,"defines absolute tolerance in local truncation error for performing integration");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("dt_min");
+    cmd.add_var(dt_min,"dt");
+    cmd.add_vdesc(0,"defines minimum time step");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
 
-    if(max_step<0)
-        error->abort("max_step in dmd adams should be greater than 0");
-    if(max_iter<=0)
-        error->abort("max_iter in dmd adams should be greater than 0");
-    if(q_max<=0)
-        error->abort("q_max in dmd adams should be greater than 0");
-    if(a_tol<=0.0)
-        error->abort("a_tol in dmd adams should be greater than 0.0");
-    if(dt_min<=0.0)
-        error->abort("dt_min in dmd adams should be greater than 0.0");
+    cmd.scan(args,nargs);
     
     int n=1+q_max/2;
     CREATE1D(xi,n);
@@ -365,7 +366,7 @@ void DMD_adams::interpolate_fail()
             }
             
             y_0[i]=y0;
-            a[i]=-y0/beta+dy0;
+            a[i]=-y0+beta*dy0;
         }
         else
             y_0[i]=y[i];
@@ -445,8 +446,9 @@ inline bool DMD_adams::interpolate()
                 a[i]+=dalpha_dy[j]*dy[j][i];
                 y_0[i]+=alpha_dy[j]*dy[j][i];
             }
+            a[i]*=beta;
+            a[i]-=y_0[i];
             
-            a[i]-=y_0[i]/beta;
             if(y_0[i]<0.0 || y_0[i]>1.0)
                 xcd_dom=true;
         }

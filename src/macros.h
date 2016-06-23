@@ -23,6 +23,12 @@ E__,__FUNCTION__)
 ry->create(A,d0,d1,#A,__LINE__\
 ,__FILE__,__FUNCTION__)
 
+#define CREATE_2D(A,d0,d1) memo\
+ry->create_2d(A,d0,d1,#A,__LINE__\
+,__FILE__,__FUNCTION__)
+
+#define DEL_2D(A) memory->del_2d(A)
+
 /* 3 dimensional shorthand macros */
 #define V3ZERO(V) (V[0]=0,V[1]\
 =0,V[2]=0)

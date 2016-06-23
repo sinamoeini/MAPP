@@ -13,6 +13,7 @@ namespace MAPP_NS
         NO_FLAG,
         F_FLAG,
         CD_FLAG,
+        C_FLAG,
         STEP_FLAG
     };
     
@@ -24,7 +25,7 @@ namespace MAPP_NS
         ForceFieldDMD* forcefield_dmd;
         Neighbor_dmd* neighbor_dmd;
 
-        
+        //int msd_idx;
         int fe_idx;
         int stress_idx;
         int time_idx;
@@ -47,11 +48,11 @@ namespace MAPP_NS
         
         Min* min;
         int nmin;
-        type0 f_tol;
+        type0 f_tol,delta_c;
         type0 f_norm0;
         type0 c_d_norm;
         int istep;
-        type0 cd_tol;
+        type0 cd_tol,c_tol;
         int step_tol;
         int dstep;
         int min_flag;
@@ -62,7 +63,7 @@ namespace MAPP_NS
 
         type0 max_succ_dt;
         virtual void run()=0;
-
+        type0 vac_msd();
     public:
         DMD(MAPP *);
         virtual ~DMD();
@@ -93,6 +94,7 @@ namespace MAPP_NS
         type0* y_0;
         type0* F;
         type0* del_c;
+        type0* c0;
 
         
         // parameters for implicit integrator
@@ -101,7 +103,6 @@ namespace MAPP_NS
         int max_iter;
 
         bool solve_non_lin();
-        bool solve_non_lin_();
         
         
 

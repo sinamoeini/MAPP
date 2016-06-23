@@ -24,14 +24,11 @@
 #include <iostream>
 #include <fstream>
 
-
-
-#include "gmres.h"
-
+#include "random.h"
 
 #define MAPP_VERSION "Beta"
-using namespace MAPP_NS;
 
+using namespace MAPP_NS;
 /*--------------------------------------------
  constructor of the main executer
  --------------------------------------------*/
@@ -40,8 +37,10 @@ MAPP(int nargs,char** args,MPI_Comm communicator):
 world(communicator),
 atoms(new Atoms(this,3)),
 x(atoms->x),
-id(atoms->id)
+id(atoms->id),
+sr(this)
 {
+    sr.my_p=atoms->my_p;
     init_dubeg(false);
     
     memory=new Memory(this);
@@ -114,6 +113,7 @@ id(atoms->id)
 
     
     test0();
+    test1();
     
     if(input_file!=stdin)
         fclose(input_file);
@@ -146,7 +146,7 @@ MAPP::~MAPP()
 /*--------------------------------------------
  analysing the commands
  --------------------------------------------*/
-void MAPP::read_file()
+/*void MAPP::read_file()
 {
     char* cmd;
     int cmd_cpcty=0;
@@ -165,6 +165,25 @@ void MAPP::read_file()
     
     if(args_cpcty) delete [] args;
     if(cmd_cpcty) delete [] cmd;
+}*/
+/*--------------------------------------------
+ analysing the commands
+ --------------------------------------------*/
+void MAPP::read_file()
+{
+    char** args=NULL;
+    int args_cpcty=0;
+    int nargs=0;
+    while(nargs!=-1)
+    {
+        nargs=sr(args,args_cpcty);
+        if(nargs==0 || nargs==-1)
+            continue;
+        command_style(nargs,args);
+        no_commands++;
+    }
+    
+    if(args_cpcty) delete [] args;
 }
 /*--------------------------------------------
  differnt command styles
@@ -350,8 +369,6 @@ int MAPP::hash_remover(char*& line)
         *kpos=' ';
         kpos++;
     }
-    
-
 
     return nargs;
 }
@@ -485,14 +502,12 @@ int MAPP::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
         char* mark;
         bool cmd_cmplt=false;
         bool line_cmplt=false;
-        
 
         while(!cmd_cmplt && !file_cmplt)
         {
             line_cmplt=false;
             while(!line_cmplt && !file_cmplt)
             {
-                
                 if(ipos+chunk>line_cpcty)
                 {
                     char* line_=new char[ipos+chunk];
@@ -517,6 +532,7 @@ int MAPP::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
                     chunk*=2;
                 }
             }
+            
             if(file_cmplt)
                 continue;
             mark=strchr(line+ipos,'\\');
@@ -607,20 +623,13 @@ void MAPP::fin_dubeg()
     if(my_debug!=NULL)
         fclose(my_debug);
 }
-/*--------------------------------------------
- if mass unit is amu
- energy unit is eV
- t unit would be 10.1805 fs
- --------------------------------------------*/
-void MAPP::test0()
-{
-}
+
 /*--------------------------------------------
  test
  --------------------------------------------*/
 void MAPP::test1()
 {
-    
+
     /*
     
     const char* fileName ="input_dmd";
@@ -750,6 +759,194 @@ void MAPP::test1()
      */
 
 }
+
+/*--------------------------------------------
+ if mass unit is amu
+ energy unit is eV
+ t unit would be 10.1805 fs
+ Commmand cmd
+ 
+ command: md
+ 
+ list of styles: nh
+ 
+ Cmd St_0 St_1 ... {cmd^i st^i_0 st^i_1 ...} {cmd^j st^j_0 st^j_1 ...}
+ 
+ for example for md
+ cmd_name: md
+ style_0: nh
+ style_1: ntaut|npt|navt
+ 0
+ 1
+ 0,0
+ --------------------------------------------*/
+void MAPP::test0()
+{
+}
+/*--------------------------------------------
+
+ --------------------------------------------*/
+ScriptReader::ScriptReader(MAPP* mapp):
+world(mapp->world),
+error(mapp->error),
+fp(mapp->input_file)
+{
+    sz_inc=100;
+    line_len=MAXCHAR;
+    line=new char[line_len];
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ScriptReader::~ScriptReader()
+{
+    delete [] line;
+}
+/*--------------------------------------------
+ 3 status:
+ line finished
+ command finished;
+ file finished;
+ 
+ --------------------------------------------*/
+bool ScriptReader::get_line_proc0(char*& buff,int& buff_sz,int& buff_cpcty)
+{
+    int beg=buff_sz;
+    int cpt_sz;
+    char* p;
+    bool line_fin;
+    line_fin=false;
+    
+    int max_cpt_sz=buff_cpcty-buff_sz;
+    p=buff+buff_sz;
+    
+    while(!line_fin)
+    {
+        p=fgets(p,max_cpt_sz,fp);
+        
+        if(p==NULL)
+            return false;
+        
+        cpt_sz=static_cast<int>(strlen(p));
+        buff_sz+=cpt_sz;
+
+        // check if the line is fully captured
+        if(p[cpt_sz-1]=='\n')
+        {
+            p[cpt_sz-1]='\0';
+            buff_sz--;
+            line_fin=true;
+            continue;
+        }
+        
+        
+        
+        char* buff_=new char[buff_cpcty+sz_inc];
+        memcpy(buff_,buff,buff_cpcty*sizeof(char));
+        delete [] buff;
+        buff=buff_;
+        
+        p=buff+buff_cpcty-1;
+        buff_cpcty+=sz_inc;
+        max_cpt_sz=sz_inc+1;
+    }
+    
+    char* srch=strchr(buff+beg,'#');
+    if(srch!=NULL)
+    {
+        *srch='\0';
+        buff_sz=static_cast<int>(srch-buff)-beg;
+    }
+    
+    srch=strchr(buff+beg,'\\');
+    if(srch!=NULL)
+    {
+        *srch='\0';
+        buff_sz=static_cast<int>(srch-buff)-beg;
+        return get_line_proc0(buff,buff_sz,buff_cpcty);
+    }
+
+    return true;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+int ScriptReader::operator()(char**& args,int& args_cpcty)
+{
+    int buff_sz=0;
+    if(my_p==0)
+    {
+        bool chk=get_line_proc0(line,buff_sz,line_len);
+        if(!chk)
+        {
+            if(buff_sz!=0)
+                buff_sz=-2;
+            else
+                buff_sz=-1;
+        }
+    }
+    
+    MPI_Bcast(&buff_sz,1,MPI_INT,0,world);
+    if (buff_sz==-2)
+    {
+        error->abort("file ended unexpectedly");
+        return -2;
+    }
+    
+    if (buff_sz==-1)
+        return -1;
+    
+    if(buff_sz+1>line_len)
+    {
+        delete [] line;
+        line=new char[buff_sz+1];
+        line_len=buff_sz+1;
+    }
+    MPI_Bcast(line,buff_sz+1,MPI_CHAR,0,world);
+    
+    int nargs=0;
+    char* p1=line;
+    char* p0=NULL;
+    while(*p1!='\0')
+    {
+        if(is_char(p0) && !is_char(p1))
+            *p1='\0';
+        if(!is_char(p0) && is_char(p1))
+        {
+            if(nargs+1>args_cpcty)
+            {
+                char** args_=new char*[nargs+1];
+                memcpy(args_,args,nargs*sizeof(char*));
+                delete [] args;
+                args=args_;
+                args_cpcty=nargs+1;
+            }
+            args[nargs++]=p1;
+        }
+        p0=p1;
+        p1++;
+    }
+    
+
+    return nargs;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+bool ScriptReader::is_char(char* c)
+{
+    if(c==NULL)
+        return false;
+    if(*c=='\0')
+        return false;
+    if(*c==' ')
+        return false;
+    if(*c=='\t')
+        return false;
+    
+    return true;
+}
+
 
 
 

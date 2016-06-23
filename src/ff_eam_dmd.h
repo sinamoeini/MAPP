@@ -46,8 +46,8 @@ namespace MAPP_NS
         type0 cut_sq_mod_0;
         type0 kbT,beta;
         type0* c_0;
-        type0* f_t;
-        type0* Q_nrm;
+        type0* c_1;
+        type0* g_fac;
         
         /*--------------------------------------------*/
         type0* rho_phi;
@@ -66,9 +66,6 @@ namespace MAPP_NS
         
         /*--------------------------------------------*/
         
-        
-        type0 mat(type0,type0,int);
-        type0 dmat(type0,type0,int);
         type0 calc_ent(type0);
         void calc_mu();
 
@@ -89,14 +86,16 @@ namespace MAPP_NS
         int* phi_psi_sz;
         int phi_psi_sz_sz;
         int n_phi_psi;
-        type0* N_IJ;
-        type0* N_JI;
         type0* M_IJ;
-        type0* M_JI;
         int M_N_sz_sz;
-        Vec<type0>* M_ptr;
-        Vec<type0>* N_ptr;
         void force_calc_static(bool);
+        /*--------------------------------------------*/
+        void calc_Q(int&,type0&,type0&,type0&,type0&,type0&);
+        void calc_Q(int&,type0&,type0&,type0&,type0&,type0&,type0&);
+        Vec<type0>* x_tmp_ptr;
+        type0 alpha_tmp,alpha_inv_tmp;
+        /*--------------------------------------------*/
+        
     protected:
         void force_calc(bool);
         type0 energy_calc();

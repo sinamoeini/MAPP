@@ -503,8 +503,20 @@ void Min::init()
     
     if(ls==NULL)
     {
-        char** args=NULL;
+        /*
+        char** args;
+        int nargs=mapp->parse_line("ls bt",args);
         ls=new LineSearch_backtrack<Min>(mapp,0,args);
+        for(int i=0;i<nargs;i++)
+            delete [] args[i];
+        if(nargs)
+            delete [] args;
+         */
+        
+        LineSearch_backtrack<Min>* ls_=NULL;
+        mapp->create(ls_,"ls bt");
+        ls=ls_;
+        
     }
     
     ls->init(this);

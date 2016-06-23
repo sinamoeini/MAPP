@@ -30,6 +30,7 @@ namespace MAPP_NS
     
 }
 #include <stdlib.h>
+#include "cmd.h"
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
@@ -46,53 +47,35 @@ error(mapp->error)
     zeps=epsilon*1.0e-3;
     brack=true;
 
-    if(nargs>2)
-    {
-        if(nargs%2!=0)
-            error->abort("every keyword in ls brent should be followed by it's value");
-        int iarg=2;
-        while(iarg<nargs)
-        {
-            if(strcmp(args[iarg],"tol")==0)
-            {
-                iarg++;
-                tol=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"zeps")==0)
-            {
-                iarg++;
-                zeps=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"max_iter")==0)
-            {
-                iarg++;
-                max_iter=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"bracket")==0)
-            {
-                iarg++;
-                if(strcmp(args[iarg],"yes")==0)
-                    brack=true;
-                else if(strcmp(args[iarg],"no")==0)
-                    brack=false;
-                else
-                    error->abort("unknown keyword in ls brent: %s",args[iarg]);
-                iarg++;
-            }
-            else
-                error->abort("unknown keyword in ls brent: %s",args[iarg]);
-        }
-    }
+    Pattern cmd(error);
     
-    if(tol<=0.0)
-        error->abort("tol in ls brent should be greater than 0.0");
-    if(zeps<0.0)
-        error->abort("zeps in ls brent should be greater than 0.0");
-    if(max_iter<=0)
-        error->abort("max_iter in ls brent should be greater than 0");
+    char* ls_style=NULL;
+    char* bracket=NULL;
+    
+    cmd.cmd("ls");
+    cmd.add_var(ls_style);
+    cmd.add_vlog(0)=vlogic("eq","brent");
+
+    cmd.cmd("tol");
+    cmd.add_var(tol);
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    
+    cmd.cmd("zeps");
+    cmd.add_var(zeps);
+    cmd.add_vlog(0)=vlogic("ge",0.0);
+    
+    cmd.cmd("max_iter");
+    cmd.add_var(max_iter);
+    cmd.add_vlog(0)=vlogic("gt",0);
+    
+    cmd.cmd("bracket");
+    cmd.add_var(bracket);
+    cmd.add_vlog(0)=vlogic("eq","yes")+vlogic("eq","no");
+    
+    cmd.scan(args,nargs);
+    
+    if(bracket!=NULL && !strcmp(bracket,"no"))
+        brack=false;
 }
 /*--------------------------------------------
  destructor

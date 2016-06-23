@@ -23,6 +23,13 @@ namespace MAPP_NS
         ,int,const char*,const char*);
         
         template <typename TYPE>
+        TYPE** create_2d(TYPE**&,long,long,const char*
+        ,int,const char*,const char*);
+        
+        template <typename TYPE>
+        void del_2d(TYPE**&);
+        
+        template <typename TYPE>
         TYPE* grow(TYPE*&,long,long,const char*
         ,int,const char*,const char*);
 
@@ -62,6 +69,35 @@ const char* file,const char* function)
     for(int i=0;i<d0;i++)
         create(array[i],d1,name,line_no,file,function);
     return array;
+}
+/*--------------------------------------------
+ create 2d vector
+ --------------------------------------------*/
+template <typename TYPE>
+TYPE** Memory::create_2d(TYPE**& array,long d0
+,long d1,const char* name,int line_no,
+const char* file,const char* function)
+{
+    create(array,d0,name,line_no,file,function);
+    create(*array,d0*d1,name,line_no,file,function);
+    
+    for(int i=1;i<d0;i++)
+        array[i]=array[i-1]+d1;
+    return array;
+}
+/*--------------------------------------------
+ create 2d vector
+ --------------------------------------------*/
+template <typename TYPE>
+void Memory::del_2d(TYPE**& array)
+{
+    if(array==NULL)
+    {
+        delete [] array;
+        return;
+    }
+    delete [] *array;
+    delete [] array;    
 }
 /*--------------------------------------------
  grow 1d vector

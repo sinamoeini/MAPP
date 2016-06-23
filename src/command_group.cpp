@@ -18,13 +18,14 @@ Command_group::Command_group(MAPP* mapp
         if(nargs<5)
             error->abort("group add command needs at least 3 arguments");
         
-        if(strcmp(args[2],"file")==0)
+        if(strcmp(args[3],"file")==0)
         {
-            groups->add_grp_file(args[3],nargs-4,args+4);
+            groups->add_grp_file(args[2],nargs-4,args+4);
         }
-        else if(strcmp(args[2],"type")==0)
+        else if(strcmp(args[3],"type")==0)
         {
-            groups->add_grp_type(args[3],nargs-4,args+4);
+            
+            groups->add_grp_type(args[2],nargs-4,args+4);
         }
         else
             error->abort("unknown keyword: %s",args[1]);

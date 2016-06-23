@@ -24,6 +24,7 @@ namespace MAPP_NS
 }
 
 #include <stdlib.h>
+#include "cmd.h"
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
@@ -37,42 +38,26 @@ error(mapp->error)
     c=0.4;
     rho=0.5;
     
-    if(nargs>2)
-    {
-        if(nargs%2!=0)
-            error->abort("every keyword in ls backtrack should be followed by it's value");
-        int iarg=2;
-        while(iarg<nargs)
-        {
-            if(strcmp(args[iarg],"min_alpha")==0)
-            {
-                iarg++;
-                min_alpha=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"c")==0)
-            {
-                iarg++;
-                c=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"rho")==0)
-            {
-                iarg++;
-                rho=atof(args[iarg]);
-                iarg++;
-            }
-            else
-                error->abort("unknown keyword in ls backtrack: %s",args[iarg]);
-        }
-    }
+    Pattern cmd(error);
+
+    char* ls_style=NULL;
+    cmd.cmd("ls");
+    cmd.add_var(ls_style);
+    cmd.add_vlog(0)=vlogic("eq","bt");
     
-    if(min_alpha<0.0)
-        error->abort("min_alpha in ls backtrack should be greater than 0.0");
-    if(c<=0.0 || c>=1.0)
-        error->abort("c in ls backtrack should be between 0.0 & 1.0");
-    if(rho<=0.0 || rho>=1.0)
-        error->abort("rho in ls backtrack should be between 0.0 & 1.0");
+    cmd.cmd("min_alpha");
+    cmd.add_var(min_alpha);
+    cmd.add_vlog(0)+=vlogic("ge",0.0);
+    
+    cmd.cmd("c");
+    cmd.add_var(c);
+    cmd.add_vlog(0)+=vlogic("gt",0.0)*vlogic("lt",1.0);
+    
+    cmd.cmd("rho");
+    cmd.add_var(rho);
+    cmd.add_vlog(0)+=vlogic("gt",0.0)*vlogic("lt",1.0);
+    
+    cmd.scan(args,nargs);
 }
 /*--------------------------------------------
  destructor

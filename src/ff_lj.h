@@ -16,9 +16,9 @@ namespace MAPP_NS
         void allocate();
         void deallocate();
         int no_types;
-        type0* sigma;
-        type0* epsilon;
-        type0* offset;
+        type0** sigma;
+        type0** epsilon;
+        type0** offset;
         void read_file(char*);
         int shift;
     protected:

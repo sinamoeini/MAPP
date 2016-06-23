@@ -38,6 +38,31 @@ void Error::abort(const char* msg,...)
     MPI_Finalize();
     exit(EXIT_FAILURE);
 }
+
+/*--------------------------------------------
+ output the error line and abort the code
+ --------------------------------------------*/
+void Error::print(const char* msg,...)
+{
+    char err_msg[MAXCHAR];
+    
+    va_list args;
+    va_start (args, msg);
+    vsprintf (err_msg,msg, args);
+    
+    if(my_no==0)
+        printf("%s",err_msg);
+    va_end (args);
+}
+/*--------------------------------------------
+ output the error line and abort the code
+ --------------------------------------------*/
+void Error::abort()
+{
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+}
+
 /*--------------------------------------------
  output the error line and abort the code
  --------------------------------------------*/

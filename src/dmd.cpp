@@ -27,9 +27,11 @@ nrgy_strss(forcefield->nrgy_strss)
     int nargs=mapp->parse_line(
     "Time FE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     
+    time_idx=0;
+    //msd_idx=1;
     fe_idx=1;
     stress_idx=2;
-    time_idx=0;
+    
     thermo=new ThermoDynamics(mapp,nargs,args);
     for(int i=0;i<nargs;i++)
         delete [] args[i];
@@ -89,11 +91,22 @@ void DMD::coef(int nargs,char** args)
  --------------------------------------------*/
 void DMD::dmd_min(int nargs,char** args)
 {
+    char** args_=new char*[nargs];
+    size_t len=strlen("min")+1;
+    args_[0]=new char[len];
+    memcpy(args_[0],"min",len);
+    for(int i=1;i<nargs;i++)
+    {
+        len=strlen(args[i])+1;
+        args_[i]=new char[len];
+        memcpy(args_[i],args[i],len);
+    }
+    
     #define Min_Style
     #define MinStyle(class_name,style_name)   \
     else if(strcmp(args[1],#style_name)==0)   \
     {if(min!=NULL)delete min;                 \
-    min= new class_name(mapp,nargs,args);}
+    min= new class_name(mapp,nargs,args_);}
 
     if(0){}
     #include "min_styles.h"
@@ -104,6 +117,9 @@ void DMD::dmd_min(int nargs,char** args)
     #undef MinStyle
     min->output_flag=false;
     
+    for(int i=0;i<nargs;i++)
+        delete [] args_[i];
+    delete [] args_;
 }
 /*--------------------------------------------
  
@@ -154,6 +170,7 @@ bool DMD::decide_min(int& istep,type0& del_t)
             thermo->update(stress_idx,6,&nrgy_strss[1]);
             thermo->update(time_idx,t_cur);
         }
+
         if(f_norm-f_norm0>=f_tol)
         {
             return true;
@@ -240,8 +257,14 @@ void DMD::init()
 
     if(mapp->c_d==NULL)
     {
-        mapp->c_d=new Vec<type0>(atoms,c_dim,"c_d");
-        memset(mapp->c_d->begin(),0,atoms->natms*c_dim*sizeof(type0));
+        mapp->c_d=new Vec<type0>(atoms,mapp->c->orig_dim,"c_d");
+        memset(mapp->c_d->begin(),0,atoms->natms*mapp->c->orig_dim*sizeof(type0));
+        if(c_dim!=mapp->c->orig_dim)
+            mapp->c_d->change_dimension(0.0,mapp->c->orig_dim,mapp->c->orig_dim-c_dim);
+        
+        delete [] mapp->c_d->print_format;
+        mapp->c_d->print_format=new char[strlen("%e ")+1];
+        memcpy(mapp->c_d->print_format,"%e ",strlen("%e ")+1);
     }
     
     if(min==NULL)
@@ -310,6 +333,61 @@ void DMD::print_stats()
 /*--------------------------------------------
  given the direction h do the line search
  --------------------------------------------*/
+type0 DMD::vac_msd()
+{
+    
+    type0* c=mapp->c->begin();
+    type0* x=mapp->x->begin();
+    int x_dim=mapp->x->dim;
+    int dim=atoms->dimension;
+    type0* sum_lcl;
+    type0* sum;
+    CREATE1D(sum_lcl,dim+2);
+    CREATE1D(sum,dim+2);
+    
+    for(int i=0;i<dim+2;i++)
+        sum_lcl[i]=sum[i]=0.0;
+    
+    type0 c_vac,rsq;
+    
+    for(int i=0;i<atoms->natms;i++)
+    {
+        c_vac=1.0;
+        for(int j=0;j<c_dim;j++)
+            if(c[j]>=0.0)
+                c_vac-=c[j];
+        if(c_vac<0.0)
+            error->abort("");
+        
+        rsq=0.0;
+        for(int j=0;j<dim;j++)
+        {
+            sum_lcl[j]+=c_vac*x[j];
+            rsq+=x[j]*x[j];
+        }
+        
+        sum_lcl[dim]+=c_vac*rsq;
+        sum_lcl[dim+1]+=c_vac;
+        
+        c+=c_dim;
+        x+=x_dim;
+    }
+    
+    MPI_Allreduce(sum_lcl,sum,dim+2,MPI_TYPE0,MPI_SUM,world);
+    type0 ans=0.0;
+    for(int i=0;i<dim+1;i++)
+        sum[i]/=sum[dim+1];
+        
+    for(int i=0;i<dim;i++)
+        ans-=sum[i]*sum[i];
+    ans+=sum[dim];
+    delete [] sum_lcl;
+    delete [] sum;
+    return ans;
+}
+/*--------------------------------------------
+ given the direction h do the line search
+ --------------------------------------------*/
 void DMD::reset()
 {
     ncs=atoms->natms*c_dim;
@@ -340,20 +418,23 @@ DMDImplicit::~DMDImplicit()
 bool DMDImplicit::solve_non_lin()
 {
     type0 res_tol=0.005*a_tol*sqrt(nc_dofs)/err_fac;
-    type0 cost,cost0;
-    type0 denom=a_tol*sqrt(nc_dofs);
-    type0 r,r_lcl,norm=1.0,R=1.0,del,delp=0.0;
+    type0 cost,cost_p;
+    type0 denom=1.0*a_tol*sqrt(nc_dofs)/err_fac;
+    type0 r,r_lcl,norm=1.0,R=1.0,del=0.0,delp=0.0;
     int iter=0,solver_iter;
     type0* c=mapp->c->begin();
     
 
-    if(c_d_norm>0.1)
+    
+    if(c_d_norm>0.0)
     {
         memcpy(c,y_0,ncs*sizeof(type0));
         atoms->update(mapp->c);
     }
     
-    cost=cost0=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
+    type0* c_d=mapp->c_d->begin();
+    cost=cost_p=forcefield_dmd->update_J(beta,a,F)/res_tol;
+    
     while(cost>=1.0 && iter<max_iter)
     {
         for(int i=0;i<ncs;i++) del_c[i]=0.0;
@@ -379,6 +460,7 @@ bool DMDImplicit::solve_non_lin()
                 del_c[i]=0.0;
         }
         
+        
         MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MAX,world);
         
         if(r!=-1.0)
@@ -397,7 +479,7 @@ bool DMDImplicit::solve_non_lin()
         
         
         
-        del=(1.0-r)*norm/denom;
+        del=fabs((1.0-r)*norm/denom);
         
         if(iter)
         {
@@ -405,18 +487,15 @@ bool DMDImplicit::solve_non_lin()
         }
         
         atoms->update(mapp->c);
-        cost0=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
-        cost=MIN(cost0,MIN(1.0,R)*del*err_fac/0.1);
+        cost_p=forcefield_dmd->update_J(beta,a,F)/res_tol;
+        cost=MIN(cost_p,MIN(1.0,R)*del*err_fac/0.1);
         
         delp=del;
         iter++;
     }
     
-    type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
     
-
-
+    rectify(c_d);
 
     if(cost<1.0)
     {
@@ -425,99 +504,8 @@ bool DMDImplicit::solve_non_lin()
         return true;
     }
     
+    
     return false;
-}
-/*--------------------------------------------
- solve the implicit equation
- --------------------------------------------*/
-bool DMDImplicit::solve_non_lin_()
-{
-    
-    beta_inv=0.0;
-    memset(a,0,ncs*sizeof(type0));
-    
-    type0 res_tol=1.0e-4*a_tol*sqrt(nc_dofs);
-    type0 y_norm;
-    type0 r,r_lcl,norm=1.0,del=1.0;
-    int iter=0,solver_iter=0;
-    type0* c=mapp->c->begin();
-
-    if(atoms->my_p==0)
-        printf("c_dnorm %e at step %d \n",c_d_norm,step_no);
-    y_norm=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
-    
-    while(del!=0.0 && iter<max_iter && y_norm>1.0)
-    {
-        for(int i=0;i<ncs;i++) del_c[i]=0.0;
-        
-        gmres->solve(res_tol,F,del_c,solver_iter,norm);
-        
-        rectify(del_c);
-        
-        r_lcl=-1.0;
-        for(int i=0;i<ncs;i++)
-        {
-            if(c[i]>=0.0)
-            {
-                c[i]+=del_c[i];
-                if(c[i]>1.0)
-                    r_lcl=MAX(r_lcl,(c[i]-1.0)/del_c[i]);
-                if(c[i]<0.0)
-                    r_lcl=MAX(r_lcl,c[i]/del_c[i]);
-            }
-            else
-                del_c[i]=0.0;
-        }
-        
-        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MAX,world);
-        
-        if(r!=-1.0)
-        {
-            for(int i=0;i<ncs;i++)
-            {
-                c[i]-=del_c[i]*r;
-                if(c[i]>1.0)
-                    c[i]=1.0;
-                if(c[i]<0.0)
-                    c[i]=0.0;
-            }
-        }
-        else
-            r=0.0;
-        
-        
-        
-        del=(1.0-r)*norm/res_tol;
-        if(atoms->my_p==0)
-            printf("c_dnorm %e at step %d \n",del,solver_iter);
-               
-        atoms->update(mapp->c);
-        y_norm=forcefield_dmd->update_J(beta_inv,a,F)/res_tol;
-        iter++;
-    }
-    type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
-    
-
-    
-    type0 c_d_norm_lcl=0.0;
-    for(int i=0;i<ncs;i++)
-    {
-        if(c[i]>=0.0)
-        {
-            c_d_norm_lcl+=c_d[i]*c_d[i];
-        }
-    }
-    MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
-    c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
-   
-    if(atoms->my_p==0)
-        printf("c_dnorm %e at step %d after non linear solver iter %d\n",c_d_norm,step_no,solver_iter);
-
-    
-    if(y_norm>=1.0)
-        return false;
-    return true;
 }
 /*--------------------------------------------
  run
@@ -530,7 +518,7 @@ void DMDImplicit::intg_fail()
         if(q>1)
             q--;
         else
-            error->abort("reached minimum order & del_t (%e)",dt);
+            error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
     }
     else
     {
@@ -539,7 +527,7 @@ void DMDImplicit::intg_fail()
             if(q>1)
                 q--;
             else
-                error->abort("reached minimum order & del_t (%e)",dt);
+                error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
         }
         else
         {
@@ -565,7 +553,7 @@ void DMDImplicit::nonl_fail()
         if(q>1)
             q--;
         else
-            error->abort("reached minimum order & del_t (%e)",dt);
+            error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
     }
     else
     {
@@ -574,7 +562,7 @@ void DMDImplicit::nonl_fail()
             if(q>1)
                 q--;
             else
-                error->abort("reached minimum order & del_t (%e)",dt);
+                error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
         }
         else
         {
@@ -650,58 +638,6 @@ void DMDImplicit::run()
                 }
                 
                 break;
-                
-                /*
-                if(c_d_norm>c_d_thresh)
-                {
-                    if(!interpolate())
-                    {
-                        intp_failure=1;
-                        intp_rej++;
-                        interpolate_fail();
-                    }
-                    else
-                    {
-                        if(intp_failure)
-                            intp_failure--;
-                    }
-                    
-                    
-                    err_fac_calc();
-                    
-                    if(!solve_non_lin())
-                    {
-                        nonl_fail();
-                        continue;
-                    }
-                    
-                    
-                    err_calc();
-                    
-                    if(err>=1.0)
-                    {
-                        intg_fail();
-                        continue;
-                    }
-                    
-                    break;
-                }
-                else
-                {
-                    if(!solve_non_lin_())
-                    {
-                        c_d_thresh=MAX(0.5*c_d_norm,1.0e-4);
-                    }
-                    else
-                    {
-                        err=0.0;
-                        dt=t_fin-t_cur;
-                        q=1;
-                        dq=0;
-                        break;
-                    }
-                }
-                 */
             }
             
             max_succ_q=MAX(max_succ_q,q);
@@ -890,14 +826,14 @@ inline void DMDExplicit::fail_stp_adj(type0 err,type0& del_t)
 {
     if(t_fin-t_cur<=2.0*dt_min)
     {
-        error->abort("reached minimum order & del_t (%e)",del_t);
+        error->abort("reached minimum order & del_t (%e) at line %d",del_t,__LINE__);
     }
     else
     {
         if(del_t==dt_min)
         {
             
-            error->abort("reached minimum order & del_t (%e)",del_t);
+            error->abort("reached minimum order & del_t (%e) at line %d",del_t,__LINE__);
         }
         else
         {

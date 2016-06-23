@@ -13,7 +13,7 @@ Command_grid::Command_grid(MAPP* mapp,int nargs
     int dimension=atoms->dimension;
     if(nargs!=dimension+1)
         error->abort("grid command needs "
-        "%darguments",dimension);
+        "%d arguments",dimension);
     
     int* n;
     CREATE1D(n,dimension);

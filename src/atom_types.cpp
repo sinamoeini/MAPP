@@ -94,6 +94,25 @@ int AtomTypes::find_type_exist(char* name)
 /*--------------------------------------------
  find a type without error
  --------------------------------------------*/
+dmd_type AtomTypes::get_dmd_type(int dim,dmd_type* type,type0* c)
+{
+    type0 conc=-1.0;
+    int ans=-1;
+    for(int i=0;i<dim;i++)
+        if(c[i]>conc)
+        {
+            conc=c[i];
+            ans=type[i];
+        }
+    
+    if(ans==-1)
+        error->abort("this site has no type associated with it");
+    
+    return ans;
+}
+/*--------------------------------------------
+ find a type without error
+ --------------------------------------------*/
 void AtomTypes::assign_color_rad(char* name,type0* mat)
 {
     if(0)

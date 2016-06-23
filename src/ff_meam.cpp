@@ -112,16 +112,16 @@ void ForceField_meam::allocate()
         for(int j=0;j<nr;j++)
             CREATE1D(phirar[i][j],7);
     
-    CREATE2D(re_meam,no_types,no_types);
-    CREATE2D(ebound_meam,no_types,no_types);
-    CREATE2D(Ec_meam,no_types,no_types);
-    CREATE2D(alpha_meam,no_types,no_types);
-    CREATE2D(delta_meam,no_types,no_types);
-    CREATE2D(attrac_meam,no_types,no_types);
-    CREATE2D(repuls_meam,no_types,no_types);
-    CREATE2D(lattice,no_types,no_types);
-    CREATE2D(nn2_meam,no_types,no_types);
-    CREATE2D(zbl_meam,no_types,no_types);
+    CREATE_2D(re_meam,no_types,no_types);
+    CREATE_2D(ebound_meam,no_types,no_types);
+    CREATE_2D(Ec_meam,no_types,no_types);
+    CREATE_2D(alpha_meam,no_types,no_types);
+    CREATE_2D(delta_meam,no_types,no_types);
+    CREATE_2D(attrac_meam,no_types,no_types);
+    CREATE_2D(repuls_meam,no_types,no_types);
+    CREATE_2D(lattice,no_types,no_types);
+    CREATE_2D(nn2_meam,no_types,no_types);
+    CREATE_2D(zbl_meam,no_types,no_types);
     
     
     CREATE1D(rho0_meam,no_types);
@@ -186,30 +186,16 @@ void ForceField_meam::deallocate()
         delete [] phirar[i];
     delete [] phirar;
     
-    for(int i=0;i<no_types;i++)
-    {
-        delete [] re_meam[i];
-        delete [] ebound_meam[i];
-        delete [] Ec_meam[i];
-        delete [] alpha_meam[i];
-        delete [] delta_meam[i];
-        delete [] attrac_meam[i];
-        delete [] repuls_meam[i];
-        delete [] lattice[i];
-        delete [] nn2_meam[i];
-        delete [] zbl_meam[i];
-    }
-    
-    delete [] re_meam;
-    delete [] ebound_meam;
-    delete [] Ec_meam;
-    delete [] alpha_meam;
-    delete [] delta_meam;
-    delete [] attrac_meam;
-    delete [] repuls_meam;
-    delete [] lattice;
-    delete [] nn2_meam;
-    delete [] zbl_meam;
+    DEL_2D(re_meam);
+    DEL_2D(ebound_meam);
+    DEL_2D(Ec_meam);
+    DEL_2D(alpha_meam);
+    DEL_2D(delta_meam);
+    DEL_2D(attrac_meam);
+    DEL_2D(repuls_meam);
+    DEL_2D(lattice);
+    DEL_2D(nn2_meam);
+    DEL_2D(zbl_meam);
     
     delete [] rho0_meam;
     delete [] beta0_meam;
@@ -2134,8 +2120,9 @@ void ForceField_meam::setup()
     dr=1.1*rc_meam/static_cast<type0>(nr);
     dr_inv=1.0/dr;
     compute_pair_meam();
-    for(int i=0;i<no_types*(no_types+1)/2;i++)
-        cut_sq[i]=rc_meam*rc_meam;
+    for(int i=0;i<no_types;i++)
+        for(int j=0;j<no_types;j++)
+            cut_sq[i][j]=rc_meam*rc_meam;
 }
 /*--------------------------------------------
  reset the vectors

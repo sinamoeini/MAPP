@@ -100,7 +100,7 @@ void Neighbor_dmd::create_list(bool box_change)
     int iatm,jatm;
     int ic,jc;
     int rsq_chk;
-    type0* cut_sk_sq=forcefield->cut_sk_sq;
+    type0** cut_sk_sq=forcefield->cut_sk_sq;
     
     int* tmp_neigh_list;
     int tmp_neigh_list_size=1024;
@@ -140,7 +140,7 @@ void Neighbor_dmd::create_list(bool box_change)
                             {
                                 if(c[iatm*c_dim+ic]>=0.0 &&
                                    c[jatm*c_dim+jc]>=0.0 &&
-                                   rsq<cut_sk_sq[COMP(ctype[iatm*c_dim+ic],ctype[jatm*c_dim+jc])])
+                                   rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
                                     rsq_chk=1;
                                 jc++;
                             }
@@ -198,7 +198,7 @@ void Neighbor_dmd::create_list(bool box_change)
                             jc=0;
                             while(rsq_chk==0 && jc<c_dim && c[jatm*c_dim+jc]>=0.0)
                             {
-                                if(rsq<cut_sk_sq[COMP(ctype[iatm*c_dim+ic],ctype[jatm*c_dim+jc])])
+                                if(rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
                                     rsq_chk=1;
                                 jc++;
                             }
@@ -264,10 +264,12 @@ void Neighbor_dmd::create_2nd_list()
     int** tmp_neigh_list;
     int* tmp_neigh_list_size;
     CREATE1D(tmp_neigh_list_size,c_dim);
-    CREATE2D(tmp_neigh_list,c_dim,1024);
-    
+    CREATE1D(tmp_neigh_list,c_dim);
     for(int itype=0;itype<c_dim;itype++)
+    {
+        CREATE1D(tmp_neigh_list[itype],1024);
         tmp_neigh_list_size[itype]=1024;
+    }
 
     
     neighbor_list_size_size_2nd=natms*c_dim;

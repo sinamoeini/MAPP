@@ -24,6 +24,7 @@ namespace MAPP_NS {
         int find_type(const char*);
         int find_type_exist(char*);
         void assign_color_rad(char*,type0*);
+        dmd_type get_dmd_type(int,dmd_type*,type0*);
     };
 }
 #endif 

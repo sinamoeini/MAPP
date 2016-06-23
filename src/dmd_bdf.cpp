@@ -6,6 +6,8 @@
 #include "memory.h"
 #include "write.h"
 #include "thermo_dynamics.h"
+#include "cmd.h"
+//#define DMD_DEBUG
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -13,92 +15,87 @@ using namespace MAPP_NS;
 DMD_bdf::DMD_bdf(MAPP* mapp,int nargs
 ,char** args):DMDImplicit(mapp)
 {
-    bdf_eng=new DMD_bdf_f_vc(this);
+    q_max=5;
     
-    q_max=6;
+    char* dmd_style=NULL;
+    char* bdf_mode=NULL;
     
-    if(nargs>2)
+    Pattern cmd(error);
+    
+    /*----------------------------*/
+    cmd.cmd("dmd");
+    cmd.add_var(dmd_style,"style");
+    cmd.add_vdesc(0,"defines the style of dmd");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("eq","bdf");
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("max_step");
+    cmd.add_var(max_step,"nstep");
+    cmd.add_vdesc(0,"defines maximum number of steps");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("max_iter");
+    cmd.add_var(max_iter,"niter");
+    cmd.add_vdesc(0,"defines maximum number of iterations");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("q_max");
+    cmd.add_var(q_max,"q");
+    cmd.add_vdesc(0,"defines maximum order of bdf");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0)*vlogic("le",5);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("a_tol");
+    cmd.add_var(a_tol,"tol");
+    cmd.add_vdesc(0,"defines absolute tolerance in local truncation error for performing integration");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("dt_min");
+    cmd.add_var(dt_min,"dt");
+    cmd.add_vdesc(0,"defines minimum time step");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("mode");
+    cmd.add_var(bdf_mode);
+    cmd.add_vdesc(0,"defines mode of bdf");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("eq","f_flc")
+    +vlogic("eq","y_flc")+vlogic("eq","f_vc")
+    +vlogic("eq","y_vc");
+    /*------------------------------------------------------------------------------------*/
+    
+    cmd.scan(args,nargs);
+    
+    if(bdf_mode!=NULL)
     {
-        if(nargs%2!=0)
-            error->abort("every keyword in dmd bdf should be followed by it's value");
-        int iarg=2;
-        while(iarg<nargs)
-        {
-            if(strcmp(args[iarg],"max_step")==0)
-            {
-                iarg++;
-                max_step=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"max_iter")==0)
-            {
-                iarg++;
-                max_iter=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"q_max")==0)
-            {
-                iarg++;
-                q_max=atoi(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"a_tol")==0)
-            {
-                iarg++;
-                a_tol=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"dt_min")==0)
-            {
-                iarg++;
-                dt_min=atof(args[iarg]);
-                iarg++;
-            }
-            else if(strcmp(args[iarg],"mode")==0)
-            {
-                iarg++;
-                if(strcmp(args[iarg],"f_flc")==0)
-                {
-                    delete bdf_eng;
-                    bdf_eng=new DMD_bdf_f_flc(this);
-                    iarg++;
-                }
-                else if(strcmp(args[iarg],"y_flc")==0)
-                {
-                    delete bdf_eng;
-                    bdf_eng=new DMD_bdf_y_flc(this);
-                    iarg++;
-                }
-                else if(strcmp(args[iarg],"f_vc")==0)
-                {
-                    delete bdf_eng;
-                    bdf_eng=new DMD_bdf_f_vc(this);
-                    iarg++;
-                }
-                else if(strcmp(args[iarg],"y_vc")==0)
-                {
-                    delete bdf_eng;
-                    bdf_eng=new DMD_bdf_y_vc(this);
-                    iarg++;
-                }
-                else
-                    error->abort("unknown keyword in dmd bdf: %s",args[iarg]);
-            }
-            else
-                error->abort("unknown keyword in dmd bdf: %s",args[iarg]);
-        }
+        if(strcmp(bdf_mode,"f_flc")==0)
+            bdf_eng=new DMD_bdf_f_flc(this);
+        else if(strcmp(bdf_mode,"y_flc")==0)
+            bdf_eng=new DMD_bdf_y_flc(this);
+        else if(strcmp(bdf_mode,"f_vc")==0)
+            bdf_eng=new DMD_bdf_f_vc(this);
+        else if(strcmp(bdf_mode,"y_vc")==0)
+            bdf_eng=new DMD_bdf_y_vc(this);
     }
+    else
+        bdf_eng=new DMD_bdf_f_vc(this);
     
-    if(max_step<0)
-        error->abort("max_step in dmd bdf should be greater than 0");
-    if(max_iter<=0)
-        error->abort("max_iter in dmd bdf should be greater than 0");
-    if(q_max<=0)
-        error->abort("max_order in dmd bdf should be greater than 0");
-    if(a_tol<=0.0)
-        error->abort("a_tol in dmd bdf should be greater than 0.0");
-    if(dt_min<=0.0)
-        error->abort("dt_min in dmd bdf should be greater than 0.0");
 }
 /*--------------------------------------------
  destructor
@@ -245,6 +242,18 @@ inline void DMD_bdf::update_for_next()
     
     dt=dt_new;
     q+=dq;
+    
+    type0* c_d=mapp->c_d->begin();
+    type0 c_d_norm_lcl=0.0;
+    for(int i=0;i<ncs;i++)
+    {
+        if(c[i]>=0.0)
+        {
+            c_d_norm_lcl+=c_d[i]*c_d[i];
+        }
+    }
+    MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
+    c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
 }
 /*--------------------------------------------
  update A_bar
@@ -360,9 +369,17 @@ void DMD_bdf::interpolate_fail()
             }
             
             y_0[i]=y0;
+            
+            a[i]=0.0;
+            for(int j=1;j<q+1;j++)
+                a[i]+=A_bar[1][j]*z_[j];
+            a[i]*=beta;
+            a[i]-=y0;
+            /*
             a[i]=-y0*beta_inv;
             for(int j=1;j<q+1;j++)
                 a[i]+=A_bar[1][j]*z_[j];
+             */
         }
         else
             y_0[i]=c[i];
@@ -396,9 +413,17 @@ inline bool DMD_bdf::interpolate()
                 continue;
             }
             y_0[i]=y0;
+            
+            a[i]=0.0;
+            for(int j=1;j<q+1;j++)
+                a[i]+=A_bar[1][j]*z_[j];
+            a[i]*=beta;
+            a[i]-=y0;
+            /*
             a[i]=-y0*beta_inv;
             for(int j=1;j<q+1;j++)
                 a[i]+=A_bar[1][j]*z_[j];
+             */
         }
         else
             y_0[i]=c[i];
@@ -451,14 +476,12 @@ inline void DMD_bdf::ord_dt(type0& r)
 void DMD_bdf::err_calc()
 {
     type0 tmp0,err_lcl=0.0,max_dy_lcl=0.0,max_dy;
-    type0 c_d_norm_lcl=0.0;
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
         {
-            c_d_norm_lcl+=c_d[i]*c_d[i];
             tmp0=(y_0[i]-c[i]);
             max_dy_lcl=MAX(max_dy_lcl,fabs(c_d[i]));
             err_lcl+=tmp0*tmp0;
@@ -466,8 +489,6 @@ void DMD_bdf::err_calc()
     }
     MPI_Allreduce(&max_dy_lcl,&max_dy,1,MPI_TYPE0,MPI_MAX,world);
     MPI_Allreduce(&err_lcl,&err,1,MPI_TYPE0,MPI_SUM,world);
-    MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
-    c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
     err=sqrt(err/nc_dofs)/a_tol;
     err*=err_fac;
 }

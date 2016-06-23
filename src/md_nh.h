@@ -9,6 +9,7 @@
 #define __MAPP__md_nh__
 #include "init.h"
 #include "md.h"
+#include "cmd.h"
 #include <iostream>
 namespace MAPP_NS {
     class MD_nh : public MD{
@@ -72,7 +73,7 @@ namespace MAPP_NS {
         type0 vol;
         type0 drag,pdrag,tdrag;
         
-        void keywords(int,char**,int&);
+        void cmd(int,char**);
         void modify_vrial();
     protected:
     public:

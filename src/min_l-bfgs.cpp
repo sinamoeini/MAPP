@@ -19,6 +19,7 @@
 #include "memory.h"
 #include "write.h"
 #include "thermo_dynamics.h"
+#include "cmd.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -26,61 +27,53 @@ using namespace MAPP_NS;
 Min_lbfgs::Min_lbfgs(MAPP* mapp,int nargs,char** args):Min(mapp)
 {
     m_it=2;
-    int icmp;
-    int jcmp;
-    int iarg=2;
-    while(iarg<nargs)
-    {
-        if(!strcmp(args[iarg],"max_iter"))
-        {
-            iarg++;
-            if(iarg==nargs)
-                error->abort("max_iter in min l-bfgs should at least have 1argument");
-            max_iter=atoi(args[iarg]);
-            iarg++;
-        }
-        else if(!strcmp(args[iarg],"e_tol"))
-        {
-            iarg++;
-            if(iarg==nargs)
-                error->abort("e_tol in min l-bfgs should at least have 1argument");
-            energy_tolerance=atof(args[iarg]);
-            iarg++;
-        }
-        else if(!strcmp(args[iarg],"m"))
-        {
-            iarg++;
-            if(iarg==nargs)
-                error->abort("m in min l-bfgs should at least have 1argument");
-            m_it=atoi(args[iarg]);
-            iarg++;
-        }
-        else if(sscanf(args[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
-        {
-            if(icmp<0 || icmp>=dim)
-                error->abort("wrong component in min l-bfgs for H[%i][%i]",icmp,jcmp);
-            if(jcmp<0 || jcmp>=dim)
-                error->abort("wrong component in min l-bfgs for H[%i][%i]",icmp,jcmp);
-            
-            if(icmp<=jcmp)
-                H_dof[jcmp][icmp]=true;
-            else
-                H_dof[icmp][jcmp]=true;
-            iarg++;
-        }
-        else if(!strcmp(args[iarg],"affine"))
-        {
-            affine=1;
-            iarg++;
-        }
-        else
-            error->abort("unknown keyword for min l-bfgs: %s",args[iarg]);
-    }
+    char* min_style;
     
-    if(max_iter<0)
-        error->abort("max_iter in min l-bfgs should be greater than 0");
-    if(energy_tolerance<=0.0)
-        error->abort("e_tol in min l-bfgs should be greater than 0.0");
+    Pattern cmd(error);
+    
+    /*----------------------------*/
+    cmd.cmd("min");
+    cmd.add_var(min_style,"style");
+    cmd.add_vdesc(0,"defines the style of minimization");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("eq","l-bfgs");
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("e_tol");
+    cmd.add_var(energy_tolerance,"tol");
+    cmd.add_vdesc(0,"defines energy tolerance to stop the minimization");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("ge",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("max_iter");
+    cmd.add_var(max_iter,"niter");
+    cmd.add_vdesc(0,"defines maximum number of iterations");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("ge",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("m");
+    cmd.add_var(m_it,"n");
+    cmd.add_vdesc(0,"defines maximum number of vectors in memory");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("ge",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd(affine,"affine");
+    cmd.add_cdesc("when used, atoms displacements will be affine");
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd_2d_lt(H_dof,"H",3);
+    cmd.add_cdesc("when used, this degree of the freedom of the box would be considered in addition");
+    /*------------------------------------------------------------------------------------*/
+    
+    cmd.scan(args,nargs);
 
 }
 /*--------------------------------------------

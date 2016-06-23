@@ -27,9 +27,9 @@ namespace MAPP_NS {
         virtual void fin()=0;
         virtual void coef(int,char**)=0;
         type0* rsq_crd;
-        type0* cut;
-        type0* cut_sq;
-        type0* cut_sk_sq;
+        type0** cut;
+        type0** cut_sq;
+        type0** cut_sk_sq;
         type0 max_cut();
 
         void force_calc_timer(bool);

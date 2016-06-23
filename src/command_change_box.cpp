@@ -9,12 +9,12 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Command_change_box::Command_change_box(MAPP* mapp
-,int narg,char** args):InitPtrs(mapp)
+,int nargs,char** args):InitPtrs(mapp)
 {
     
     int dim=atoms->dimension;
     type0** A;
-    CREATE2D(A,dim,dim);
+    CREATE_2D(A,dim,dim);
     
     int iarg=1;
     
@@ -37,25 +37,23 @@ Command_change_box::Command_change_box(MAPP* mapp
                 A[i][j]=atoms->H[i][j];
     }
     else
-        error->abort("wrong change box command");
+        error->abort("unknown keyword for change_box: %s",args[iarg]);
     
     iarg++;
     
     
     int icmp,jcmp;
-    while(iarg<narg)
+    while(iarg<nargs)
     {
         if(sscanf(args[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
         {
-            
-            if(icmp<0 || icmp>=atoms->dimension)
-                error->abort("wrong command %s",args[iarg]);
-            if(jcmp<0 || jcmp>=atoms->dimension)
-                error->abort("wrong command %s",args[iarg]);
-            
+            if(icmp<0 || icmp>=dim || jcmp<0 || jcmp>=dim)
+                error->abort("wrong component in change_box for H[%d][%d]",icmp,jcmp);
             iarg++;
-            if(iarg==narg)
-                error->abort("change box component ratio missing");
+            
+            if(nargs-iarg<1)
+                error->abort("H[%d][%d] in change_box followed by 1 arguement",icmp,jcmp);
+
             
             if(icmp<=jcmp)
                 A[jcmp][icmp]=atof(args[iarg]);
@@ -65,7 +63,7 @@ Command_change_box::Command_change_box(MAPP* mapp
             
         }
         else
-            error->abort("wrong command %s",args[iarg]);
+            error->abort("unknown keyword for change_box: %s",args[iarg]);
     }    
     
     atoms->x2s(atoms->natms);
@@ -75,7 +73,7 @@ Command_change_box::Command_change_box(MAPP* mapp
         for(int i=0;i<dim;i++)
             A[i][i]+=1.0;
         type0** C;
-        CREATE2D(C,dim,dim);
+        CREATE_2D(C,dim,dim);
         
         for(int i=0;i<dim;i++)
             for(int j=0;j<dim;j++)
@@ -90,10 +88,7 @@ Command_change_box::Command_change_box(MAPP* mapp
             for(int j=0;j<dim;j++)
                 atoms->H[i][j]=C[i][j];
         
-        for(int i=0;i<dim;i++)
-            delete [] C[i];
-        if(dim)
-            delete [] C;
+        DEL_2D(C);
     }
     else if(strcmp(args[1],"dilation")==0)
     {
@@ -109,10 +104,7 @@ Command_change_box::Command_change_box(MAPP* mapp
     }
     
     
-    for(int i=0;i<dim;i++)
-        delete [] A[i];
-    if(dim)
-        delete [] A;
+    DEL_2D(A);
     
     if(dim==3)
         M3INV_LT(atoms->H,atoms->B);

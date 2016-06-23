@@ -260,9 +260,9 @@ void XMath::invert(type0** A,type0** Ainv,int dim)
     type0** A;
     type0** A_inv;
     type0** I;
-    CREATE2D(A,dim,dim);
-    CREATE2D(A_inv,dim,dim);
-    CREATE2D(I,dim,dim);
+    CREATE_2D(A,dim,dim);
+    CREATE_2D(A_inv,dim,dim);
+    CREATE_2D(I,dim,dim);
     
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
@@ -288,16 +288,9 @@ void XMath::invert(type0** A,type0** Ainv,int dim)
         printf("\n");
     }
     
-    for(int i=0;i<dim;i++)
-    {
-        delete [] A[i];
-        delete [] A_inv[i];
-        delete [] I[i];
-    }
-    delete [] A;
-    delete [] A_inv;
-    delete [] I;
- 
+    DEL_2D(A);
+    DEL_2D(A_inv);
+    DEL_2D(I);
  --------------------------------------------*/
 void XMath::invert_lower_triangle(type0**& A,type0**& A_inv,int& dim)
 {

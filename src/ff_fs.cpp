@@ -8,6 +8,7 @@
 #include "atom_types.h"
 #include "error.h"
 #include "memory.h"
+#include "cmd.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
@@ -30,6 +31,15 @@ ForceField_fs(MAPP* mapp):ForceFieldMD(mapp)
         "for md mode");
     max_pairs=0;
     no_types=0;
+    
+    mat_t_1=NULL;
+    mat_t_2=NULL;
+    cut_phi=NULL;
+    cut_rho=NULL;
+    mat_k_1=NULL;
+    mat_k_2=NULL;
+    mat_k_3=NULL;
+    mat_A=NULL;
 }
 /*--------------------------------------------
  destructor
@@ -52,8 +62,9 @@ void ForceField_fs::coef(int nargs,char** args)
 
     read_file(args[1]);
     
-    for(int i=0;i<no_types*(no_types+1)/2;i++)
-        cut_sq[i]=MAX(cut_phi[i]*cut_phi[i],cut_rho[i]*cut_rho[i]);
+    for(int i=0;i<no_types;i++)
+        for(int j=0;j<no_types;j++)
+            cut_sq[i][j]=MAX(cut_phi[i][j]*cut_phi[i][j],cut_rho[i][j]*cut_rho[i][j]);
 }
 /*--------------------------------------------
  allocation
@@ -65,26 +76,14 @@ void ForceField_fs::allocate()
     deallocate();
     no_types=atom_types->no_types;
     
-    CREATE2D(mat_t_1,no_types,no_types);
-    CREATE2D(mat_t_2,no_types,no_types);
+    CREATE_2D(mat_t_1,no_types,no_types);
+    CREATE_2D(mat_t_2,no_types,no_types);
+    CREATE_2D(cut_phi,no_types,no_types);
+    CREATE_2D(cut_rho,no_types,no_types);
+    CREATE_2D(mat_k_1,no_types,no_types);
+    CREATE_2D(mat_k_2,no_types,no_types);
+    CREATE_2D(mat_k_3,no_types,no_types);
     CREATE1D(mat_A,no_types);
-    for(int i=0;i<no_types;i++)
-    {
-        for(int j=0;j<no_types;j++)
-            mat_t_1[i][j]=mat_t_2[i][j]=0.0;
-        mat_A[i]=0.0;
-    }
-    
-    int arr_size=no_types*(no_types+1)/2;
-    CREATE1D(cut_phi,arr_size);
-    CREATE1D(cut_rho,arr_size);
-    CREATE1D(mat_k_1,arr_size);
-    CREATE1D(mat_k_2,arr_size);
-    CREATE1D(mat_k_3,arr_size);
-    
-    for(int i=0;i<arr_size;i++)
-        cut_phi[i]=cut_rho[i]
-        =mat_k_1[i]=mat_k_2[i]=mat_k_3[i]=0.0;
     
 }
 /*--------------------------------------------
@@ -95,295 +94,60 @@ void ForceField_fs::deallocate()
     if(!no_types)
         return;
     
-    for(int i=0;i<no_types;i++)
-    {
-        delete [] mat_t_1[i];
-        delete [] mat_t_2[i];
-    }
-    
-    delete [] mat_t_1;
-    delete [] mat_t_2;
+    DEL_2D(mat_t_1);
+    DEL_2D(mat_t_2);
+    DEL_2D(mat_k_1);
+    DEL_2D(mat_k_2);
+    DEL_2D(mat_k_3);
+    DEL_2D(cut_phi);
+    DEL_2D(cut_rho);
     delete [] mat_A;
     
-    delete [] cut_phi;
-    delete [] cut_rho;
-    delete [] mat_k_1;
-    delete [] mat_k_2;
-    delete [] mat_k_3;
+    mat_t_1=NULL;
+    mat_t_2=NULL;
+    cut_phi=NULL;
+    cut_rho=NULL;
+    mat_k_1=NULL;
+    mat_k_2=NULL;
+    mat_k_3=NULL;
+    mat_A=NULL;
     
     no_types=0;
-
 }
 /*--------------------------------------------
  initiate before a run
  --------------------------------------------*/
 void ForceField_fs::read_file(char* file_name)
 {    
-    int* type_ref;
+    FileReader fr(mapp);
     
-    int* A_chk;
-    
-    int** t1_chk;
-    int** t2_chk;
-    
-    int* k1_chk;
-    int* k2_chk;
-    int* k3_chk;
-    int* r_c_phi_chk;
-    int* r_c_rho_chk;
-    
-    CREATE1D(A_chk,no_types);
-    
-    CREATE2D(t1_chk,no_types,no_types);
-    CREATE2D(t2_chk,no_types,no_types);
-    
-    CREATE1D(k1_chk,no_types*(no_types+1));
-    CREATE1D(k2_chk,no_types*(no_types+1));
-    CREATE1D(k3_chk,no_types*(no_types+1));
-    CREATE1D(r_c_phi_chk,no_types*(no_types+1));
-    CREATE1D(r_c_rho_chk,no_types*(no_types+1));
-    
-    FILE* fp=NULL;
-    char* line;
-    CREATE1D(line,MAXCHAR);
-    
-    char** args=NULL;
-    int args_cpcty=0;
-    int nargs;
-    int no_types_file;
-    
-    for(int i=0;i<no_types;i++)
-    {
-        A_chk[i]=0;
-        for(int j=0;j<no_types;j++)
-            t1_chk[i][j]=t2_chk[i][j]=0;
-    }
-    
-    for(int i=0;i<no_types*(no_types+1);i++)
-        k1_chk[i]=k2_chk[i]=k3_chk[i]=r_c_phi_chk[i]=r_c_rho_chk[i]=0;
-
-    mapp->open_file(fp,file_name,"r");
-    
-    /*
-     reading the header of the file
-     find the first line and read the
-     atomic types in the file
-     */
-   
-    nargs=0;
-    while(nargs==0 && mapp->read_line(fp,line) !=-1)
-        nargs=mapp->parse_line(line,args,args_cpcty);
-    
-    if(nargs==0)
-        error->abort("%s file ended immaturely",file_name);
-    
-    if(nargs<no_types)
-        error->abort("the number of atoms in %s file"
-        " is less than the number of atom types present in the system",file_name);
-    
-    no_types_file=nargs;
+    fr.add_1D("A",mat_A);
     
     
-
-    CREATE1D(type_ref,no_types);
-
-    for(int i=0;i<no_types_file;i++)
-        type_ref[i]=atom_types->find_type_exist(args[i]);
-
-    if(args_cpcty)
-        delete [] args;
+    fr.add_2D("r_c_rho",cut_rho);
+    fr.symmetric();
+    fr.add_vlog()=vlogic("gt",0.0);
+    
+    fr.add_2D("r_c_phi",cut_phi);
+    fr.symmetric();
+    fr.add_vlog()=vlogic("gt",0.0);
+    
+    fr.add_2D("k1",mat_k_1);
+    fr.symmetric();
+    
+    fr.add_2D("k2",mat_k_2);
+    fr.symmetric();
+    
+    fr.add_2D("k3",mat_k_3);
+    fr.symmetric();
     
     
-    //lngth=read_line(fp,line);
-    int icmp,jcmp,curs;
-    type0 tmp;
-    while(mapp->read_line(fp,line)!=-1)
-    {
-        if(mapp->hash_remover(line)==0)
-            continue;
-        
-        if(sscanf(line,"A(%d) = %lf",&icmp,&tmp)==2)
-        {
-            if(type_ref[icmp]!=-1)
-            {
-                A_chk[type_ref[icmp]]=1;
-                mat_A[type_ref[icmp]]=tmp;
-            }
-        }
-        else if(sscanf(line,"t1(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for t1(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for t1(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                t1_chk[type_ref[icmp]][type_ref[jcmp]]=1;
-                mat_t_1[type_ref[icmp]][type_ref[jcmp]]=tmp;
-            }
-        }
-        else if(sscanf(line,"t2(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for t2(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for t2(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                t2_chk[type_ref[icmp]][type_ref[jcmp]]=1;
-                mat_t_2[type_ref[icmp]][type_ref[jcmp]]=tmp;
-            }
-        }
-        else if(sscanf(line,"k1(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for k1(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for k1(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                k1_chk[curs]=1;
-                mat_k_1[curs]=tmp;
-            }
-        }
-        else if(sscanf(line,"k2(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for k2(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for k2(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                k2_chk[curs]=1;
-                mat_k_2[curs]=tmp;
-            }
-        }
-        else if(sscanf(line,"k3(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for k3(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for k3(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                k3_chk[curs]=1;
-                mat_k_3[curs]=tmp;
-            }
-        }
-        else if(sscanf(line,"r_c_phi(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for r_c_phi(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                if(tmp<=0.0)
-                    error->abort("r_c_phi(%d,%d) in %s "
-                                 "file should be greater than 0.0",file_name,icmp,jcmp);
-                
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                r_c_phi_chk[curs]=1;
-                cut_phi[curs]=tmp;
-            }
-        }
-        else if(sscanf(line,"r_c_rho(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
-        {
-            if(icmp<0 || icmp>no_types_file-1)
-                error->abort("wrong component in %s file for r_c_rho(%d,%d)",file_name,icmp,jcmp);
-            if(jcmp<0 || jcmp>no_types_file-1)
-                error->abort("wrong component in %s file for r_c_rho(%d,%d)",file_name,icmp,jcmp);
-            if(type_ref[icmp]!=-1 && type_ref[jcmp]!=-1)
-            {
-                if(tmp<=0.0)
-                    error->abort("r_c_rho(%d,%d) in %s "
-                                 "file should be greater than 0.0",file_name,icmp,jcmp);
-                
-                curs=COMP(type_ref[icmp],type_ref[jcmp]);
-                r_c_rho_chk[curs]=1;
-                cut_rho[curs]=tmp;
-            }
-        }
-        else
-            error->abort("invalid line in %s file: %s",file_name,line);
-    }
+    fr.add_2D("t1",mat_t_1);
     
-    if(atoms->my_p==0)
-        fclose(fp);
-    
-     delete [] line;
-    
-    /*
-     check wether all the values are set or not
-     */
-    
-    for(int i=0;i<no_types;i++)
-        if(A_chk[i]==0)
-            error->abort("A(%s) was not set by %s file "
-            ,file_name,atom_types->atom_names[i]);
-    
-    for(int i=0;i<no_types;i++)
-        for(int j=0;j<no_types;j++)
-        {
-            if(t1_chk[i][j]==0)
-                error->abort("t1(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(t2_chk[i][j]==0)
-                error->abort("t2(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-        }
-    
-    for(int i=0;i<no_types;i++)
-        for(int j=i;j<no_types;j++)
-        {
-            curs=COMP(i,j);
-            if(k1_chk[curs]==0)
-                error->abort("k1(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(k2_chk[curs]==0)
-                error->abort("k2(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(k3_chk[curs]==0)
-                error->abort("k3(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(r_c_phi_chk[curs]==0)
-                error->abort("r_c_phi(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-            if(r_c_rho_chk[curs]==0)
-                error->abort("r_c_rho(%s,%s) was not set by %s file "
-                ,atom_types->atom_names[i],atom_types->atom_names[j],file_name);
-
-        }
+    fr.add_2D("t2",mat_t_2);
     
     
-    
-    
-    //clean up
-    
-    if(no_types)
-    {
-        delete [] A_chk;
-        
-        for(int i=0; i<no_types;i++)
-        {
-            delete [] t1_chk[i];
-            delete [] t2_chk[i];
-        }
-        
-        delete [] t1_chk;
-        delete [] t2_chk;
-        delete [] k1_chk;
-        delete [] k2_chk;
-        delete [] k3_chk;
-        delete [] r_c_phi_chk;
-        delete [] r_c_rho_chk;
-    }
-    
-    if(no_types_file)
-        delete [] type_ref;    
+    fr.read_file(file_name);
 }
 /*--------------------------------------------
  initiate before a run
@@ -438,7 +202,7 @@ force_calc(bool st_clc)
     
     int iatm,jatm;
     
-    int itype,jtype,curs,icomp,jcomp;
+    int itype,jtype,icomp,jcomp;
     type0 dx0,dx1,dx2,rsq,en;
     type0 dr_rho,dr_phi,r,rho_coef,phi_coef,r_inv,rho_sqd;
     
@@ -464,7 +228,6 @@ force_calc(bool st_clc)
         {
             jatm=neighbor_list[iatm][j];
             jtype=type[jatm];
-            curs=COMP(itype,jtype);
             
             drhoi_dr[istart]=drhoj_dr[istart]=0.0;
             
@@ -475,14 +238,14 @@ force_calc(bool st_clc)
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
-            if(rsq<cut_sq[curs])
+            if(rsq<cut_sq[itype][jtype])
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
                 
-                if(r < cut_rho[curs])
+                if(r < cut_rho[itype][jtype])
                 {
-                    dr_rho=r-cut_rho[curs];
+                    dr_rho=r-cut_rho[itype][jtype];
                     rho[iatm]+=dr_rho*dr_rho*(mat_t_1[jtype][itype]
                     +mat_t_2[jtype][itype]*dr_rho);
                     
@@ -499,16 +262,16 @@ force_calc(bool st_clc)
                     
                 }
                 
-                if(r < cut_phi[curs])
+                if(r < cut_phi[itype][jtype])
                 {
-                    dr_phi=r-cut_phi[curs];
-                    phi_coef=2.0*dr_phi*(mat_k_1[curs]
-                    +mat_k_2[curs]*r+mat_k_3[curs]*rsq)
-                    +dr_phi*dr_phi*(mat_k_2[curs]+2.0*mat_k_3[curs]*r);
+                    dr_phi=r-cut_phi[itype][jtype];
+                    phi_coef=2.0*dr_phi*(mat_k_1[itype][jtype]
+                    +mat_k_2[itype][jtype]*r+mat_k_3[itype][jtype]*rsq)
+                    +dr_phi*dr_phi*(mat_k_2[itype][jtype]+2.0*mat_k_3[itype][jtype]*r);
                     phi_coef*=-r_inv;
                     
                     en=dr_phi*dr_phi*
-                    (mat_k_1[curs]+mat_k_2[curs]*r+mat_k_3[curs]*rsq);
+                    (mat_k_1[itype][jtype]+mat_k_2[itype][jtype]*r+mat_k_3[itype][jtype]*rsq);
                     
                     fvec[icomp]+=dx0*phi_coef;
                     fvec[icomp+1]+=dx1*phi_coef;
@@ -635,8 +398,8 @@ type0 ForceField_fs::energy_calc()
     int natms=atoms->natms;
     int iatm,jatm;
     
-    int itype,jtype,curs,icomp,jcomp;
-    type0 dx0,dx1,dx2,rsq,csq;
+    int itype,jtype,icomp,jcomp;
+    type0 dx0,dx1,dx2,rsq;
     type0 dr_rho,dr_phi,r;
     
     int** neighbor_list=neighbor->neighbor_list;
@@ -655,21 +418,20 @@ type0 ForceField_fs::energy_calc()
         {
             jatm=neighbor_list[iatm][j];
             jtype=type[jatm];
-            curs=COMP(itype,jtype);
 
             jcomp=3*jatm;
             dx0=x[icomp]-x[jcomp];
             dx1=x[icomp+1]-x[jcomp+1];
             dx2=x[icomp+2]-x[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
-            csq=cut_sq[curs];
+
             
-            if(rsq < csq)
+            if(rsq <cut_sq[itype][jtype])
             {
                 r=sqrt(rsq);
-                if(r < cut_rho[curs])
+                if(r < cut_rho[itype][jtype])
                 {
-                    dr_rho=r-cut_rho[curs];
+                    dr_rho=r-cut_rho[itype][jtype];
                     rho[iatm]+=dr_rho*dr_rho*(mat_t_1[jtype][itype]
                     +mat_t_2[jtype][itype]*dr_rho);
                     if(jatm<natms)
@@ -677,18 +439,18 @@ type0 ForceField_fs::energy_calc()
                         +mat_t_2[itype][jtype]*dr_rho);
                 }
                 
-                if(r < cut_phi[curs])
+                if(r < cut_phi[itype][jtype])
                 {
-                    dr_phi=r-cut_phi[curs];
+                    dr_phi=r-cut_phi[itype][jtype];
                     if(jatm<natms)
                     {
-                        en+=dr_phi*dr_phi*(mat_k_1[curs]
-                        +mat_k_2[curs]*r+mat_k_3[curs]*rsq);
+                        en+=dr_phi*dr_phi*(mat_k_1[itype][jtype]
+                        +mat_k_2[itype][jtype]*r+mat_k_3[itype][jtype]*rsq);
                     }
                     else
                     {
-                        en+=0.5*dr_phi*dr_phi*(mat_k_1[curs]
-                        +mat_k_2[curs]*r+mat_k_3[curs]*rsq);
+                        en+=0.5*dr_phi*dr_phi*(mat_k_1[itype][jtype]
+                        +mat_k_2[itype][jtype]*r+mat_k_3[itype][jtype]*rsq);
                     }
                 }
             }

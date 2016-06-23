@@ -19,11 +19,11 @@ namespace MAPP_NS
         type0** mat_t_2;
         type0* mat_A;
         
-        type0* cut_phi;
-        type0* cut_rho;
-        type0* mat_k_1;
-        type0* mat_k_2;
-        type0* mat_k_3;
+        type0** cut_phi;
+        type0** cut_rho;
+        type0** mat_k_1;
+        type0** mat_k_2;
+        type0** mat_k_3;
         
         /*--------------------------------------------*/
         type0* drhoi_dr;

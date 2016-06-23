@@ -5,26 +5,33 @@
 #include "group.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
+enum {disp_x,disp_s};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 Command_displace::Command_displace(MAPP* mapp
 ,int nargs,char** args):InitPtrs(mapp)
 {
+    int mode=-1;
     int dim=atoms->dimension;
-    if(nargs<2+dim)
+    if(nargs<3+dim)
         error->abort("incorrect displace command");
-    
+    if(strcmp(args[1],"x")==0)
+        mode=disp_x;
+    else if(strcmp(args[1],"s")==0)
+        mode=disp_s;
+    else
+        error->abort("unknown keyword %s",args[1]);
+        
     type0* disp;
     CREATE1D(disp,dim);
-    for(int iarg=1;iarg<dim+1;iarg++)
-        disp[iarg-1]=atof(args[iarg]);
+    for(int iarg=2;iarg<dim+2;iarg++)
+        disp[iarg-2]=atof(args[iarg]);
     
-    int iarg=dim+1;
+    int iarg=dim+2;
     
     if(strcmp(args[iarg],"group")==0)
     {
-        
     }
     else
         error->abort("unknown keyword %s",args[iarg]);
@@ -44,6 +51,10 @@ Command_displace::Command_displace(MAPP* mapp
     type0* x=mapp->x->begin();
     type0* xi;
     int x_dim=mapp->x->dim;
+    
+    if(mode==disp_s)
+        V3M_LT(disp,atoms->H,disp);
+    
     for(int igrp=0;igrp<ngrps;igrp++)
     {
         for(int i=0;i<grp_sz[igrp];i++)

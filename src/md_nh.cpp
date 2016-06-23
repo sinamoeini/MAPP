@@ -13,8 +13,9 @@
 #include "timer.h"
 #include "neighbor.h"
 #include "thermo_dynamics.h"
+#include "cmd.h"
 using namespace MAPP_NS;
-enum {NONE,TAU,XYZ,YZ,ZX,XY};
+enum {NONE,X,Y,XY,Z,ZX,YZ,XYZ,TAU};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
@@ -37,62 +38,8 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
         H_dof[i]=false;
         tau_tar[i]=tau_freq[i]=0.0;
     }
-    
-    if(atoms->dimension!=3)
-        error->abort("dimension of the box should be 3 for md nh");
-    
-    int iarg=2;
-    if(!strcmp(args[iarg],"nvt"))
-    {
-        stress_mode=NONE;
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"ntaut"))
-    {
-        stress_mode=TAU;
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"npt")&&((iarg+2)<=nargs))
-    {
-        
-        iarg++;
-        if(!strcmp(args[iarg],"xyz")
-           || !strcmp(args[iarg],"xzy")
-           || !strcmp(args[iarg],"yzx")
-           || !strcmp(args[iarg],"yxz")
-           || !strcmp(args[iarg],"zxy")
-           || !strcmp(args[iarg],"zyx"))
-        {
-            stress_mode=XYZ;
-            iarg++;
-        }
-        else if(!strcmp(args[iarg],"yz")
-                || !strcmp(args[iarg],"zy"))
-        {
-            stress_mode=YZ;
-            iarg++;
-        }
-        else if(!strcmp(args[iarg],"zx")
-                || !strcmp(args[iarg],"xz"))
-        {
-            stress_mode=ZX;
-            iarg++;
-        }
-        else if(!strcmp(args[iarg],"xy")
-                || !strcmp(args[iarg],"yx"))
-        {
-            stress_mode=XY;
-            iarg++;
-        }
-        else
-            error->abort("unknown coupling style for npt in md nh: %s",args[iarg]);
-        
-    }
-    else error->abort("unknown ensemble for md nh: %s",args[iarg]);
 
-
-    while(iarg<nargs)
-        keywords(nargs,args,iarg);
+    cmd(nargs,args);
 
 }
 /*--------------------------------------------
@@ -106,61 +53,6 @@ MD_nh::~MD_nh()
  --------------------------------------------*/
 void MD_nh::init()
 {
-    
-    if(t_tar==0)
-        error->abort("temp was not set by md nh");
-    if(stress_mode!=NONE)
-    {
-        int tmp=1;
-        if(stress_mode==TAU)
-        {
-            tmp=0;
-            for(int i=0;i<6;i++)
-                if(H_dof[i])
-                    tmp++;
-        }
-        else if(stress_mode==XYZ)
-        {
-            if(!H_dof[0])
-                tmp=0;
-            if(!H_dof[1])
-                tmp=0;
-            if(!H_dof[2])
-                tmp=0;
-        }
-        else if(stress_mode==YZ)
-        {
-            if(!H_dof[1])
-                tmp=0;
-            if(!H_dof[2])
-                tmp=0;
-            
-        }
-        else if(stress_mode==ZX)
-        {
-            if(!H_dof[0])
-                tmp=0;
-            if(!H_dof[2])
-                tmp=0;
-            
-        }
-        else if(stress_mode==XY)
-        {
-            if(!H_dof[0])
-                tmp=0;
-            if(!H_dof[1])
-                tmp=0;
-            
-        }
-        
-        if(tmp==0)
-        {
-            if(stress_mode==TAU)
-                error->abort("no stress was not set by md nh");
-            else
-                error->abort("average stress was not set by md nh");
-        }
-    }
     
     if(boltz==0.0)
         error->abort("boltzmann should be set after md nh and before run");
@@ -313,13 +205,13 @@ void MD_nh::init()
     if(stress_mode)
     {
         for(int i=0;i<no_ch_peta;i++)
-            peta_m[i] = boltz * t_tar/(tau_freq_m*tau_freq_m);
+            peta_m[i]=boltz*t_tar/(tau_freq_m*tau_freq_m);
         
         for(int i=0;i<no_ch_peta;i++)
             peta_d[i]=0.0;
         
         for(int i=1;i<no_ch_peta;i++)
-            peta_dd[i] =(peta_m[i-1]*peta_d[i-1]*peta_d[i-1]-boltz*t_tar)/peta_m[i];
+            peta_dd[i]=(peta_m[i-1]*peta_d[i-1]*peta_d[i-1]-boltz*t_tar)/peta_m[i];
         for(int i=0;i<6;i++)
             omega_d[i]=omega_m[i]=0.0;
     }
@@ -1252,185 +1144,6 @@ void MD_nh::calc_sigma(int istep)
     +m[0]*m[1]*tau_tar[5];
 }
 /*--------------------------------------------
-
- --------------------------------------------*/
-void MD_nh::keywords(int nargs,char** args,int& iarg)
-{
-    int icmp,jcmp;
-    if(!strcmp(args[iarg],"temp")&&((iarg+2)<=nargs))
-    {
-        iarg++;
-        if(nargs-iarg<2)
-            error->abort("temp in md nh should at least have 2 arguments");
-        
-        t_tar=atof(args[iarg]);
-        if(t_tar<=0)
-            error->abort("temp in md nh should be greater than 0.0");
-        iarg++;
-        if(atof(args[iarg])<=0)
-            error->abort("temp frequency (arguement 2 after temp) in md nh should be greater than 0.0");
-        t_freq=1.0/atof(args[iarg]);
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"stress")&&((iarg+7)<=nargs))
-    {
-        iarg++;
-        if(stress_mode==NONE)
-            error->abort("stress in md nh is valid for ntaut or npt ensemble");
-        if(stress_mode==TAU)
-        {
-            if(nargs-iarg<12)
-                error->abort("stress in md nh should at least have 12 arguments");
-            for(int i=0;i<6;i++)
-            {
-                tau_tar[i]=atof(args[iarg]);
-                iarg++;
-                
-                if(atof(args[iarg])<=0)
-                    error->abort("stress frequency (arguement %d after stress) in md nh should be greater than 0.0",(i+1)*2);
-                tau_freq[i]=1.0/atof(args[iarg]);
-                
-                H_dof[i]=true;
-                iarg++;
-            }
-        }
-        else
-        {
-            if(nargs-iarg<2)
-                error->abort("stress in md nh should at least have 2 arguments");
-            if(stress_mode==XYZ)
-            {
-                tau_tar[0]=tau_tar[1]=tau_tar[2]=atof(args[iarg]);
-                H_dof[0]=H_dof[1]=H_dof[2]=true;
-                iarg++;
-                if(atof(args[iarg])<=0)
-                    error->abort("stress frequency (arguement 2 after ave) in md nh should be greater than 0.0");
-                tau_freq[0]=tau_freq[1]=tau_freq[2]=1.0/atof(args[iarg]);
-                iarg++;
-            }
-            else if(stress_mode==YZ)
-            {
-                tau_tar[1]=tau_tar[2]=atof(args[iarg]);
-                H_dof[1]=H_dof[2]=true;
-                iarg++;
-                if(atof(args[iarg])<=0)
-                    error->abort("stress frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[1]=tau_freq[2]=1.0/atof(args[iarg]);
-                iarg++;
-            }
-            else if(stress_mode==ZX)
-            {
-                tau_tar[0]=tau_tar[2]=atof(args[iarg]);
-                H_dof[0]=H_dof[2]=true;
-                iarg++;
-                if(atof(args[iarg])<=0)
-                    error->abort("stress frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[0]=tau_freq[2]=1.0/atof(args[iarg]);
-                iarg++;
-            }
-            else if(stress_mode==XY)
-            {
-                tau_tar[0]=tau_tar[1]=atof(args[iarg]);
-                H_dof[0]=H_dof[1]=true;
-                iarg++;
-                if(atof(args[iarg])<=0)
-                    error->abort("stress frequency (arguement 2 after stress) in md nh should be greater than 0.0");
-                tau_freq[0]=tau_freq[1]=1.0/atof(args[iarg]);
-                iarg++;
-            }
-        }
-        
-    }
-    else if(!strcmp(args[iarg],"eta_iter")&&((iarg+2)<=nargs))
-    {
-        iarg++;
-        no_it_eta=atoi(args[iarg]);
-        if(no_it_eta<1)
-            error->abort("eta_iter in md nh should be greater than 0");
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"peta_iter")&&((iarg+2)<=nargs))
-    {
-        if(stress_mode==NONE)
-            error->abort("peta_iter in md nh is valid for npt ntaut ensemble");
-        iarg++;
-        no_it_peta=atoi(args[iarg]);
-        if(no_it_peta<1)
-            error->abort("peta_iter in md nh should be greater than 0");
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"eta_chains")&&((iarg+2)<=nargs))
-    {
-        iarg++;
-        no_ch_eta=atoi(args[iarg]);
-        if(no_ch_eta<1)
-            error->abort("eta_chains in md nh should be greater than 2");
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"peta_chains")&&((iarg+2)<=nargs))
-    {
-        if(stress_mode==NONE)
-            error->abort("peta_chains in md nh is valid for npt ntaut ensemble");
-        iarg++;
-        no_ch_peta=atoi(args[iarg]);
-        if(no_ch_peta<1)
-            error->abort("peta_chains in md nh should be greater than 2");
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"create_vel")&&((iarg+2)<=nargs))
-    {
-        crt_vel=true;
-        iarg++;
-        seed=atoi(args[iarg]);
-        iarg++;
-    }
-    else if(sscanf(args[iarg],"T[%d][%d]",&icmp,&jcmp)==2)
-    {
-        if(stress_mode!=TAU)
-            error->abort("T[%d][%d] in md nh must be used with ntaut ensemble",icmp,jcmp);
-        if(icmp<0 || icmp>=3)
-            error->abort("wrong component in md nh for T[%d][%d]",icmp,jcmp);
-        if(jcmp<0 || jcmp>=3)
-            error->abort("wrong component in md nh for T[%d][%d]",icmp,jcmp);
-        iarg++;
-        if(nargs-iarg<2)
-            error->abort("T[%d][%d] in md nh must have 2 arguments",icmp,jcmp);
-        
-        int voigt[3][3]={{0,5,4},{5,1,3},{4,3,2}};
-        int idx=voigt[icmp][jcmp];
-        
-        tau_tar[idx]=atof(args[iarg]);
-        iarg++;
-        if(atof(args[iarg])<=0)
-            error->abort("stress frequency (arguement 2 after T[%d][%d]) in md nh should be greater than 0.0",icmp,jcmp);
-        tau_freq[idx]=1.0/atof(args[iarg]);
-        iarg++;
-        H_dof[idx]=true;
-        
-    }
-    else if(!strcmp(args[iarg],"nreset"))
-    {
-        iarg++;
-        if(nargs-iarg<1)
-            error->abort("nreset in md nh must have 1 rguments");
-        if(atoi(args[iarg])<0)
-            error->abort("nreset in md nh should be greater than 0");
-        nreset=atoi(args[iarg]);
-        iarg++;
-    }
-    else if(!strcmp(args[iarg],"drag"))
-    {
-        iarg++;
-        if(nargs-iarg<1)
-            error->abort("drag in md nh must have 1 rguments");
-        if(atoi(args[iarg])<0.0)
-            error->abort("drag in md nh should be greater than 0");
-        drag=atof(args[iarg]);
-        iarg++;
-    }
-    else error->abort("unknown keyword for md nh: %s",args[iarg]);
-}
-/*--------------------------------------------
  
  --------------------------------------------*/
 void MD_nh::modify_vrial()
@@ -1466,5 +1179,185 @@ void MD_nh::modify_vrial()
     
     for(int i=0;i<6;i++)
         virial_pe[i]-=st[i];
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void MD_nh::cmd(int nargs,char** args)
+{
+    type0 tau_tar_ave,tau_freq_ave;
+    char* ensemble=NULL;
+    char* couple=NULL;
+    
+    Pattern cmd(error);
+    
+    /*----------------------------*/
+    cmd.cmd("nh");
+    cmd.add_var(ensemble,"ensemble");
+    cmd.add_vdesc(0,"defines the ensemble of the md simulation");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("eq","nvt")
+    +vlogic("eq","npt")+vlogic("eq","ntaut");
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("couple");
+    cmd.add_var(couple,"form");
+    cmd.add_vdesc(0,"defines coupling form of npt ensemble");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=logic(ensemble,"!eq","npt")/vlogic("!set");
+    cmd.add_vlog(0)=
+    vlogic("eq","xyz")+vlogic("eq","xzy")
+    +vlogic("eq","yzx")+vlogic("eq","yxz")
+    +vlogic("eq","zxy")+vlogic("eq","zxy")
+    +vlogic("eq","xy")+vlogic("eq","yx")
+    +vlogic("eq","xz")+vlogic("eq","zx")
+    +vlogic("eq","yz")+vlogic("eq","zy")
+    +vlogic("eq","x")+vlogic("eq","y")
+    +vlogic("eq","z");
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("temp");
+    cmd.add_var(t_tar,"t_tar",t_freq,"t_per");
+    cmd.add_vdesc(0,"defines the target temperature");
+    cmd.add_vdesc(1,"defines the period of nose hoover bath");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=vlogic("set");
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_vlog(1)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("stress");
+    cmd.add_var(tau_tar_ave,"tau_tar_ave",tau_freq_ave,"tau_per");
+    cmd.add_vdesc(0,"defines the target average stress");
+    cmd.add_vdesc(1,"defines the period of nose hoover bath for average stress");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=logic(ensemble,"eq","npt")-vlogic("set");
+    cmd.add_vlog(1)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd_voigt("tau",3);
+    cmd.add_var(tau_tar,"tau_tar",tau_freq,"tau_per");
+    cmd.add_vdesc(0,"defines the target stress");
+    cmd.add_vdesc(1,"defines the period of nose hoover bath for said stress");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=logic(ensemble,"eq","ntaut")-vlogic("set");
+    cmd.add_vlog(1)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    
+    /*----------------------------*/
+    cmd.cmd("eta_iter");
+    cmd.add_var(no_it_eta,"eta_iters");
+    cmd.add_vdesc(0,"defines no. of iterations in nose hoover bath");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("eta_chains");
+    cmd.add_var(no_ch_eta,"neta_chains");
+    cmd.add_vdesc(0,"defines no. of masses in nose hoover chains bath");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("peta_iter");
+    cmd.add_var(no_it_peta,"eta_iters");
+    cmd.add_vdesc(0,"defines no. of iterations in nose hoover bath for stress/pressure");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("peta_chains");
+    cmd.add_var(no_ch_peta,"neta_chains");
+    cmd.add_vdesc(0,"defines no. of masses in nose hoover chains bath for stress/pressure");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("create_vel");
+    cmd.add_var(seed,"random_seed");
+    cmd.add_vdesc(0,"defines the random seed for gaussian distribution");
+    /*--------------------------------------------------------*/
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("nreset");
+    cmd.add_var(nreset,"n");
+    cmd.add_vdesc(0,"defines the number of steps to restart");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
+    cmd.add_vlog(0)=vlogic("gt",0);
+    /*------------------------------------------------------------------------------------*/
+    
+    /*----------------------------*/
+    cmd.cmd("drag");
+    cmd.add_var(drag,"fac");
+    cmd.add_vdesc(0,"defines the drag factor for damped md");
+    /*--------------------------------------------------------*/
+    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
+    cmd.add_vlog(0)=vlogic("gt",0.0);
+    /*------------------------------------------------------------------------------------*/
+    
+    //cmd.print_info();
+    
+    args++;
+    nargs--;
+    cmd.scan(args,nargs);
+    
+    if(!strcmp(ensemble,"npt") && couple!=NULL)
+    {
+        
+        stress_mode=0;
+        for(int i=0;i<strlen(couple);i++)
+        {
+            if(couple[i]=='x')
+            {
+                stress_mode+=1;
+                H_dof[0]=true;
+                tau_tar[0]=tau_tar_ave;
+                tau_freq[0]=tau_freq_ave;
+            }
+            else if(couple[i]=='y')
+            {
+                stress_mode+=2;
+                H_dof[1]=true;
+                tau_tar[1]=tau_tar_ave;
+                tau_freq[1]=tau_freq_ave;
+            }
+            else if(couple[i]=='z')
+            {
+                stress_mode+=4;
+                H_dof[2]=true;
+                tau_tar[2]=tau_tar_ave;
+                tau_freq[2]=tau_freq_ave;
+            }
+        }
+    }
+    else
+    {
+        if(!strcmp(ensemble,"ntaut"))
+            stress_mode=TAU;
+        else if(!strcmp(ensemble,"npt"))
+        {
+            stress_mode=XYZ;
+            H_dof[0]=H_dof[1]=H_dof[2]=true;
+            tau_tar[0]=tau_tar[1]=tau_tar[2]=tau_tar_ave;
+            tau_freq[0]=tau_freq[1]=tau_freq[2]=tau_freq_ave;
+        }
+        else
+            stress_mode=NONE;
+        
+    }
 }
 

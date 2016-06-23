@@ -10,6 +10,25 @@
 #include "ls.h"
 namespace MAPP_NS
 {
+    class ScriptReader
+    {
+    private:
+        Error*& error;
+        MPI_Comm& world;
+        char* line;
+        int line_len;
+        int sz_inc;
+        FILE*& fp;
+        bool get_line_proc0(char*&,int&,int&);
+        bool is_char(char*);
+    protected:
+    public:
+        ScriptReader(MAPP*);
+        ~ScriptReader();
+        int operator()(char**&,int&);
+        int my_p;
+    };
+    
     class Min;
     enum {MD_mode,DMD_mode};
     
@@ -18,6 +37,7 @@ namespace MAPP_NS
     private:
     protected:
     public:
+        ScriptReader sr;
         MAPP(int,char**,MPI_Comm);
         ~MAPP();
         MPI_Comm world;
@@ -90,8 +110,29 @@ namespace MAPP_NS
         FILE* my_debug;
         
         void open_file(FILE*&,const char*,const char*);
+        
+        template<class C>
+        void create(C*& ptr,const char*line)
+        {
+            if(ptr!=NULL)
+                delete ptr;
+            ptr=NULL;
+            
+            char** args;
+            int nargs=parse_line(line,args);
+            ptr=new C(this,nargs,args);
+            for(int i=0;i<nargs;i++)
+                delete [] args[i];
+            if(nargs)
+                delete [] args;
+        }
+
     };
     
+
+
+    
 }
+
 
 #endif

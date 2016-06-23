@@ -5,6 +5,7 @@
 #include "memory.h"
 #include "atom_types.h"
 #include "xmath.h"
+#include "cmd.h"
 #include <limits>
 #define PI_IN_SQ 0.564189583547756286948079451561
 using namespace MAPP_NS;
@@ -126,7 +127,7 @@ force_calc(bool st_clc)
                     {
                         jtype=type[jc_dim];
                         
-                        if(rsq>cut_sq[COMP(itype,jtype)])
+                        if(rsq>cut_sq[itype][jtype])
                             continue;
                         
                         type0 alpha_ij=sqrt(x[3*iatm+ic_dim+3]*x[3*iatm+ic_dim+3]+x[3*jatm+jc_dim+3]*x[3*jatm+jc_dim+3]);
@@ -134,8 +135,8 @@ force_calc(bool st_clc)
                         if(alpha_ij>=alpha_max)
                             continue;
                         
-                        type0 upper=(r+cut[COMP(itype,jtype)])/alpha_ij;
-                        type0 lower=(r-cut[COMP(itype,jtype)])/alpha_ij;
+                        type0 upper=(r+cut[itype][jtype])/alpha_ij;
+                        type0 lower=(r-cut[itype][jtype])/alpha_ij;
                         
                         if(lower>=xi[no_i-1])
                             continue;
@@ -275,8 +276,13 @@ force_calc(bool st_clc)
             E[ic_dim]=tmp0;
             dE[ic_dim]=tmp1;
             
-            nrgy_strss_lcl[0]+=c[ic_dim]*(tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]));
-            mu[ic_dim]=tmp0-3.0*kbT*log(x[3*iatm+ic_dim+3]);
+            mu[ic_dim]=tmp0;
+            if(c[ic_dim]!=0.0)
+            {
+                nrgy_strss_lcl[0]+=c[ic_dim]*(tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]));
+            }
+            
+            
             nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
         }
         nrgy_strss_lcl[0]+=kbT*calc_ent(c_iv);
@@ -359,7 +365,7 @@ force_calc(bool st_clc)
     for(iatm=0;iatm<natms;iatm++)
     {
         for(int i=0;i<c_dim;i++)
-            if(c[i]>=0.0)
+            if(c[i]>0.0)
                 fvec_alpha[i]+=3.0*kbT*c[i]/alpha[i];
         
         fvec_alpha+=x_dim;
@@ -436,7 +442,7 @@ type0 ForceField_eam_dmd::energy_calc()
                     {
                         jtype=type[jc_dim];
                         
-                        if(rsq>cut_sq[COMP(itype,jtype)])
+                        if(rsq>cut_sq[itype][jtype])
                             continue;
                         
                         alpha=sqrt(x[3*iatm+ic_dim+3]*x[3*iatm+ic_dim+3]+x[3*jatm+jc_dim+3]*x[3*jatm+jc_dim+3]);
@@ -444,8 +450,8 @@ type0 ForceField_eam_dmd::energy_calc()
                         if(alpha>=alpha_max)
                             continue;
                         
-                        upper=(r+cut[COMP(itype,jtype)])/alpha;
-                        lower=(r-cut[COMP(itype,jtype)])/alpha;
+                        upper=(r+cut[itype][jtype])/alpha;
+                        lower=(r-cut[itype][jtype])/alpha;
                         
                         if(lower>=xi[no_i-1])
                             continue;
@@ -530,8 +536,8 @@ type0 ForceField_eam_dmd::energy_calc()
             
             E[ic_dim]=tmp0;
 
-            en+=c[ic_dim]*(tmp0+c_0[itype])
-            -3.0*kbT*c[ic_dim]*log(x[3*iatm+ic_dim+3]);
+            if(c[ic_dim]!=0.0)
+                en+=c[ic_dim]*(tmp0+c_0[itype])-3.0*kbT*c[ic_dim]*log(x[3*iatm+ic_dim+3]);
             
             en+=kbT*calc_ent(c[ic_dim]);
         }
@@ -561,8 +567,7 @@ void ForceField_eam_dmd::init()
     crd_ptr=new Vec<type0>(atoms,c_dim);
     s_ptr=new Vec<type0>(atoms,c_dim);
     
-    M_ptr=new Vec<type0>(atoms,c_dim);
-    N_ptr=new Vec<type0>(atoms,c_dim);
+    x_tmp_ptr=new Vec<type0>(atoms,1);
 
     t_ptr=new Vec<type0>(atoms,c_dim);
     
@@ -604,10 +609,7 @@ void ForceField_eam_dmd::fin()
     
     if(M_N_sz_sz)
     {
-        delete [] N_IJ;
-        delete [] N_JI;
         delete [] M_IJ;
-        delete [] M_JI;
         M_N_sz_sz=0;
     }
     
@@ -618,8 +620,8 @@ void ForceField_eam_dmd::fin()
     delete dE_ptr;
     delete E_ptr;
     delete cv_ptr;
-    delete M_ptr;
-    delete N_ptr;
+    delete x_tmp_ptr;
+    
 }
 /*--------------------------------------------
  ff_coef
@@ -651,8 +653,8 @@ void ForceField_eam_dmd::allocate()
     deallocate();
     no_types=atom_types->no_types;
     CREATE1D(c_0,no_types);
-    CREATE1D(f_t,no_types);
-    CREATE1D(Q_nrm,no_types);
+    CREATE1D(c_1,no_types);
+    CREATE1D(g_fac,no_types);
 }
 /*-------------------------------------------
  
@@ -663,8 +665,8 @@ void ForceField_eam_dmd::deallocate()
         return;
     
     delete [] c_0;
-    delete [] f_t;
-    delete [] Q_nrm;
+    delete [] c_1;
+    delete [] g_fac;
     no_types=0;
 
 }
@@ -673,170 +675,63 @@ void ForceField_eam_dmd::deallocate()
  --------------------------------------------*/
 void ForceField_eam_dmd::read_file(char* file_name)
 {
-    int nargs;
-    int tot_no_types;
-    int icmp;
-    type0 tmp0,alpha_coef=0.0;
-    int tmp1;
+    int degree;
+    type0 T0;
+    char* file_format=NULL;
+    char** files;
+    files=new char*[no_types];
+    for(int i=0;i<no_types;i++)
+        files[i]=NULL;
     
-    FILE* fp=NULL;
-    char** args=NULL;
-    int args_cpcty=0;
-    int* type_ref;
-    char* line;
-    char* strtmp;
+    FileReader fr(mapp);
+    
+    fr.add_scl("degree",degree);
+    fr.add_vlog()=vlogic("gt",0);
+    
+    fr.add_scl("T",T0);
+    fr.add_vlog()=vlogic("gt",0.0);
+    
+    fr.add_scl("alpha_max",alpha_max);
+    fr.add_vlog()=vlogic("gt",0.0);
+        
+    fr.add_1D("gamma",g_fac);
+    fr.add_vlog()=vlogic("gt",0.0)*vlogic("le",1.0);
+
+    fr.add_1D("r_crd",rsq_crd);
+    fr.add_vlog()=vlogic("gt",0.0);
+    
+    fr.add_scl("file_format",file_format);
+    fr.add_vlog()=vlogic("eq","FS")
+    +vlogic("eq","SetFunc")+vlogic("eq","SetFL");
+
+    
+    fr.add_1D("files",files);
+    fr.add_clog()=logic(file_format,"eq","FuncFL")-vlogic("set");
+    
+    fr.add_scl("file",files[0]);
+    fr.add_clog()=(logic(file_format,"eq","SetFL")+logic(file_format,"eq","FS"))-vlogic("set");
+
+    fr.read_file(file_name);
+    
+    
+
+    
+    set_temp(T0);
+    set_weight_abs(degree);
+    
+    for(int i=0;i<no_types;i++)
+        rsq_crd[i]*=rsq_crd[i];
     
     delete eam_reader;
     eam_reader=new EAMFileReader(mapp);
-
-    mapp->open_file(fp,file_name,"r");
     
-    CREATE1D(line,MAXCHAR);
-    CREATE1D(strtmp,MAXCHAR);
-    nargs=0;
-    while(nargs==0 && mapp->read_line(fp,line) !=-1)
-        nargs=mapp->parse_line(line,args,args_cpcty);
+    eam_reader->file_format(file_format);
+    eam_reader->add_file(files[0],0);
+    if(!strcmp(file_format,"FuncFL"))
+        for(int i=1;i<no_types;i++)
+            eam_reader->add_file(files[i],i);
+    delete [] files;
     
-    if(nargs==0)
-        error->abort("%s file ended immaturely",file_name);
-
-    if(nargs<no_types)
-        error->abort("the number of atoms in %s file"
-        " is less than the number of atom types present in the system",file_name);
-    
-    tot_no_types=nargs;
-    
-    CREATE1D(type_ref,tot_no_types);
-    for(int ityp=0;ityp<tot_no_types;ityp++)
-        type_ref[ityp]=atom_types->find_type_exist(args[ityp]);
-    
-    if(args_cpcty)
-        delete [] args;
-    
-    for(int i=0;i<no_types;i++)
-        rsq_crd[i]=f_t[i]=Q_nrm[i]=-1.0;
-    
-    alpha_min=alpha_max=0.0;
-    kbT=beta=-1.0;
-
-    while(mapp->read_line(fp,line)!=-1)
-    {
-        if(mapp->hash_remover(line)==0)
-            continue;
-        
-        if(sscanf(line,"degree = %d",&tmp1)==1)
-        {
-            alpha_coef=set_weight_abs(tmp1);
-        }
-        else if(sscanf(line,"alpha_max = %lf",&tmp0)==1)
-        {
-            if(tmp0<=0.0)
-                error->abort("maximum alpha for ff eam_dmd "
-                "should be greater than 0.0");
-            alpha_max=tmp0;
-        }
-        else if(sscanf(line,"T = %lf",&tmp0)==1)
-        {
-            if(tmp0<=0.0)
-                error->abort("temperature for ff eam_dmd "
-                "should be greater than 0.0");
-            set_temp(tmp0);
-        }
-        else if(sscanf(line,"r_crd(%d) = %lf",&icmp,&tmp0)==2)
-        {
-            if(icmp<0 || icmp>tot_no_types-1)
-                error->abort("wrong component in %s "
-                "file for r_crd(%d)",file_name,icmp);
-            
-            if(tmp0<=0.0)
-                error->abort("r_crd(%d) for ff eam_dmd "
-                "in %s file should be greater than 0.0",icmp,file_name);
-            
-            if(type_ref[icmp]!=-1)
-            {
-                rsq_crd[type_ref[icmp]]=tmp0*tmp0;
-            }
-        }
-        else if(sscanf(line,"f_t(%d) = %lf",&icmp,&tmp0)==2)
-        {
-            if(icmp<0 || icmp>tot_no_types-1)
-                error->abort("wrong component in %s "
-                "file for f_t(%d)",file_name,icmp);
-            
-            if(tmp0<=0.0)
-                error->abort("f_t(%d) for ff eam_dmd "
-                "in %s file should be greater than 0.0",icmp,file_name);
-            
-            if(type_ref[icmp]!=-1)
-            {
-                f_t[type_ref[icmp]]=tmp0;
-            }
-        }
-        else if(sscanf(line,"Q(%d) = %lf",&icmp,&tmp0)==2)
-        {
-            if(icmp<0 || icmp>tot_no_types-1)
-                error->abort("wrong component in %s "
-                "file for Q(%d)",file_name,icmp);
-            
-            if(tmp0<=0.0)
-                error->abort("Q(%d) for ff eam_dmd "
-                "in %s file should be greater than 0.0",icmp,file_name);
-            
-            if(type_ref[icmp]!=-1)
-            {
-                Q_nrm[type_ref[icmp]]=tmp0;
-            }
-        }
-        else if(sscanf(line,"file_format = %s",strtmp)==1)
-        {
-            eam_reader->file_format(strtmp);
-        }
-        else if(sscanf(line,"file(%d) = %s",&icmp,strtmp)==2)
-        {
-            if(icmp<0 || icmp>tot_no_types-1)
-                error->abort("wrong component in %s "
-                "file for file(%d)",file_name,icmp);
-            if(type_ref[icmp]!=-1)
-                eam_reader->add_file(strtmp,type_ref[icmp]);
-        }
-        else
-        {
-            error->abort("invalid line in %s file: %s",file_name,line);
-        }
-    }
-
-    delete [] line;
-    delete [] strtmp;
-    
-    if(tot_no_types)
-        delete [] type_ref;
-    
-    
-    if(no_i==0)
-        error->abort("degree was not set by %s file ",file_name);
-   
-    if(alpha_max==0.0)
-        error->abort("miximum alpha was not set by %s file ",file_name);
-    
-    for(int i=0;i<no_types;i++)
-    {
-        if(f_t[i]==-1.0)
-            error->abort("f_t(%s) was not set by %s file "
-            ,atom_types->atom_names[i],file_name);
-        if(rsq_crd[i]==-1.0)
-            error->abort("r_crd(%s) was not set by %s file "
-            ,atom_types->atom_names[i],file_name);
-        if(Q_nrm[i]==-1.0)
-            error->abort("Q(%s) was not set by %s file "
-            ,atom_types->atom_names[i],file_name);
-    }
-    
-    for(int i=0;i<no_types;i++)
-        Q_nrm[i]/=f_t[i]*sqrt(f_t[i]);
-    
-    if(alpha_max<=alpha_min)
-        error->abort("maximum alpha should be less "
-        "than minimum alpha for ff eam_dmd");
     
     type0* x=mapp->x->begin();
     int* id=mapp->id->begin();
@@ -875,21 +770,21 @@ void ForceField_eam_dmd::read_file(char* file_name)
         
     type0 cut_max=0.0;
     for(int itype=0;itype<no_types;itype++)
-        for(int jtype=itype;jtype<no_types;jtype++)
+        for(int jtype=0;jtype<no_types;jtype++)
         {
             type0 tmp=sqrt(eam_reader->cut_sq[COMP(itype,jtype)]);
             cut_max=MAX(cut_max,tmp);
-            cut[COMP(itype,jtype)]=tmp;
-            cut_sq[COMP(itype,jtype)]=(tmp+xi[no_i-1]*alpha_max)*(tmp+xi[no_i-1]*alpha_max);
+            cut[itype][jtype]=tmp;
+            cut_sq[itype][jtype]=(tmp+xi[no_i-1]*alpha_max)*(tmp+xi[no_i-1]*alpha_max);
         }
     
     type0 mod_rc=cut_max+xi[no_i-1]*alpha_max;
     cut_sq_mod_0=mod_rc*mod_rc;
     
     for(int itype=0;itype<no_types;itype++)
-        if(rsq_crd[itype]>cut_sq[COMP(itype,itype)])
+        if(rsq_crd[itype]>cut_sq[itype][itype])
             error->abort("r_crd(%s) set by file %s should be less than %lf"
-            ,file_name,atom_types->atom_names[itype],sqrt(cut_sq[COMP(itype,itype)]));
+            ,file_name,atom_types->atom_names[itype],sqrt(cut_sq[itype][itype]));
 }
 /*--------------------------------------------
  set the temperature in the simulation
@@ -904,6 +799,7 @@ void ForceField_eam_dmd::set_temp(type0 T)
     for(int i=0;i<no_types;i++)
     {
         mass=atom_types->mass[i];
+        c_1[i]=sqrt(0.5*kb*T/mass)/M_PI;
         mass*=1.0364269184093291236e-28;
         deb_l=hbar*hbar*2.0/(mass*kb*T);
         c_0[i]=1.5*kb*T*(log(deb_l)-1.0);
@@ -962,66 +858,6 @@ type0 ForceField_eam_dmd::set_weight_abs(int n)
 }
 /*--------------------------------------------
  return M_{ij}^{\alpha}
- this fucntion should be symmetric wrt fi &
- fj
- --------------------------------------------*/
-type0 ForceField_eam_dmd::
-mat(type0 fi,type0 fj,int itype)
-{
-    if(fi>fj)
-    {
-        if(fi-fj>f_t[itype])
-        {
-            return fi;
-        }
-        else
-        {
-            return fi+Q_nrm[itype]*(f_t[itype]-fi+fj)*sqrt(f_t[itype]-fi+fj);
-        }
-    }
-    else
-    {
-        if(fj-fi>f_t[itype])
-        {
-            return fj;
-        }
-        else
-        {
-            return fj+Q_nrm[itype]*(f_t[itype]-fj+fi)*sqrt(f_t[itype]-fj+fi);
-        }
-    }
-}
-/*--------------------------------------------
- dmat(fi,fj)/dfi
- --------------------------------------------*/
-type0 ForceField_eam_dmd::
-dmat(type0 fi,type0 fj,int itype)
-{
-    if(fi>fj)
-    {
-        if(fi-fj>f_t[itype])
-        {
-            return 1.0;
-        }
-        else
-        {
-            return 1.0-1.5*Q_nrm[itype]*sqrt(f_t[itype]-fi+fj);
-        }
-    }
-    else
-    {
-        if(fj-fi>f_t[itype])
-        {
-            return 0.0;
-        }
-        else
-        {
-            return 1.5*Q_nrm[itype]*sqrt(f_t[itype]-fj+fi);
-        }
-    }
-}
-/*--------------------------------------------
- return M_{ij}^{\alpha}
  --------------------------------------------*/
 type0 ForceField_eam_dmd::calc_ent(type0 x)
 {
@@ -1035,18 +871,26 @@ type0 ForceField_eam_dmd::calc_ent(type0 x)
  --------------------------------------------*/
 void ForceField_eam_dmd::dc()
 {
+    calc_mu();
+
+    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* cv=cv_ptr->begin();
     type0* mu=mu_ptr->begin();
-    type0 fi,fj,exp_fi,exp_fj;
-    type0 tmp0,s_ij,w_ij,w_ji;
-    calc_mu();
     
     int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
         c_d[i]=0.0;
+    
+    type0 gamma_i,gamma_j,x_ij_sq,alpha_Q_sq;
+    type0* xi;
+    type0* xj;
+    type0 mu_ji,alpha_i,alpha_j,Qi;
+    
+    int iatm,jatm,icmp,jcmp;
+    type0 d_i,d_j,dc_ij;
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -1054,25 +898,43 @@ void ForceField_eam_dmd::dc()
     for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
     {
         itype=type[ic_dim];
+        icmp=ic_dim%c_dim;
+        iatm=ic_dim/c_dim;
+        xi=x+x_dim*iatm;
+        alpha_i=xi[3+icmp];
+        
         for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
         {
+            
             jc_dim=neighbor_list_2nd[ic_dim][j];
+            jcmp=jc_dim%c_dim;
+            jatm=jc_dim/c_dim;
+            xj=x+x_dim*jatm;
+            alpha_j=xj[3+icmp];
+            mu_ji=beta*(mu[jc_dim]-mu[ic_dim]);
             
-            fi=mu[ic_dim];
-            fj=mu[jc_dim];
+            x_ij_sq=(xi[0]-xj[0])*(xi[0]-xj[0])
+            +(xi[1]-xj[1])*(xi[1]-xj[1])
+            +(xi[2]-xj[2])*(xi[2]-xj[2]);
+            gamma_i=x_ij_sq/(alpha_i*alpha_i);
+            gamma_j=x_ij_sq/(alpha_j*alpha_j);
             
-            tmp0=mat(fi,fj,itype);
-            exp_fi=exp(beta*(fi-tmp0));
-            exp_fj=exp(beta*(fj-tmp0));
-            w_ij=-c[ic_dim]*cv[jc_dim/c_dim]*exp_fi;
-            w_ji=-c[jc_dim]*cv[ic_dim/c_dim]*exp_fj;
+            calc_Q(itype,gamma_i,gamma_j,mu_ji,Qi,alpha_Q_sq);
             
-            s_ij=w_ij-w_ji;
+            d_i=d_j=-c_1[itype]*x_ij_sq*alpha_Q_sq;
+            d_i/=alpha_i*alpha_i*alpha_i;
+            d_j/=alpha_j*alpha_j*alpha_j;
             
-            c_d[ic_dim]+=s_ij;
+            dc_ij=d_i*exp(-Qi)*c[ic_dim]*cv[jatm]-d_j*exp(-Qi+mu_ji)*c[jc_dim]*cv[iatm];
+            /*
+            printf("%e dj %e  Qi %e %e \n",d_i*exp(-Qi)*c[ic_dim]*cv[jatm],d_i,Qi,c[ic_dim]*cv[jatm]);
+            printf("%e dj %e  Qi %e %e \n",-d_j*exp(-Qi+mu_ji)*c[jc_dim]*cv[iatm],d_j,Qi-mu_ji,c[jc_dim]*cv[iatm]);
+            printf("mu_i %e mu_j %e\n",mu[ic_dim]+kbT*log(c[ic_dim])-kbT*log(cv[iatm])-3.0*kbT*log(alpha_i),mu[jc_dim]+kbT*log(c[jc_dim])-kbT*log(cv[jatm])-3.0*kbT*log(alpha_j));
+             */
+            c_d[ic_dim]+=dc_ij;
             if(jc_dim<natms*c_dim)
             {
-                c_d[jc_dim]-=s_ij;
+                c_d[jc_dim]-=dc_ij;
             }
         }
     }
@@ -1082,278 +944,44 @@ void ForceField_eam_dmd::dc()
  --------------------------------------------*/
 type0 ForceField_eam_dmd::ddc_norm()
 {
-    type0* c=mapp->c->begin();
-    dmd_type* type=mapp->ctype->begin();
-    type0* dE=dE_ptr->begin();
-    type0* ddE=E_ptr->begin();;
-    type0* cv=cv_ptr->begin();
-    type0* s=s_ptr->begin();
+    int n=atoms->natms*c_dim;
+    type0* tmp=NULL;
+    CREATE1D(tmp,n);
+    for(int i=0;i<n;i++)
+        tmp[i]=0;
+    update_J(1.0,tmp,tmp);
+    delete [] tmp;
+    
+    
     type0* c_d=mapp->c_d->begin();
-    type0* mu=mu_ptr->begin();
-    type0* t=t_ptr->begin();
-    
-    type0 fi,fj,exp_fi,exp_fj,norm_lcl;
-    type0 tmp0,s_ij,w_ij,w_ji;
-    int istart;
-    
-    
-    int natms=atoms->natms;
-    
-    calc_mu();
-    
-    for(int i=0;i<natms*c_dim;i++)
-        s[i]=c_d[i]=0.0;
-    
-    int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
-    int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
-
-    for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
-    {
-        itype=type[ic_dim];
-        for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
-        {
-            jc_dim=neighbor_list_2nd[ic_dim][j];
-            
-            fi=mu[ic_dim];
-            fj=mu[jc_dim];
-            
-            tmp0=mat(fi,fj,itype);
-            exp_fi=exp(beta*(fi-tmp0));
-            exp_fj=exp(beta*(fj-tmp0));
-            w_ij=-c[ic_dim]*cv[jc_dim/c_dim]*exp_fi;
-            w_ji=-c[jc_dim]*cv[ic_dim/c_dim]*exp_fj;
-            
-            s_ij=w_ij-w_ji;
-            
-            s[ic_dim]+=s_ij;
-            c_d[ic_dim]+=s_ij;
-            if(jc_dim<natms*c_dim)
-            {
-                s[jc_dim]-=s_ij;
-                c_d[jc_dim]-=s_ij;
-            }
-        }
-    }
-
+    type0* s=s_ptr->begin();
+    memcpy(s,c_d,sizeof(type0)*n);
     atoms->update(s_ptr);
-    
-    for(int i=0;i<natms*c_dim;i++)
-        t[i]=0.0;
-    
-    
-    istart=0;
-    for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
-        {
-            jc_dim=phi_psi_cmp[istart];
-            t[ic_dim]+=c[ic_dim]*ddE[ic_dim]*psi_JI[istart]*s[jc_dim];
-            if(jc_dim<phi_psi_sz_sz)
-                t[jc_dim]+=c[jc_dim]*ddE[jc_dim]*psi_IJ[istart]*s[ic_dim];
-            istart++;
-        }
-
+    operator()(s_ptr,t_ptr);
+    type0* t=t_ptr->begin();
+    type0* c=mapp->c->begin();
+    type0 ans_lcl=0.0,ans,tmp0;
     
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        t[ic_dim]*=c[ic_dim]*ddE[ic_dim];
-
-    
-    atoms->update(t_ptr);
-    
-    
-    for(int i=0;i<natms*c_dim;i++)
-        ddE[i]=0.0;
-    
-    
-    istart=0;
-    for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
+        if(c[ic_dim]>=0.0)
         {
-            jc_dim=phi_psi_cmp[istart];
-            tmp0=psi_IJ[istart]*dE[ic_dim]+psi_JI[istart]*dE[jc_dim]+phi_IJ[istart];
-            
-            ddE[ic_dim]+=psi_IJ[istart]*t[jc_dim]+tmp0*s[jc_dim];
-            if(jc_dim<phi_psi_sz_sz)
-                ddE[jc_dim]+=psi_JI[istart]*t[ic_dim]+tmp0*s[ic_dim];
-            
-            istart++;
+            tmp0=t[ic_dim]+s[ic_dim];
+            ans_lcl+=tmp0*tmp0;
         }
     
-    atoms->update(E_ptr);
-
-    for(int i=0;i<natms*c_dim;i++)
-        dE[i]=0.0;
+    MPI_Allreduce(&ans_lcl,&ans,1,MPI_TYPE0,MPI_SUM,world);
+    return sqrt(ans);
     
-    norm_lcl=0.0;
-
-    for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
-    {
-        itype=type[ic_dim];
-        for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
-        {
-            jc_dim=neighbor_list_2nd[ic_dim][j];
-            
-            fi=mu[ic_dim];
-            fj=mu[jc_dim];
-            tmp0=mat(fi,fj,itype);
-            exp_fi=exp(beta*(fi-tmp0));
-            exp_fj=exp(beta*(fj-tmp0));
-            w_ij=-c[ic_dim]*cv[jc_dim/c_dim]*exp_fi;
-            w_ji=-c[jc_dim]*cv[ic_dim/c_dim]*exp_fj;
-            s_ij=w_ij-w_ji;
-            
-            tmp0=(s[jc_dim]*c[ic_dim]-s[ic_dim]*cv[jc_dim/c_dim])*exp_fi
-            -(s[ic_dim]*c[jc_dim]-s[jc_dim]*cv[ic_dim/c_dim])*exp_fj;
-            
-            tmp0+=beta*(ddE[ic_dim]*w_ij-ddE[jc_dim]*w_ji);
-            
-            tmp0+=-beta*(w_ij-w_ji)*(
-            ddE[ic_dim]*dmat(fi,fj,itype)
-            +ddE[jc_dim]*dmat(fj,fi,itype));
-            
-            dE[ic_dim]+=tmp0;
-            if(jc_dim<natms*c_dim)
-                dE[jc_dim]-=tmp0;
-        }
-        norm_lcl+=dE[ic_dim]*dE[ic_dim];
-    }
-    
-    MPI_Allreduce(&norm_lcl,&tmp0,1,MPI_TYPE0,MPI_SUM,world);
-    return sqrt(tmp0);
 }
 /*--------------------------------------------
  calculate norm of d^2c/dt^2
  --------------------------------------------*/
 void ForceField_eam_dmd::ddc(type0* ddc_)
 {
-    type0* c=mapp->c->begin();
-    dmd_type* type=mapp->ctype->begin();
-    type0* dE=dE_ptr->begin();
-    type0* ddE=E_ptr->begin();;
-    type0* cv=cv_ptr->begin();
-    type0* s=s_ptr->begin();
-    type0* mu=mu_ptr->begin();
-    type0* t=t_ptr->begin();
-    
-    type0 fi,fj,exp_fi,exp_fj;
-    type0 tmp0,s_ij,w_ij,w_ji;
-    int istart;
     
     
-    int natms=atoms->natms;
     
-    calc_mu();
-    
-    for(int i=0;i<natms*c_dim;i++)
-        s[i]=0.0;
-    
-    int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
-    int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
-    
-    for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
-    {
-        itype=type[ic_dim];
-        for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
-        {
-            jc_dim=neighbor_list_2nd[ic_dim][j];
-            
-            fi=mu[ic_dim];
-            fj=mu[jc_dim];
-            
-            tmp0=mat(fi,fj,itype);
-            exp_fi=exp(beta*(fi-tmp0));
-            exp_fj=exp(beta*(fj-tmp0));
-            w_ij=-c[ic_dim]*cv[jc_dim/c_dim]*exp_fi;
-            w_ji=-c[jc_dim]*cv[ic_dim/c_dim]*exp_fj;
-            
-            s_ij=w_ij-w_ji;
-            
-            s[ic_dim]+=s_ij;
-            if(jc_dim<natms*c_dim)
-            {
-                s[jc_dim]-=s_ij;
-            }
-        }
-    }
-    
-    atoms->update(s_ptr);
-    
-    for(int i=0;i<natms*c_dim;i++)
-        t[i]=0.0;
-    
-    
-    istart=0;
-    for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
-        {
-            jc_dim=phi_psi_cmp[istart];
-            t[ic_dim]+=c[ic_dim]*ddE[ic_dim]*psi_JI[istart]*s[jc_dim];
-            if(jc_dim<phi_psi_sz_sz)
-                t[jc_dim]+=c[jc_dim]*ddE[jc_dim]*psi_IJ[istart]*s[ic_dim];
-            istart++;
-        }
-    
-    
-    for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        t[ic_dim]*=c[ic_dim]*ddE[ic_dim];
-    
-    
-    atoms->update(t_ptr);
-    
-    
-    for(int i=0;i<natms*c_dim;i++)
-        ddE[i]=0.0;
-    
-    
-    istart=0;
-    for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
-        {
-            jc_dim=phi_psi_cmp[istart];
-            tmp0=psi_IJ[istart]*dE[ic_dim]+psi_JI[istart]*dE[jc_dim]+phi_IJ[istart];
-            
-            ddE[ic_dim]+=psi_IJ[istart]*t[jc_dim]+tmp0*s[jc_dim];
-            if(jc_dim<phi_psi_sz_sz)
-                ddE[jc_dim]+=psi_JI[istart]*t[ic_dim]+tmp0*s[ic_dim];
-            
-            istart++;
-        }
-    
-    atoms->update(E_ptr);
-    
-    for(int i=0;i<natms*c_dim;i++)
-        ddc_[i]=0.0;
-    
-    
-    for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
-    {
-        itype=type[ic_dim];
-        for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
-        {
-            jc_dim=neighbor_list_2nd[ic_dim][j];
-            
-            fi=mu[ic_dim];
-            fj=mu[jc_dim];
-            tmp0=mat(fi,fj,itype);
-            exp_fi=exp(beta*(fi-tmp0));
-            exp_fj=exp(beta*(fj-tmp0));
-            w_ij=-c[ic_dim]*cv[jc_dim/c_dim]*exp_fi;
-            w_ji=-c[jc_dim]*cv[ic_dim/c_dim]*exp_fj;
-            s_ij=w_ij-w_ji;
-            
-            tmp0=(s[jc_dim]*c[ic_dim]-s[ic_dim]*cv[jc_dim/c_dim])*exp_fi
-            -(s[ic_dim]*c[jc_dim]-s[jc_dim]*cv[ic_dim/c_dim])*exp_fj;
-            
-            tmp0+=beta*(ddE[ic_dim]*w_ij-ddE[jc_dim]*w_ji);
-            
-            tmp0+=-beta*(w_ij-w_ji)*(
-            ddE[ic_dim]*dmat(fi,fj,itype)
-            +ddE[jc_dim]*dmat(fj,fi,itype));
-            
-            ddc_[ic_dim]+=tmp0;
-            if(jc_dim<natms*c_dim)
-                ddc_[jc_dim]-=tmp0;
-        }
-    }
+    error->abort("not done");
 }
 /*--------------------------------------------
  calculate mu crd dE ddE and local energy
@@ -1427,10 +1055,11 @@ void ForceField_eam_dmd::calc_mu()
             
             dE[ic_dim]=tmp1;
             ddE[ic_dim]=tmp2;
-            tmp2=tmp0+c_0[itype]-3.0*kbT*log(x[3*(ic_dim/c_dim +1)+ic_dim]);
-            nrgy_strss_lcl[0]+=c[ic_dim]*tmp2;
-            mu[ic_dim]+=tmp2;
-            nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
+            mu[ic_dim]+=tmp0;
+            tmp2=tmp0+c_0[itype];
+            if(c[ic_dim]!=0.0)
+                tmp2-=3.0*kbT*log(x[3*(ic_dim/c_dim +1)+ic_dim]);
+            nrgy_strss_lcl[0]+=c[ic_dim]*tmp2+kbT*calc_ent(c[ic_dim]);
         }
         if(ic_dim%c_dim==c_dim-1)
             nrgy_strss_lcl[0]+=kbT*calc_ent(cv[ic_dim/c_dim]);
@@ -1480,10 +1109,7 @@ void ForceField_eam_dmd::init_static()
     
     if(M_N_sz_sz)
     {
-        delete [] N_IJ;
-        delete [] N_JI;
         delete [] M_IJ;
-        delete [] M_JI;
     }
     
     
@@ -1599,92 +1225,112 @@ void ForceField_eam_dmd::init_static()
     for(int i=0;i<natms*c_dim;i++)
         M_N_sz_sz+=neighbor_list_size_2nd[i];
     
-    CREATE1D(M_IJ,M_N_sz_sz);
-    CREATE1D(M_JI,M_N_sz_sz);
-    CREATE1D(N_IJ,M_N_sz_sz);
-    CREATE1D(N_JI,M_N_sz_sz);
-    
+    CREATE1D(M_IJ,3*M_N_sz_sz);
     
 }
 /*--------------------------------------------
  create the sparse matrices
  --------------------------------------------*/
-type0 ForceField_eam_dmd::update_J(type0 alpha_inv,type0* a,type0* g)
+type0 ForceField_eam_dmd::update_J(type0 alpha,type0* a,type0* g)
 {
     calc_mu();
     
     type0* c=mapp->c->begin();
+    type0* x=mapp->x->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* mu=mu_ptr->begin();
     type0* cv=cv_ptr->begin();
-
-    int istart;
-    type0 tmp0;
     
-
-    type0* M=M_ptr->begin();
-    type0* N=N_ptr->begin();
+    int istart;
+    
+    
     type0* c_d=mapp->c_d->begin();
     for(int i=0;i<phi_psi_sz_sz;i++)
     {
-        c_d[i]=M[i]=0.0;
-        N[i]=alpha_inv;
+        c_d[i]=0.0;
         if(c[i]>=0.0)
-            g[i]=-alpha_inv*c[i]-a[i];
+            g[i]=c[i]+a[i];
         else
             g[i]=0.0;
     }
     
-    type0 fi,fj,exp_fi,exp_fj,w_ij,w_ji,ans_lcl=0.0,dc_ij;
+    if(alpha<0.0)
+        error->abort("alpha less than 0.0");
+    
+    type0 iota=log(alpha);
+    alpha_tmp=alpha;
+    
+    type0 gamma_i,gamma_j,x_ij_sq,alpha_Q_sq;
+    type0 theta_i,theta_j;
+
+    type0* xi;
+    type0* xj;
+    type0 ans_lcl=0.0,dc_ij,dg_ij,mu_ji,alpha_i,alpha_j;
+    type0 d_i,d_j,Qi;
+    type0 exp_mod_Qi,exp_mod_Qj;
+    int iatm,jatm,icmp,jcmp;
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
-
+    
     istart=0;
     for(int ic_dim=0,itype;ic_dim<phi_psi_sz_sz;ic_dim++)
     {
         itype=type[ic_dim];
+        icmp=ic_dim%c_dim;
+        iatm=ic_dim/c_dim;
+        xi=x+x_dim*iatm;
+        alpha_i=xi[3+icmp];
+        
         for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
         {
             jc_dim=neighbor_list_2nd[ic_dim][j];
+            jcmp=jc_dim%c_dim;
+            jatm=jc_dim/c_dim;
+            xj=x+x_dim*jatm;
+            alpha_j=xj[3+icmp];
+            mu_ji=beta*(mu[jc_dim]-mu[ic_dim]);
             
-            fi=mu[ic_dim];
-            fj=mu[jc_dim];
-            tmp0=mat(fi,fj,itype);
-            exp_fi=exp(beta*(fi-tmp0));
-            exp_fj=exp(beta*(fj-tmp0));
-            w_ij=-c[ic_dim]*cv[jc_dim/c_dim]*exp_fi;
-            w_ji=-c[jc_dim]*cv[ic_dim/c_dim]*exp_fj;
-            dc_ij=w_ij-w_ji;
+            x_ij_sq=(xi[0]-xj[0])*(xi[0]-xj[0])
+            +(xi[1]-xj[1])*(xi[1]-xj[1])
+            +(xi[2]-xj[2])*(xi[2]-xj[2]);
+            gamma_i=x_ij_sq/(alpha_i*alpha_i);
+            gamma_j=x_ij_sq/(alpha_j*alpha_j);
             
+            calc_Q(itype,gamma_i,gamma_j,mu_ji,Qi,alpha_Q_sq,theta_i);
             
-            M_IJ[istart]=beta*(w_ji+dc_ij*dmat(fj,fi,itype));
-            N_IJ[istart]=-(c[ic_dim]*exp_fi+cv[ic_dim/c_dim]*exp_fj);
+            exp_mod_Qi=exp(-Qi+iota);
+            exp_mod_Qj=exp(-Qi+mu_ji+iota);
+            
+            d_i=d_j=-c_1[itype]*x_ij_sq*alpha_Q_sq;
+            d_i/=alpha_i*alpha_i*alpha_i;
+            d_j/=alpha_j*alpha_j*alpha_j;
+            theta_j=theta_i+1.0;
+            
+            dc_ij=d_i*exp(-Qi)*c[ic_dim]*cv[jatm]-d_j*exp(-Qi+mu_ji)*c[jc_dim]*cv[iatm];
+            dg_ij=d_i*exp_mod_Qi*c[ic_dim]*cv[jatm]-d_j*exp_mod_Qj*c[jc_dim]*cv[iatm];
 
-            M_JI[istart]=beta*(w_ij-dc_ij*dmat(fi,fj,itype));
-            N_JI[istart]=-(c[jc_dim]*exp_fj+cv[jc_dim/c_dim]*exp_fi);
-
-            M[ic_dim]-=M_JI[istart];
-            N[ic_dim]-=N_JI[istart];
-            g[ic_dim]+=dc_ij;
+            M_IJ[istart++]=kbT*(d_i*theta_i*exp_mod_Qi*c[ic_dim]*cv[jatm]-d_j*theta_j*exp_mod_Qj*c[jc_dim]*cv[iatm]);
+            M_IJ[istart++]=d_i*exp_mod_Qi;
+            M_IJ[istart++]=d_j*exp_mod_Qj;
+            g[ic_dim]-=dg_ij;
             c_d[ic_dim]+=dc_ij;
             
             if(jc_dim<phi_psi_sz_sz)
             {
-                M[jc_dim]-=M_IJ[istart];
-                N[jc_dim]-=N_IJ[istart];
-                g[jc_dim]-=dc_ij;
+                g[jc_dim]+=dg_ij;
                 c_d[jc_dim]-=dc_ij;
             }
-            
-            istart++;
         }
         if(c[ic_dim]>=0.0)
+        {
+            
             ans_lcl+=g[ic_dim]*g[ic_dim];
+        }
     }
     type0 ans;
     MPI_Allreduce(&ans_lcl,&ans,1,MPI_TYPE0,MPI_SUM,world);
     return sqrt(ans);
-
+    
 }
 /*--------------------------------------------
  create the sparse matrices
@@ -1702,8 +1348,8 @@ void ForceField_eam_dmd::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
         b0[ic_dim]=Ax[ic_dim]=0.0;
     
-    int istart=0;    
-
+    int istart=0;
+    
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
         for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
         {
@@ -1732,10 +1378,19 @@ void ForceField_eam_dmd::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
     
     atoms->update(crd_ptr);
     
-    type0* M=M_ptr->begin();
-    type0* N=N_ptr->begin();
+    type0* x_tmp=x_tmp_ptr->begin();
+    type0* cv=cv_ptr->begin();
+    for(int i=0;i<atoms->natms+atoms->natms_ph;i++)
+    {
+        x_tmp[i]=0.0;
+        for(int j=0;j<c_dim;j++)
+            if(c[i*c_dim+j]>=0.0)
+                x_tmp[i]+=x[i*c_dim+j];
+    }
+
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        Ax[ic_dim]=M[ic_dim]*b0[ic_dim]+N[ic_dim]*x[ic_dim];
+        Ax[ic_dim]=-x[ic_dim];
+    
     
     int** neighbor_list_2nd=neighbor->neighbor_list_2nd;
     int* neighbor_list_size_2nd=neighbor->neighbor_list_size_2nd;
@@ -1745,12 +1400,14 @@ void ForceField_eam_dmd::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
         for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
         {
             jc_dim=neighbor_list_2nd[ic_dim][j];
-            Ax[ic_dim]+=N_IJ[istart]*x[jc_dim]+M_IJ[istart]*b0[jc_dim];
+            
+            tmp0=M_IJ[istart++]*(b0[jc_dim]-b0[ic_dim]);
+            tmp0+=M_IJ[istart++]*(cv[jc_dim/c_dim]*x[ic_dim]-c[ic_dim]*x_tmp[jc_dim/c_dim]);
+            tmp0-=M_IJ[istart++]*(cv[ic_dim/c_dim]*x[jc_dim]-c[jc_dim]*x_tmp[ic_dim/c_dim]);
+            Ax[ic_dim]+=tmp0;
             
             if(jc_dim<phi_psi_sz_sz)
-                Ax[jc_dim]+=N_JI[istart]*x[ic_dim]+M_JI[istart]*b0[ic_dim];
-            
-            istart++;
+                Ax[jc_dim]-=tmp0;
         }
 }
 /*--------------------------------------------
@@ -1822,7 +1479,7 @@ force_calc_static(bool st_clc)
             istart++;
         }
         
-        if(c[ic_dim]>=0.0)
+        if(c[ic_dim]>0.0)
             fvec[I_comp]+=3.0*kbT*c[ic_dim]/x[I_comp];
     }
     
@@ -1836,5 +1493,85 @@ force_calc_static(bool st_clc)
     else
         MPI_Allreduce(nrgy_strss_lcl,nrgy_strss,1,MPI_TYPE0,MPI_SUM,world);
 }
+
+/*--------------------------------------------
+ gamma_i = x_ij*x_ij/(alpha_i*alpha_i)
+ gamma_j = x_ij*x_ij/(alpha_j*alpha_j)
+ mu_ji = beta*(mu_j-mu_i)+3*log(alpha_j/alpha_i)
+ 
+ Q=beta*U
+ 
+ alpha_Q_sq=alpha_U_sq/(x_ij*x_ij)
+ --------------------------------------------*/
+inline void ForceField_eam_dmd::
+calc_Q(int& itype,type0& gamma_i,type0& gamma_j,type0& mu_ji
+,type0& Q,type0& alpha_Q_sq)
+{
+    type0 z0;
+    type0 a=5.0*(gamma_i-gamma_j-6.0*mu_ji);
+    type0 xi=-2.0*(gamma_i+gamma_j);
+    type0 d=sqrt((xi-a)*(xi-a)-8.0*a*gamma_i);
+    z0=-4.0*gamma_i/((xi-a)-d);
+    
+    
+    if(z0<0.0 || z0>1.0)
+    {
+        error->abort("could not find z0");
+    }
+    
+    
+    Q=z0*z0*(1.0-z0)*(1.0-z0)*((1.0-z0)*gamma_i+z0*gamma_j);
+    Q+=z0*z0*z0*(6.0*z0*z0-15.0*z0+10.0)*mu_ji;
+    Q*=g_fac[itype];
+    Q+=0.5*(1.0-g_fac[itype])*mu_ji;
+    alpha_Q_sq=1.0/((1.0-z0)*gamma_i+z0*gamma_j);
+    
+}
+/*--------------------------------------------
+ gamma_i = x_ij*x_ij/(alpha_i*alpha_i)
+ gamma_j = x_ij*x_ij/(alpha_j*alpha_j)
+ mu_ji = beta*(mu_j-mu_i)+3*log(alpha_j/alpha_i)
+ 
+ Q=beta*U
+ dQ=dU/d((mu_j-mu_i)+3*log(alpha_j/alpha_i)/beta)
+ 
+ alpha_Q_sq=alpha_U_sq/(x_ij*x_ij)
+ dalpha_Q_sq=1/(beta*x_ij*x_ij)
+ dalpha_Q_sq/d((mu_j-mu_i)+3*log(alpha_j/alpha_i)/beta)
+ --------------------------------------------*/
+inline void ForceField_eam_dmd::
+calc_Q(int& itype,type0& gamma_i,type0& gamma_j,type0& mu_ji
+,type0& Q,type0& alpha_Q_sq,type0& theta)
+{
+    type0 z0,dz0,dQ;
+    type0 a=5.0*(gamma_i-gamma_j-6.0*mu_ji);
+    type0 xi=-2.0*(gamma_i+gamma_j);
+    type0 d=sqrt((xi-a)*(xi-a)-8.0*a*gamma_i);
+    z0=-4.0*gamma_i/((xi-a)-d);
+    dz0=30.0*z0*(1.0-z0)/d;
+    
+    if(z0<0.0 || z0>1.0)
+    {
+        error->abort("could not find z0");
+    }
+    
+    dQ=z0*z0*z0*(6.0*z0*z0-15.0*z0+10.0);
+    Q=z0*z0*(1.0-z0)*(1.0-z0)*((1.0-z0)*gamma_i+z0*gamma_j);
+    Q+=dQ*mu_ji;
+    Q*=g_fac[itype];
+    Q+=0.5*(1.0-g_fac[itype])*mu_ji;
+    dQ*=g_fac[itype];
+    dQ+=0.5*(1.0-g_fac[itype]);
+    
+    alpha_Q_sq=1.0/((1.0-z0)*gamma_i+z0*gamma_j);
+    theta=alpha_Q_sq*(gamma_i-gamma_j)*dz0-dQ;
+}
+
+
+
+
+
+
+
 
 
