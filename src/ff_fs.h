@@ -33,16 +33,20 @@ namespace MAPP_NS
         
         void read_file(char*);        
         Vec<type0>* rho_ptr;
-        void force_calc(bool);
-        type0 energy_calc();
+
         void allocate();
         void deallocate();
     protected:
+        void force_calc(bool);
+        type0 energy_calc();
+        void xchng_energy(GCMC*);
     public:
         ForceField_fs(MAPP *);
         ~ForceField_fs();
         void init();
         void fin();
+        void init_xchng();
+        void fin_xchng();
         void coef(int,char**);
     };
 }

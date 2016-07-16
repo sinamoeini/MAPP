@@ -24,8 +24,6 @@
 #include <iostream>
 #include <fstream>
 
-#include "random.h"
-
 #define MAPP_VERSION "Beta"
 
 using namespace MAPP_NS;
@@ -764,6 +762,8 @@ void MAPP::test1()
  if mass unit is amu
  energy unit is eV
  t unit would be 10.1805 fs
+ boltzmann 8.617332478e-5
+ planck 0.40623423822503807
  Commmand cmd
  
  command: md

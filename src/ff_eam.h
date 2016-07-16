@@ -11,6 +11,10 @@ namespace MAPP_NS
     {
     private:
         Vec<type0>* rho_ptr;
+        Vec<type0>* F_ptr;
+        Vec<type0>* rho_xchng_ptr;
+        Vec<type0>* F_xchng_ptr;
+        
         void setup();
     protected:
         int nr,nrho;
@@ -32,11 +36,14 @@ namespace MAPP_NS
         /*--------------------------------------------*/
         void force_calc(bool);
         type0 energy_calc();
+        void xchng_energy(GCMC*);
     public:
         ForceField_eam(MAPP *);
         ~ForceField_eam();
         void init();
         void fin();
+        void init_xchng();
+        void fin_xchng();
         void coef(int,char**);
 
     };

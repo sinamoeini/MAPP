@@ -137,6 +137,15 @@ type0 ForceField::energy_calc_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
+void ForceField::xchng_energy_timer(GCMC* gcmc)
+{
+    timer->start(FORCE_TIME_mode);
+    xchng_energy(gcmc);
+    timer->stop(FORCE_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 type0 ForceFieldDMD::ddc_norm_timer()
 {
     timer->start(FORCE_TIME_mode);

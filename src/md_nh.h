@@ -75,6 +75,14 @@ namespace MAPP_NS {
         
         void cmd(int,char**);
         void modify_vrial();
+        
+        // gcmc related values
+        type0 mu;
+        md_type gas_type;
+        int xchng_every;
+        int nxchng_attmpts;
+        int xchng_seed;
+        class GCMC* gcmc;
     protected:
     public:
         MD_nh(MAPP*,int,char**);

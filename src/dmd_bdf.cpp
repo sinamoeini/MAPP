@@ -210,14 +210,17 @@ inline void DMD_bdf::start()
     }    
 
     type0 c_d_norm_lcl=0.0;
+    type0 max_c_d_lcl=0.0;
     for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
         {
             c_d_norm_lcl+=c_d[i]*c_d[i];
+            max_c_d_lcl=MAX(max_c_d_lcl,fabs(c_d[i]));
         }
     }
     MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&max_c_d_lcl,&max_c_d,1,MPI_TYPE0,MPI_MAX,world);
     c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
 }
 /*--------------------------------------------
@@ -246,14 +249,17 @@ inline void DMD_bdf::update_for_next()
     
     type0* c_d=mapp->c_d->begin();
     type0 c_d_norm_lcl=0.0;
+    type0 max_c_d_lcl=0.0;
     for(int i=0;i<ncs;i++)
     {
         if(c[i]>=0.0)
         {
             c_d_norm_lcl+=c_d[i]*c_d[i];
+            max_c_d_lcl=MAX(max_c_d_lcl,fabs(c_d[i]));
         }
     }
     MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(&max_c_d_lcl,&max_c_d,1,MPI_TYPE0,MPI_MAX,world);
     c_d_norm=sqrt(c_d_norm/nc_dofs)/a_tol;
 }
 /*--------------------------------------------
@@ -354,7 +360,7 @@ void DMD_bdf::interpolate_fail()
             dy0=0.0;
             for(int j=1;j<q+1;j++)
                 dy0+=A_bar[1][j]*z_[j];
-            
+            --++y0;
             if(y0<=0.0)
             {
                 y0=0.0;
@@ -366,7 +372,6 @@ void DMD_bdf::interpolate_fail()
                 y0=1.0;
                 if(dy0<0.0)
                     dy0=0.0;
-                
             }
             
             y_0[i]=y0;
@@ -407,7 +412,7 @@ inline bool DMD_bdf::interpolate()
             y0=0.0;
             for(int j=0;j<q+1;j++)
                 y0+=A_bar[0][j]*z_[j];
-            
+            --++y0;
             if(y0<0.0 || y0>1.0)
             {
                 xcd_dom=true;
@@ -507,7 +512,7 @@ void DMD_bdf::eta_calc()
     
     
     
-    if(const_q>1 && q<q_max && c_d_norm>0.1)
+    if(const_q>1 && q<q_max)
     {
         
         for(int i=0;i<ncs;i++)
@@ -609,9 +614,12 @@ void DMD_bdf::update_z()
         if(c[i]>=0.0)
         {
             z_[0]=c[i];
+            z_[1]=c_d[i];
+            
+            /*
             if(z_[1]*c_d[i]<=0.0)
                 for(int j=1;j<q+1;j++)
-                    z_[j]=0.0;
+                    z_[j]=0.0;*/
         }
         z_+=q_max+1;
     }

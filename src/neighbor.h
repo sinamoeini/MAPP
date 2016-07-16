@@ -11,32 +11,67 @@ namespace MAPP_NS
     {
     private:
     protected:
-        int* bin_denom_list;
-        type0* bin_size;
         
-        int* tot_bin_grid;
-        int tot_bin;
-        
-        int** bin_neigh_list;
-        int* bin_neigh_list_size;
-        
-        int* first_atom_bin;
-        int first_atom_bin_size;
-        
-        int* atm_bin;
-        int atm_bin_size;
-        
-        int* next_atm;
-        int next_atm_size;
+        class Cell
+        {
+        private:
+            /*----------------------*/
+            const int dim;
+            const int m;
+            int& natms;
+            int& natms_ph;
+            
+            Vec<type0>*& x;
+            type0*& s_lo;
+            type0*& s_hi;
+            type0*& cut_s;
+            /*----------------------*/
+            
+            //size: dim
+            type0* cell_size;
+            int* cell_denom;
+            int* ncells_per_dim;
+            
+            //size: ncells
+            int ncells;
+            int* head_atm;
+            
+            int nneighs;
+            int* rel_neigh_lst;
+            
+            int* cell_vec;
+            int* next_vec;
+            
+            /*----------------------*/
+            
+            int curr_cell;
+            
+            int ineigh;
+            int icell,jcell;
+            
+            
+            void find_cell_no(type0*&,int&);
+            void box_setup();
 
-        int no_neigh_lists;
-        int dim;
+        protected:
+        public:
+            Cell(MAPP*,int,type0*&);
+            ~Cell();
+           
+            void create(bool);
+            void destroy();
+            
+            void nxt_i();
+            void nxt_j();
+            
+            int iatm,jatm;
+        };
         
-        void create_bin_list();
-        void bin_atoms();
-        void find_bin_no(int,int,int*&,int,int*,int*);
+        int no_neigh_lists;
+        Cell* cell;
+        
     public:
-        int pair_wise;
+        bool pair_wise;
         int** neighbor_list;
         int* neighbor_list_size;
         int neighbor_list_size_size;
@@ -50,7 +85,7 @@ namespace MAPP_NS
         ~Neighbor();
         
         virtual void create_list(bool)=0;
-        virtual void init()=0;
+        virtual void init();
         virtual void fin();
         
         void print_stats();

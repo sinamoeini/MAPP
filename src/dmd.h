@@ -50,7 +50,7 @@ namespace MAPP_NS
         int nmin;
         type0 f_tol,delta_c;
         type0 f_norm0;
-        type0 c_d_norm;
+        type0 c_d_norm,max_c_d;
         int istep;
         type0 cd_tol,c_tol;
         int step_tol;

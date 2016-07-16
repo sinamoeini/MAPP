@@ -184,12 +184,14 @@ namespace MAPP_NS
         
         void force_calc(bool);
         type0 energy_calc();
-        
+        void xchng_energy(GCMC*);
     public:
         ForceField_meam(MAPP *);
         ~ForceField_meam();
         void init();
         void fin();
+        void init_xchng();
+        void fin_xchng();
         void coef(int,char**);
 
     };

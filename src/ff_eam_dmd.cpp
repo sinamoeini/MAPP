@@ -360,8 +360,9 @@ force_calc(bool st_clc)
         }
     }
     
-    type0* alpha=x+dim;
-    type0* fvec_alpha=fvec+dim;
+    type0* alpha=mapp->x->begin()+dim;
+    type0* fvec_alpha=f->begin()+dim;
+    c=mapp->c->begin();
     for(iatm=0;iatm<natms;iatm++)
     {
         for(int i=0;i<c_dim;i++)
@@ -548,6 +549,14 @@ type0 ForceField_eam_dmd::energy_calc()
     return en_tot;
 }
 /*--------------------------------------------
+ calculate the exchange energy due to deletion
+ or insertion
+ --------------------------------------------*/
+void ForceField_eam_dmd::xchng_energy(GCMC*)
+{
+    error->abort("exchange has not been set for this forcefield");
+}
+/*--------------------------------------------
  init
  --------------------------------------------*/
 void ForceField_eam_dmd::init()
@@ -622,6 +631,20 @@ void ForceField_eam_dmd::fin()
     delete cv_ptr;
     delete x_tmp_ptr;
     
+}
+/*--------------------------------------------
+ init xchng
+ --------------------------------------------*/
+void ForceField_eam_dmd::init_xchng()
+{
+    error->abort("exchange has not been set for this forcefield");
+}
+/*--------------------------------------------
+ fin xchng
+ --------------------------------------------*/
+void ForceField_eam_dmd::fin_xchng()
+{
+    error->abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  ff_coef

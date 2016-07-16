@@ -51,6 +51,9 @@ namespace MAPP_NS {
         virtual void rearrange(int*,int*,int,int)=0;
         virtual void pst_to(byte*&,int)=0;
 
+        virtual void del(int*,int,int*,int)=0;
+        virtual void add(int,int)=0;
+        
         virtual void pop_out(byte*&,int)=0;
         virtual void pop_in(byte*&)=0;
 
@@ -89,7 +92,7 @@ namespace MAPP_NS
         Vec(Atoms*,int);
         Vec(Atoms*,int,const char*);
         Vec(Vec&);
-        //Vec(const Vec&&);
+        Vec(const Vec&&);
         ~Vec();
         
         void gather_dump(class vec*);
@@ -110,6 +113,10 @@ namespace MAPP_NS
         // rearrange
         void rearrange(int*,int*,int,int);
         void pst_to(byte*&,int);
+        
+        // these two come in pair for gcmc
+        void del(int*,int,int*,int);
+        void add(int,int);
         
         // these two come in pair for exchange atoms one by one
         void pop_out(byte*&,int);
@@ -222,6 +229,10 @@ namespace MAPP_NS
         void auto_grid();
         void man_grid(int*);
         void insert(byte*,vec**,int,int);
+        void add(int,int);
+        void del(int*,int,int*,int);
+        void init_xchng();
+        void fin_xchng();
         
         void init(VecLst*,bool);
         void fin();
@@ -651,7 +662,6 @@ vec()
     name=NULL;
     assign_print_format();
     
-    
     int length=static_cast<int>(strlen(name_))+1;
     name=new char[length];
     memcpy(name,name_,length*sizeof(char));
@@ -679,7 +689,6 @@ Vec<T>::Vec(Vec<T>& old)
 /*--------------------------------------------
  move costructor
  --------------------------------------------*/
-/*
 template<typename T>
 Vec<T>::Vec(const Vec<T>&& old)
 {
@@ -696,7 +705,7 @@ Vec<T>::Vec(const Vec<T>&& old)
     dump_vec_sz=old.dump_vec_sz;
     name=old.name;
     print_format=old.print_format;
-}*/
+}
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
@@ -784,8 +793,7 @@ inline void Vec<T>::resize(int natms)
     
     memcpy(vec_tmp,vec,byte_sz*vec_sz);
     
-    if(vec_cpcty)
-        delete [] vec;
+    if(vec_cpcty) delete [] vec;
     
     vec_sz=natms;
     vec_cpcty=natms;
@@ -1055,10 +1063,10 @@ void Vec<T>::gather_dump(class vec* map)
   __________________/\______________
  |                                  |
  x-----------------------x----------x
-                         ^
-                 orig_dim-cmpctd_dims
+ |___________  __________|
+             \/
  
- 
+     orig_dim-cmpctd_dims
  
  --------------------------------------------*/
 template<typename T>
@@ -1213,7 +1221,85 @@ void Vec<T>::print_dump(FILE* fp,int iatm)
         fprintf(fp,print_format,dump_vec[iatm*orig_dim+i]);
 }
 /*-----------------------------------------------------------------
-  _____  __    __  _____   _   _       ___   __   _   _____   _____  
+  _____   _____       ___  ___   _____
+ /  ___| /  ___|     /   |/   | /  ___|
+ | |     | |        / /|   /| | | |
+ | |  _  | |       / / |__/ | | | |
+ | |_| | | |___   / /       | | | |___
+ \_____/ \_____| /_/        |_| \_____|
+ -----------------------------------------------------------------*/
+/*--------------------------------------------
+ make room for some local atoms and phantom
+ atoms; this is used for grand canocical monte
+ carlo, when a successfull insertion trial has
+ occured. using this function we make room for
+ the new entries. The new entries are insrerted
+ manually by GCMC
+ 
+ *** we might need a better name for this
+ function
+ --------------------------------------------*/
+template<typename T>
+inline void Vec<T>::add(int no_lcl,int no_ph)
+{
+    int natms=atoms->natms;
+    int natms_ph=atoms->natms_ph;
+    if(vec_sz==natms)
+    {
+        reserve(no_lcl);
+        vec_sz+=no_lcl;
+    }
+    else
+    {
+        reserve(no_lcl+no_ph);
+        memcpy(vec+dim*(natms+natms_ph+no_lcl-1),vec+dim*natms,byte_sz*MIN(natms_ph,no_lcl));
+        vec_sz+=no_lcl+no_ph;
+    }
+}
+/*--------------------------------------------
+ delete some local atoms and phantom atoms;
+ this is used for grand canocical monte carlo,
+ when a successfull deletion trial has occured.
+ it takes a the list of local atoms and phantoms
+ 
+ !! it is assumed that both lists are ascending
+ 
+ *** we might need a better name for this
+ function
+ --------------------------------------------*/
+template<typename T>
+inline void Vec<T>::del(int* lcl_lst,int no_lcl,int* ph_lst,int no_ph)
+{
+    int natms=atoms->natms;
+    int nall=atoms->natms+atoms->natms_ph;
+    
+    for(int i=no_lcl-1;i>-1;i--)
+    {
+        memcpy(vec+dim*lcl_lst[i],vec+(natms-1)*dim,byte_sz);
+        natms--;
+    }
+    
+    if(vec_sz==nall)
+    {
+        for(int i=no_ph-1;i>-1;i--)
+        {
+            memcpy(vec+dim*ph_lst[i],vec+(nall-1)*dim,byte_sz);
+            nall--;
+        }
+        
+        for(int i=no_lcl-1;i>-1;i--)
+        {
+            memcpy(vec+dim*(natms+i),vec+(nall-1)*dim,byte_sz);
+            nall--;
+        }
+        vec_sz=nall;
+    }
+    else
+        vec_sz=natms;
+    
+}
+/*-----------------------------------------------------------------
+ _____  __    __  _____   _   _       ___   __   _   _____   _____  
 | ____| \ \  / / /  ___| | | | |     /   | |  \ | | /  ___| | ____| 
 | |__    \ \/ /  | |     | |_| |    / /| | |   \| | | |     | |__   
 |  __|    }  {   | |     |  _  |   / / | | | |\   | | |  _  |  __|  
@@ -1253,7 +1339,7 @@ inline void Vec<T>::pop_in(byte*& buff)
     vec_sz++;
 }
 /*------------------------------------------------------------------------------------------------
-  _____   _   _       ___   __   _   _____   _____       ___  ___        _       _   _____   _____  
+ _____   _   _       ___   __   _   _____   _____       ___  ___        _       _   _____   _____
 |  _  \ | | | |     /   | |  \ | | |_   _| /  _  \     /   |/   |      | |     | | /  ___/ |_   _| 
 | |_| | | |_| |    / /| | |   \| |   | |   | | | |    / /|   /| |      | |     | | | |___    | |   
 |  ___/ |  _  |   / / | | | |\   |   | |   | | | |   / / |__/ | |      | |     | | \___  \   | |   
@@ -1313,7 +1399,7 @@ inline void Vec<T>::cpy_pst(int iatm)
     vec_sz++;
 }
 /*-----------------------------------------------
-  _   _   _____   _____       ___   _____   _____  
+ _   _   _____   _____       ___   _____   _____
 | | | | |  _  \ |  _  \     /   | |_   _| | ____| 
 | | | | | |_| | | | | |    / /| |   | |   | |__   
 | | | | |  ___/ | | | |   / / | |   | |   |  __|  

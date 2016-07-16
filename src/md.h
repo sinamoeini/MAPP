@@ -23,7 +23,7 @@ namespace MAPP_NS {
         virtual void fin()=0;
         virtual void run(int)=0;
 
-        type0 dt,boltz;
+        type0 dt,boltz,hplanck;
     };
 }
 

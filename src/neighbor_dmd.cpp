@@ -25,7 +25,7 @@ Neighbor_dmd::~Neighbor_dmd()
  --------------------------------------------*/
 void Neighbor_dmd::init()
 {
-    
+    Neighbor::init();
 }
 /*--------------------------------------------
  finalize DMD
@@ -63,11 +63,9 @@ void Neighbor_dmd::fin()
 void Neighbor_dmd::create_list(bool box_change)
 {
     timer->start(NEIGH_TIME_mode);
-    
-    if(box_change)
-        create_bin_list();
-
-    bin_atoms();
+        
+    cell->create(box_change);
+    atoms->s2x(atoms->natms+atoms->natms_ph);
     
     if(neighbor_list_size_size)
     {
@@ -96,8 +94,8 @@ void Neighbor_dmd::create_list(bool box_change)
     int dim=atoms->dimension;
     type0 rsq;
     int icomp,jcomp;
-    int ibin,jbin;
-    int iatm,jatm;
+    int iatm;
+    int& jatm=cell->jatm;
     int ic,jc;
     int rsq_chk;
     type0** cut_sk_sq=forcefield->cut_sk_sq;
@@ -110,57 +108,50 @@ void Neighbor_dmd::create_list(bool box_change)
     no_pairs=0;
     if(pair_wise)
     {
-        for(iatm=0;iatm<atoms->natms;iatm++)
+        for(iatm=0;iatm<atoms->natms;iatm++,cell->nxt_i())
         {
             icomp=x_dim*iatm;
-            ibin=atm_bin[iatm];
-            
-            for(int j=0;j<bin_neigh_list_size[ibin];j++)
+            for(;jatm!=-1;cell->nxt_j())
             {
-                jbin=bin_neigh_list[ibin][j];
-                jatm=first_atom_bin[jbin];
-                while(jatm!=-1)
+                if(jatm>iatm)
                 {
-                    if(jatm>iatm)
+                    
+                    jcomp=x_dim*jatm;
+                    
+                    rsq=0.0;
+                    for(int idim=0;idim<dim;idim++)
+                        rsq+=(x[icomp+idim]-x[jcomp+idim])
+                        *(x[icomp+idim]-x[jcomp+idim]);
+                    
+                    rsq_chk=0;
+                    ic=0;
+                    while(rsq_chk==0 && ic<c_dim)
                     {
-                        
-                        jcomp=x_dim*jatm;
-                        
-                        rsq=0.0;
-                        for(int idim=0;idim<dim;idim++)
-                            rsq+=(x[icomp+idim]-x[jcomp+idim])
-                            *(x[icomp+idim]-x[jcomp+idim]);
-                        
-                        rsq_chk=0;
-                        ic=0;
-                        while(rsq_chk==0 && ic<c_dim)
+                        jc=0;
+                        while(rsq_chk==0 && jc<c_dim)
                         {
-                            jc=0;
-                            while(rsq_chk==0 && jc<c_dim)
-                            {
-                                if(c[iatm*c_dim+ic]>=0.0 &&
-                                   c[jatm*c_dim+jc]>=0.0 &&
-                                   rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
-                                    rsq_chk=1;
-                                jc++;
-                            }
-                            ic++;
+                            if(c[iatm*c_dim+ic]>=0.0 &&
+                               c[jatm*c_dim+jc]>=0.0 &&
+                               rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
+                                rsq_chk=1;
+                            jc++;
                         }
-                        
-                        if(rsq_chk)
-                        {
-                            if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
-                            {
-                                GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
-                                tmp_neigh_list_size+=tmp_neigh_list_grow;
-                            }
-                            tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                            neighbor_list_size[iatm]++;
-                        }
+                        ic++;
                     }
-                    jatm=next_atm[jatm];
+                    
+                    if(rsq_chk)
+                    {
+                        if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
+                        {
+                            GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
+                            tmp_neigh_list_size+=tmp_neigh_list_grow;
+                        }
+                        tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
+                        neighbor_list_size[iatm]++;
+                    }
                 }
             }
+            
             if(neighbor_list_size[iatm])
             {
                 CREATE1D(neighbor_list[iatm],neighbor_list_size[iatm]);
@@ -174,55 +165,48 @@ void Neighbor_dmd::create_list(bool box_change)
         for(iatm=0;iatm<atoms->natms;iatm++)
         {
             icomp=x_dim*iatm;
-            ibin=atm_bin[iatm];
-            
-            for(int j=0;j<bin_neigh_list_size[ibin];j++)
+            icomp=x_dim*iatm;
+            for(;jatm!=-1;cell->nxt_j())
             {
-                jbin=bin_neigh_list[ibin][j];
-                jatm=first_atom_bin[jbin];
-                while(jatm!=-1)
+                if(jatm>iatm)
                 {
-                    if(jatm!=iatm)
+                    
+                    jcomp=x_dim*jatm;
+                    
+                    rsq=0.0;
+                    for(int idim=0;idim<dim;idim++)
+                        rsq+=(x[icomp+idim]-x[jcomp+idim])
+                        *(x[icomp+idim]-x[jcomp+idim]);
+                    
+                    rsq_chk=0;
+                    ic=0;
+                    while(rsq_chk==0 && ic<c_dim)
                     {
-                        jcomp=x_dim*jatm;
-                        
-                        rsq=0.0;
-                        for(int idim=0;idim<dim;idim++)
-                            rsq+=(x[icomp+idim]-x[jcomp+idim])
-                            *(x[icomp+idim]-x[jcomp+idim]);
-                        
-                        rsq_chk=0;
-                        ic=0;
-                        while(rsq_chk==0 && ic<c_dim && c[iatm*c_dim+ic]>=0.0)
+                        jc=0;
+                        while(rsq_chk==0 && jc<c_dim)
                         {
-                            jc=0;
-                            while(rsq_chk==0 && jc<c_dim && c[jatm*c_dim+jc]>=0.0)
-                            {
-                                if(rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
-                                    rsq_chk=1;
-                                jc++;
-                            }
-                            ic++;
+                            if(c[iatm*c_dim+ic]>=0.0 &&
+                               c[jatm*c_dim+jc]>=0.0 &&
+                               rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
+                                rsq_chk=1;
+                            jc++;
                         }
-                        
-                        if(rsq_chk)
-                        {
-                            if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
-                            {
-                                GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
-                                tmp_neigh_list_size+=tmp_neigh_list_grow;
-                            }
-                            tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                            neighbor_list_size[iatm]++;
-                            
-                            if(jatm>iatm) no_pairs++;
-                        }
+                        ic++;
                     }
                     
-                    jatm=next_atm[jatm];
+                    if(rsq_chk)
+                    {
+                        if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
+                        {
+                            GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
+                            tmp_neigh_list_size+=tmp_neigh_list_grow;
+                        }
+                        tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
+                        neighbor_list_size[iatm]++;
+                    }
                 }
-                
             }
+            
             if(neighbor_list_size[iatm])
             {
                 CREATE1D(neighbor_list[iatm],neighbor_list_size[iatm]);
@@ -232,9 +216,6 @@ void Neighbor_dmd::create_list(bool box_change)
     }
     
     delete [] tmp_neigh_list;
-    if(atm_bin_size)
-        delete [] atm_bin;
-    atm_bin_size=0;
     
     no_neigh_lists++;    
     timer->stop(NEIGH_TIME_mode);

@@ -6,7 +6,6 @@
 #include "ff.h"
 #include "memory.h"
 #include "timer.h"
-//#define ROW
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -25,6 +24,7 @@ Neighbor_md::~Neighbor_md()
  --------------------------------------------*/
 void Neighbor_md::init()
 {
+    Neighbor::init();
 }
 /*--------------------------------------------
  finalize MD
@@ -33,15 +33,10 @@ void Neighbor_md::fin()
 {
     if(neighbor_list_size_size)
     {
-#ifdef ROW
-        delete [] *neighbor_list;
-        delete [] neighbor_list;
-#else
         for(int i=0;i<neighbor_list_size_size;i++)
             if(neighbor_list_size[i])
                 delete [] neighbor_list[i];
         delete [] neighbor_list;
-#endif
         delete [] neighbor_list_size;
     }
     neighbor_list_size_size=0;
@@ -56,11 +51,8 @@ void Neighbor_md::create_list(bool box_change)
 {
     timer->start(NEIGH_TIME_mode);
     
-    if(box_change)
-        create_bin_list();
-    
-    bin_atoms();
-    
+    cell->create(box_change);
+    atoms->s2x(atoms->natms+atoms->natms_ph);
     
     if(neighbor_list_size_size)
     {
@@ -85,8 +77,9 @@ void Neighbor_md::create_list(bool box_change)
     int dim=atoms->dimension;
     type0 rsq;
     int icomp,jcomp;
-    int ibin,jbin;
-    int iatm,jatm;
+    int iatm;
+    int& jatm=cell->jatm;
+    
     type0** cut_sk_sq=forcefield->cut_sk_sq;
     
     int* tmp_neigh_list=NULL;
@@ -95,34 +88,25 @@ void Neighbor_md::create_list(bool box_change)
     no_pairs=0;
     if(pair_wise)
     {
-        for(iatm=0;iatm<atoms->natms;iatm++)
+        for(iatm=0;iatm<atoms->natms;iatm++,cell->nxt_i())
         {
             icomp=x_dim*iatm;
-            ibin=atm_bin[iatm];
-            
-            for(int j=0;j<bin_neigh_list_size[ibin];j++)
+            for(;jatm!=-1;cell->nxt_j())
             {
-                jbin=bin_neigh_list[ibin][j];
-                jatm=first_atom_bin[jbin];
-                while(jatm!=-1)
+                if(jatm>iatm)
                 {
-                    if(jatm>iatm)
+                    jcomp=x_dim*jatm;
+                    
+                    rsq=0.0;
+                    for(int idim=0;idim<dim;idim++)
+                        rsq+=(x[icomp+idim]-x[jcomp+idim])
+                        *(x[icomp+idim]-x[jcomp+idim]);
+                    
+                    if(rsq<cut_sk_sq[type[iatm]][type[jatm]])
                     {
-                        
-                        jcomp=x_dim*jatm;
-                        
-                        rsq=0.0;
-                        for(int idim=0;idim<dim;idim++)
-                            rsq+=(x[icomp+idim]-x[jcomp+idim])
-                            *(x[icomp+idim]-x[jcomp+idim]);
-                       
-                        if(rsq<cut_sk_sq[type[iatm]][type[jatm]])
-                        {
-                            tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                            neighbor_list_size[iatm]++;
-                        }
+                        tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
+                        neighbor_list_size[iatm]++;
                     }
-                    jatm=next_atm[jatm];
                 }
             }
             if(neighbor_list_size[iatm])
@@ -135,38 +119,26 @@ void Neighbor_md::create_list(bool box_change)
     }
     else
     {
-        for(iatm=0;iatm<atoms->natms;iatm++)
+        for(iatm=0;iatm<atoms->natms;iatm++,cell->nxt_i())
         {
             icomp=x_dim*iatm;
-            ibin=atm_bin[iatm];
-            
-            for(int j=0;j<bin_neigh_list_size[ibin];j++)
+            for(;jatm!=-1;cell->nxt_j())
             {
-                jbin=bin_neigh_list[ibin][j];
-                jatm=first_atom_bin[jbin];
-                while(jatm!=-1)
+                if(jatm!=iatm)
                 {
-                    if(jatm!=iatm)
-                    {
-                        jcomp=x_dim*jatm;
-                        
-                        rsq=0.0;
-                        for(int idim=0;idim<dim;idim++)
-                            rsq+=(x[icomp+idim]-x[jcomp+idim])
-                            *(x[icomp+idim]-x[jcomp+idim]);
-                        
-                        if(rsq<cut_sk_sq[type[iatm]][type[jatm]])
-                        {
-                            tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                            neighbor_list_size[iatm]++;
-                            
-                            if(jatm>iatm) no_pairs++;
-                        }
-                    }
+                    jcomp=x_dim*jatm;
                     
-                    jatm=next_atm[jatm];
+                    rsq=0.0;
+                    for(int idim=0;idim<dim;idim++)
+                        rsq+=(x[icomp+idim]-x[jcomp+idim])
+                        *(x[icomp+idim]-x[jcomp+idim]);
+                    
+                    if(rsq<cut_sk_sq[type[iatm]][type[jatm]])
+                    {
+                        tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
+                        neighbor_list_size[iatm]++;
+                    }
                 }
-                
             }
             if(neighbor_list_size[iatm])
             {
@@ -175,12 +147,9 @@ void Neighbor_md::create_list(bool box_change)
             }
         }
     }
+    
 
     delete [] tmp_neigh_list;
-    if(atm_bin_size)
-        delete [] atm_bin;
-    atm_bin_size=0;
-    
     no_neigh_lists++;
     timer->stop(NEIGH_TIME_mode);
 }

@@ -5,6 +5,7 @@
 #ifndef __MAPP__ff__
 #define __MAPP__ff__
 #include "init.h"
+#include "gcmc.h"
 namespace MAPP_NS {
     class ForceField : protected InitPtrs{
     private:
@@ -18,6 +19,7 @@ namespace MAPP_NS {
         void cut_off_dealloc();
         virtual void force_calc(bool)=0;
         virtual type0 energy_calc()=0;
+        virtual void xchng_energy(GCMC*)=0;
     public:
         ForceField(MAPP *);
         virtual ~ForceField();
@@ -25,6 +27,8 @@ namespace MAPP_NS {
         
         virtual void init()=0;
         virtual void fin()=0;
+        virtual void init_xchng()=0;
+        virtual void fin_xchng()=0;
         virtual void coef(int,char**)=0;
         type0* rsq_crd;
         type0** cut;
@@ -34,7 +38,7 @@ namespace MAPP_NS {
 
         void force_calc_timer(bool);
         type0 energy_calc_timer();
-        
+        void xchng_energy_timer(GCMC*);
         Vec<type0>* f;
         type0* nrgy_strss;
     };

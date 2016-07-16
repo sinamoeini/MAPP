@@ -24,12 +24,15 @@ namespace MAPP_NS
     protected:
         void force_calc(bool);
         type0 energy_calc();
+        void xchng_energy(GCMC*);
     public:
         ForceField_lj(MAPP *);
         ~ForceField_lj();
 
         void init();
         void fin();
+        void init_xchng();
+        void fin_xchng();
         void coef(int,char**);
 
 

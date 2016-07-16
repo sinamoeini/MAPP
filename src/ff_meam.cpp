@@ -586,6 +586,20 @@ void ForceField_meam::fin()
     }
 }
 /*--------------------------------------------
+ init xchng
+ --------------------------------------------*/
+void ForceField_meam::init_xchng()
+{
+    error->abort("exchange has not been set for this forcefield");
+}
+/*--------------------------------------------
+ fin xchng
+ --------------------------------------------*/
+void ForceField_meam::fin_xchng()
+{
+    error->abort("exchange has not been set for this forcefield");
+}
+/*--------------------------------------------
  run
  --------------------------------------------*/
 void ForceField_meam::force_calc
@@ -2093,6 +2107,14 @@ type0 ForceField_meam::energy_calc()
     
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     return en_tot;
+}
+/*--------------------------------------------
+ calculate the exchange energy due to deletion
+ or insertion
+ --------------------------------------------*/
+void ForceField_meam::xchng_energy(GCMC*)
+{
+    error->abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  coefficients, file readings and stuff

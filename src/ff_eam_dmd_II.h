@@ -109,6 +109,7 @@ namespace MAPP_NS
     protected:
         void force_calc(bool);
         type0 energy_calc();
+        void xchng_energy(GCMC*);
         void dc();
         type0 ddc_norm();
         void ddc(type0*);
@@ -117,6 +118,8 @@ namespace MAPP_NS
         ~ForceField_eam_dmd_II();
         void init();
         void fin();
+        void init_xchng();
+        void fin_xchng();
         void coef(int,char**);
         void set_temp(type0);
         

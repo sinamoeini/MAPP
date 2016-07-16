@@ -1823,6 +1823,42 @@ void Atoms::insert(byte* buff,vec** vecs_,int nvecs_,int natms_)
     natms+=natms_;
 }
 /*--------------------------------------------
+ make room for some local atoms and phantom 
+ atoms; this is used for grand canocical monte 
+ carlo, when a successfull insertion trial has
+ occured. using this function we make room for 
+ the new entries. The new entries are insrerted 
+ manually by GCMC
+ 
+ *** we might need a better name for this 
+ function
+ --------------------------------------------*/
+void Atoms::add(int no_lcl,int no_ph)
+{
+    for(int i=0;i<nvecs;i++)
+        vecs[i]->add(no_lcl,no_ph);
+    natms+=no_lcl;
+    natms_ph+=no_ph;
+}
+/*--------------------------------------------
+ delete some local atoms and phantom atoms; 
+ this is used for grand canocical monte carlo, 
+ when a successfull deletion trial has occured.
+ it takes a the list of local atoms and phantoms
+ 
+ !! it is assumed that both lists are ascending
+ 
+ *** we might need a better name for this
+ function
+ --------------------------------------------*/
+void Atoms::del(int* lcl_lst,int no_lcl,int* ph_lst,int no_ph)
+{
+    for(int i=0;i<nvecs;i++)
+        vecs[i]->del(lcl_lst,no_lcl,ph_lst,no_ph);
+    natms-=no_lcl;
+    natms_ph-=no_ph;
+}
+/*--------------------------------------------
  restart
  --------------------------------------------*/
 void Atoms::restart()
@@ -1980,18 +2016,16 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      */
     natms=x->vec_sz;
     /*
-     ?. initiate forcefield and neighbor,
+     ?. initiate forcefield,
      and obtain max_cut
      */
     forcefield->init();
     max_cut=forcefield->max_cut();
-    neighbor->init();
-    
     /*
      ?. create the new swaps (it does calculate max_cut_s)
      */
     swap=new Swap(this,vec_list->updt_vecs,vec_list->nupdt_vecs);
-    
+
     /*
      ?. set natms_ph to 0
      */
@@ -2003,7 +2037,7 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
     /*
      ?. build the neighbor list and store x0
      */
-    neighbor->create_list(true);
+    neighbor->init();
     swap->eliminate_redundancy();
 
     for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
@@ -2196,6 +2230,58 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
                 x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
     }
 
+    timer->stop(COMM_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Atoms::init_xchng()
+{
+    timer->start(COMM_TIME_mode);
+    x2s(natms);
+    for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
+        vecs[ivec]->resize(natms);
+    xchng->full_xchng();
+    natms=x->vec_sz;
+    natms_ph=0;
+    swap->list();
+    for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
+    {
+        vecs[ivec]->vec_sz=0;
+        vecs[ivec]->resize(natms+natms_ph);
+    }
+    timer->stop(COMM_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Atoms::fin_xchng()
+{
+    timer->start(COMM_TIME_mode);
+    x2s(natms);
+    for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
+        vecs[ivec]->resize(natms);
+    xchng->full_xchng();
+    natms=x->vec_sz;
+    natms_ph=0;
+    swap->list();
+    neighbor->create_list(box_chng);
+    
+    for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
+    {
+        vecs[ivec]->vec_sz=0;
+        vecs[ivec]->resize(natms+natms_ph);
+    }
+    
+    type0* x_vec=x->begin();
+    type0* x0_vec=x0->begin();
+    int x_dim=x->dim;
+
+    x_vec=x->begin();
+    x0_vec=x0->begin();
+    for(int iatm=0;iatm<natms;iatm++)
+        for(int idim=0;idim<dimension;idim++)
+            x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
     timer->stop(COMM_TIME_mode);
 }
 /*--------------------------------------------
@@ -2753,7 +2839,7 @@ void VecLst::add_arch(vec* v)
     }
     catch(int i)
     {
-        printf("archive vector cannot be excheage vector\n");
+        printf("archive vector cannot be exchange vector\n");
     }
 
     

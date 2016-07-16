@@ -356,8 +356,6 @@ type0 DMD::vac_msd()
         for(int j=0;j<c_dim;j++)
             if(c[j]>=0.0)
                 c_vac-=c[j];
-        if(c_vac<0.0)
-            error->abort("");
         
         rsq=0.0;
         for(int j=0;j<dim;j++)
@@ -420,13 +418,13 @@ bool DMDImplicit::solve_non_lin()
     type0 res_tol=0.005*a_tol*sqrt(nc_dofs)/err_fac;
     type0 cost,cost_p;
     type0 denom=1.0*a_tol*sqrt(nc_dofs)/err_fac;
-    type0 r,r_lcl,norm=1.0,R=1.0,del=0.0,delp=0.0;
+    type0 r,r_lcl,norm=1.0,del=0.0,delp=0.0;
     int iter=0,solver_iter;
     type0* c=mapp->c->begin();
     
 
     
-    if(c_d_norm>0.0)
+    if(max_c_d*dt>0.0)
     {
         memcpy(c,y_0,ncs*sizeof(type0));
         atoms->update(mapp->c);
@@ -435,6 +433,7 @@ bool DMDImplicit::solve_non_lin()
     type0* c_d=mapp->c_d->begin();
     cost=cost_p=forcefield_dmd->update_J(beta,a,F)/res_tol;
     
+    //printf("dt %e cost %e max_c_d %e\n",dt,cost,max_c_d);
     while(cost>=1.0 && iter<max_iter)
     {
         for(int i=0;i<ncs;i++) del_c[i]=0.0;
@@ -444,52 +443,46 @@ bool DMDImplicit::solve_non_lin()
         rectify(del_c);
         
         
-        
-        r_lcl=-1.0;
+        type0 tmp;
+        r_lcl=1.0;
         for(int i=0;i<ncs;i++)
         {
             if(c[i]>=0.0)
             {
-                c[i]+=del_c[i];
-                if(c[i]>1.0)
-                    r_lcl=MAX(r_lcl,(c[i]-1.0)/del_c[i]);
-                if(c[i]<0.0)
-                    r_lcl=MAX(r_lcl,c[i]/del_c[i]);
+                --++del_c[i];
+                tmp=c[i]+r_lcl*del_c[i];
+                if(tmp>1.0)
+                {
+                    r_lcl=(1.0-c[i])/del_c[i];
+                    while(c[i]+r_lcl*del_c[i]>1.0)
+                        r_lcl=nextafter(r_lcl,0.0);
+                }
+                if(tmp<0.0)
+                {
+                    r_lcl=-c[i]/del_c[i];
+                    while(c[i]+r_lcl*del_c[i]<0.0)
+                        r_lcl=nextafter(r_lcl,0.0);
+                }
             }
             else
                 del_c[i]=0.0;
         }
         
         
-        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MAX,world);
+        MPI_Allreduce(&r_lcl,&r,1,MPI_TYPE0,MPI_MIN,world);
         
-        if(r!=-1.0)
+        for(int i=0;i<ncs;i++)
         {
-            for(int i=0;i<ncs;i++)
-            {
-                c[i]-=del_c[i]*r;
-                if(c[i]>1.0)
-                    c[i]=1.0;
-                if(c[i]<0.0)
-                    c[i]=0.0;
-            }
-        }
-        else
-            r=0.0;
-        
-        
-        
-        del=fabs((1.0-r)*norm/denom);
-        
-        if(iter)
-        {
-            R=MAX(0.3*R,del/delp);
+                c[i]+=r*del_c[i];
+                --++c[i];
         }
         
+        del=fabs(r*norm/denom);
+
         atoms->update(mapp->c);
         cost_p=forcefield_dmd->update_J(beta,a,F)/res_tol;
-        cost=MIN(cost_p,MIN(1.0,R)*del*err_fac/0.1);
-        
+        cost=MIN(cost_p,del*err_fac*10.0);
+        //printf("iter %d max_c_d %e cost_p %e cost %e norm %e r %e| %e\n",iter,max_c_d,cost_p,cost,norm,r,dt);
         delp=del;
         iter++;
     }
@@ -567,7 +560,6 @@ void DMDImplicit::nonl_fail()
         else
         {
             type0 r=0.25;
-            
             if(r*dt<dt_min)
                 dt=dt_min;
             else if(r*dt>t_fin-t_cur-dt_min)
@@ -598,13 +590,11 @@ void DMDImplicit::run()
         dt_p=0.0;
         const_q=const_dt=0;
         intp_failure=0;
-        type0 c_d_thresh=MIN(0.5*c_d_norm,1.0);
-        c_d_thresh=MAX(c_d_thresh,1.1e-4);
+
         
         while (istep<max_step && t_cur<t_fin && !min_run)
         {
             err=1.0;
-
             for(;;)
             {
                 if(!interpolate())
@@ -614,11 +604,7 @@ void DMDImplicit::run()
                     interpolate_fail();
                 }
                 else
-                {
-                    if(intp_failure)
-                        intp_failure--;
-                }
-                
+                    intp_failure--;
                 
                 err_fac_calc();
                 
@@ -628,7 +614,6 @@ void DMDImplicit::run()
                     continue;
                 }
                 
-                
                 err_calc();
                 
                 if(err>=1.0)
@@ -636,15 +621,12 @@ void DMDImplicit::run()
                     intg_fail();
                     continue;
                 }
-                
                 break;
             }
             
             max_succ_q=MAX(max_succ_q,q);
-            
             min_run=decide_min(istep,dt);
             if(min_run) continue;
-
             ord_dt();
             q_p=q;
             dt_p=dt;
@@ -674,7 +656,7 @@ inline void DMDImplicit::ord_dt()
     type0 r=1.0;
     dq=0;
 
-    if(intp_failure==0)
+    if(intp_failure<=-q)
         ord_dt(r);
 
     if(10.0<r)

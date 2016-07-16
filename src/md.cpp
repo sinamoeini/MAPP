@@ -11,7 +11,7 @@ using namespace MAPP_NS;
 MD::MD(MAPP* mapp):InitPtrs(mapp),
 nrgy_strss(forcefield->nrgy_strss)
 {
-   
+    boltz=dt=hplanck=0.0;
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before md");

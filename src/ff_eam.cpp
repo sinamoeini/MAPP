@@ -326,6 +326,180 @@ type0 ForceField_eam::energy_calc()
     return en_tot;
 }
 /*--------------------------------------------
+ calculate the exchange energy due to deletion
+ or insertion
+ --------------------------------------------*/
+void ForceField_eam::xchng_energy(GCMC* gcmc)
+{
+    type0 en=0.0,en_tot=0.0;
+    
+    if(gcmc->iatm==-1)
+    {
+        MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
+        gcmc->decide(en_tot);
+        return;
+    }
+    
+    int& iatm=gcmc->iatm;
+    md_type& itype=gcmc->itype;
+    
+    int& jatm=gcmc->jatm;
+    md_type& jtype=gcmc->jtype;
+    
+    type0&rsq=gcmc->rsq;
+    
+    int natms=atoms->natms;
+    type0* rho=rho_ptr->begin();
+    type0* F=F_ptr->begin();
+    type0* rho_xchng=rho_xchng_ptr->begin();
+    type0* F_xchng=F_xchng_ptr->begin();
+    type0 rho_iatm=0.0,F_iatm=0.0;
+    type0 r,p,phi;
+    int m;
+    type0* coef;
+    
+    if(gcmc->first_atm_lcl)
+    {
+        for(;jatm!=-1;gcmc->next_jatm())
+        {
+            r=sqrt(rsq);
+            
+            p=r*dr_inv;
+            m=static_cast<int>(p);
+            m=MIN(m,nr-2);
+            p-=m;
+            p=MIN(p,1.0);
+            
+            coef=phi_r_arr[type2phi[itype][jtype]][m];
+            phi=(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
+            
+            coef=rho_arr[type2rho[jtype][itype]][m];
+            rho_iatm+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                
+            if(jatm<natms)
+            {
+                coef=rho_arr[type2rho[itype][jtype]][m];
+                rho_xchng[jatm]+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                en+=phi;
+            }
+            else
+                en+=0.5*phi;
+        }
+        p=rho_iatm*drho_inv;
+        m=static_cast<int>(p);
+        m=MIN(m,nrho-2);
+        p-=m;
+        p=MIN(p,1.0);
+        coef=F_arr[itype][m];
+        F_iatm=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+        en+=F_iatm;
+        gcmc->next_iatm();
+    }
+    
+    for(;iatm!=-1;gcmc->next_iatm())
+        for(;jatm!=-1;gcmc->next_jatm())
+        {
+            r=sqrt(rsq);
+            
+            p=r*dr_inv;
+            m=static_cast<int>(p);
+            m=MIN(m,nr-2);
+            p-=m;
+            p=MIN(p,1.0);
+            
+            coef=phi_r_arr[type2phi[itype][jtype]][m];
+            
+            en+=0.5*(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
+            
+            coef=rho_arr[type2rho[itype][jtype]][m];
+            rho_xchng[jatm]+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+        }
+    
+    
+    md_type* type=mapp->type->begin();
+    if(gcmc->xchng_mode==INS_MODE)
+    {
+        for(int i=0;i<natms;i++)
+        {
+            if(rho_xchng[i])
+            {
+                rho_xchng[i]+=rho[i];
+                
+                p=rho_xchng[i]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nrho-2);
+                p-=m;
+                p=MIN(p,1.0);
+                coef=F_arr[type[i]][m];
+                F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                en+=F_xchng[i]-F[i];
+            }
+        }
+    }
+    else
+    {
+        for(int i=0;i<natms;i++)
+        {
+            if(rho_xchng[i])
+            {
+                rho_xchng[i]=rho[i]-rho_xchng[i];
+                
+                p=rho_xchng[i]*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nrho-2);
+
+                p-=m;
+                p=MIN(p,1.0);
+                coef=F_arr[type[i]][m];
+                F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                en+=F[i]-F_xchng[i];
+            }
+        }
+    }
+    
+    MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
+    
+    
+    //after determining wether the exchange was successfull or not
+    bool succ=gcmc->decide(en_tot);
+    
+    if(succ)
+    {
+        natms=atoms->natms;
+        rho=rho_ptr->begin();
+        F=F_ptr->begin();
+        
+        rho_xchng=rho_xchng_ptr->begin();
+        F_xchng=F_xchng_ptr->begin();
+        for(int i=0;i<natms;i++)
+        {
+            if(rho_xchng[i])
+            {
+                rho[i]=rho_xchng[i];
+                F[i]=F_xchng[i];
+                rho_xchng[i]=F_xchng[i]=0.0;
+            }
+        }
+        
+        //insertion success
+        if(gcmc->first_atm_lcl && gcmc->xchng_mode==INS_MODE)
+        {
+            rho[natms-1]=rho_iatm;
+            F[natms-1]=F_iatm;
+            rho_xchng[natms-1]=0.0;
+            F_xchng[natms-1]=0.0;
+        }
+    }
+    else
+    {
+        natms=atoms->natms;
+        rho_xchng=rho_xchng_ptr->begin();
+        F_xchng=F_xchng_ptr->begin();
+        for(int i=0;i<natms;i++)
+            rho_xchng[i]=F_xchng[i]=0.0;
+    }
+}
+/*--------------------------------------------
  init before running
  --------------------------------------------*/
 void ForceField_eam::init()
@@ -347,6 +521,93 @@ void ForceField_eam::fin()
     }
     
     delete rho_ptr;
+}
+/*--------------------------------------------
+ init xchng
+ --------------------------------------------*/
+void ForceField_eam::init_xchng()
+{
+    F_ptr=new Vec<type0>(atoms,1);
+    rho_xchng_ptr=new Vec<type0>(atoms,1);
+    F_xchng_ptr=new Vec<type0>(atoms,1);
+    
+    type0* x=mapp->x->begin();
+    type0* rho=rho_ptr->begin();
+    type0* F=F_ptr->begin();
+    type0* rho_xchng=rho_xchng_ptr->begin();
+    type0* F_xchng=F_xchng_ptr->begin();
+    md_type* type=mapp->type->begin();
+    
+    int iatm,jatm;
+    
+    int itype,jtype,icomp,jcomp;
+    type0 dx0,dx1,dx2,rsq;
+    type0 r,p;
+    int m;
+    type0* coef;
+    
+    int** neighbor_list=neighbor->neighbor_list;
+    int* neighbor_list_size=neighbor->neighbor_list_size;
+    
+    int natms=atoms->natms;
+    
+    for(iatm=0;iatm<natms;iatm++) rho[iatm]=rho_xchng[iatm]=F_xchng[iatm]=0.0;
+    
+    for(iatm=0;iatm<natms;iatm++)
+    {
+        itype=type[iatm];
+        icomp=3*iatm;
+        for(int j=0;j<neighbor_list_size[iatm];j++)
+        {
+            jatm=neighbor_list[iatm][j];
+            jtype=type[jatm];
+            
+            jcomp=3*jatm;
+            dx0=x[icomp]-x[jcomp];
+            dx1=x[icomp+1]-x[jcomp+1];
+            dx2=x[icomp+2]-x[jcomp+2];
+            rsq=dx0*dx0+dx1*dx1+dx2*dx2;
+            
+            if(rsq<cut_sq[itype][jtype])
+            {
+                r=sqrt(rsq);
+                
+                p=r*dr_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                
+                coef=phi_r_arr[type2phi[itype][jtype]][m];
+                
+                coef=rho_arr[type2rho[jtype][itype]][m];
+                rho[iatm]+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                if(jatm<natms)
+                {
+                    coef=rho_arr[type2rho[itype][jtype]][m];
+                    rho[jatm]+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                }
+            }
+        }
+        
+        p=rho[iatm]*drho_inv;
+        m=static_cast<int>(p);
+        m=MIN(m,nrho-2);
+        p-=m;
+        p=MIN(p,1.0);
+        itype=type[iatm];
+        coef=F_arr[itype][m];
+        F[iatm]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+    }
+}
+/*--------------------------------------------
+ fin xchng
+ --------------------------------------------*/
+void ForceField_eam::fin_xchng()
+{
+    delete F_ptr;
+    delete rho_xchng_ptr;
+    delete F_xchng_ptr;
 }
 /*--------------------------------------------
  destructor
@@ -379,7 +640,6 @@ void ForceField_eam::coef(int nargs,char** args)
     /logic(nfiles,"eq",1);
     /*------------------------------------------------------------------------------------*/
     
-    cmd.print_info();
     cmd.scan(args,nargs);
 
     cut_off_alloc();
@@ -416,8 +676,10 @@ void ForceField_eam::setup()
     int no_types=atom_types->no_types;
     for(int i=0;i<no_types;i++)
         for(int j=0;j<no_types;j++)
+        {
             cut_sq[i][j]=eam_reader->cut_sq[COMP(i,j)];
-
+            cut[i][j]=sqrt(cut_sq[i][j]);
+        }
 }
 
  
