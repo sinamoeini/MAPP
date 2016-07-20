@@ -100,12 +100,9 @@ void Neighbor::Cell::box_setup()
     {
         cell_size[i]=cut_s[i]/static_cast<type0>(m);
         ncells_per_dim[i]=static_cast<int>
-        ((2.0*cut_s[i]+s_hi[i]-s_lo[i])/cell_size[i])+1;
+        ((s_hi[i]-s_lo[i])/cell_size[i])+1+2*m;
+        cell_denom[i]=ncells_;
         ncells_*=ncells_per_dim[i];
-        
-        cell_denom[i]=1;
-        for(int j=0;j<i;j++)
-            cell_denom[i]*=ncells_per_dim[j];
     }
     
     int countr[dim];
@@ -161,8 +158,8 @@ inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
     cell_no=0;
     for(int i=0;i<dim;i++)
     {
-        cell_no+=cell_denom[i]*
-        static_cast<int>((s[i]+cut_s[i]-s_lo[i])/cell_size[i]);
+        cell_no+=cell_denom[i]*(m+
+        static_cast<int>((s[i]-s_lo[i])/cell_size[i]));
     }
 }
 /*--------------------------------------------
@@ -214,7 +211,7 @@ void Neighbor::Cell::destroy()
 /*--------------------------------------------
  
  --------------------------------------------*/
-inline void Neighbor::Cell::nxt_i()
+void Neighbor::Cell::nxt_i()
 {
     
     if(iatm+1==natms)

@@ -271,7 +271,7 @@ void GCMC::box_setup()
      --------------------------------------------------*/
     *ins_s_trials=new type0[sz];
     for(int i=1;i<dim;i++)
-        ins_s_trials[i]=ins_s_trials[i-1]+1+nimages_per_dim[i][0]+nimages_per_dim[i][1];
+        ins_s_trials[i]=ins_s_trials[i-1]+1+nimages_per_dim[i-1][0]+nimages_per_dim[i-1][1];
     
     /*--------------------------------------------------
      here we allocate the memory for ins_buff & del_buff
@@ -786,6 +786,12 @@ void GCMC::ins_succ()
         atoms->add(1,ntrial_atms-1);
         ngas++;
         
+        if(mapp->x_dof)
+        {
+            bool* dof=mapp->x_dof->begin()+(natms-1)*x_dim;
+            for(int i=0;i<dim;i++)
+                dof[i]=true;
+        }
         memcpy(mapp->x->begin()+x_dim*(natms-1),buff,dim*sizeof(type0));
         memcpy(mapp->x_d->begin()+dim*(natms-1),vel_buff,dim*sizeof(type0));
         mapp->type->begin()[natms-1]=gas_type;

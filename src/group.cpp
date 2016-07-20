@@ -67,7 +67,7 @@ const char* group_name,int nfiles,char** files)
     auto binary_srch=
     [] (int i,int* id,int* rank,int size)->int
     {
-        if(i>id[rank[size-1]] || i<id[rank[0]])
+        if(size==0 || i>id[rank[size-1]] || i<id[rank[0]])
             return -1;
         int mid;
         while(size)

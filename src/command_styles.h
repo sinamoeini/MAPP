@@ -24,3 +24,4 @@
 #include "command_temp.h"
 #include "command_group.h"
 #include "command_planck.h"
+#include "command_add_type.h"
