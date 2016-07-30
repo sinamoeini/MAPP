@@ -24,6 +24,9 @@
 #include <iostream>
 #include <fstream>
 
+// for pid
+#include <unistd.h>
+
 #define MAPP_VERSION "Beta"
 
 using namespace MAPP_NS;
@@ -611,6 +614,7 @@ void MAPP::init_dubeg(bool i)
     sprintf(filename,"debug-%d",atoms->my_p);
     my_debug=fopen(filename,"w");
     delete [] filename;
+    fprintf(my_debug,"my pid is %d\n",getpid());
     
 }
 /*--------------------------------------------

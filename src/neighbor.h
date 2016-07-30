@@ -5,6 +5,7 @@
 #ifndef __MAPP__neighbor__
 #define __MAPP__neighbor__
 #include "init.h"
+#define DEBUG_NEIGH
 namespace MAPP_NS
 {
     class Neighbor:protected InitPtrs
@@ -15,6 +16,9 @@ namespace MAPP_NS
         class Cell
         {
         private:
+#ifdef DEBUG_NEIGH
+            Error*& error;
+#endif
             /*----------------------*/
             const int dim;
             const int m;
@@ -65,6 +69,9 @@ namespace MAPP_NS
             void nxt_j();
             
             int iatm,jatm;
+            type0* ix;
+            type0* jx;
+            type0 rsq;
         };
         
         int no_neigh_lists;

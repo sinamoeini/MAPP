@@ -5,6 +5,7 @@
 #ifndef __MAPP__gcmc__
 #define __MAPP__gcmc__
 #include "init.h"
+#define DEBUG_GCMC
 namespace MAPP_NS
 {
     enum{INS_MODE,DEL_MODE};
@@ -40,7 +41,7 @@ namespace MAPP_NS
      ins_cell;
      del_lst;
      
-     2. buffers whose size are decided on fly
+     2. buffers whose sizes are decided on fly
      
      del_ids;
      
@@ -50,18 +51,16 @@ namespace MAPP_NS
     class GCMC:protected InitPtrs
     {
     private:
-        enum{LCL_MODE,PH_MODE};
-        int atm_mode;
         const int x_dim;
         const int dim;
         const int m;
         
         
         md_type gas_type;
-        int igas,gas_id,ngas,ngas_before,tot_ngas;
+        int igas,gas_id,ngas,ngas_before;
         type0 vol;
         //constants
-        type0 gas_mass,beta,kbT,T,mu,lambda,sigma,z_fac;
+        type0 gas_mass,beta,kbT,T,mu,lambda,sigma,z_fac,zz_fac;
         
         int& natms;
         int& natms_ph;
@@ -156,6 +155,7 @@ namespace MAPP_NS
         void next_jatm();
         
         bool decide(type0&);
+        bool calc_mu(type0&);
 
         bool first_atm_lcl;
         int iatm;
@@ -167,6 +167,7 @@ namespace MAPP_NS
         type0 rsq;
         int xchng_mode;
         int dof_diff;
+        int tot_ngas;
     };
     
     

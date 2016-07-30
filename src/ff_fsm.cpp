@@ -63,7 +63,10 @@ void ForceField_fsm::coef(int nargs,char** args)
     
     for(int i=0;i<no_types;i++)
         for(int j=0;j<no_types;j++)
+        {
             cut_sq[i][j]=MAX(cut_sq_phi[i][j],cut_sq_rho[i][j]);
+            cut[i][j]=sqrt(cut_sq[i][j]);
+        }
 }
 /*--------------------------------------------
  allocate

@@ -174,9 +174,20 @@ void GCMC::init()
     beta=1.0/kbT;
     lambda=mapp->md->hplanck/sqrt(2.0*M_PI*kbT*gas_mass);
     sigma=sqrt(kbT/gas_mass);
-    z_fac=exp(beta*mu);
+    z_fac=1.0;
     for(int i=0;i<dim;i++) z_fac/=lambda;
+    zz_fac=-kbT*log(zz_fac);
+    z_fac*=exp(beta*mu);
+    
     box_setup();
+    
+    ngas=0;
+    md_type* type=mapp->type->begin();
+    for(int i=0;i<natms;i++)
+        if(type[i]==gas_type) ngas++;
+    MPI_Scan(&ngas,&ngas_before,1,MPI_INT,MPI_SUM,world);
+    MPI_Allreduce(&ngas,&tot_ngas,1,MPI_INT,MPI_SUM,world);
+    ngas_before-=ngas;
 }
 /*--------------------------------------------
  
@@ -231,7 +242,7 @@ void GCMC::box_setup()
         sz+=1+nimages_per_dim[i][0]+nimages_per_dim[i][1];
         
         ncells_per_dim[i]=static_cast<int>
-        ((s_hi[i]-s_lo[i]+2.0*cut_s[i])/cell_size[i])+1;
+        ((s_hi[i]-s_lo[i])/cell_size[i])+1+2*m;
         
         cell_denom[i]=ncells;
         ncells*=ncells_per_dim[i];
@@ -308,8 +319,8 @@ inline void GCMC::find_cell_no(type0*& s,int& bin_no)
     for(int i=0;i<dim;i++)
     {
         if(s[i]>=s_lo_ph[i] && s[i]<s_hi_ph[i])
-            bin_no+=cell_denom[i]*
-            static_cast<int>((s[i]+cut_s[i]-s_lo[i])/cell_size[i]);
+            bin_no+=cell_denom[i]*(m+
+            static_cast<int>(floor((s[i]-s_lo[i])/cell_size[i])));
         else
         {
             bin_no=-1;
@@ -333,60 +344,110 @@ inline bool GCMC::lcl(type0*& s)
 inline void GCMC::next_iatm_ins()
 {
     itrial_atm++;
+    
     if(itrial_atm==ntrial_atms)
     {
+        /*--------------------------------------------------
+         if we have reached the end of the list
+         --------------------------------------------------*/
         iatm=-1;
         return;
     }
+    
+    /*--------------------------------------------------
+     give the atom a number that cannot be the
+     same as the existing ones:
+     
+     iatm=natms+natms_ph+itrial_atm;
+     
+     natms+natms_ph <= iatm 
+     iatm < natms+natms_ph+ntrial_atms
+     --------------------------------------------------*/
     iatm=natms+natms_ph+itrial_atm;
+    
+    /*--------------------------------------------------
+     assign the cell number and the already calculated 
+     cell coordinates
+     --------------------------------------------------*/
     icell=ins_cell[itrial_atm];
-    ix=ins_buff+itrial_atm*dim;
     for(int i=0;i<dim;i++)
         icell_coord[i]=ins_cell_coord[dim*itrial_atm+i];
     
+    /*--------------------------------------------------
+     assign the position of iatm
+     --------------------------------------------------*/
+    ix=ins_buff+itrial_atm*dim;
+    
+    /*--------------------------------------------------
+     reset the neighboring cell number
+     --------------------------------------------------*/
     ineigh=-1;
-    //start the motherfucker
+    
     if(itrial_atm==0 && first_atm_lcl)
     {
-        atm_mode=LCL_MODE;
+        /*--------------------------------------------------
+         if this atom does belong to us we need to consider
+         all neighbors including the phantom ones
+         --------------------------------------------------*/
         next_jatm_p=&GCMC::next_jatm_all;
+        /*--------------------------------------------------
+         find the first non-empty cell
+         --------------------------------------------------*/
         next_jcell_all();
         if(jcell==-1)
         {
+            /*--------------------------------------------------
+             if we did not find a non-emty neighboring cell we 
+             need to go through interaction of this atom with
+             its images
+             --------------------------------------------------*/
             iself=0;
             next_jatm_p=&GCMC::next_jatm_self;
             next_jatm_self();
         }
         else
         {
-            if(jatm==iatm)
-            {
-                next_jatm_all();
-                return;
-            }
-            
             jx=mapp->x->begin()+x_dim*jatm;
             jtype=mapp->type->begin()[jatm];
             rsq=0.0;
             for(int i=0;i<dim;i++)
                 rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+            /*--------------------------------------------------
+             if we get an atom that is non-interacting we need
+             to go the next local atom
+             --------------------------------------------------*/
             if(rsq>=cut_sq[itype][jtype])
                 next_jatm_all();
         }
     }
     else
     {
-        atm_mode=PH_MODE;
+        /*--------------------------------------------------
+         if this atom does not belong to us we need to
+         consider only local neighbors excluding the phantom
+         ones
+         --------------------------------------------------*/
         next_jatm_p=&GCMC::next_jatm_lcl;
+        /*--------------------------------------------------
+         find the first non-empty local cell
+         --------------------------------------------------*/
         next_jcell_lcl();
         if(jcell==-1)
         {
+            /*--------------------------------------------------
+             if we did not find a non-emty neighboring cell 
+             we have reached the end of the list
+             --------------------------------------------------*/
             jatm=-1;
         }
         else
         {
-            if(jatm>=natms || jatm==iatm)
+            if(jatm>=natms)
             {
+                /*--------------------------------------------------
+                 if we get a phantom atom we need to go to the next
+                 local atom
+                 --------------------------------------------------*/
                 next_jatm_lcl();
                 return;
             }
@@ -395,6 +456,10 @@ inline void GCMC::next_iatm_ins()
             rsq=0.0;
             for(int i=0;i<dim;i++)
                 rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+            /*--------------------------------------------------
+             if we get an atom that is non-interacting we need 
+             to go the next local atom
+             --------------------------------------------------*/
             if(rsq>=cut_sq[itype][jtype])
                 next_jatm_lcl();
         }
@@ -409,11 +474,22 @@ inline void GCMC::next_iatm_del()
     itrial_atm++;
     if(itrial_atm==ntrial_atms)
     {
+        /*--------------------------------------------------
+         if we have reached the end of the list
+         --------------------------------------------------*/
         iatm=-1;
         return;
     }
+    
+    /*--------------------------------------------------
+     get the atom number from deletion list
+     --------------------------------------------------*/
     iatm=del_lst[itrial_atm];
-    ix=mapp->x->begin()+iatm*x_dim;
+    
+    /*--------------------------------------------------
+     assign the cell number and calculate the cell 
+     coordinates
+     --------------------------------------------------*/
     icell=cell_vec_p->begin()[iatm];
     int tmp=icell;
     for(int i=dim-1;i>-1;i--)
@@ -422,28 +498,43 @@ inline void GCMC::next_iatm_del()
         tmp-=icell_coord[i]*cell_denom[i];
     }
     
+    /*--------------------------------------------------
+     assign the position of iatm
+     --------------------------------------------------*/
+    ix=mapp->x->begin()+iatm*x_dim;
+    
+    /*--------------------------------------------------
+     reset the neighboring cell number
+     --------------------------------------------------*/
     ineigh=-1;
-    //start the motherfucker
+    
     if(iatm<natms)
     {
-        atm_mode=LCL_MODE;
+        /*--------------------------------------------------
+         if this atom does belong to us we need to consider
+         all neighbors including the phantom ones
+         --------------------------------------------------*/
         next_jatm_p=&GCMC::next_jatm_all;
+        /*--------------------------------------------------
+         find the first non-empty cell
+         --------------------------------------------------*/
         next_jcell_all();
         if(jcell==-1)
         {
-            if(itrial_atm==0 && first_atm_lcl && xchng_mode==INS_MODE)
-            {
-                iself=0;
-                next_jatm_p=&GCMC::next_jatm_self;
-                next_jatm_self();
-            }
-            else
-                jatm=-1;
+            /*--------------------------------------------------
+             if we did not find a non-emty neighboring cell
+             we have reached the end of the list
+             --------------------------------------------------*/
+            jatm=-1;
         }
         else
         {
             if(jatm==iatm)
             {
+                /*--------------------------------------------------
+                 if we get the same atom we need to go to the next
+                 atom
+                 --------------------------------------------------*/
                 next_jatm_all();
                 return;
             }
@@ -453,22 +544,40 @@ inline void GCMC::next_iatm_del()
             rsq=0.0;
             for(int i=0;i<dim;i++)
                 rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+            /*--------------------------------------------------
+             if we get an atom that is non-interacting we need
+             to go the next atom
+             --------------------------------------------------*/
             if(rsq>=cut_sq[itype][jtype])
                 next_jatm_all();
         }
     }
     else
     {
-        atm_mode=PH_MODE;
+        /*--------------------------------------------------
+         if this atom does not belong to us we need to
+         consider only local neighbors excluding the phantom
+         ones
+         --------------------------------------------------*/
         next_jatm_p=&GCMC::next_jatm_lcl;
-        
+        /*--------------------------------------------------
+         find the first non-empty local cell
+         --------------------------------------------------*/
         next_jcell_lcl();
         if(jcell==-1)
         {
+            /*--------------------------------------------------
+             if we did not find a non-emty neighboring cell
+             we have reached the end of the list
+             --------------------------------------------------*/
             jatm=-1;
         }
         else
         {
+            /*--------------------------------------------------
+             if we get the same atom or a phantom atom we need 
+             to go to the next local atom
+             --------------------------------------------------*/
             if(jatm>=natms || jatm==iatm)
             {
                 next_jatm_lcl();
@@ -479,13 +588,18 @@ inline void GCMC::next_iatm_del()
             rsq=0.0;
             for(int i=0;i<dim;i++)
                 rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+            /*--------------------------------------------------
+             if we get an atom that is non-interacting we need
+             to go the next local atom
+             --------------------------------------------------*/
             if(rsq>=cut_sq[itype][jtype])
                 next_jatm_lcl();
         }
     }
 }
 /*--------------------------------------------
- find the next cell that contains lcl atoms
+ find the next cell that probably
+ contains local atoms
  --------------------------------------------*/
 inline void GCMC::next_jcell_lcl()
 {
@@ -637,7 +751,7 @@ inline void GCMC::next_jatm_lcl()
         next_jatm_lcl();
 }
 /*--------------------------------------------
- find the next lcl atom
+ find the next interactin image atom
  --------------------------------------------*/
 inline void GCMC::next_jatm_self()
 {
@@ -700,19 +814,60 @@ void GCMC::ins_attmpt()
     int* cell_coord=ins_cell_coord;
     type0** H=atoms->H;
     
+    
+#ifdef DEBUG_GCMC
+    int chk=1;
+#endif
+    
     for(int i=0;i<ntrial_atms;i++)
     {
         ins_cell[i]=0;
+
+#ifdef DEBUG_GCMC
+        chk=1;
+#endif
         for(int j=0;j<dim;j++)
         {
             buff[j]=ins_s_trials[j][icurs[j]];
-            cell_coord[j]=static_cast<int>((buff[j]+cut_s[j]-s_lo[j])/cell_size[j]);
+            cell_coord[j]=static_cast<int>(floor((buff[j]-s_lo[j])/cell_size[j]))+m;
             ins_cell[i]+=cell_coord[j]*cell_denom[j];
             
+            
+            
+            
+#ifdef DEBUG_GCMC
+            if(i==0 && first_atm_lcl)
+            {
+                if(cell_coord[j]<m || cell_coord[j]>=ncells_per_dim[j]-m)
+                    error->abort("this does not work in inserton");
+            }
+            else
+            {
+                if(cell_coord[j]<0 || cell_coord[j]>=ncells_per_dim[j])
+                    error->abort("this does not work in inserton for ghost");
+                
+                
+                if(cell_coord[j]<m || cell_coord[j]>=ncells_per_dim[j]-m-1)
+                    chk*=0;
+            }
+#endif
+
             buff[j]=buff[j]*H[j][j];
             for(int k=j+1;k<dim;k++)
                 buff[j]+=buff[k]*H[k][j];
         }
+        
+        
+#ifdef DEBUG_GCMC
+        if(i!=0 || !first_atm_lcl)
+        {
+            if(chk)
+            {
+                error->abort("this does not work in inserton for ghost inside the boundry");
+            }
+        }
+#endif
+        
         
         buff+=dim;
         cell_coord+=dim;
@@ -725,6 +880,8 @@ void GCMC::ins_attmpt()
                 icurs[j+1]++;
             }
     }
+    
+    
     
     if(ntrial_atms)
         next_iatm_ins();
@@ -848,7 +1005,8 @@ void GCMC::del_succ()
     dof_diff-=dim;
     tot_ngas--;
     atoms->tot_natms--;
-    refresh();
+    if(ntrial_atms)
+        refresh();
 }
 /*--------------------------------------------
  
@@ -894,6 +1052,21 @@ bool GCMC::decide(type0& en)
     return false;
 }
 /*--------------------------------------------
+ 
+ --------------------------------------------*/
+bool GCMC::calc_mu(type0& en)
+{
+    if(xchng_mode==INS_MODE)
+    {
+        //en-kbT*log(vol/static_cast<type0>(tot_ngas+1))+zz_fac;
+    }
+    else
+    {
+        //en-kbT*log(vol/static_cast<type0>(tot_ngas))+zz_fac;
+    }
+    return false;
+}
+/*--------------------------------------------
  construct the bin list
  --------------------------------------------*/
 void GCMC::xchng(bool box_chng,int nattmpts)
@@ -917,7 +1090,7 @@ void GCMC::xchng(bool box_chng,int nattmpts)
     
     /*--------------------------------------------------
      resize id and update so we have the ids of phantom
-     atoms
+     atoms (useful for deletion)
      --------------------------------------------------*/
     mapp->id->resize(natms+natms_ph);
     atoms->update(mapp->id);
@@ -937,9 +1110,53 @@ void GCMC::xchng(bool box_chng,int nattmpts)
     int* cell_vec=cell_vec_p->begin();
     int nall=natms+natms_ph;
     type0* s=mapp->x->begin()+(nall-1)*x_dim;
+    
+#ifdef DEBUG_GCMC
+    int y,chk=1;
+#endif
+    
     for(int i=nall-1;i>-1;i--,s-=x_dim)
     {
+#ifndef DEBUG_GCMC
         find_cell_no(s,cell_vec[i]);
+#endif
+        
+#ifdef DEBUG_GCMC
+        chk=1;
+        cell_vec[i]=0;
+        for(int j=0;j<dim && cell_vec[i]!=-1;j++)
+        {
+            if(s[j]>=s_lo_ph[j] && s[j]<s_hi_ph[j])
+            {
+                y=m+static_cast<int>(floor((s[j]-s_lo[j])/cell_size[j]));
+                if(i<natms)
+                {
+                    if(y<m || y>=ncells_per_dim[j]-m)
+                        error->abort("this does not work");
+                }
+                else
+                {
+                    if(y<0 || y>=ncells_per_dim[j])
+                        error->abort("this does not work for ghost");
+                    if(y<m || y>=ncells_per_dim[j]-m-1)
+                        chk*=0;
+                }
+                
+                cell_vec[i]+=cell_denom[j]*y;
+            }
+            else
+            {
+                cell_vec[i]=-1;
+            }
+        }
+        if(cell_vec[i]!=-1 && (i>=natms && chk))
+        {
+            error->abort("this does not work for ghost 2nd");
+        }
+#endif
+        
+        
+        
         if(cell_vec[i]!=-1)
         {
             next_vec[i]=head_atm[cell_vec[i]];

@@ -15,6 +15,72 @@ void ThermoQuantity::init(const char* name)
     mod_hdr_name_lngth=0;
 }
 /*--------------------------------------------
+ constructor
+ --------------------------------------------*/
+ThermoQuantity::ThermoQuantity()
+{
+    hdr_name_lngth=0;
+    mod_hdr_name_lngth=0;
+}
+/*--------------------------------------------
+ copy constructor
+ --------------------------------------------*/
+ThermoQuantity::ThermoQuantity(ThermoQuantity& other)
+{
+    hdr_name_lngth=other.hdr_name_lngth;
+    hdr_name= new char[hdr_name_lngth];
+    memcpy(hdr_name,other.hdr_name,hdr_name_lngth*sizeof(char));
+    mod_hdr_name_lngth=other.mod_hdr_name_lngth;
+    mod_hdr_name=new char[mod_hdr_name_lngth];
+    memcpy(mod_hdr_name,other.mod_hdr_name,mod_hdr_name_lngth*sizeof(char));
+    value=other.value;
+}
+/*--------------------------------------------
+ move constructor
+ --------------------------------------------*/
+ThermoQuantity::ThermoQuantity(ThermoQuantity&& other)
+{
+    hdr_name_lngth=other.hdr_name_lngth;
+    other.hdr_name_lngth=0;
+    hdr_name=other.hdr_name;
+    other.hdr_name=NULL;
+    mod_hdr_name_lngth=other.mod_hdr_name_lngth;
+    other.mod_hdr_name_lngth=0;
+    mod_hdr_name=other.mod_hdr_name;
+    other.mod_hdr_name=NULL;
+    value=other.value;
+}
+/*--------------------------------------------
+ copy operator
+ --------------------------------------------*/
+ThermoQuantity& ThermoQuantity::operator=(ThermoQuantity& other)
+{
+    this->hdr_name_lngth=other.hdr_name_lngth;
+    this->hdr_name= new char[hdr_name_lngth];
+    memcpy(this->hdr_name,other.hdr_name,this->hdr_name_lngth*sizeof(char));
+    this->mod_hdr_name_lngth=other.mod_hdr_name_lngth;
+    this->mod_hdr_name=new char[this->mod_hdr_name_lngth];
+    memcpy(this->mod_hdr_name,other.mod_hdr_name,this->mod_hdr_name_lngth*sizeof(char));
+    this->value=other.value;
+    return *this;
+}
+/*--------------------------------------------
+ move operator
+ --------------------------------------------*/
+ThermoQuantity& ThermoQuantity::operator=(ThermoQuantity&& other)
+{
+    this->hdr_name_lngth=other.hdr_name_lngth;
+    other.hdr_name_lngth=0;
+    this->hdr_name=other.hdr_name;
+    other.hdr_name=NULL;
+    this->mod_hdr_name_lngth=other.mod_hdr_name_lngth;
+    other.mod_hdr_name_lngth=0;
+    this->mod_hdr_name=other.mod_hdr_name;
+    other.mod_hdr_name=NULL;
+    this->value=other.value;
+    return *this;
+}
+/*--------------------------------------------
  destructor
  --------------------------------------------*/
 ThermoQuantity::~ThermoQuantity()
@@ -94,7 +160,6 @@ precision(mapp->precision)
     CREATE1D(sform,tmp1);
     sprintf(qform,"%%%d.%de ",mod_lngth-1,precision);
     sprintf(sform," %%0%dd ",step_name_lngth-2);
-    
 }
 /*--------------------------------------------
  destructor
@@ -106,6 +171,22 @@ ThermoDynamics::~ThermoDynamics()
     delete [] qform;
     delete [] step_name;
     delete [] quantities;
+}
+/*--------------------------------------------
+ add quantites
+ --------------------------------------------*/
+int ThermoDynamics::add(const char* q)
+{
+    ThermoQuantity* quantities_=new ThermoQuantity[no_quantities+1];
+    for(int i=0;i<no_quantities;i++)
+        quantities_[i]=std::move(quantities[i]);
+    if(no_quantities)
+        delete [] quantities;
+    quantities=quantities_;
+    quantities[no_quantities].init(q);
+    quantities[no_quantities].mod(mod_lngth);
+    no_quantities++;
+    return no_quantities-1;
 }
 /*--------------------------------------------
  print output

@@ -21,6 +21,7 @@ EAMFileReader::EAMFileReader(MAPP* mapp)
     type2rho_pair_ji=NULL;
     type2phi_pair_ij=NULL;
     type2phi_pair_ji=NULL;
+    cut=NULL;
     cut_sq=NULL;
 }
 /*--------------------------------------------
@@ -763,6 +764,7 @@ void EAMFileReader::deallocate()
     DEL_2D(type2rho_pair_ji);
     DEL_2D(type2phi_pair_ij);
     DEL_2D(type2phi_pair_ji);
+    delete [] cut;
     delete [] cut_sq;
     
     type2phi=NULL;
@@ -771,6 +773,7 @@ void EAMFileReader::deallocate()
     type2rho_pair_ji=NULL;
     type2phi_pair_ij=NULL;
     type2phi_pair_ji=NULL;
+    cut=NULL;
     cut_sq=NULL;
     
     
@@ -835,6 +838,7 @@ void EAMFileReader::deallocate()
  --------------------------------------------*/
 void EAMFileReader::allocate()
 {
+    CREATE1D(cut,no_types*(no_types+1)/2);
     CREATE1D(cut_sq,no_types*(no_types+1)/2);
     CREATE_2D(type2phi,no_types,no_types);
     CREATE_2D(type2rho,no_types,no_types);
@@ -997,7 +1001,7 @@ void EAMFileReader::set_arrays()
     
     rc=(static_cast<type0>(nr)-1.0)*dr;
     rho_max=(static_cast<type0>(nrho)-1.0)*drho;
-    
+    type0 r_cut;
     for(int itype=0;itype<no_types;itype++)
         for(int jtype=itype;jtype<no_types;jtype++)
         {
@@ -1011,8 +1015,9 @@ void EAMFileReader::set_arrays()
             {
                 nr_--;
             }
-            cut_sq[COMP(itype,jtype)]=static_cast<type0>((nr_)*(nr_))*dr*dr;
-            //cut_sq[COMP(itype,jtype)]=static_cast<type0>(nr*nr)*dr*dr;
+            r_cut=static_cast<type0>((nr_))*dr;
+            cut[COMP(itype,jtype)]=r_cut;
+            cut_sq[COMP(itype,jtype)]=r_cut*r_cut;
         }
 
 }

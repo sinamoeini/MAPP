@@ -2144,7 +2144,10 @@ void ForceField_meam::setup()
     compute_pair_meam();
     for(int i=0;i<no_types;i++)
         for(int j=0;j<no_types;j++)
+        {
+            cut[i][j]=rc_meam;
             cut_sq[i][j]=rc_meam*rc_meam;
+        }
 }
 /*--------------------------------------------
  reset the vectors

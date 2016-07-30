@@ -447,7 +447,9 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
                 p=rho_xchng[i]*drho_inv;
                 m=static_cast<int>(p);
                 m=MIN(m,nrho-2);
-
+                if(m<0)
+                    error->abort("in delettion there is a problem "
+                    "encoutered engative electron density");
                 p-=m;
                 p=MIN(p,1.0);
                 coef=F_arr[type[i]][m];
@@ -460,9 +462,9 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     
     
-    //after determining wether the exchange was successfull or not
     bool succ=gcmc->decide(en_tot);
     
+    //after determining wether the exchange was successfull or not
     if(succ)
     {
         natms=atoms->natms;
@@ -677,8 +679,8 @@ void ForceField_eam::setup()
     for(int i=0;i<no_types;i++)
         for(int j=0;j<no_types;j++)
         {
+            cut[i][j]=eam_reader->cut[COMP(i,j)];
             cut_sq[i][j]=eam_reader->cut_sq[COMP(i,j)];
-            cut[i][j]=sqrt(cut_sq[i][j]);
         }
 }
 

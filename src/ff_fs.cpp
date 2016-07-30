@@ -64,7 +64,10 @@ void ForceField_fs::coef(int nargs,char** args)
     
     for(int i=0;i<no_types;i++)
         for(int j=0;j<no_types;j++)
-            cut_sq[i][j]=MAX(cut_phi[i][j]*cut_phi[i][j],cut_rho[i][j]*cut_rho[i][j]);
+        {
+            cut[i][j]=MAX(cut_phi[i][j],cut_rho[i][j]);
+            cut_sq[i][j]=cut[i][j]*cut[i][j];
+        }
 }
 /*--------------------------------------------
  allocation

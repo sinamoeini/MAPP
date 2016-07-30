@@ -45,8 +45,10 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
 
     cmd(nargs,args);
     if(xchng_seed)
+    {
         gcmc=new GCMC(mapp,3,gas_type,mu,t_tar,xchng_seed);
-
+        count_idx=thermo->add("count");
+    }
 }
 /*--------------------------------------------
  destructor
@@ -226,7 +228,10 @@ void MD_nh::init()
     }
     
     if(gcmc)
+    {
         gcmc->init();
+        thermo->update(count_idx,static_cast<type0>(gcmc->tot_ngas));
+    }
 }
 /*--------------------------------------------
  finalize after the run is complete
@@ -327,6 +332,7 @@ void MD_nh::run(int no_stps)
                 gcmc->xchng(false,nxchng_attmpts);
                 no_dof+=gcmc->dof_diff;
                 ke_tar=t_tar*boltz*no_dof;
+                thermo->update(count_idx,static_cast<type0>(gcmc->tot_ngas));
                 if(no_dof==0.0)
                     error->abort("degrees of freedom shoud be greater than 0 for md nh");
             }

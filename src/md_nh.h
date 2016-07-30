@@ -82,6 +82,7 @@ namespace MAPP_NS {
         int xchng_every;
         int nxchng_attmpts;
         int xchng_seed;
+        int count_idx;
         class GCMC* gcmc;
     protected:
     public:

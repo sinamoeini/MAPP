@@ -84,20 +84,16 @@ void Neighbor_dmd::create_list(bool box_change)
     for(int i=0;i<neighbor_list_size_size;i++)
         neighbor_list_size[i]=0;
     
-    type0* x=mapp->x->begin();
     type0* c=mapp->c->begin();
     dmd_type* ctype=mapp->ctype->begin();
     
-    int x_dim=mapp->x->dim;
     int c_dim=mapp->c->dim;
     
-    int dim=atoms->dimension;
-    type0 rsq;
-    int icomp,jcomp;
-    int iatm;
+
+    type0& rsq=cell->rsq;
+    int &iatm=cell->iatm;
     int& jatm=cell->jatm;
-    int ic,jc;
-    int rsq_chk;
+    bool rsq_chk;
     type0** cut_sk_sq=forcefield->cut_sk_sq;
     
     int* tmp_neigh_list;
@@ -108,48 +104,30 @@ void Neighbor_dmd::create_list(bool box_change)
     no_pairs=0;
     if(pair_wise)
     {
-        for(iatm=0;iatm<atoms->natms;iatm++,cell->nxt_i())
+        for(;iatm!=-1;cell->nxt_i())
         {
-            icomp=x_dim*iatm;
             for(;jatm!=-1;cell->nxt_j())
             {
-                if(jatm>iatm)
+                if(jatm<=iatm) continue;
+                
+                rsq_chk=false;
+                for(int ic=0;ic<c_dim && !rsq_chk;ic++)
+                    for(int jc=0;jc<c_dim && !rsq_chk;jc++)
+                    {
+                        if(c[iatm*c_dim+ic]<0.0) continue;
+                        if(c[jatm*c_dim+jc]<0.0) continue;
+                        if(rsq>=cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]]) continue;
+                    }
+                
+                if(!rsq_chk) continue;
+                
+                if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
                 {
-                    
-                    jcomp=x_dim*jatm;
-                    
-                    rsq=0.0;
-                    for(int idim=0;idim<dim;idim++)
-                        rsq+=(x[icomp+idim]-x[jcomp+idim])
-                        *(x[icomp+idim]-x[jcomp+idim]);
-                    
-                    rsq_chk=0;
-                    ic=0;
-                    while(rsq_chk==0 && ic<c_dim)
-                    {
-                        jc=0;
-                        while(rsq_chk==0 && jc<c_dim)
-                        {
-                            if(c[iatm*c_dim+ic]>=0.0 &&
-                               c[jatm*c_dim+jc]>=0.0 &&
-                               rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
-                                rsq_chk=1;
-                            jc++;
-                        }
-                        ic++;
-                    }
-                    
-                    if(rsq_chk)
-                    {
-                        if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
-                        {
-                            GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
-                            tmp_neigh_list_size+=tmp_neigh_list_grow;
-                        }
-                        tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                        neighbor_list_size[iatm]++;
-                    }
+                    GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
+                    tmp_neigh_list_size+=tmp_neigh_list_grow;
                 }
+                tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
+                neighbor_list_size[iatm]++;
             }
             
             if(neighbor_list_size[iatm])
@@ -162,49 +140,30 @@ void Neighbor_dmd::create_list(bool box_change)
     }
     else
     {
-        for(iatm=0;iatm<atoms->natms;iatm++)
+        for(;iatm!=-1;cell->nxt_i())
         {
-            icomp=x_dim*iatm;
-            icomp=x_dim*iatm;
             for(;jatm!=-1;cell->nxt_j())
             {
-                if(jatm>iatm)
+                if(jatm==iatm) continue;
+                
+                rsq_chk=false;
+                for(int ic=0;ic<c_dim && !rsq_chk;ic++)
+                    for(int jc=0;jc<c_dim && !rsq_chk;jc++)
+                    {
+                        if(c[iatm*c_dim+ic]<0.0) continue;
+                        if(c[jatm*c_dim+jc]<0.0) continue;
+                        if(rsq>=cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]]) continue;
+                    }
+                
+                if(!rsq_chk) continue;
+                
+                if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
                 {
-                    
-                    jcomp=x_dim*jatm;
-                    
-                    rsq=0.0;
-                    for(int idim=0;idim<dim;idim++)
-                        rsq+=(x[icomp+idim]-x[jcomp+idim])
-                        *(x[icomp+idim]-x[jcomp+idim]);
-                    
-                    rsq_chk=0;
-                    ic=0;
-                    while(rsq_chk==0 && ic<c_dim)
-                    {
-                        jc=0;
-                        while(rsq_chk==0 && jc<c_dim)
-                        {
-                            if(c[iatm*c_dim+ic]>=0.0 &&
-                               c[jatm*c_dim+jc]>=0.0 &&
-                               rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]])
-                                rsq_chk=1;
-                            jc++;
-                        }
-                        ic++;
-                    }
-                    
-                    if(rsq_chk)
-                    {
-                        if(neighbor_list_size[iatm]+1>tmp_neigh_list_size)
-                        {
-                            GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
-                            tmp_neigh_list_size+=tmp_neigh_list_grow;
-                        }
-                        tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
-                        neighbor_list_size[iatm]++;
-                    }
+                    GROW(tmp_neigh_list, tmp_neigh_list_size,tmp_neigh_list_size+tmp_neigh_list_grow);
+                    tmp_neigh_list_size+=tmp_neigh_list_grow;
                 }
+                tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
+                neighbor_list_size[iatm]++;
             }
             
             if(neighbor_list_size[iatm])

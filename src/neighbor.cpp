@@ -61,6 +61,9 @@ x(mapp->atoms->x),
 cut_s(cut_s_),
 s_lo(mapp->atoms->s_lo),
 s_hi(mapp->atoms->s_hi)
+#ifdef DEBUG_NEIGH
+,error(mapp->error)
+#endif
 {
     ncells_per_dim=new int[dim];
     cell_denom=new int[dim];
@@ -159,7 +162,7 @@ inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
     for(int i=0;i<dim;i++)
     {
         cell_no+=cell_denom[i]*(m+
-        static_cast<int>((s[i]-s_lo[i])/cell_size[i]));
+        static_cast<int>(floor(((s[i]-s_lo[i])/cell_size[i]))));
     }
 }
 /*--------------------------------------------
@@ -181,9 +184,42 @@ void Neighbor::Cell::create(bool box_chng)
         head_atm[i]=-1;
     int s_dim=x->dim;
     type0* s=x->begin()+(nall-1)*s_dim;
+    
+#ifdef DEBUG_NEIGH
+    int y,chk;
+#endif
+    
     for(int i=nall-1;i>-1;i--,s-=s_dim)
     {
+#ifndef DEBUG_NEIGH
         find_cell_no(s,cell_vec[i]);
+#endif
+#ifdef DEBUG_NEIGH
+        
+        cell_vec[i]=0;
+        chk=1;
+        for(int j=0;j<dim;j++)
+        {
+            y=m+static_cast<int>(floor(((s[j]-s_lo[j])/cell_size[j])));
+            if(i<natms)
+            {
+                if(y<m || y>=ncells_per_dim[j]-m)
+                    error->abort("this (neigh) does not work");
+            }
+            else
+            {
+                if(y<0 || y>=ncells_per_dim[j])
+                    error->abort("this (neigh) does not work for ghost");
+            }
+            if(y<m || y>=ncells_per_dim[j]-m-1)
+                chk=0;
+            cell_vec[i]+=cell_denom[j]*y;
+        }
+        
+        if(i>=natms&& chk)
+            error->abort("this (neigh) does not work for ghost 2nd");
+#endif
+        
         next_vec[i]=head_atm[cell_vec[i]];
         head_atm[cell_vec[i]]=i;
     }
@@ -191,7 +227,6 @@ void Neighbor::Cell::create(bool box_chng)
     if(!natms)
     {
         iatm=-1;
-        icell=-1;
         destroy();
         return;
     }
@@ -213,16 +248,16 @@ void Neighbor::Cell::destroy()
  --------------------------------------------*/
 void Neighbor::Cell::nxt_i()
 {
-    
-    if(iatm+1==natms)
+    iatm++;
+    if(iatm==natms)
     {
         iatm=-1;
-        icell=-1;
         destroy();
         return;
     }
     
-    iatm++;
+    ix=x->begin()+iatm*x->dim;
+    
     icell=cell_vec[iatm];
     ineigh=-1;
     jatm=-1;
@@ -231,24 +266,42 @@ void Neighbor::Cell::nxt_i()
         jcell=icell+rel_neigh_lst[ineigh];
         jatm=head_atm[jcell];
     }
+    
+    if(jatm==-1)
+        return;
+    if(jatm==iatm)
+    {
+        nxt_j();
+        return;
+    }
+    jx=x->begin()+jatm*x->dim;
+    rsq=0.0;
+    for(int i=0;i<dim;i++)
+        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 void Neighbor::Cell::nxt_j()
 {
-    if(next_vec[jatm]==-1)
-    {
-        jatm=-1;
-        while(jatm==-1 && ++ineigh<nneighs)
-        {
-            jcell=icell+rel_neigh_lst[ineigh];
-            jatm=head_atm[jcell];
-        }
-        return;
-    }
     
     jatm=next_vec[jatm];
+    while(jatm==-1 && ++ineigh<nneighs)
+    {
+        jcell=icell+rel_neigh_lst[ineigh];
+        jatm=head_atm[jcell];
+    }
+    if(jatm==-1)
+        return;
+    if(jatm==iatm)
+    {
+        nxt_j();
+        return;
+    }
+    jx=x->begin()+jatm*x->dim;
+    rsq=0.0;
+    for(int i=0;i<dim;i++)
+        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
 }
 
 

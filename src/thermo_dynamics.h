@@ -10,7 +10,12 @@ namespace MAPP_NS
     protected:
     public:
         void init(const char*);
+        ThermoQuantity();
+        ThermoQuantity(ThermoQuantity&);
+        ThermoQuantity(ThermoQuantity&&);
         ~ThermoQuantity();
+        ThermoQuantity& operator =(ThermoQuantity&);
+        ThermoQuantity& operator =(ThermoQuantity&&);
         void mod(int);
         char* hdr_name;
         int hdr_name_lngth;
@@ -39,7 +44,8 @@ namespace MAPP_NS
         char* sform;
     public:
         ThermoDynamics(MAPP*,int,char**);
-        ~ThermoDynamics(); 
+        ~ThermoDynamics();
+        int add(const char*);
         void update(int,type0);
         void update(int,int,type0*);
         

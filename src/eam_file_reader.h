@@ -39,6 +39,7 @@ namespace MAPP_NS
         type0*** rho_r_arr;
         type0*** rho_arr;
         type0* cut_sq;
+        type0* cut;
 
         
         int** type2rho;
