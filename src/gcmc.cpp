@@ -310,24 +310,7 @@ inline void GCMC::refresh()
         }
 
 }
-/*--------------------------------------------
- 
- --------------------------------------------*/
-inline void GCMC::find_cell_no(type0*& s,int& bin_no)
-{
-    bin_no=0;
-    for(int i=0;i<dim;i++)
-    {
-        if(s[i]>=s_lo_ph[i] && s[i]<s_hi_ph[i])
-            bin_no+=cell_denom[i]*(m+
-            static_cast<int>(floor((s[i]-s_lo[i])/cell_size[i])));
-        else
-        {
-            bin_no=-1;
-            return;
-        }
-    }
-}
+
 /*--------------------------------------------
  
  --------------------------------------------*/
@@ -814,63 +797,22 @@ void GCMC::ins_attmpt()
     int* cell_coord=ins_cell_coord;
     type0** H=atoms->H;
     
-    
-#ifdef DEBUG_GCMC
-    int chk=1;
-#endif
-    
     for(int i=0;i<ntrial_atms;i++)
     {
         ins_cell[i]=0;
-
-#ifdef DEBUG_GCMC
-        chk=1;
-#endif
         for(int j=0;j<dim;j++)
         {
             buff[j]=ins_s_trials[j][icurs[j]];
-            cell_coord[j]=static_cast<int>(floor((buff[j]-s_lo[j])/cell_size[j]))+m;
+            find_cell_coord(buff[j],j,cell_coord[j]);
             ins_cell[i]+=cell_coord[j]*cell_denom[j];
-            
-            
-            
-            
-#ifdef DEBUG_GCMC
-            if(i==0 && first_atm_lcl)
-            {
-                if(cell_coord[j]<m || cell_coord[j]>=ncells_per_dim[j]-m)
-                    error->abort("this does not work in inserton");
-            }
-            else
-            {
-                if(cell_coord[j]<0 || cell_coord[j]>=ncells_per_dim[j])
-                    error->abort("this does not work in inserton for ghost");
-                
-                
-                if(cell_coord[j]<m || cell_coord[j]>=ncells_per_dim[j]-m-1)
-                    chk*=0;
-            }
-#endif
+        }
 
+        for(int j=0;j<dim;j++)
+        {
             buff[j]=buff[j]*H[j][j];
             for(int k=j+1;k<dim;k++)
                 buff[j]+=buff[k]*H[k][j];
         }
-        
-        
-#ifdef DEBUG_GCMC
-        if(i!=0 || !first_atm_lcl)
-        {
-            if(chk)
-            {
-                error->abort("this does not work in inserton for ghost inside the boundry");
-            }
-        }
-#endif
-        
-        
-        buff+=dim;
-        cell_coord+=dim;
         
         icurs[0]++;
         for(int j=0;j<dim-1;j++)
@@ -879,12 +821,14 @@ void GCMC::ins_attmpt()
                 icurs[j]=0;
                 icurs[j+1]++;
             }
+        
+        buff+=dim;
+        cell_coord+=dim;
     }
     
     
     
-    if(ntrial_atms)
-        next_iatm_ins();
+    next_iatm_ins();
     forcefield->xchng_energy_timer(this);
 }
 /*--------------------------------------------
@@ -1110,53 +1054,11 @@ void GCMC::xchng(bool box_chng,int nattmpts)
     int* cell_vec=cell_vec_p->begin();
     int nall=natms+natms_ph;
     type0* s=mapp->x->begin()+(nall-1)*x_dim;
-    
-#ifdef DEBUG_GCMC
-    int y,chk=1;
-#endif
+
     
     for(int i=nall-1;i>-1;i--,s-=x_dim)
     {
-#ifndef DEBUG_GCMC
         find_cell_no(s,cell_vec[i]);
-#endif
-        
-#ifdef DEBUG_GCMC
-        chk=1;
-        cell_vec[i]=0;
-        for(int j=0;j<dim && cell_vec[i]!=-1;j++)
-        {
-            if(s[j]>=s_lo_ph[j] && s[j]<s_hi_ph[j])
-            {
-                y=m+static_cast<int>(floor((s[j]-s_lo[j])/cell_size[j]));
-                if(i<natms)
-                {
-                    if(y<m || y>=ncells_per_dim[j]-m)
-                        error->abort("this does not work");
-                }
-                else
-                {
-                    if(y<0 || y>=ncells_per_dim[j])
-                        error->abort("this does not work for ghost");
-                    if(y<m || y>=ncells_per_dim[j]-m-1)
-                        chk*=0;
-                }
-                
-                cell_vec[i]+=cell_denom[j]*y;
-            }
-            else
-            {
-                cell_vec[i]=-1;
-            }
-        }
-        if(cell_vec[i]!=-1 && (i>=natms && chk))
-        {
-            error->abort("this does not work for ghost 2nd");
-        }
-#endif
-        
-        
-        
         if(cell_vec[i]!=-1)
         {
             next_vec[i]=head_atm[cell_vec[i]];
@@ -1196,6 +1098,64 @@ void GCMC::xchng(bool box_chng,int nattmpts)
     
     forcefield->fin_xchng();
     atoms->fin_xchng();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+inline void GCMC::find_cell_no(type0*& s,int& cell_no)
+{
+    cell_no=0;
+    for(int i=0;i<dim;i++)
+    {
+        if(s[i]<s_lo_ph[i] || s_hi_ph[i]<=s[i])
+        {
+            cell_no=-1;
+            return;
+        }
+            
+        if(s[i]<s_lo[i])
+            cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-s_lo_ph[i])/cell_size[i]),m-1));
+        else if(s_hi[i]<=s[i])
+            cell_no+=cell_denom[i]*(MIN(MAX(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1),ncells_per_dim[i]-1-m)+m);
+        else
+            cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)+m);
+
+    }
+}
+
+/*--------------------------------------------
+ [0,m) 
+ [0,m-1]
+    m
+ [m,ncells_per_dim[i]-m) 
+ [m,ncells_per_dim[i]-m-1]
+    ncells_per_dim[i]-2*m
+ [ncells_per_dim[i]-m-1,ncells_per_dim[i])
+ [ncells_per_dim[i]-m-1,ncells_per_dim[i]-1]
+    m+1
+ 
+ 3 situations
+ 0. s_lo_ph <= s < s_lo:
+    0<=c<m
+    for(c=0;c<m&&(s-s_lo_ph)<cell_size[i];c++)
+        c++;
+ 1. s_lo <= s < s_hi:
+    0<=c-m<=ncells_per_dim[i]-2*m-1
+ 2. s_hi <= s < s_hi_ph:
+    ncells_per_dim[i]-2*m-1<=c-m<=ncells_per_dim[i]-1-m
+ --------------------------------------------*/
+inline void GCMC::find_cell_coord(type0& s,int& i,int& c)
+{
+    if(s<s_lo[i])
+        c=MIN(static_cast<int>((s-s_lo_ph[i])/cell_size[i]),m-1);
+    else if(s_hi[i]<=s)
+        c=MIN(
+        MAX(static_cast<int>((s-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)
+        ,ncells_per_dim[i]-1-m)
+        +m;
+    else
+        c=MIN(static_cast<int>((s-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)
+        +m;
 }
 
 

@@ -31,14 +31,29 @@ void Error::abort(const char* msg,...)
     vsprintf (err_msg,msg, args);
     
     if(my_no==0)
-        printf("ABORTED! %s \n"
-               ,err_msg);
+        fprintf(output,"ABORTED! %s \n",err_msg);
     va_end (args);
 
     MPI_Finalize();
     exit(EXIT_FAILURE);
 }
+/*--------------------------------------------
+ output the error line and abort the code
+ --------------------------------------------*/
+void Error::abort_sing(const char* msg,...)
+{
+    char err_msg[MAXCHAR];
+    
+    va_list args;
+    va_start (args, msg);
+    vsprintf (err_msg,msg, args);
 
+    fprintf(output,"ABORTED (%d)! %s \n",atoms->my_p,err_msg);
+    va_end (args);
+    MPI_Abort(world,911);
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+}
 /*--------------------------------------------
  output the error line and abort the code
  --------------------------------------------*/
@@ -51,7 +66,7 @@ void Error::print(const char* msg,...)
     vsprintf (err_msg,msg, args);
     
     if(my_no==0)
-        printf("%s",err_msg);
+        fprintf(output,"%s",err_msg);
     va_end (args);
 }
 /*--------------------------------------------
@@ -118,7 +133,7 @@ void Error::warning(const char *msg,...)
     vsprintf (war_msg,msg, args);
     
     if(my_no==0)
-        printf("WARNING: %s \n"
+        fprintf(output,"WARNING: %s \n"
                ,war_msg);
     va_end (args);
 }

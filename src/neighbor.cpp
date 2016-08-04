@@ -61,9 +61,6 @@ x(mapp->atoms->x),
 cut_s(cut_s_),
 s_lo(mapp->atoms->s_lo),
 s_hi(mapp->atoms->s_hi)
-#ifdef DEBUG_NEIGH
-,error(mapp->error)
-#endif
 {
     ncells_per_dim=new int[dim];
     cell_denom=new int[dim];
@@ -157,12 +154,25 @@ void Neighbor::Cell::box_setup()
  
  --------------------------------------------*/
 inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
-{
+{    
     cell_no=0;
     for(int i=0;i<dim;i++)
     {
-        cell_no+=cell_denom[i]*(m+
-        static_cast<int>(floor(((s[i]-s_lo[i])/cell_size[i]))));
+        if(s[i]<s_lo[i])
+        {
+            //0<=y y<m
+            cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-(s_lo[i]-cut_s[i]))/cell_size[i]),m-1));
+        }
+        else if(s_hi[i]<=s[i])
+        {
+            //y<m+n+1
+            cell_no+=cell_denom[i]*(MIN(MAX(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1),ncells_per_dim[i]-1-m)+m);
+        }
+        else
+        {
+            //m<=y y<=m+n+1
+            cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)+m);
+        }
     }
 }
 /*--------------------------------------------
@@ -185,41 +195,11 @@ void Neighbor::Cell::create(bool box_chng)
     int s_dim=x->dim;
     type0* s=x->begin()+(nall-1)*s_dim;
     
-#ifdef DEBUG_NEIGH
-    int y,chk;
-#endif
+
     
     for(int i=nall-1;i>-1;i--,s-=s_dim)
     {
-#ifndef DEBUG_NEIGH
         find_cell_no(s,cell_vec[i]);
-#endif
-#ifdef DEBUG_NEIGH
-        
-        cell_vec[i]=0;
-        chk=1;
-        for(int j=0;j<dim;j++)
-        {
-            y=m+static_cast<int>(floor(((s[j]-s_lo[j])/cell_size[j])));
-            if(i<natms)
-            {
-                if(y<m || y>=ncells_per_dim[j]-m)
-                    error->abort("this (neigh) does not work");
-            }
-            else
-            {
-                if(y<0 || y>=ncells_per_dim[j])
-                    error->abort("this (neigh) does not work for ghost");
-            }
-            if(y<m || y>=ncells_per_dim[j]-m-1)
-                chk=0;
-            cell_vec[i]+=cell_denom[j]*y;
-        }
-        
-        if(i>=natms&& chk)
-            error->abort("this (neigh) does not work for ghost 2nd");
-#endif
-        
         next_vec[i]=head_atm[cell_vec[i]];
         head_atm[cell_vec[i]]=i;
     }

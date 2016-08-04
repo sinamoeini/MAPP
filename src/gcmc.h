@@ -5,7 +5,6 @@
 #ifndef __MAPP__gcmc__
 #define __MAPP__gcmc__
 #include "init.h"
-#define DEBUG_GCMC
 namespace MAPP_NS
 {
     enum{INS_MODE,DEL_MODE};
@@ -114,6 +113,9 @@ namespace MAPP_NS
         Vec<int>* next_vec_p;
         
         void find_cell_no(type0*&,int&);
+        void find_cell_coord(type0&,int&,int&);
+        
+
         bool lcl(type0*&);
         
         void next_iatm_ins();

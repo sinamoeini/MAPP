@@ -105,8 +105,8 @@ namespace MAPP_NS
         void test1();
 
         int read_line(FILE*,char*&,int&,int&);
-        void init_dubeg(bool);
-        void fin_dubeg();
+        void init_debug(bool);
+        void fin_debug();
         FILE* my_debug;
         
         void open_file(FILE*&,const char*,const char*);

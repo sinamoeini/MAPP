@@ -1252,7 +1252,13 @@ inline void Vec<T>::add(int no_lcl,int no_ph)
     else
     {
         reserve(no_lcl+no_ph);
-        memcpy(vec+dim*(natms+natms_ph+no_lcl-1),vec+dim*natms,byte_sz*MIN(natms_ph,no_lcl));
+        if(no_lcl)
+        {
+            if(no_lcl<natms_ph)
+                memcpy(vec+(natms+natms_ph)*dim,vec+natms*dim,byte_sz*no_lcl);
+            else
+                memcpy(vec+(natms+no_lcl)*dim,vec+natms*dim,byte_sz*natms_ph);
+        }
         vec_sz+=no_lcl+no_ph;
     }
 }
@@ -1287,15 +1293,21 @@ inline void Vec<T>::del(int* lcl_lst,int no_lcl,int* ph_lst,int no_ph)
             nall--;
         }
         
-        for(int i=no_lcl-1;i>-1;i--)
+        int natms_ph=atoms->natms_ph-no_ph;
+        
+        if(no_lcl)
         {
-            memcpy(vec+dim*(natms+i),vec+(nall-1)*dim,byte_sz);
-            nall--;
+            if(no_lcl<natms_ph)
+                memcpy(vec+dim*natms,vec+(natms+natms_ph)*dim,byte_sz*no_lcl);
+            else
+                memcpy(vec+dim*natms,vec+(natms+no_lcl)*dim,byte_sz*natms_ph);
         }
-        vec_sz=nall;
+        
+        
+        vec_sz-=no_lcl+no_ph;
     }
     else
-        vec_sz=natms;
+        vec_sz-=no_lcl;
     
 }
 /*-----------------------------------------------------------------

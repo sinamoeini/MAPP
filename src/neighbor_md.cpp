@@ -6,6 +6,9 @@
 #include "ff.h"
 #include "memory.h"
 #include "timer.h"
+#ifdef DEBUG_NEIGH
+#include "atom_types.h"
+#endif
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -50,9 +53,10 @@ void Neighbor_md::fin()
 void Neighbor_md::create_list(bool box_change)
 {
     timer->start(NEIGH_TIME_mode);
-    
+
     cell->create(box_change);
     atoms->s2x(atoms->natms+atoms->natms_ph);
+    
     
     if(neighbor_list_size_size)
     {
@@ -62,26 +66,26 @@ void Neighbor_md::create_list(bool box_change)
         delete [] neighbor_list;
         delete [] neighbor_list_size;
     }
-    
+
     neighbor_list_size_size=atoms->natms;
     
     CREATE1D(neighbor_list,neighbor_list_size_size);
     CREATE1D(neighbor_list_size,neighbor_list_size_size);
     for(int i=0;i<neighbor_list_size_size;i++)
         neighbor_list_size[i]=0;
-    
+
     
     md_type* type=mapp->type->begin();
     
     type0& rsq=cell->rsq;
-    int &iatm=cell->iatm;
+    int& iatm=cell->iatm;
     int& jatm=cell->jatm;
     
     type0** cut_sk_sq=forcefield->cut_sk_sq;
     
     int* tmp_neigh_list=NULL;
     CREATE1D(tmp_neigh_list,neighbor_list_size_size+atoms->natms_ph);
-    
+
     no_pairs=0;
     if(pair_wise)
     {
@@ -90,9 +94,12 @@ void Neighbor_md::create_list(bool box_change)
             for(;jatm!=-1;cell->nxt_j())
             {
                 if(jatm<=iatm) continue;
+                
+
                 if(rsq>=cut_sk_sq[type[iatm]][type[jatm]]) continue;
                 tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
                 neighbor_list_size[iatm]++;
+
             }
             if(neighbor_list_size[iatm])
             {
@@ -100,6 +107,7 @@ void Neighbor_md::create_list(bool box_change)
                 memcpy(neighbor_list[iatm],tmp_neigh_list,neighbor_list_size[iatm]*sizeof(int));
                 no_pairs+=neighbor_list_size[iatm];
             }
+            
         }
     }
     else
@@ -121,8 +129,8 @@ void Neighbor_md::create_list(bool box_change)
         }
     }
     
-
     delete [] tmp_neigh_list;
+
     no_neigh_lists++;
     timer->stop(NEIGH_TIME_mode);
 }

@@ -14,6 +14,7 @@ namespace MAPP_NS {
         Error(MAPP *);
         ~Error();
         void abort(const char*,...);
+        void abort_sing(const char*,...);
         void warning(const char*,...);
         void print(const char*,...);
         void abort();

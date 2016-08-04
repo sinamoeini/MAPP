@@ -42,7 +42,12 @@ id(atoms->id),
 sr(this)
 {
     sr.my_p=atoms->my_p;
-    init_dubeg(false);
+    
+#ifdef MAPP_DEBUG
+    init_debug(true);
+#else
+    init_debug(false);
+#endif
     
     memory=new Memory(this);
     error=new Error(this);
@@ -142,7 +147,7 @@ MAPP::~MAPP()
     delete memory;
     delete error;
     delete atoms;
-    fin_dubeg();
+    fin_debug();
 }
 /*--------------------------------------------
  analysing the commands
@@ -601,7 +606,7 @@ void MAPP::open_file(FILE*& fp,const char* file_name,const char* id)
 /*--------------------------------------------
 
  --------------------------------------------*/
-void MAPP::init_dubeg(bool i)
+void MAPP::init_debug(bool i)
 {
     if(!i)
     {
@@ -620,7 +625,7 @@ void MAPP::init_dubeg(bool i)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void MAPP::fin_dubeg()
+void MAPP::fin_debug()
 {
     if(my_debug!=NULL)
         fclose(my_debug);
