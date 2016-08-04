@@ -119,7 +119,6 @@ sr(this)
 
     
     test0();
-    test1();
     
     if(input_file!=stdin)
         fclose(input_file);
@@ -793,7 +792,7 @@ void MAPP::test0()
 {
 }
 /*--------------------------------------------
-
+ 
  --------------------------------------------*/
 ScriptReader::ScriptReader(MAPP* mapp):
 world(mapp->world),

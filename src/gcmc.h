@@ -115,9 +115,6 @@ namespace MAPP_NS
         void find_cell_no(type0*&,int&);
         void find_cell_coord(type0&,int&,int&);
         
-
-        bool lcl(type0*&);
-        
         void next_iatm_ins();
         void next_iatm_del();
         void next_jcell_all();
@@ -157,7 +154,6 @@ namespace MAPP_NS
         void next_jatm();
         
         bool decide(type0&);
-        bool calc_mu(type0&);
 
         bool first_atm_lcl;
         int iatm;

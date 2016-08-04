@@ -217,6 +217,33 @@ void GCMC::fin()
 /*--------------------------------------------
  
  --------------------------------------------*/
+bool GCMC::decide(type0& en)
+{
+    type0 fac;
+    if(xchng_mode==INS_MODE)
+    {
+        fac=z_fac*vol/((static_cast<type0>(tot_ngas)+1.0)*exp(beta*en));
+        if(random->uniform()<fac)
+        {
+            ins_succ();
+            return true;
+        }
+    }
+    else
+    {
+        fac=static_cast<type0>(tot_ngas)*exp(beta*en)/(z_fac*vol);
+        
+        if(random->uniform()<fac)
+        {
+            del_succ();
+            return true;
+        }
+    }
+    return false;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 void GCMC::box_setup()
 {
     int sz=0;
@@ -293,7 +320,21 @@ void GCMC::box_setup()
     del_lst=new int[max_ntrial_atms];
 }
 /*--------------------------------------------
- 
+    int* next_vec=next_vec_p->begin();
+    int* cell_vec=cell_vec_p->begin();
+    int nall=natms+natms_ph;
+    type0* s=mapp->x->begin()+(nall-1)*x_dim;
+
+    
+    for(int i=nall-1;i>-1;i--,s-=x_dim)
+    {
+        find_cell_no(s,cell_vec[i]);
+        if(cell_vec[i]!=-1)
+        {
+            next_vec[i]=head_atm[cell_vec[i]];
+            head_atm[cell_vec[i]]=i;
+        }
+    }
  --------------------------------------------*/
 inline void GCMC::refresh()
 {
@@ -308,18 +349,6 @@ inline void GCMC::refresh()
             *next_vec=head_atm[*cell_vec];
             head_atm[*cell_vec]=i;
         }
-
-}
-
-/*--------------------------------------------
- 
- --------------------------------------------*/
-inline bool GCMC::lcl(type0*& s)
-{
-    for(int i=0;i<dim;i++)
-        if(s[i]<s_lo[i] || s[i]>=s_hi[i])
-            return false;
-    return true;
 }
 /*--------------------------------------------
  this is used for insertion trial
@@ -764,72 +793,128 @@ void GCMC::ins_attmpt()
     xchng_mode=INS_MODE;
     first_atm_lcl=true;
     ntrial_atms=1;
+    
+    
     int n_per_dim[dim];
     type0 s,tmp;
+    int no;
     for(int i=0;i<dim;i++)
     {
-        n_per_dim[i]=0;
         s=random->uniform();
-        if(s <s_lo[i] || s>= s_hi[i])
-            first_atm_lcl=false;
+        if(s<s_lo[i] || s>=s_hi[i]) first_atm_lcl=false;
+        
+        no=0;
         
         tmp=s;
-        if(s_lo_ph[i]<=tmp && tmp< s_hi_ph[i])
-            ins_s_trials[i][n_per_dim[i]++]=tmp++;
-        
-        for(int j=0;j<nimages_per_dim[i][0];j++)
-            if(s_lo_ph[i]<=tmp && tmp< s_hi_ph[i])
-                ins_s_trials[i][n_per_dim[i]++]=tmp++;
+        for(int j=0;j<nimages_per_dim[i][0]+1;j++,tmp++)
+            if(s_lo_ph[i]<=tmp && tmp<s_hi_ph[i])
+                ins_s_trials[i][no++]=tmp;
         
         tmp=s-1.0;
-        for(int j=0;j<nimages_per_dim[i][1];j++)
-            if(s_lo_ph[i]<=tmp && tmp< s_hi_ph[i])
-                ins_s_trials[i][n_per_dim[i]++]=tmp--;
-        ntrial_atms*=n_per_dim[i];
+        for(int j=0;j<nimages_per_dim[i][1];j++,tmp--)
+            if(s_lo_ph[i]<=tmp && tmp<s_hi_ph[i])
+                ins_s_trials[i][no++]=tmp;
         
+        ntrial_atms*=no;
+        n_per_dim[i]=no;
     }
     
-    int icurs[dim];
-    for(int i=0;i<dim;i++)
-        icurs[i]=0;
     
+    int count[dim];
     type0* buff=ins_buff;
     int* cell_coord=ins_cell_coord;
     type0** H=atoms->H;
-    
+    for(int i=0;i<dim;i++) count[i]=0;
     for(int i=0;i<ntrial_atms;i++)
     {
+        for(int j=0;j<dim;j++)
+            buff[j]=ins_s_trials[j][count[j]];
+        
         ins_cell[i]=0;
         for(int j=0;j<dim;j++)
         {
-            buff[j]=ins_s_trials[j][icurs[j]];
             find_cell_coord(buff[j],j,cell_coord[j]);
-            ins_cell[i]+=cell_coord[j]*cell_denom[j];
-        }
-
-        for(int j=0;j<dim;j++)
-        {
-            buff[j]=buff[j]*H[j][j];
+            ins_cell[i]+=cell_denom[j]*cell_coord[j];
+            
+            buff[j]*=H[j][j];
             for(int k=j+1;k<dim;k++)
                 buff[j]+=buff[k]*H[k][j];
         }
         
-        icurs[0]++;
-        for(int j=0;j<dim-1;j++)
-            if(icurs[j]==n_per_dim[j])
-            {
-                icurs[j]=0;
-                icurs[j+1]++;
-            }
         
-        buff+=dim;
+        
+        count[0]++;
+        for(int j=0;j<dim-1;j++)
+            if(count[j]==n_per_dim[j])
+            {
+                count[j]=0;
+                count[j+1]++;
+            }
         cell_coord+=dim;
+        buff+=dim;
     }
-    
-    
-    
+
     next_iatm_ins();
     forcefield->xchng_energy_timer(this);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void GCMC::ins_succ()
+{
+    for(int i=0;i<dim;i++) vel_buff[i]=random->gaussian()*sigma;
+    int new_id=get_new_id();
+    int iproc_=0,iproc;
+    type0* buff=ins_buff;
+    int* cell_buff=ins_cell;
+    
+    if(first_atm_lcl) iproc_=atoms->my_p;
+    MPI_Allreduce(&iproc_,&iproc,1,MPI_INT,MPI_SUM,world);
+    
+    if(first_atm_lcl)
+    {
+        atoms->add(1,ntrial_atms-1);
+        ngas++;
+        
+        if(mapp->x_dof)
+        {
+            bool* dof=mapp->x_dof->begin()+x_dim*(natms-1);
+            for(int i=0;i<dim;i++) dof[i]=true;
+        }
+        memcpy(mapp->x_d->begin()+dim*(natms-1),vel_buff,dim*sizeof(type0));
+        
+        memcpy(mapp->x->begin()+x_dim*(natms-1),buff,dim*sizeof(type0));
+        mapp->type->begin()[natms-1]=gas_type;
+        mapp->id->begin()[natms-1]=new_id;
+        cell_vec_p->begin()[natms-1]=*cell_buff;
+        
+        buff+=dim;
+        cell_buff++;
+        ntrial_atms--;
+    }
+    else
+    {
+        atoms->add(0,ntrial_atms);
+        if(iproc<atoms->my_p)
+            ngas_before++;
+    }
+    
+    type0* x=mapp->x->begin()+x_dim*(natms+natms_ph-ntrial_atms);
+    md_type* type=mapp->type->begin()+natms+natms_ph-ntrial_atms;
+    int* id=mapp->id->begin()+natms+natms_ph-ntrial_atms;
+    int* cell=cell_vec_p->begin()+natms+natms_ph-ntrial_atms;
+    for(int i=0;i<ntrial_atms;i++,x+=x_dim,buff+=dim)
+    {
+        memcpy(x,buff,dim*sizeof(type0));
+        type[i]=gas_type;
+        id[i]=new_id;
+        cell[i]=cell_buff[i];
+    }
+    
+    dof_diff+=dim;
+    tot_ngas++;
+    atoms->tot_natms++;
+    refresh();
 }
 /*--------------------------------------------
  find random atom for deletion
@@ -860,72 +945,14 @@ void GCMC::del_attmpt()
         del_lst[ntrial_atms++]=idx;
     }
     MPI_Allreduce(&atm_id_,&gas_id,1,MPI_INT,MPI_SUM,world);
-
+    
     
     for(int i=natms;i<natms+natms_ph;i++)
         if(id[i]==gas_id)
             del_lst[ntrial_atms++]=i;
-    if(ntrial_atms)
-        next_iatm_del();
+    
+    next_iatm_del();
     forcefield->xchng_energy_timer(this);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void GCMC::ins_succ()
-{
-    for(int i=0;i<dim;i++) vel_buff[i]=random->gaussian()*sigma;
-    int new_id=get_new_id();
-    int iproc_=0,iproc;
-    type0* buff=ins_buff;
-    int* cell_buff=ins_cell;
-    if(first_atm_lcl)
-        iproc_=atoms->my_p;
-    MPI_Allreduce(&iproc_,&iproc,1,MPI_INT,MPI_SUM,world);
-    if(first_atm_lcl)
-    {
-        atoms->add(1,ntrial_atms-1);
-        ngas++;
-        
-        if(mapp->x_dof)
-        {
-            bool* dof=mapp->x_dof->begin()+(natms-1)*x_dim;
-            for(int i=0;i<dim;i++)
-                dof[i]=true;
-        }
-        memcpy(mapp->x->begin()+x_dim*(natms-1),buff,dim*sizeof(type0));
-        memcpy(mapp->x_d->begin()+dim*(natms-1),vel_buff,dim*sizeof(type0));
-        mapp->type->begin()[natms-1]=gas_type;
-        mapp->id->begin()[natms-1]=new_id;
-        cell_vec_p->begin()[natms-1]=ins_cell[0];
-        buff+=dim;
-        cell_buff++;
-        ntrial_atms--;
-    }
-    else
-    {
-        if(ntrial_atms)
-            atoms->add(0,ntrial_atms);
-        if(iproc<atoms->my_p)
-            ngas_before++;
-    }
-    
-    type0* x=mapp->x->begin()+x_dim*(natms+natms_ph-ntrial_atms);
-    md_type* type=mapp->type->begin()+natms+natms_ph-ntrial_atms;
-    int* id=mapp->id->begin()+natms+natms_ph-ntrial_atms;
-    int* cell=cell_vec_p->begin()+natms+natms_ph-ntrial_atms;
-    for(int i=0;i<ntrial_atms;i++,x+=x_dim,buff+=dim)
-    {
-        memcpy(x,buff,dim*sizeof(type0));
-        type[i]=gas_type;
-        id[i]=new_id;
-        cell[i]=cell_buff[i];
-    }
-    
-    dof_diff+=dim;
-    tot_ngas++;
-    atoms->tot_natms++;
-    refresh();
 }
 /*--------------------------------------------
  
@@ -970,64 +997,22 @@ void GCMC::next_jatm()
     (this->*next_jatm_p)();
 }
 /*--------------------------------------------
- 
- --------------------------------------------*/
-bool GCMC::decide(type0& en)
-{
-    type0 fac;
-    if(xchng_mode==INS_MODE)
-    {
-        fac=z_fac*vol/((static_cast<type0>(tot_ngas)+1.0)*exp(beta*en));
-        if(random->uniform()<fac)
-        {
-            ins_succ();
-            return true;
-        }
-    }
-    else
-    {
-        fac=static_cast<type0>(tot_ngas)*exp(beta*en)/(z_fac*vol);
-        if(random->uniform()<fac)
-        {
-            del_succ();
-            return true;
-        }
-    }
-    return false;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-bool GCMC::calc_mu(type0& en)
-{
-    if(xchng_mode==INS_MODE)
-    {
-        //en-kbT*log(vol/static_cast<type0>(tot_ngas+1))+zz_fac;
-    }
-    else
-    {
-        //en-kbT*log(vol/static_cast<type0>(tot_ngas))+zz_fac;
-    }
-    return false;
-}
-/*--------------------------------------------
  construct the bin list
  --------------------------------------------*/
 void GCMC::xchng(bool box_chng,int nattmpts)
 {
+    atoms->init_xchng();
     if(box_chng)
         box_setup();
-    
-    atoms->init_xchng();
     
     /*--------------------------------------------------
      here we allocate the memory for cell_vec & next_vec
      --------------------------------------------------*/
     cell_vec_p=new Vec<int>(atoms,1);
+    next_vec_p=new Vec<int>(atoms,1);
+
     cell_vec_p->resize(0);
     cell_vec_p->resize(natms+natms_ph);
-    
-    next_vec_p=new Vec<int>(atoms,1);
     next_vec_p->resize(0);
     next_vec_p->resize(natms+natms_ph);
     
@@ -1093,10 +1078,11 @@ void GCMC::xchng(bool box_chng,int nattmpts)
     }
 
     mapp->id->resize(natms);
-    delete next_vec_p;
-    delete cell_vec_p;
     
     forcefield->fin_xchng();
+    delete next_vec_p;
+    delete cell_vec_p;
+
     atoms->fin_xchng();
 }
 /*--------------------------------------------

@@ -162,30 +162,6 @@ namespace MAPP_NS
                 
             }
 
-            /*
-            
-            printf("-------------\n");
-            printf("H\n");
-            printf("-------------\n");
-            
-            for(int i=0;i<m;i++)
-            {
-                for(int j=i;j<m;j++)
-                {
-                    printf("%lf\t",H[j][i]);
-                }
-                printf("\n");
-            }
-            
-            
-            printf("-------------\n");
-            printf("b_hat\n");
-            printf("-------------\n");
-            
-            for(int i=0;i<m+1;i++)
-                printf("%lf\n",b_hat[i]);
-            */
-
         }
         
         

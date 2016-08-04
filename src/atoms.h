@@ -82,7 +82,6 @@ namespace MAPP_NS
     class Vec: public vec
     {
     private:
-        int image;
         T* vec;
         T* dump_vec;
         T dump_def_val;
@@ -627,7 +626,7 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 template<typename T>
 Vec<T>::Vec(Atoms* atoms_,int dim_):
-atoms(atoms_),image(0),
+atoms(atoms_),
 vec()
 {
     dim=dim_;
@@ -647,7 +646,7 @@ vec()
  --------------------------------------------*/
 template<typename T>
 Vec<T>::Vec(Atoms* atoms_,int dim_,const char* name_):
-atoms(atoms_),image(0),
+atoms(atoms_),
 vec()
 {
     dim=dim_;
@@ -672,7 +671,6 @@ vec()
 template<typename T>
 Vec<T>::Vec(Vec<T>& old)
 {
-    image=old.image+1;
     atoms=old.atoms;
     
     dim=old.dim;
@@ -692,7 +690,6 @@ Vec<T>::Vec(Vec<T>& old)
 template<typename T>
 Vec<T>::Vec(const Vec<T>&& old)
 {
-    image=old.image+1;
     atoms=old.atoms;
     
     dim=old.dim;
@@ -712,8 +709,6 @@ Vec<T>::Vec(const Vec<T>&& old)
 template<typename T>
 inline Vec<T>::~Vec()
 {
-    if(image) return;
-    
     if(vec_cpcty)
         delete [] vec;
     delete [] name;

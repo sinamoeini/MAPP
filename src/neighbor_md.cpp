@@ -53,10 +53,9 @@ void Neighbor_md::fin()
 void Neighbor_md::create_list(bool box_change)
 {
     timer->start(NEIGH_TIME_mode);
-
+    
     cell->create(box_change);
     atoms->s2x(atoms->natms+atoms->natms_ph);
-    
     
     if(neighbor_list_size_size)
     {
@@ -94,8 +93,6 @@ void Neighbor_md::create_list(bool box_change)
             for(;jatm!=-1;cell->nxt_j())
             {
                 if(jatm<=iatm) continue;
-                
-
                 if(rsq>=cut_sk_sq[type[iatm]][type[jatm]]) continue;
                 tmp_neigh_list[neighbor_list_size[iatm]]=jatm;
                 neighbor_list_size[iatm]++;

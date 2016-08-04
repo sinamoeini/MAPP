@@ -330,10 +330,10 @@ void MD_nh::run(int no_stps)
             if(gcmc && i%xchng_every==0)
             {
                 gcmc->xchng(false,nxchng_attmpts);
-                no_dof+=gcmc->dof_diff;
+                no_dof+=static_cast<type0>(gcmc->dof_diff);
                 ke_tar=t_tar*boltz*no_dof;
                 thermo->update(count_idx,static_cast<type0>(gcmc->tot_ngas));
-                if(no_dof==0.0)
+                if(no_dof<=0.0)
                     error->abort("degrees of freedom shoud be greater than 0 for md nh");
             }
             else

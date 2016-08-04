@@ -949,11 +949,7 @@ void ForceField_eam_dmd::dc()
             d_j/=alpha_j*alpha_j*alpha_j;
             
             dc_ij=d_i*exp(-Qi)*c[ic_dim]*cv[jatm]-d_j*exp(-Qi+mu_ji)*c[jc_dim]*cv[iatm];
-            /*
-            printf("%e dj %e  Qi %e %e \n",d_i*exp(-Qi)*c[ic_dim]*cv[jatm],d_i,Qi,c[ic_dim]*cv[jatm]);
-            printf("%e dj %e  Qi %e %e \n",-d_j*exp(-Qi+mu_ji)*c[jc_dim]*cv[iatm],d_j,Qi-mu_ji,c[jc_dim]*cv[iatm]);
-            printf("mu_i %e mu_j %e\n",mu[ic_dim]+kbT*log(c[ic_dim])-kbT*log(cv[iatm])-3.0*kbT*log(alpha_i),mu[jc_dim]+kbT*log(c[jc_dim])-kbT*log(cv[jatm])-3.0*kbT*log(alpha_j));
-             */
+
             c_d[ic_dim]+=dc_ij;
             if(jc_dim<natms*c_dim)
             {

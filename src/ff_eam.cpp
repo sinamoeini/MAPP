@@ -607,9 +607,9 @@ void ForceField_eam::init_xchng()
  --------------------------------------------*/
 void ForceField_eam::fin_xchng()
 {
-    delete F_ptr;
-    delete rho_xchng_ptr;
     delete F_xchng_ptr;
+    delete rho_xchng_ptr;
+    delete F_ptr;
 }
 /*--------------------------------------------
  destructor
