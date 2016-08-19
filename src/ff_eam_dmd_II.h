@@ -126,6 +126,10 @@ namespace MAPP_NS
         void operator()(Vec<type0>*,Vec<type0>*);
         void init_static();
         type0 update_J(type0,type0*,type0*);
+        
+        void pre_gcmc_energy(GCMC*){};
+        type0 gcmc_energy(GCMC*){return 0;};
+        void post_gcmc_energy(GCMC*){};
     };
 }
 #endif

@@ -193,6 +193,10 @@ namespace MAPP_NS
         void init_xchng();
         void fin_xchng();
         void coef(int,char**);
+        
+        void pre_gcmc_energy(GCMC*){};
+        type0 gcmc_energy(GCMC*){return 0;};
+        void post_gcmc_energy(GCMC*){};
 
     };
 }

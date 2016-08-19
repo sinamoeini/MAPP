@@ -6,6 +6,8 @@
 #define __MAPP__ff__
 #include "init.h"
 #include "gcmc.h"
+#include "pgcmc.h"
+
 namespace MAPP_NS {
     class ForceField : protected InitPtrs{
     private:
@@ -41,6 +43,14 @@ namespace MAPP_NS {
         void xchng_energy_timer(GCMC*);
         Vec<type0>* f;
         type0* nrgy_strss;
+        
+        int gcmc_n_vars;
+        int gcmc_n_cutoff;
+        bool gcmc_tag_enabled;
+        
+        virtual void pre_gcmc_energy(GCMC*)=0;
+        virtual type0 gcmc_energy(GCMC*)=0;
+        virtual void post_gcmc_energy(GCMC*)=0;
     };
 }
 

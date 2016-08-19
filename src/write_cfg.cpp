@@ -14,7 +14,7 @@ Write_cfg::Write_cfg(MAPP* mapp,int nargs
     thresh=1.0;
     strech=1.0;
     usr_nabled=0;
-    sorting=0;
+    sorting=false;
     ndump_vecs=0;
     ndump_vecs_names=0;
     dim=3;
@@ -50,7 +50,7 @@ Write_cfg::Write_cfg(MAPP* mapp,int nargs
     {
         if(strcmp(args[iarg],"sort")==0)
         {
-            sorting=1;
+            sorting=true;
             iarg++;
         }
         else if(strcmp(args[iarg],"usr")==0)
@@ -140,7 +140,17 @@ void Write_cfg::write_file_md(int stp)
 {
     for(int ivec=0;ivec<ndump_vecs;ivec++)
         dump_vecs[ivec]->gather_dump();
-        
+    
+    int max_id=0;
+    if(sorting)
+    {
+        int* id=mapp->id->begin();
+        int max_id_=-1;
+        for(int i=0;i<atoms->natms;i++) max_id_=MAX(max_id_,id[i]);
+        MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
+    }
+    
+    
     FILE* fp;
     FILE* fp_usr;
     open_write(stp,fp,fp_usr);
@@ -186,16 +196,19 @@ void Write_cfg::write_file_md(int stp)
             int tot_natms=atoms->tot_natms;
             int* id=mapp->id->begin_dump();
             int* sort;
-            CREATE1D(sort,tot_natms);
+            CREATE1D(sort,max_id);
+            for(int i=0;i<max_id;i++)
+                sort[i]=-1;
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
             
             md_type* type=mapp->type->begin_dump();
             md_type itype=-1;
             int iatm;
-            for(int i=0;i<tot_natms;i++)
+            for(int i=0;i<max_id;i++)
             {
                 iatm=sort[i];
+                if(iatm==-1) continue;
                 if(type[iatm]!=itype)
                 {
                     itype=type[iatm];
@@ -215,8 +228,7 @@ void Write_cfg::write_file_md(int stp)
             }
             
             
-            if(tot_natms)
-                delete [] sort;
+            if(max_id) delete [] sort;
         }
         else
         {
@@ -322,6 +334,15 @@ void Write_cfg::write_file_dmd(int stp)
     for(int ivec=0;ivec<ndump_vecs;ivec++)
         dump_vecs[ivec]->gather_dump(mapp->ctype);
 
+    int max_id=0;
+    if(sorting)
+    {
+        int* id=mapp->id->begin();
+        int max_id_=-1;
+        for(int i=0;i<atoms->natms;i++) max_id_=MAX(max_id_,id[i]);
+        MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
+    }
+    
     FILE* fp;
     FILE* fp_usr;
     open_write(stp,fp,fp_usr);
@@ -387,16 +408,19 @@ void Write_cfg::write_file_dmd(int stp)
             int* id=mapp->id->begin_dump();
             int* sort;
             
-            CREATE1D(sort,tot_natms);
+            CREATE1D(sort,max_id);
+            for(int i=0;i<max_id;i++)
+                sort[i]=-1;
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
             
             int itype=atom_types->no_types-1;
             int jtype;
             int iatm;
-            for(int i=0;i<tot_natms;i++)
+            for(int i=0;i<max_id;i++)
             {
                 iatm=sort[i];
+                if(iatm==-1) continue;
                 jtype=find_type(&c[iatm*c_dim],clr_r);
                 if(jtype!=itype)
                 {
@@ -416,8 +440,7 @@ void Write_cfg::write_file_dmd(int stp)
                 }
             }
             
-            if(tot_natms)
-                delete [] sort;
+            if(max_id) delete [] sort;
         }
         else
         {
@@ -614,7 +637,7 @@ void Write_cfg::fin()
     ndump_vecs=ndump_vecs_;
 }
 /*--------------------------------------------
- init()
+
  --------------------------------------------*/
 void Write_cfg::add_to_dump_vec_nams(const char* name)
 {

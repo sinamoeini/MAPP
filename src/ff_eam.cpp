@@ -14,6 +14,10 @@ enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 ForceField_eam::
 ForceField_eam(MAPP* mapp):ForceFieldMD(mapp)
 {
+    gcmc_n_cutoff=2;
+    gcmc_n_vars=2;
+    gcmc_tag_enabled=true;
+
     if(mapp->mode!=MD_mode)
         error->abort("ff eam works only "
         "for md mode");
@@ -314,14 +318,11 @@ type0 ForceField_eam::energy_calc()
         coef=F_arr[itype][m];
         tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
         if(rho[iatm]>rho_max)
-        {
-            //tmp0+=((3.0*coef[3]*p+2.0*coef[2])*p+coef[1])*dr_inv*(rho[iatm]-rho_max);
             tmp0+=((coef[6]*p+coef[5])*p+coef[4])*(rho[iatm]-rho_max);
-        }
         en+=tmp0;
 
     }
-    
+
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     return en_tot;
 }
@@ -331,14 +332,8 @@ type0 ForceField_eam::energy_calc()
  --------------------------------------------*/
 void ForceField_eam::xchng_energy(GCMC* gcmc)
 {
-    type0 en=0.0,en_tot=0.0;
     
-    if(gcmc->iatm==-1)
-    {
-        MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
-        gcmc->decide(en_tot);
-        return;
-    }
+    type0 en=0.0,en_tot=0.0;
     
     int& iatm=gcmc->iatm;
     md_type& itype=gcmc->itype;
@@ -348,19 +343,18 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
     
     type0&rsq=gcmc->rsq;
     
-    int natms=atoms->natms;
     type0* rho=rho_ptr->begin();
     type0* F=F_ptr->begin();
     type0* rho_xchng=rho_xchng_ptr->begin();
     type0* F_xchng=F_xchng_ptr->begin();
-    type0 rho_iatm=0.0,F_iatm=0.0;
-    type0 r,p,phi;
+    type0 rho_iatm=0.0,F_iatm=0.0,rho_iatm_lcl=0.0;
+    type0 r,p;
     int m;
     type0* coef;
-    
-    if(gcmc->first_atm_lcl)
-    {
-        for(;jatm!=-1;gcmc->next_jatm())
+    int natms=atoms->natms;
+
+    for(gcmc->reset_iatm();iatm!=-1;gcmc->next_iatm())
+        for(gcmc->reset_jatm();jatm!=-1;gcmc->next_jatm())
         {
             r=sqrt(rsq);
             
@@ -371,20 +365,24 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
             p=MIN(p,1.0);
             
             coef=phi_r_arr[type2phi[itype][jtype]][m];
-            phi=(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
             
-            coef=rho_arr[type2rho[jtype][itype]][m];
-            rho_iatm+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-                
             if(jatm<natms)
             {
+                en+=(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
                 coef=rho_arr[type2rho[itype][jtype]][m];
                 rho_xchng[jatm]+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-                en+=phi;
             }
             else
-                en+=0.5*phi;
+                en+=0.5*(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
+            
+            coef=rho_arr[type2rho[jtype][itype]][m];
+            rho_iatm_lcl+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
         }
+    
+    MPI_Allreduce(&rho_iatm_lcl,&rho_iatm,1,MPI_TYPE0,MPI_SUM,world);
+    
+    if(gcmc->im_root)
+    {
         p=rho_iatm*drho_inv;
         m=static_cast<int>(p);
         m=MIN(m,nrho-2);
@@ -392,79 +390,42 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
         p=MIN(p,1.0);
         coef=F_arr[itype][m];
         F_iatm=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+        if(rho_iatm>rho_max)
+            F_iatm+=((coef[6]*p+coef[5])*p+coef[4])*(rho_iatm-rho_max);
+        
         en+=F_iatm;
-        gcmc->next_iatm();
     }
-    
-    for(;iatm!=-1;gcmc->next_iatm())
-        for(;jatm!=-1;gcmc->next_jatm())
-        {
-            r=sqrt(rsq);
-            
-            p=r*dr_inv;
-            m=static_cast<int>(p);
-            m=MIN(m,nr-2);
-            p-=m;
-            p=MIN(p,1.0);
-            
-            coef=phi_r_arr[type2phi[itype][jtype]][m];
-            
-            en+=0.5*(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
-            
-            coef=rho_arr[type2rho[itype][jtype]][m];
-            rho_xchng[jatm]+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-        }
-    
     
     md_type* type=mapp->type->begin();
-    if(gcmc->xchng_mode==INS_MODE)
-    {
-        for(int i=0;i<natms;i++)
+    type0 tmp0,c0=1.0,en0=0.0;
+    if(gcmc->xchng_mode==DEL_MODE) c0=-1.0;
+    
+    for(int i=0;i<natms;i++)
+        if(rho_xchng[i])
         {
-            if(rho_xchng[i])
-            {
-                rho_xchng[i]+=rho[i];
-                
-                p=rho_xchng[i]*drho_inv;
-                m=static_cast<int>(p);
-                m=MIN(m,nrho-2);
-                p-=m;
-                p=MIN(p,1.0);
-                coef=F_arr[type[i]][m];
-                F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-                en+=F_xchng[i]-F[i];
-            }
+            tmp0=rho[i]+c0*rho_xchng[i];
+            p=tmp0*drho_inv;
+            m=static_cast<int>(p);
+            m=MIN(m,nrho-2);
+            p-=m;
+            p=MIN(p,1.0);
+            coef=F_arr[type[i]][m];
+            F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+            if(tmp0>rho_max)
+                F_xchng[i]+=((coef[6]*p+coef[5])*p+coef[4])*(tmp0-rho_max);
+            en0+=F_xchng[i]-F[i];
         }
-    }
-    else
-    {
-        for(int i=0;i<natms;i++)
-        {
-            if(rho_xchng[i])
-            {
-                rho_xchng[i]=rho[i]-rho_xchng[i];
-                
-                p=rho_xchng[i]*drho_inv;
-                m=static_cast<int>(p);
-                m=MIN(m,nrho-2);
-                if(m<0)
-                    error->abort("in delettion there is a problem "
-                    "encoutered engative electron density");
-                p-=m;
-                p=MIN(p,1.0);
-                coef=F_arr[type[i]][m];
-                F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
-                en+=F[i]-F_xchng[i];
-            }
-        }
-    }
+    
+    if(gcmc->xchng_mode==DEL_MODE)
+        en0*=-1.0;
+
+    en+=en0;
+
     
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     
-    
     bool succ=gcmc->decide(en_tot);
     
-    //after determining wether the exchange was successfull or not
     if(succ)
     {
         natms=atoms->natms;
@@ -474,17 +435,13 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
         rho_xchng=rho_xchng_ptr->begin();
         F_xchng=F_xchng_ptr->begin();
         for(int i=0;i<natms;i++)
-        {
             if(rho_xchng[i])
             {
-                rho[i]=rho_xchng[i];
+                rho[i]+=c0*rho_xchng[i];
                 F[i]=F_xchng[i];
-                rho_xchng[i]=F_xchng[i]=0.0;
             }
-        }
         
-        //insertion success
-        if(gcmc->first_atm_lcl && gcmc->xchng_mode==INS_MODE)
+        if(gcmc->im_root && gcmc->xchng_mode==INS_MODE)
         {
             rho[natms-1]=rho_iatm;
             F[natms-1]=F_iatm;
@@ -500,6 +457,176 @@ void ForceField_eam::xchng_energy(GCMC* gcmc)
         for(int i=0;i<natms;i++)
             rho_xchng[i]=F_xchng[i]=0.0;
     }
+    
+}
+/*--------------------------------------------
+ pre gcmc energy claculate the increase or
+ decrease in electron density
+ --------------------------------------------*/
+void ForceField_eam::pre_gcmc_energy(GCMC* gcmc)
+{
+    int& icomm=gcmc->icomm;
+    type0 en;
+    type0 rho_iatm_lcl;
+    
+    int& iatm=gcmc->iatm;
+    md_type& itype=gcmc->itype;
+    
+    int& jatm=gcmc->jatm;
+    md_type& jtype=gcmc->jtype;
+    
+    type0&rsq=gcmc->rsq;
+    
+    type0 r,p;
+    int m;
+    type0* coef;
+    type0 c0=1.0,en0=0.0;
+    
+    type0* rho=rho_ptr->begin();
+    type0* rho_xchng=rho_xchng_ptr->begin();
+    int natms=atoms->natms;
+    int* tag=gcmc->tag_vec_p->begin();
+    for(int i=0;i<natms;i++)
+        rho_xchng[i]=rho[i];
+    
+    for(gcmc->reset_icomm();icomm!=-1;gcmc->next_icomm())
+    {
+        c0=1.0;
+        if(gcmc->xchng_mode==DEL_MODE)
+            c0=-1.0;
+        
+        en=rho_iatm_lcl=0.0;
+        for(gcmc->reset_iatm();iatm!=-1;gcmc->next_iatm())
+            for(gcmc->reset_jatm();jatm!=-1;gcmc->next_jatm())
+            {
+                r=sqrt(rsq);
+                
+                p=r*dr_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nr-2);
+                p-=m;
+                p=MIN(p,1.0);
+                
+                coef=phi_r_arr[type2phi[itype][jtype]][m];
+                
+                if(jatm<natms)
+                {
+                    en+=(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
+                    coef=rho_arr[type2rho[itype][jtype]][m];
+                    rho_xchng[jatm]+=c0*(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0]);
+                }
+                else
+                    en+=0.5*(((coef[3]*p+coef[2])*p+coef[1])*p+coef[0])/r;
+                
+                
+                coef=rho_arr[type2rho[jtype][itype]][m];
+                rho_iatm_lcl+=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+            }
+        
+        
+        
+        type0* F=F_ptr->begin();
+        type0* F_xchng=F_xchng_ptr->begin();
+        md_type* type=mapp->type->begin();
+        
+        type0 tmp0;
+        en0=0.0;
+        for(int i=0;i<natms;i++)
+            if(tag[i]==icomm)
+            {
+                tmp0=rho_xchng[i];
+                p=tmp0*drho_inv;
+                m=static_cast<int>(p);
+                m=MIN(m,nrho-2);
+                p-=m;
+                p=MIN(p,1.0);
+                coef=F_arr[type[i]][m];
+                F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+                if(tmp0>rho_max)
+                    F_xchng[i]+=((coef[6]*p+coef[5])*p+coef[4])*(tmp0-rho_max);
+                en0+=F_xchng[i]-F[i];
+            }
+        
+        en+=en0*c0;
+        
+        gcmc->lcl_vars[0]=en;
+        gcmc->lcl_vars[1]=rho_iatm_lcl;
+        
+    }
+
+}
+/*--------------------------------------------
+ calculate the energy if I am root if not
+ pass the lcl variables
+ --------------------------------------------*/
+type0 ForceField_eam::gcmc_energy(GCMC* gcmc)
+{
+    
+    int& icomm=gcmc->icomm;
+    for(gcmc->reset_icomm();icomm!=-1;gcmc->next_icomm())
+        MPI_Reduce(gcmc->lcl_vars,gcmc->vars,2,MPI_TYPE0,MPI_SUM,gcmc->curr_root,*gcmc->curr_comm);
+ 
+    
+    if(gcmc->im_root)
+    {
+        //restart the comms
+        gcmc->reset_icomm();
+        type0 rho_iatm,en;
+        int m;
+        type0* coef;
+        
+        en=gcmc->vars[0];
+        rho_iatm=gcmc->vars[1];
+        type0 p=rho_iatm*drho_inv;
+        m=static_cast<int>(p);
+        m=MIN(m,nrho-2);
+        p-=m;
+        p=MIN(p,1.0);
+        coef=F_arr[gcmc->itype][m];
+        type0 F_iatm=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+        if(rho_iatm>rho_max)
+            F_iatm+=((coef[6]*p+coef[5])*p+coef[4])*(rho_iatm-rho_max);
+        
+        en+=F_iatm;
+        return en;
+    }
+    
+    return 0.0;
+}
+/*--------------------------------------------
+ calculate the energy if I am root if not
+ pass the lcl variables
+ --------------------------------------------*/
+void ForceField_eam::post_gcmc_energy(GCMC* gcmc)
+{
+    int* tag=gcmc->tag_vec_p->begin();
+    type0* rho=rho_ptr->begin();
+    type0* F=F_ptr->begin();
+    
+    type0* rho_xchng=rho_xchng_ptr->begin();
+    type0* F_xchng=F_xchng_ptr->begin();
+    int natms=atoms->natms;
+    for(int i=0;i<natms;i++)
+        if(tag[i]==0)
+        {
+            rho[i]=rho_xchng[i];
+            F[i]=F_xchng[i];
+        }
+    
+    if(gcmc->im_root && gcmc->xchng_mode==INS_MODE && gcmc->root_succ)
+    {
+        rho[natms-1]=gcmc->vars[1];
+        type0 p=rho[natms-1]*drho_inv;
+        int m=static_cast<int>(p);
+        m=MIN(m,nrho-2);
+        p-=m;
+        p=MIN(p,1.0);
+        type0* coef=F_arr[gcmc->itype][m];
+        F[natms-1]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
+        if(rho[natms-1]>rho_max)
+            F[natms-1]+=((coef[6]*p+coef[5])*p+coef[4])*(rho[natms-1]-rho_max);
+    }
+
 }
 /*--------------------------------------------
  init before running

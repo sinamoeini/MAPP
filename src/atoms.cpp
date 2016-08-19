@@ -1833,12 +1833,11 @@ void Atoms::insert(byte* buff,vec** vecs_,int nvecs_,int natms_)
  *** we might need a better name for this 
  function
  --------------------------------------------*/
-void Atoms::add(int no_lcl,int no_ph)
+void Atoms::add()
 {
     for(int i=0;i<nvecs;i++)
-        vecs[i]->add(no_lcl,no_ph);
-    natms+=no_lcl;
-    natms_ph+=no_ph;
+        vecs[i]->add();
+    natms++;
 }
 /*--------------------------------------------
  delete some local atoms and phantom atoms; 
@@ -1851,12 +1850,11 @@ void Atoms::add(int no_lcl,int no_ph)
  *** we might need a better name for this
  function
  --------------------------------------------*/
-void Atoms::del(int* lcl_lst,int no_lcl,int* ph_lst,int no_ph)
+void Atoms::del(int& del_idx)
 {
     for(int i=0;i<nvecs;i++)
-        vecs[i]->del(lcl_lst,no_lcl,ph_lst,no_ph);
-    natms-=no_lcl;
-    natms_ph-=no_ph;
+        vecs[i]->del(del_idx);
+    natms--;
 }
 /*--------------------------------------------
  restart
@@ -2258,12 +2256,6 @@ void Atoms::init_xchng()
 void Atoms::fin_xchng()
 {
     timer->start(COMM_TIME_mode);
-    x2s(natms);
-    for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
-        vecs[ivec]->resize(natms);
-    xchng->full_xchng();
-    natms=x->vec_sz;
-    natms_ph=0;
     swap->list();
     neighbor->create_list(box_chng);
     

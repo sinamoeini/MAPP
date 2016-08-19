@@ -7,7 +7,8 @@
 #include "init.h"
 namespace MAPP_NS
 {
-    enum{INS_MODE,DEL_MODE};
+    enum{NOEX_MODE,INS_MODE,DEL_MODE};
+    enum{MINE_FLAG,INTERACT_FLAG,NONEINTERACT_FLAG};
     /*--------------------------------------------
      allocation for this constructor has 3 levels:
      
@@ -50,16 +51,14 @@ namespace MAPP_NS
     class GCMC:protected InitPtrs
     {
     private:
-        const int x_dim;
+    protected:
         const int dim;
-        const int m;
         
-        
+        int igas,gas_id,ngas;
         md_type gas_type;
-        int igas,gas_id,ngas,ngas_before;
         type0 vol;
         //constants
-        type0 gas_mass,beta,kbT,T,mu,lambda,sigma,z_fac,zz_fac;
+        type0 gas_mass,beta,kbT,T,mu,lambda,sigma,z_fac;
         
         int& natms;
         int& natms_ph;
@@ -69,94 +68,58 @@ namespace MAPP_NS
         type0*& s_hi;
         
         // size dim
+        type0* s_buff;
         type0* vel_buff;
         type0* cut_s;
         type0* s_lo_ph;
         type0* s_hi_ph;
-        type0* cell_size;
-        int* ncells_per_dim;
-        int* cell_denom;
-        int* icell_coord;
-        int* jcell_coord;
+        
         int** nimages_per_dim;
-        type0** ins_s_trials;
-        int* rel_neigh_lst_coord;
-        int* rel_neigh_lst;
+        type0** s_trials;
+
         
-        
-        int* head_atm;
-        //type0* *ins_s_trials;
-        int* ins_cell;
-        int* ins_cell_coord;
-        type0* ins_buff;
-        int* del_lst;
+        int del_idx;
         
         int* del_ids;
         int del_ids_sz,del_ids_cpcty;
         int max_id;
-        void add_del_id();
-        int get_new_id();
-        
-        // self interaction
-        int iself;
+
+        Vec<type0>* s_vec_p;
+
         
         
-        int ineigh;
-        int nneighs;
-        
-        
-        int icell,jcell;
-        int ncells;
-        
-    
-        Vec<int>* cell_vec_p;
-        Vec<int>* next_vec_p;
-        
-        void find_cell_no(type0*&,int&);
-        void find_cell_coord(type0&,int&,int&);
-        
-        void next_iatm_ins();
-        void next_iatm_del();
-        void next_jcell_all();
-        void next_jcell_lcl();
-        void next_jatm_all();
-        void next_jatm_self();
-        void next_jatm_lcl();
-        void (GCMC::*next_jatm_p)();
         class Random* random;
         
-        void refresh();
         
-        void ins_attmpt();
-        void ins_succ();
+        int itrial_atm,ntrial_atms,max_ntrial_atms;
+        
+        virtual void ins_succ()=0;
+        virtual void del_succ()=0;
+        virtual void box_setup();
+        virtual void box_dismantle();
+        void add_del_id();
+        int get_new_id();
 
-        void del_attmpt();
-        void del_succ();
-        
-        
-        int itrial_atm;
-        int ntrial_atms;
-        void box_setup();
-        
-    protected:
     public:
-        GCMC(MAPP*,int,dmd_type,type0,type0,int);
+        GCMC(MAPP*,dmd_type,type0,type0,int);
         ~GCMC();
         
-        void init();
-        void fin();
+        virtual void init();
+        virtual void fin();
+        virtual void xchng(bool,int)=0;
+        virtual void next_iatm()=0;
+        virtual void next_jatm()=0;
+        virtual void next_icomm()=0;
         
+        virtual void reset_iatm()=0;
+        virtual void reset_jatm()=0;
+        virtual void reset_icomm()=0;
         
-        void xchng(bool,int);
-        
-
-        void next_iatm();
-        void next_jatm();
         
         bool decide(type0&);
 
-        bool first_atm_lcl;
         int iatm;
+        int niatms;
         md_type& itype;
         type0* ix;
         type0* jx;
@@ -166,6 +129,15 @@ namespace MAPP_NS
         int xchng_mode;
         int dof_diff;
         int tot_ngas;
+        bool im_root;
+
+        Vec<int>* tag_vec_p;
+        int icomm;
+        type0* lcl_vars;
+        type0* vars;
+        MPI_Comm* curr_comm;
+        int curr_root;
+        bool root_succ;
     };
     
     

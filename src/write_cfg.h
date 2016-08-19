@@ -17,7 +17,7 @@ namespace MAPP_NS
         int ndump_vecs_names;
         
         char* file_name;
-        int sorting;
+        bool sorting;
         int usr_nabled;
         int tot_dim;
         int dim;

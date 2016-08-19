@@ -14,7 +14,11 @@
 #include "neighbor.h"
 #include "thermo_dynamics.h"
 #include "cmd.h"
-#include "gcmc.h"
+#include "sgcmc.h"
+#include "pgcmc.h"
+
+
+
 using namespace MAPP_NS;
 enum {NONE,X,Y,XY,Z,ZX,YZ,XYZ,TAU};
 /*--------------------------------------------
@@ -46,7 +50,7 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
     cmd(nargs,args);
     if(xchng_seed)
     {
-        gcmc=new GCMC(mapp,3,gas_type,mu,t_tar,xchng_seed);
+        gcmc=new SGCMC(mapp,1,gas_type,mu,t_tar,xchng_seed);
         count_idx=thermo->add("count");
     }
 }

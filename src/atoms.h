@@ -51,8 +51,8 @@ namespace MAPP_NS {
         virtual void rearrange(int*,int*,int,int)=0;
         virtual void pst_to(byte*&,int)=0;
 
-        virtual void del(int*,int,int*,int)=0;
-        virtual void add(int,int)=0;
+        virtual void del(int&)=0;
+        virtual void add()=0;
         
         virtual void pop_out(byte*&,int)=0;
         virtual void pop_in(byte*&)=0;
@@ -114,8 +114,8 @@ namespace MAPP_NS
         void pst_to(byte*&,int);
         
         // these two come in pair for gcmc
-        void del(int*,int,int*,int);
-        void add(int,int);
+        void del(int&);
+        void add();
         
         // these two come in pair for exchange atoms one by one
         void pop_out(byte*&,int);
@@ -170,9 +170,7 @@ namespace MAPP_NS
         Timer*& timer;
         FILE*& output;
         
-        Communincation* comm;
-        Xchng* xchng;
-        Swap* swap;
+        
         
         bool box_chng;
         bool grid_established;
@@ -188,6 +186,11 @@ namespace MAPP_NS
         void re_arrange(vec**,int);
     protected:
     public:
+        
+        Communincation* comm;
+        Xchng* xchng;
+        Swap* swap;
+        
         MPI_Comm& world;
         vec** vecs;
         int nvecs;
@@ -228,8 +231,8 @@ namespace MAPP_NS
         void auto_grid();
         void man_grid(int*);
         void insert(byte*,vec**,int,int);
-        void add(int,int);
-        void del(int*,int,int*,int);
+        void add();
+        void del(int&);
         void init_xchng();
         void fin_xchng();
         
@@ -239,6 +242,7 @@ namespace MAPP_NS
         void update(vec*);
         void reset();
         bool xchng_chk(unsigned long&);
+        
     };
 }
 /*------------------------------------------------------------------------------------------------------------------------
@@ -1235,27 +1239,9 @@ void Vec<T>::print_dump(FILE* fp,int iatm)
  function
  --------------------------------------------*/
 template<typename T>
-inline void Vec<T>::add(int no_lcl,int no_ph)
+inline void Vec<T>::add()
 {
-    int natms=atoms->natms;
-    int natms_ph=atoms->natms_ph;
-    if(vec_sz==natms)
-    {
-        reserve(no_lcl);
-        vec_sz+=no_lcl;
-    }
-    else
-    {
-        reserve(no_lcl+no_ph);
-        if(no_lcl)
-        {
-            if(no_lcl<natms_ph)
-                memcpy(vec+(natms+natms_ph)*dim,vec+natms*dim,byte_sz*no_lcl);
-            else
-                memcpy(vec+(natms+no_lcl)*dim,vec+natms*dim,byte_sz*natms_ph);
-        }
-        vec_sz+=no_lcl+no_ph;
-    }
+    resize(vec_sz+1);
 }
 /*--------------------------------------------
  delete some local atoms and phantom atoms;
@@ -1269,41 +1255,11 @@ inline void Vec<T>::add(int no_lcl,int no_ph)
  function
  --------------------------------------------*/
 template<typename T>
-inline void Vec<T>::del(int* lcl_lst,int no_lcl,int* ph_lst,int no_ph)
+inline void Vec<T>::del(int &del_idx)
 {
-    int natms=atoms->natms;
-    int nall=atoms->natms+atoms->natms_ph;
-    
-    for(int i=no_lcl-1;i>-1;i--)
-    {
-        memcpy(vec+dim*lcl_lst[i],vec+(natms-1)*dim,byte_sz);
-        natms--;
-    }
-    
-    if(vec_sz==nall)
-    {
-        for(int i=no_ph-1;i>-1;i--)
-        {
-            memcpy(vec+dim*ph_lst[i],vec+(nall-1)*dim,byte_sz);
-            nall--;
-        }
-        
-        int natms_ph=atoms->natms_ph-no_ph;
-        
-        if(no_lcl)
-        {
-            if(no_lcl<natms_ph)
-                memcpy(vec+dim*natms,vec+(natms+natms_ph)*dim,byte_sz*no_lcl);
-            else
-                memcpy(vec+dim*natms,vec+(natms+no_lcl)*dim,byte_sz*natms_ph);
-        }
-        
-        
-        vec_sz-=no_lcl+no_ph;
-    }
-    else
-        vec_sz-=no_lcl;
-    
+    vec_sz--;
+    if(del_idx==vec_sz) return;
+    memcpy(vec+del_idx*dim,vec+vec_sz*dim,byte_sz);
 }
 /*-----------------------------------------------------------------
  _____  __    __  _____   _   _       ___   __   _   _____   _____  

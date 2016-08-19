@@ -14,6 +14,8 @@ using namespace MAPP_NS;
 ForceField::
 ForceField(MAPP* mapp) : InitPtrs(mapp)
 {
+    gcmc_tag_enabled=false;
+    gcmc_n_vars=gcmc_n_cutoff=1;
     cut_sz=0;
     ns_alloc=0;
     cut=NULL;
