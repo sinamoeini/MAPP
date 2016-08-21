@@ -76,6 +76,7 @@ namespace MAPP_NS
         
         
         int icell,jcell;
+        int jatm_next;
         int ncells;
         
     

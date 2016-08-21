@@ -91,6 +91,7 @@ namespace MAPP_NS
         int* int_buff;
         int int_buff_sz;
         
+        int jatm_next;
         int iself;
         int ineigh;
         int nneighs;

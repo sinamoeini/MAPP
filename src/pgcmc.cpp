@@ -505,118 +505,90 @@ inline void PGCMC::next_jcell()
  --------------------------------------------*/
 void PGCMC::reset_jatm()
 {
-    ineigh=-1;
-    
-    next_jcell();
-    if(jcell==-1)
-    {
-        if(itrial_atm==0 && im_root)
-        {
-            iself=0;
-            next_jatm_p=&PGCMC::next_jatm_self;
-            return next_jatm_self();
-        }
-        else
-        {
-            jatm=-1;
-            return;
-        }
-        
-    }
-    
-    /*--------------------------------------------------
-     if we get the same atom or a phantom atom we need
-     to go to the next local atom
-     --------------------------------------------------*/
-    if(jatm==iatm)
-        return next_jatm_reg();
-    
-    jx=mapp->x->begin()+dim*jatm;
-    jtype=mapp->type->begin()[jatm];
-    rsq=0.0;
-    for(int i=0;i<dim;i++)
-        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
-    /*--------------------------------------------------
-     if we get an atom that is non-interacting we need
-     to go the next local atom
-     --------------------------------------------------*/
-    if(rsq>=cut_sq[itype][jtype])
-        return next_jatm_reg();
-    if(tag_vec_p) tag_vec_p->begin()[jatm]=icomm;
+    ineigh=0;
+    jatm_next=-1;
+    next_jatm_reg();
 }
 /*--------------------------------------------
  find the next lcl atom
  --------------------------------------------*/
 inline void PGCMC::next_jatm_reg()
 {
-    if(next_vec_p->begin()[jatm]==-1)
+    while(true)
     {
-        next_jcell();
-        if(jcell==-1)
+        while(jatm_next==-1 && ineigh<nneighs)
         {
+            bool lcl=true;
+            jcell=0;
+            for(int i=0;i<dim && lcl;i++)
+            {
+                jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*dim+i];
+                jcell+=cell_denom[i]*jcell_coord[i];
+                
+                if(jcell_coord[i]<0 || jcell_coord[i]>ncells_per_dim[i]-1)
+                    lcl=false;
+            }
+            
+            if(lcl)
+                jatm_next=head_atm[jcell];
+            ineigh++;
+        }
+        
+        jatm=jatm_next;
+        if(jatm==-1)
+        {
+            
             if(itrial_atm==0 && im_root)
             {
                 iself=0;
                 next_jatm_p=&PGCMC::next_jatm_self;
                 return next_jatm_self();
             }
-            else
-            {
-                jatm=-1;
-                return;
-            }
-            
+            else return;
         }
-        else
-        {
-            if(jatm==iatm)
-                return next_jatm_reg();
-
-            jx=mapp->x->begin()+dim*jatm;
-            jtype=mapp->type->begin()[jatm];
-            rsq=0.0;
-            for(int i=0;i<dim;i++)
-                rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
-            if(rsq>=cut_sq[itype][jtype])
-                return next_jatm_reg();
-            if(tag_vec_p) tag_vec_p->begin()[jatm]=icomm;
-            return;
-        }
+        
+        jatm_next=next_vec_p->begin()[jatm];
+        
+        if(jatm==iatm) continue;
+        
+        jx=mapp->x->begin()+dim*jatm;
+        jtype=mapp->type->begin()[jatm];
+        
+        rsq=0.0;
+        for(int i=0;i<dim;i++) rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+        
+        if(rsq>=cut_sq[itype][jtype]) continue;
+        
+        if(tag_vec_p) tag_vec_p->begin()[jatm]=icomm;
+        return;
     }
-    
-    jatm=next_vec_p->begin()[jatm];
-    if(jatm==iatm)
-        return next_jatm_reg();
-    
-    jx=mapp->x->begin()+dim*jatm;
-    jtype=mapp->type->begin()[jatm];
-    rsq=0.0;
-    for(int i=0;i<dim;i++)
-        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
-    if(rsq>=cut_sq[itype][jtype])
-        return next_jatm_reg();
-    if(tag_vec_p) tag_vec_p->begin()[jatm]=icomm;
 }
 /*--------------------------------------------
  find the next interactin image atom
  --------------------------------------------*/
 inline void PGCMC::next_jatm_self()
 {
-    iself++;
-    if(iself==ntrial_atms[icomm])
+    while(true)
     {
-        next_jatm_p=&PGCMC::next_jatm_reg;
-        jatm=-1;
+        iself++;
+        if(iself==ntrial_atms[icomm])
+        {
+            next_jatm_p=&PGCMC::next_jatm_reg;
+            jatm=-1;
+            return;
+        }
+        
+        jatm=natms+iself;
+        jx=s_x_buff[icomm]+iself*dim;
+        jtype=gas_type;
+        rsq=0.0;
+        for(int i=0;i<dim;i++)
+            rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+        
+        if(rsq>=cut_sq[itype][jtype]) continue;
+        
         return;
     }
-    jatm=natms+iself;
-    jx=s_x_buff[icomm]+iself*dim;
-    jtype=gas_type;
-    rsq=0.0;
-    for(int i=0;i<dim;i++)
-        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
-    if(rsq>=cut_sq[itype][jtype])
-        next_jatm_self();
 }
 /*--------------------------------------------
  find the next interactin image atom

@@ -148,6 +148,7 @@ void Write_cfg::write_file_md(int stp)
         int max_id_=-1;
         for(int i=0;i<atoms->natms;i++) max_id_=MAX(max_id_,id[i]);
         MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
+        max_id++;
     }
     
     

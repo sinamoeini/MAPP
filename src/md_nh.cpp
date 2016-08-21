@@ -50,7 +50,7 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
     cmd(nargs,args);
     if(xchng_seed)
     {
-        gcmc=new SGCMC(mapp,1,gas_type,mu,t_tar,xchng_seed);
+        gcmc=new PGCMC(mapp,1,gas_type,mu,t_tar,xchng_seed);
         count_idx=thermo->add("count");
     }
 }
