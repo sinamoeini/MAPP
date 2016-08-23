@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "error.h"
 #include "memory.h"
+
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -139,10 +140,29 @@ type0 ForceField::energy_calc_timer()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void ForceField::xchng_energy_timer(GCMC* gcmc)
+void ForceFieldMD::pre_xchng_energy_timer(GCMC* gcmc)
 {
     timer->start(FORCE_TIME_mode);
-    xchng_energy(gcmc);
+    pre_xchng_energy(gcmc);
+    timer->stop(FORCE_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+type0 ForceFieldMD::xchng_energy_timer(GCMC* gcmc)
+{
+    timer->start(FORCE_TIME_mode);
+    type0 en=xchng_energy(gcmc);
+    timer->stop(FORCE_TIME_mode);
+    return en;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void ForceFieldMD::post_xchng_energy_timer(GCMC* gcmc)
+{
+    timer->start(FORCE_TIME_mode);
+    post_xchng_energy(gcmc);
     timer->stop(FORCE_TIME_mode);
 }
 /*--------------------------------------------

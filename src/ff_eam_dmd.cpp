@@ -549,14 +549,6 @@ type0 ForceField_eam_dmd::energy_calc()
     return en_tot;
 }
 /*--------------------------------------------
- calculate the exchange energy due to deletion
- or insertion
- --------------------------------------------*/
-void ForceField_eam_dmd::xchng_energy(GCMC*)
-{
-    error->abort("exchange has not been set for this forcefield");
-}
-/*--------------------------------------------
  init
  --------------------------------------------*/
 void ForceField_eam_dmd::init()

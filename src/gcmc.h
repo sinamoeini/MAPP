@@ -52,6 +52,8 @@ namespace MAPP_NS
     {
     private:
     protected:
+        class ForceFieldMD* ff;
+        
         const int dim;
         
         int igas,gas_id,ngas;
@@ -97,7 +99,7 @@ namespace MAPP_NS
         virtual void del_succ()=0;
         virtual void box_setup();
         virtual void box_dismantle();
-        void add_del_id();
+        void add_del_id(int*,int);
         int get_new_id();
 
     public:
@@ -115,9 +117,6 @@ namespace MAPP_NS
         virtual void reset_jatm()=0;
         virtual void reset_icomm()=0;
         
-        
-        bool decide(type0&);
-
         int iatm;
         int niatms;
         md_type& itype;

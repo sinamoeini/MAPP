@@ -202,7 +202,6 @@ void Write_cfg::write_file_md(int stp)
                 sort[i]=-1;
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
-            
             md_type* type=mapp->type->begin_dump();
             md_type itype=-1;
             int iatm;
@@ -342,6 +341,7 @@ void Write_cfg::write_file_dmd(int stp)
         int max_id_=-1;
         for(int i=0;i<atoms->natms;i++) max_id_=MAX(max_id_,id[i]);
         MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
+        max_id++;
     }
     
     FILE* fp;

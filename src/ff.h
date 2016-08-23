@@ -6,7 +6,6 @@
 #define __MAPP__ff__
 #include "init.h"
 #include "gcmc.h"
-#include "pgcmc.h"
 
 namespace MAPP_NS {
     class ForceField : protected InitPtrs{
@@ -21,7 +20,6 @@ namespace MAPP_NS {
         void cut_off_dealloc();
         virtual void force_calc(bool)=0;
         virtual type0 energy_calc()=0;
-        virtual void xchng_energy(GCMC*)=0;
     public:
         ForceField(MAPP *);
         virtual ~ForceField();
@@ -29,8 +27,6 @@ namespace MAPP_NS {
         
         virtual void init()=0;
         virtual void fin()=0;
-        virtual void init_xchng()=0;
-        virtual void fin_xchng()=0;
         virtual void coef(int,char**)=0;
         type0* rsq_crd;
         type0** cut;
@@ -40,7 +36,6 @@ namespace MAPP_NS {
 
         void force_calc_timer(bool);
         type0 energy_calc_timer();
-        void xchng_energy_timer(GCMC*);
         Vec<type0>* f;
         type0* nrgy_strss;
         
@@ -48,9 +43,7 @@ namespace MAPP_NS {
         int gcmc_n_cutoff;
         bool gcmc_tag_enabled;
         
-        virtual void pre_gcmc_energy(GCMC*)=0;
-        virtual type0 gcmc_energy(GCMC*)=0;
-        virtual void post_gcmc_energy(GCMC*)=0;
+        
     };
 }
 
@@ -60,9 +53,18 @@ namespace MAPP_NS
     {
     private:
     protected:
+        virtual void pre_xchng_energy(GCMC*)=0;
+        virtual type0 xchng_energy(GCMC*)=0;
+        virtual void post_xchng_energy(GCMC*)=0;
     public:
         ForceFieldMD(MAPP* mapp):ForceField(mapp){}
         virtual ~ForceFieldMD(){}
+        virtual void init_xchng()=0;
+        virtual void fin_xchng()=0;
+        
+        void pre_xchng_energy_timer(class GCMC*);
+        type0 xchng_energy_timer(class GCMC*);
+        void post_xchng_energy_timer(class GCMC*);
     };
 }
 

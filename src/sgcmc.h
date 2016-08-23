@@ -102,9 +102,6 @@ namespace MAPP_NS
         void attmpt();
         type0 delta_u;
     protected:
-        
-        void ins_attmpt();
-        void del_attmpt();
         void ins_succ();
         void del_succ();
         void box_setup();

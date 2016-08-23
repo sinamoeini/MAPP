@@ -139,6 +139,7 @@ namespace MAPP_NS
         void decide();
         void finalize();
         /*---------------------------------------------------------------------*/
+
     protected:
         
         void ins_attmpt();

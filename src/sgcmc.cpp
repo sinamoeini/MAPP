@@ -105,8 +105,8 @@ void SGCMC::init()
     MPI_Scan(&ngas,&ngas_before,1,MPI_INT,MPI_SUM,world);
     ngas_before-=ngas;
     box_setup();
-    vars=new type0[forcefield->gcmc_n_vars];
-    lcl_vars=new type0[forcefield->gcmc_n_vars];
+    vars=new type0[ff->gcmc_n_vars];
+    lcl_vars=new type0[ff->gcmc_n_vars];
 }
 /*--------------------------------------------
  
@@ -169,7 +169,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
     /*--------------------------------------------------
      here we allocate the memory for cell_vec & next_vec
      --------------------------------------------------*/
-    if(forcefield->gcmc_tag_enabled) tag_vec_p=new Vec<int>(atoms,1);
+    if(ff->gcmc_tag_enabled) tag_vec_p=new Vec<int>(atoms,1);
     else tag_vec_p=NULL;
     cell_vec_p=new Vec<int>(atoms,1);
     next_vec_p=new Vec<int>(atoms,1);
@@ -198,7 +198,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
     
     neighbor->create_list(box_chng);
 
-    forcefield->init_xchng();
+    ff->init_xchng();
     for(int i=0;i<atoms->nvecs;i++)
         atoms->vecs[i]->resize(natms);
         
@@ -217,7 +217,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
         attmpt();
 
     
-    forcefield->fin_xchng();
+    ff->fin_xchng();
     memcpy(mapp->x->begin(),s_vec_p->begin(),sizeof(type0)*natms*dim);
     
     delete tag_vec_p;
@@ -302,9 +302,9 @@ void SGCMC::attmpt()
     
     prep_s_x_buff();
     if(tag_vec_p) reset_tag();
-    forcefield->pre_gcmc_energy(this);
+    ff->pre_xchng_energy_timer(this);
     
-    delta_u=forcefield->gcmc_energy(this);
+    delta_u=ff->xchng_energy_timer(this);
     MPI_Bcast(&delta_u,1,MPI_TYPE0,curr_root,world);
     
     type0 fac;
@@ -316,7 +316,7 @@ void SGCMC::attmpt()
         {
             root_succ=true;
             ins_succ();
-            forcefield->post_gcmc_energy(this);
+            ff->post_xchng_energy_timer(this);
         }
     }
     else
@@ -326,23 +326,10 @@ void SGCMC::attmpt()
         {
             root_succ=true;
             del_succ();
-            forcefield->post_gcmc_energy(this);
+            ff->post_xchng_energy_timer(this);
         }
     }
     
-}
-/*--------------------------------------------
- attempt an insertion
- --------------------------------------------*/
-void SGCMC::ins_attmpt()
-{
-    xchng_mode=INS_MODE;
-    for(int i=0;i<dim;i++)
-        s_buff[i]=random->uniform();
-    
-    prep_s_x_buff();
-    if(tag_vec_p) reset_tag();
-    forcefield->xchng_energy_timer(this);
 }
 /*--------------------------------------------
  things to do after a successful insertion
@@ -393,45 +380,12 @@ void SGCMC::ins_succ()
     atoms->tot_natms++;    
 }
 /*--------------------------------------------
- attempt a deletion
- --------------------------------------------*/
-void SGCMC::del_attmpt()
-{
-    if(tot_ngas==0) return;
-    xchng_mode=DEL_MODE;
-    
-    
-    igas=static_cast<int>(tot_ngas*random->uniform());
-    int iproc,iproc_=-1;
-    if(ngas_before<=igas && igas<ngas_before+ngas)
-    {
-        iproc_=atoms->my_p;
-        int n=igas-ngas_before;
-        int icount=-1;
-        md_type* type=mapp->type->begin();
-        
-        del_idx=0;
-        for(;icount!=n;del_idx++)
-            if(type[del_idx]==gas_type) icount++;
-        del_idx--;
-        gas_id=mapp->id->begin()[del_idx];
-        memcpy(s_buff,s_vec_p->begin()+del_idx*dim,dim*sizeof(type0));
-    }
-    MPI_Allreduce(&iproc_,&iproc,1,MPI_INT,MPI_MAX,world);
-    MPI_Bcast(s_buff,dim,MPI_TYPE0,iproc,world);
-    MPI_Bcast(&gas_id,1,MPI_INT,iproc,world);
-
-    prep_s_x_buff();
-    if(tag_vec_p) reset_tag();
-    forcefield->xchng_energy_timer(this);
-}
-/*--------------------------------------------
  things to do after a successful deletion
  --------------------------------------------*/
 void SGCMC::del_succ()
 {
 
-    add_del_id();
+    add_del_id(&gas_id,1);
 
     if(im_root)
     {

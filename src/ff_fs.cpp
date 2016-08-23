@@ -190,6 +190,28 @@ void ForceField_fs::fin_xchng()
     error->abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
+ pre xchng energy
+ --------------------------------------------*/
+void ForceField_fs::pre_xchng_energy(GCMC*)
+{
+    error->abort("exchange has not been set for this forcefield");
+}
+/*--------------------------------------------
+ xchng energy
+ --------------------------------------------*/
+type0 ForceField_fs::xchng_energy(GCMC*)
+{
+    error->abort("exchange has not been set for this forcefield");
+    return 0.0;
+}
+/*--------------------------------------------
+ post xchng energy
+ --------------------------------------------*/
+void ForceField_fs::post_xchng_energy(GCMC*)
+{
+    error->abort("exchange has not been set for this forcefield");
+}
+/*--------------------------------------------
  force and energy calculation
  --------------------------------------------*/
 void ForceField_fs::
@@ -480,13 +502,5 @@ type0 ForceField_fs::energy_calc()
 
     MPI_Allreduce(&en,&en_tot,1,MPI_TYPE0,MPI_SUM,world);
     return en_tot;
-}
-/*--------------------------------------------
- calculate the exchange energy due to deletion
- or insertion
- --------------------------------------------*/
-void ForceField_fs::xchng_energy(GCMC*)
-{
-    error->abort("exchange has not been set for this forcefield");
 }
 

@@ -32,7 +32,9 @@ namespace MAPP_NS
     protected:
         void force_calc(bool);
         type0 energy_calc();
-        void xchng_energy(GCMC*);
+        void pre_xchng_energy(GCMC*);
+        type0 xchng_energy(GCMC*);
+        void post_xchng_energy(GCMC*);
     public:
         ForceField_fsm(MAPP *);
         ~ForceField_fsm();
@@ -41,10 +43,7 @@ namespace MAPP_NS
         void init_xchng();
         void fin_xchng();
         void coef(int,char**);
-        
-        void pre_gcmc_energy(GCMC*){};
-        type0 gcmc_energy(GCMC*){return 0;};
-        void post_gcmc_energy(GCMC*){};
+
 
     };
 }

@@ -190,7 +190,7 @@ void PGCMC::box_setup()
     }
     
     head_atm=new int[ncells];
-    comms_setup(forcefield->gcmc_n_vars,forcefield->gcmc_n_cutoff);
+    comms_setup(ff->gcmc_n_vars,ff->gcmc_n_cutoff);
     
     
     s_buff=new type0*[max_n_cncrcy];
@@ -245,7 +245,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
     /*--------------------------------------------------
      here we allocate the memory for cell_vec & next_vec
      --------------------------------------------------*/
-    if(forcefield->gcmc_tag_enabled) tag_vec_p=new Vec<int>(atoms,1);
+    if(ff->gcmc_tag_enabled) tag_vec_p=new Vec<int>(atoms,1);
     else tag_vec_p=NULL;
     cell_vec_p=new Vec<int>(atoms,1);
     next_vec_p=new Vec<int>(atoms,1);
@@ -274,11 +274,11 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
     
     neighbor->create_list(box_chng);
 #ifdef MPP_DEBUG
-    type0 en_before=forcefield->energy_calc_timer();
+    type0 en_before=ff->energy_calc_timer();
     tot_du_test=0.0;
 #endif
     
-    forcefield->init_xchng();
+    ff->init_xchng();
     for(int i=0;i<atoms->nvecs;i++)
         atoms->vecs[i]->resize(natms);
     
@@ -294,11 +294,12 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
     
     int nx=nattmpts/n_prll;
     if(nattmpts%n_prll) nx++;
+
     for(int i=0;i<nx;i++) attmpt();
+
     
     
-    
-    forcefield->fin_xchng();
+    ff->fin_xchng();
     memcpy(mapp->x->begin(),s_vec_p->begin(),sizeof(type0)*natms*dim);
     
     delete s_vec_p;
@@ -310,7 +311,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
 #ifdef MPP_DEBUG
     type0 tot_en=0;
     MPI_Allreduce(&tot_du_test,&tot_en,1,MPI_TYPE0,MPI_SUM,world);
-    en_before-=forcefield->energy_calc_timer();
+    en_before-=ff->energy_calc_timer();
     if(atoms->my_p==0)
         printf("delta_u comparison %lf %lf\n",-en_before,tot_en);
 #endif
@@ -699,9 +700,9 @@ void PGCMC::attmpt()
 
     if(tag_vec_p) reset_tag();
 
-    forcefield->pre_gcmc_energy(this);
+    ff->pre_xchng_energy_timer(this);
 
-    delta_u=forcefield->gcmc_energy(this);
+    delta_u=ff->xchng_energy_timer(this);
 
     root_succ=false;
     if(im_root) decide();
@@ -711,7 +712,7 @@ void PGCMC::attmpt()
 
     if(tag_vec_p) success2tag();
 
-    forcefield->post_gcmc_energy(this);
+    ff->post_xchng_energy_timer(this);
 
     finalize();
 
@@ -1123,6 +1124,7 @@ void PGCMC::create_comm_pattern()
 
         int next=iprll-1;
         int prev=iprll+1;
+        
         if(next!=-1)
         {
             next_p=0;
@@ -1157,8 +1159,8 @@ void PGCMC::decide()
 {
     if(prev_p!=-1)
     {
-        MPI_Recv(&int_buff_sz,1,MPI_INT,prev_p,2*ip,world,MPI_STATUS_IGNORE);
-        MPI_Recv(int_buff,int_buff_sz,MPI_INT,prev_p,2*ip+1,world,MPI_STATUS_IGNORE);
+        MPI_Recv(&int_buff_sz,1,MPI_INT,prev_p,0,world,MPI_STATUS_IGNORE);
+        MPI_Recv(int_buff,int_buff_sz,MPI_INT,prev_p,1,world,MPI_STATUS_IGNORE);
     }
     else
     {
@@ -1180,8 +1182,8 @@ void PGCMC::decide()
 #endif
             root_succ=true;
             success[0]=0;
-            
             int_buff[0]++;
+            
             if(int_buff_sz>2)
             {
                 new_id=int_buff[int_buff_sz-1];
@@ -1190,16 +1192,15 @@ void PGCMC::decide()
             else
             {
                 if(int_buff[1]>0)
-                {
                     new_id=del_ids[int_buff[1]-1];
-                }
                 else
-                {
                     new_id=max_id+1-int_buff[1];
-                }
                 
                 int_buff[1]--;
             }
+
+
+            
         }
 
     }
@@ -1216,15 +1217,15 @@ void PGCMC::decide()
             root_succ=true;
             success[0]=0;
             int_buff[0]--;
-            int_buff[int_buff_sz]=mapp->id->begin()[del_idx];
+            int_buff[int_buff_sz]=gas_id;
             int_buff_sz++;
         }
     }
     
     if(next_p!=-1)
     {
-        MPI_Send(&int_buff_sz,1,MPI_INT,next_p,2*next_p,world);
-        MPI_Send(int_buff,int_buff_sz,MPI_INT,next_p,2*next_p+1,world);
+        MPI_Send(&int_buff_sz,1,MPI_INT,next_p,0,world);
+        MPI_Send(int_buff,int_buff_sz,MPI_INT,next_p,1,world);
     }
     
     if(root_succ)
@@ -1240,16 +1241,17 @@ void PGCMC::finalize()
 {
     MPI_Bcast(&int_buff_sz,1,MPI_INT,origin_p,world);
     MPI_Bcast(int_buff,int_buff_sz,MPI_INT,origin_p,world);
-    max_id-=int_buff[1];
-    if(del_ids_sz+int_buff_sz-2>del_ids_cpcty)
+    
+    
+    if(int_buff[1]>0)
+        del_ids_sz=int_buff[1];
+    else
     {
-        del_ids_cpcty=del_ids_sz+int_buff_sz-2;
-        int* del_ids_=new int[del_ids_cpcty];
-        memcpy(del_ids_,del_ids,sizeof(int)*del_ids_sz);
-        delete [] del_ids;
-        del_ids=del_ids_;
+        del_ids_sz=0;
+        max_id-=int_buff[1];
     }
-    memcpy(del_ids+del_ids_sz,int_buff+2,(int_buff_sz-2)*sizeof(int));
+    add_del_id(int_buff+2,int_buff_sz-2);
+
     tot_ngas+=int_buff[0];
     atoms->tot_natms+=int_buff[0];
     dof_diff+=int_buff[0]*dim;

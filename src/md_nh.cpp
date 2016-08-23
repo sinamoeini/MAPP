@@ -14,7 +14,6 @@
 #include "neighbor.h"
 #include "thermo_dynamics.h"
 #include "cmd.h"
-#include "sgcmc.h"
 #include "pgcmc.h"
 
 

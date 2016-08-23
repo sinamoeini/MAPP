@@ -25,7 +25,9 @@ natms(atoms->natms),
 natms_ph(atoms->natms_ph),
 itype(gas_type)
 {
-    
+    ff=dynamic_cast<ForceFieldMD*>(forcefield);
+    if(!ff)
+        error->abort("gcmc requires an md type forcefield");
     if(mapp->x->dim!=dim)
         error->abort("x dimension must be %d for gcmc",dim);
     
@@ -64,18 +66,18 @@ GCMC::~GCMC()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void GCMC::add_del_id()
+void GCMC::add_del_id(int* new_ids,int no)
 {
-    if(del_ids_sz+1>del_ids_cpcty)
+    if(del_ids_sz+no>del_ids_cpcty)
     {
-        int* del_ids_=new int[del_ids_cpcty+1];
+        int* del_ids_=new int[del_ids_sz+no];
         memcpy(del_ids_,del_ids,del_ids_sz*sizeof(int));
-        del_ids_cpcty++;
+        del_ids_cpcty=del_ids_sz+no;
         delete [] del_ids;
         del_ids=del_ids_;
     }
-    
-    del_ids[del_ids_sz++]=gas_id;
+    memcpy(del_ids+del_ids_sz,new_ids,sizeof(int)*no);
+    del_ids_sz+=no;
 }
 /*--------------------------------------------
  
@@ -118,7 +120,9 @@ void GCMC::init()
     for(int i=0;i<natms;i++)
         max_id_=MAX(id[i],max_id_);
     MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
-    
+    for(int i=0;i<del_ids_sz;i++)
+        max_id=MAX(max_id,del_ids[i]);
+        
     ngas=0;
     md_type* type=mapp->type->begin();
     for(int i=0;i<natms;i++)
@@ -169,32 +173,6 @@ void GCMC::box_dismantle()
     delete [] *s_trials;
     *s_trials=NULL;
 }
-/*--------------------------------------------
- 
- --------------------------------------------*/
-bool GCMC::decide(type0& en)
-{
-    type0 fac;
-    if(xchng_mode==INS_MODE)
-    {
-        fac=z_fac*vol/((static_cast<type0>(tot_ngas)+1.0)*exp(beta*en));
-        if(random->uniform()<fac)
-        {
-            ins_succ();
-            return true;
-        }
-    }
-    else
-    {
-        fac=static_cast<type0>(tot_ngas)*exp(beta*en)/(z_fac*vol);
-        
-        if(random->uniform()<fac)
-        {
-            del_succ();
-            return true;
-        }
-    }
-    return false;
-}
+
 
 
