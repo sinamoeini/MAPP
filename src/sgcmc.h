@@ -57,8 +57,8 @@ namespace MAPP_NS
         
         // size dim
         type0* cell_size;
-        int* ncells_per_dim;
-        int* cell_denom;
+        int* N_cells;
+        int* B_cells;
         int* icell_coord;
         int* jcell_coord;
 
@@ -77,7 +77,7 @@ namespace MAPP_NS
         
         int icell,jcell;
         int jatm_next;
-        int ncells;
+        int n_cells;
         
     
         Vec<int>* cell_vec_p;
@@ -92,7 +92,6 @@ namespace MAPP_NS
         
         void refresh();
         
-        void next_jcell();
         void next_jatm_reg();
         void next_jatm_self();
         void (SGCMC::*next_jatm_p)();

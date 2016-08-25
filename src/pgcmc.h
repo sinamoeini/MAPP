@@ -52,8 +52,8 @@ namespace MAPP_NS
         //static stuff
         //allocate in constructor
         //deallocate in destructor
-        int* ncells_per_dim;
-        int* cell_denom;
+        int* N_cells;
+        int* B_cells;
         int* icell_coord;
         int* jcell_coord;
         type0* cell_size;
@@ -98,7 +98,7 @@ namespace MAPP_NS
         
         
         int icell,jcell;
-        int ncells;
+        int n_cells;
         
     
         Vec<int>* cell_vec_p;
@@ -110,9 +110,7 @@ namespace MAPP_NS
         
         void prep_s_x_buff();
 
-        
-        
-        void next_jcell();
+                
         void next_jatm_reg();
         void next_jatm_self();
         void (PGCMC::*next_jatm_p)();
@@ -141,9 +139,6 @@ namespace MAPP_NS
         /*---------------------------------------------------------------------*/
 
     protected:
-        
-        void ins_attmpt();
-        void del_attmpt();
         void ins_succ();
         void del_succ();
         void box_setup();

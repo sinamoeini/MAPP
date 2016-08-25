@@ -21,14 +21,14 @@ m(m_)
     s_x_buff=NULL;
 
     cell_size=new type0[dim];
-    ncells_per_dim=new int[dim];
-    cell_denom=new int[dim];
+    N_cells=new int[dim];
+    B_cells=new int[dim];
     icell_coord=new int[dim];
     jcell_coord=new int[dim];
     
     head_atm=NULL;
     cell_coord_buff=NULL;
-    ncells=0;
+    n_cells=0;
     
     /*--------------------------------------------------
      find the relative neighbor list for cells here we 
@@ -92,8 +92,8 @@ SGCMC::~SGCMC()
     delete [] rel_neigh_lst_coord;
     delete [] jcell_coord;
     delete [] icell_coord;
-    delete [] cell_denom;
-    delete [] ncells_per_dim;
+    delete [] B_cells;
+    delete [] N_cells;
     delete [] cell_size;
 }
 /*--------------------------------------------
@@ -125,17 +125,17 @@ void SGCMC::box_setup()
 {
     GCMC::box_setup();
     
-    ncells=1;
+    n_cells=1;
     for(int i=0;i<dim;i++)
     {
         cell_size[i]=cut_s[i]/static_cast<type0>(m);
-        ncells_per_dim[i]=static_cast<int>((s_hi[i]-s_lo[i])/cell_size[i])+1;
+        N_cells[i]=static_cast<int>((s_hi[i]-s_lo[i])/cell_size[i])+1;
         
-        cell_denom[i]=ncells;
-        ncells*=ncells_per_dim[i];
+        B_cells[i]=n_cells;
+        n_cells*=N_cells[i];
     }
     
-    head_atm=new int[ncells];
+    head_atm=new int[n_cells];
     cell_coord_buff=new int[max_ntrial_atms*dim];
     s_x_buff=new type0[dim*max_ntrial_atms];
 }
@@ -151,7 +151,7 @@ void SGCMC::box_dismantle()
     head_atm=NULL;
     cell_coord_buff=NULL;
     s_x_buff=NULL;
-    ncells=0;
+    n_cells=0;
 }
 /*--------------------------------------------
  construct the bin list
@@ -179,7 +179,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
     /*--------------------------------------------------
      here we reset head_atm
      --------------------------------------------------*/
-    for(int i=0;i<ncells;i++) head_atm[i]=-1;
+    for(int i=0;i<n_cells;i++) head_atm[i]=-1;
     
     /*--------------------------------------------------
      here we assign values for cell_vec, next_vec &
@@ -235,7 +235,7 @@ inline void SGCMC::find_cell_no(type0*& s,int& cell_no)
 {
     cell_no=0;
     for(int i=0;i<dim;i++)
-        cell_no+=cell_denom[i]*MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-1);
+        cell_no+=B_cells[i]*MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1);
 }
 /*--------------------------------------------
  
@@ -247,9 +247,9 @@ inline void SGCMC::find_cell_coord(type0*& s,int*& cell_coord)
         if(s[i]<s_lo[i])
             cell_coord[i]=-static_cast<int>((s_lo[i]-s[i])/cell_size[i])-1;
         else if(s_hi[i]<=s[i])
-            cell_coord[i]=MAX(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-1);
+            cell_coord[i]=MAX(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1);
         else
-            cell_coord[i]=MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-1);
+            cell_coord[i]=MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1);
     }
 }
 /*--------------------------------------------
@@ -358,7 +358,7 @@ void SGCMC::ins_succ()
         memcpy(s_vec_p->begin()+(natms-1)*dim,s_buff,dim*sizeof(type0));
         
         int cell_=0;
-        for(int i=0;i<dim;i++) cell_+=cell_denom[i]*cell_coord_buff[i];
+        for(int i=0;i<dim;i++) cell_+=B_cells[i]*cell_coord_buff[i];
         cell_vec_p->begin()[natms-1]=cell_;
         
         
@@ -561,33 +561,6 @@ void SGCMC::next_iatm()
     
 }
 /*--------------------------------------------
- find the next cell that probably
- contains local atoms
- --------------------------------------------*/
-inline void SGCMC::next_jcell()
-{
-    ineigh++;
-    if(ineigh==nneighs)
-    {
-        jcell=-1;
-        return;
-    }
-    jcell=0;
-    for(int i=0;i<dim;i++)
-    {
-        jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*dim+i];
-        if(jcell_coord[i]<0 || jcell_coord[i]>ncells_per_dim[i]-1)
-            return next_jcell();
-        jcell+=cell_denom[i]*jcell_coord[i];
-    }
-    
-    if(head_atm[jcell]==-1)
-        return next_jcell();
-    
-    jatm=head_atm[jcell];
-    
-}
-/*--------------------------------------------
  this is used for insertion trial
  --------------------------------------------*/
 void SGCMC::reset_jatm()
@@ -645,9 +618,9 @@ inline void SGCMC::next_jatm_reg()
             for(int i=0;i<dim && lcl;i++)
             {
                 jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*dim+i];
-                jcell+=cell_denom[i]*jcell_coord[i];
+                jcell+=B_cells[i]*jcell_coord[i];
 
-                if(jcell_coord[i]<0 || jcell_coord[i]>ncells_per_dim[i]-1)
+                if(jcell_coord[i]<0 || jcell_coord[i]>N_cells[i]-1)
                     lcl=false;
             }
             
@@ -808,7 +781,7 @@ void SGCMC::reset_icomm()
  --------------------------------------------*/
 inline void SGCMC::refresh()
 {
-    for(int i=0;i<ncells;i++)
+    for(int i=0;i<n_cells;i++)
         head_atm[i]=-1;
     int* next_vec=next_vec_p->begin()+natms-1;
     int* cell_vec=cell_vec_p->begin()+natms-1;
