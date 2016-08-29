@@ -163,6 +163,17 @@ void PGCMC::init()
 {
     GCMC::init();
     box_setup();
+    if(atoms->my_p==0)
+    {
+        fprintf(output,"gcmc parallel grid: ");
+        
+        for(int i=0;i<dim-1;i++)
+            fprintf(output,"%dx",N_prll[i]);
+        
+        fprintf(output,"%d",N_prll[dim-1]);
+        
+        fprintf(output,"\n");
+    }
 }
 /*--------------------------------------------
  

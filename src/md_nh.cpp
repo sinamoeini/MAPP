@@ -200,6 +200,11 @@ void MD_nh::init()
     thermo->update(pe_idx,nrgy_strss[0]);
     thermo->update(ke_idx,ke_cur);
     thermo->update(temp_idx,t_cur);
+    if(gcmc)
+    {
+        gcmc->init();
+        thermo->update(count_idx,static_cast<type0>(gcmc->tot_ngas));
+    }
     
     thermo->init();
     
@@ -230,11 +235,7 @@ void MD_nh::init()
             omega_d[i]=omega_m[i]=0.0;
     }
     
-    if(gcmc)
-    {
-        gcmc->init();
-        thermo->update(count_idx,static_cast<type0>(gcmc->tot_ngas));
-    }
+    
 }
 /*--------------------------------------------
  finalize after the run is complete
