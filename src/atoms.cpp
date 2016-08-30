@@ -516,13 +516,12 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load
     {
         byte* tmp_snd_buff=new byte[snd_buff_sz+tot_swap_vecs_sz+snd_buff_grw];
         memcpy(tmp_snd_buff,snd_buff,snd_buff_sz);
-        if(snd_buff_cpcty)
-            delete [] snd_buff;
+        delete [] snd_buff;
         snd_buff=tmp_snd_buff;
         snd_buff_cpcty=snd_buff_sz+tot_swap_vecs_sz+snd_buff_grw;
     }
     
-    byte* tmp_snd_buff=&snd_buff[snd_buff_sz];
+    byte* tmp_snd_buff=snd_buff+snd_buff_sz;
     for(int ivec=0;ivec<nswap_vecs;ivec++)
         swap_vecs[ivec]->cpy(tmp_snd_buff,iatm);
     snd_buff_sz+=tot_swap_vecs_sz;
@@ -542,8 +541,7 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::unload
     rcv_buff_sz=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz;
     if(rcv_buff_cpcty<rcv_buff_sz)
     {
-        if(rcv_buff_cpcty)
-            delete [] rcv_buff;
+        delete [] rcv_buff;
         rcv_buff=new byte[rcv_buff_sz+rcv_buff_grw];
         rcv_buff_cpcty=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz+rcv_buff_grw;
     }
@@ -580,8 +578,7 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load_unload
     snd_buff_sz=snd_atms_lst_sz[icomm]*tot_swap_vecs_sz;
     if(snd_buff_cpcty<snd_buff_sz)
     {
-        if(snd_buff_cpcty)
-            delete [] snd_buff;
+        delete [] snd_buff;
         snd_buff=new byte[snd_buff_sz+snd_buff_grw];
         snd_buff_cpcty=snd_buff_sz+snd_buff_grw;
     }
@@ -600,8 +597,7 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load_unload
     rcv_buff_sz=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz;
     if(rcv_buff_cpcty<rcv_buff_sz)
     {
-        if(rcv_buff_cpcty)
-            delete [] rcv_buff;
+        delete [] rcv_buff;
         rcv_buff=new byte[rcv_buff_sz+rcv_buff_grw];
         rcv_buff_cpcty=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz+rcv_buff_grw;
     }
