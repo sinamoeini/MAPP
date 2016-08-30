@@ -43,7 +43,6 @@ x(atoms->x)
     
     
     
-    strt=new int[dimension];
     ncomms=new int[2*dimension];
     pbc_correction=new int[2*dimension];
     s_bnd=new type0[2*dimension];
@@ -96,7 +95,6 @@ Atoms::Swap::~Swap()
         delete [] s_bnd;
         delete [] pbc_correction;
         delete [] ncomms;
-        delete [] strt;
         
         for(int idim=0;idim<dimension;idim++)
             delete comm_manager[idim];
@@ -319,6 +317,7 @@ void Atoms::Swap::list()
     int icurs=0;
     int icomm=0;
     int lo_atm,hi_atm;
+    int last_atm;
     bool dir;
     type0 inc;
     max_snd_atms_lst_sz=max_rcv_atms_lst_sz=0;
@@ -326,14 +325,14 @@ void Atoms::Swap::list()
     for(int idim=0;idim<dimension;idim++)
     {
         
-        strt[idim]=x->vec_sz;
+        last_atm=x->vec_sz;
         
         inc=1.0;
         dir=true;
         for(int idir=0;idir<2;idir++)
         {
             lo_atm=0;
-            hi_atm=strt[idim];
+            hi_atm=last_atm;
             while(icomm<ncomms[icurs])
             {
                 snd_buff_sz=0;

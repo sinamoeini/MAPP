@@ -486,7 +486,6 @@ namespace MAPP_NS
         
         
         int tot_ncomms;
-        int* strt;
         int* ncomms;
         int* pbc_correction;
         type0* s_bnd;
