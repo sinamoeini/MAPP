@@ -432,9 +432,9 @@ namespace MAPP_NS
         int my_p;
         
         int buff_grw;
-        byte** snd_buff;
-        int* snd_buff_sz;
-        int* snd_buff_cpcty;
+        byte* snd_buff[2];
+        int snd_buff_sz[2];
+        int snd_buff_cpcty[2];
         
         byte* rcv_buff;
         int rcv_buff_sz;

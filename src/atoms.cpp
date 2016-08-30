@@ -827,12 +827,11 @@ xchng_id(atoms->xchng_id)
 {
     buff_grw=1024;
     
-    snd_buff=new byte*[2];
-    snd_buff_sz=new int[2];
-    snd_buff_cpcty=new int[2];
+    snd_buff[0]=snd_buff[1]=NULL;
     snd_buff_sz[0]=snd_buff_sz[1]=0;
     snd_buff_cpcty[0]=snd_buff_cpcty[1]=0;
     
+    rcv_buff=NULL;
     rcv_buff_sz=0;
     rcv_buff_cpcty=0;
     
@@ -846,15 +845,10 @@ xchng_id(atoms->xchng_id)
  --------------------------------------------*/
 Atoms::Xchng::~Xchng()
 {
-    for(int i=0;i<2;i++)
-        if(snd_buff_cpcty[i])
-            delete [] snd_buff[i];
-    
-    delete [] snd_buff_cpcty;
-    delete [] snd_buff_sz;
-    
-    if(rcv_buff_cpcty)
-        delete [] rcv_buff;
+
+    delete [] snd_buff[0];
+    delete [] snd_buff[1];
+    delete [] rcv_buff;
 }
 /*--------------------------------------------
  
@@ -865,8 +859,7 @@ inline void Atoms::Xchng::load(int& iatm,int idir)
     {
         byte* tmp_buff=new byte[snd_buff_sz[idir]+tot_xchng_sz+buff_grw];
         memcpy(tmp_buff,snd_buff[idir],snd_buff_sz[idir]);
-        if(snd_buff_cpcty[idir])
-            delete [] snd_buff[idir];
+        delete [] snd_buff[idir];
         snd_buff[idir]=tmp_buff;
         snd_buff_cpcty[idir]=snd_buff_sz[idir]+tot_xchng_sz+buff_grw;
     }
@@ -886,8 +879,7 @@ inline void Atoms::Xchng::load(byte*& buff,int& idir)
     {
         byte* tmp_buff=new byte[snd_buff_sz[idir]+tot_xchng_sz+buff_grw];
         memcpy(tmp_buff,snd_buff[idir],snd_buff_sz[idir]);
-        if(snd_buff_cpcty[idir])
-            delete [] snd_buff[idir];
+        delete [] snd_buff[idir];
         snd_buff[idir]=tmp_buff;
         snd_buff_cpcty[idir]=snd_buff_sz[idir]+tot_xchng_sz+buff_grw;
     }
@@ -911,8 +903,7 @@ int Atoms::Xchng::xchng_buff(int idim,int idir)
     MPI_Sendrecv(&snd_buff_sz[idir],1,MPI_INT,neigh_p[idim][idir],0,&rcv_buff_sz,1,MPI_INT,neigh_p[idim][1-idir],0,world,&status[0]);
     if(rcv_buff_cpcty<rcv_buff_sz)
     {
-        if(rcv_buff_cpcty)
-            delete [] rcv_buff;
+        delete [] rcv_buff;
         rcv_buff=new byte[rcv_buff_sz+buff_grw];
         rcv_buff_cpcty=rcv_buff_sz+buff_grw;
     }
