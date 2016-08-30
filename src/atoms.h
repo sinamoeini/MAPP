@@ -533,9 +533,7 @@ namespace MAPP_NS
         ~Swap();
         void reset();
         void update(vec*,bool);
-        void update_(vec*,bool);
         void update(vec**,int,bool);
-        void update_(vec**,int,bool);
         void list();
         void eliminate_redundancy();
     };

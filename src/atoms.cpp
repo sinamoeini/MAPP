@@ -30,8 +30,11 @@ s_hi(atoms->s_hi),
 x(atoms->x)
 {
 
+    snd_buff=NULL;
     snd_buff_cpcty=0;
     snd_buff_grw=1024;
+    
+    rcv_buff=NULL;
     rcv_buff_cpcty=0;
     rcv_buff_grw=1024;
     snd_atms_lst_grw=8;
@@ -71,6 +74,8 @@ x(atoms->x)
     }
 
     tot_ncomms=0;
+    snd_atms_lst=NULL;
+    snd_atms_lst_cpcty=snd_atms_lst_sz=rcv_atms_lst_sz=NULL;
     reset();
 }
 /*--------------------------------------------
@@ -78,28 +83,25 @@ x(atoms->x)
  --------------------------------------------*/
 Atoms::Swap::~Swap()
 {
+    delete [] rcv_buff;
+    delete [] snd_buff;
+    
     for(int i=0;i<tot_ncomms;i++)
-        if(snd_atms_lst_cpcty[i])
-            delete [] snd_atms_lst[i];
+        delete [] snd_atms_lst[i];
     
-    if(tot_ncomms)
-    {
-        delete [] snd_atms_lst;
-        delete [] snd_atms_lst_cpcty;
-        delete [] snd_atms_lst_sz;
-        delete [] rcv_atms_lst_sz;
-    }
+    delete [] snd_atms_lst;
+    delete [] snd_atms_lst_cpcty;
+    delete [] snd_atms_lst_sz;
+    delete [] rcv_atms_lst_sz;
     
-    if(dimension)
-    {
-        delete [] s_bnd;
-        delete [] pbc_correction;
-        delete [] ncomms;
-        
-        for(int idim=0;idim<dimension;idim++)
-            delete comm_manager[idim];
-        delete [] comm_manager;
-    }
+    delete [] s_bnd;
+    delete [] pbc_correction;
+    delete [] ncomms;
+    
+    for(int idim=0;idim<dimension;idim++)
+        delete comm_manager[idim];
+    delete [] comm_manager;
+    
 }
 /*--------------------------------------------
  
@@ -135,36 +137,23 @@ void Atoms::Swap::reset()
     if(tot_ncomms_==tot_ncomms)
         return;
     
-    int** snd_atms_lst_=new int*[tot_ncomms_];
-    int* snd_atms_lst_cpcty_=new int[tot_ncomms_];
-    int* snd_atms_lst_sz_=new int[tot_ncomms_];
-    int* rcv_atms_lst_sz_=new int[tot_ncomms_];
-    int min=MIN(tot_ncomms,tot_ncomms_);
-    memcpy(snd_atms_lst_,snd_atms_lst,min*sizeof(int*));
-    memcpy(snd_atms_lst_cpcty_,snd_atms_lst_cpcty,min*sizeof(int));
-    memcpy(snd_atms_lst_sz_,snd_atms_lst_sz,min*sizeof(int));
-    memcpy(rcv_atms_lst_sz_,rcv_atms_lst_sz,min*sizeof(int));
-  
-    for(int i=tot_ncomms;i<tot_ncomms_;i++)
-        snd_atms_lst_sz_[i]=snd_atms_lst_cpcty_[i]=0;
+    for(int i=0;i<tot_ncomms;i++)
+        delete [] snd_atms_lst[i];
+    delete [] snd_atms_lst;
+    delete [] snd_atms_lst_cpcty;
+    delete [] snd_atms_lst_sz;
+    delete [] rcv_atms_lst_sz;
     
-    for(int i=tot_ncomms_;i<tot_ncomms;i++)
-        if(snd_atms_lst_cpcty[i])
-            delete [] snd_atms_lst[i];
-    
-    if(tot_ncomms)
-    {
-        delete [] snd_atms_lst;
-        delete [] snd_atms_lst_cpcty;
-        delete [] snd_atms_lst_sz;
-        delete [] rcv_atms_lst_sz;
-    }
-    
-    snd_atms_lst=snd_atms_lst_;
-    snd_atms_lst_cpcty=snd_atms_lst_cpcty_;
-    snd_atms_lst_sz=snd_atms_lst_sz_;
-    rcv_atms_lst_sz=rcv_atms_lst_sz_;
     tot_ncomms=tot_ncomms_;
+    snd_atms_lst=new int*[tot_ncomms];
+    snd_atms_lst_cpcty=new int[tot_ncomms];
+    snd_atms_lst_sz=new int[tot_ncomms];
+    rcv_atms_lst_sz=new int[tot_ncomms];
+    for(int i=0;i<tot_ncomms;i++)
+    {
+        snd_atms_lst_cpcty[i]=0;
+        snd_atms_lst[i]=NULL;
+    }
 }
 /*--------------------------------------------
  
@@ -172,12 +161,11 @@ void Atoms::Swap::reset()
 inline void Atoms::Swap::add_to_snd_lst(int& icomm,int& iatm)
 {
 
-    if(snd_atms_lst_cpcty[icomm]<snd_atms_lst_sz[icomm]+1)
+    if(snd_atms_lst_sz[icomm]+1>snd_atms_lst_cpcty[icomm])
     {
         int* tmp_lst=new int[snd_atms_lst_sz[icomm]+1+snd_atms_lst_grw];
         memcpy(tmp_lst,snd_atms_lst[icomm],snd_atms_lst_sz[icomm]*sizeof(int));
-        if(snd_atms_lst_cpcty[icomm])
-            delete [] snd_atms_lst[icomm];
+        delete [] snd_atms_lst[icomm];
         snd_atms_lst[icomm]=tmp_lst;
         snd_atms_lst_cpcty[icomm]=snd_atms_lst_sz[icomm]+1+snd_atms_lst_grw;
     }
@@ -191,8 +179,7 @@ inline void Atoms::Swap::reserve_rcv_buff(int xtra)
 {
     if(rcv_buff_cpcty<xtra+rcv_buff_sz)
     {
-        if(rcv_buff_cpcty)
-            delete [] rcv_buff;
+        delete [] rcv_buff;
         rcv_buff=new byte[xtra+rcv_buff_sz+rcv_buff_grw];
         rcv_buff_cpcty=xtra+rcv_buff_sz+rcv_buff_grw;
     }
@@ -204,8 +191,7 @@ inline void Atoms::Swap::reserve_snd_buff(int xtra)
 {
     if(snd_buff_cpcty<xtra+snd_buff_sz)
     {
-        if(snd_buff_cpcty)
-            delete [] snd_buff;
+        delete [] snd_buff;
         snd_buff=new byte[xtra+snd_buff_sz+snd_buff_grw];
         snd_buff_cpcty=xtra+snd_buff_sz+snd_buff_grw;
     }
