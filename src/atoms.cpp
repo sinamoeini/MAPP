@@ -372,7 +372,9 @@ void Atoms::Swap::eliminate_redundancy()
     int rcv_atms_lst_sz_;
     int snd_atms_lst_sz_=0;
     int snd_atms_lst_cpcty_=max_snd_atms_lst_sz;
-    int* snd_atms_lst_=new int[snd_atms_lst_cpcty_];
+    int* snd_atms_lst_=NULL;
+    if(snd_atms_lst_cpcty_)
+        snd_atms_lst_=new int[snd_atms_lst_cpcty_];
     
     int nlocomm;
     byte* mark_=mark+natms_ph;
@@ -423,15 +425,18 @@ void Atoms::Swap::eliminate_redundancy()
         }
     }
     
-    if(snd_atms_lst_cpcty_)
-        delete [] snd_atms_lst_;
+    delete [] snd_atms_lst_;
     
     int old_2_new_cpcty=natms+natms_ph;
-    int* old_2_new=new int[old_2_new_cpcty];
+    int* old_2_new=NULL;
+    if(old_2_new_cpcty)
+        old_2_new=new int[old_2_new_cpcty];
     
     int list_sz=0;
     int list_cpcty=natms_ph;
-    int* list=new int[list_cpcty];
+    int* list=NULL;
+    if(list_cpcty)
+        list=new int[list_cpcty];
     
     for(int iatm=0;iatm<natms;iatm++)
         old_2_new[iatm]=iatm;
@@ -454,8 +459,8 @@ void Atoms::Swap::eliminate_redundancy()
         for(int j=0;j<neighbor_list_sz[iatm];j++)
             neighbor_list[iatm][j]=old_2_new[neighbor_list[iatm][j]];
 
-    if(old_2_new_cpcty)
-        delete [] old_2_new;
+    
+    delete [] old_2_new;
     
     int* list_=list;
     
@@ -473,8 +478,7 @@ void Atoms::Swap::eliminate_redundancy()
         swap_vecs[ivec]->cpy_pst(list_,list_sz);
     }
     
-    if(list_cpcty)
-        delete [] list;
+    delete [] list;
     
     atoms->natms_ph=new_natms_ph;
 }
