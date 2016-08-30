@@ -538,8 +538,6 @@ namespace MAPP_NS
         void update(vec**,int,bool);
         void update_(vec**,int,bool);
         void list();
-        void list_();
-        void list__();
         void eliminate_redundancy();
     };
 
