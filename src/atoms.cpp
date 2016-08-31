@@ -21,7 +21,7 @@ swap_vecs(vecs),
 nswap_vecs(nvecs),
 dimension(atoms->dimension),
 neigh_p(atoms->comm->neigh_p),
-my_p(atoms->comm->my_p),
+my_p(atoms->my_p),
 H(atoms->H),
 B(atoms->B),
 max_cut_s(atoms->max_cut_s),
@@ -738,9 +738,9 @@ world(atoms->world),
 xchng_vecs(x_vecs),
 nxchng_vecs(nx_vecs),
 neigh_p(atoms->comm->neigh_p),
-my_p(atoms->comm->my_p),
-s_lo(atoms->comm->s_lo),
-s_hi(atoms->comm->s_hi),
+my_p(atoms->my_p),
+s_lo(atoms->s_lo),
+s_hi(atoms->s_hi),
 dimension(atoms->dimension),
 x(atoms->x),
 xchng_id(atoms->xchng_id)
@@ -932,7 +932,11 @@ void Atoms::Xchng::full_xchng()
  ----------------------------------------------------------------------------------------------------------------*/
 Atoms::Communincation::Communincation(Atoms* atoms):
 world(atoms->world),
-dimension(atoms->dimension)
+dimension(atoms->dimension),
+s_lo(atoms->s_lo),
+s_hi(atoms->s_hi),
+my_p(atoms->my_p),
+tot_p(atoms->tot_p)
 {
     /* beginning of communication related parameters */
     
@@ -1004,8 +1008,6 @@ dimension(atoms->dimension)
     *neigh_p=new int[2*dimension];
     for(int idim=1;idim<dimension;idim++)
         neigh_p[idim]=neigh_p[idim-1]+2;
-    s_lo=new type0[dimension];
-    s_hi=new type0[dimension];
 }
 /*--------------------------------------------
  destructor
@@ -1016,8 +1018,6 @@ Atoms::Communincation::~Communincation()
     delete [] neigh_p;
     delete [] my_loc;
     delete [] tot_p_grid;
-    delete [] s_lo;
-    delete [] s_hi;
     
     delete [] *n_p_grid;
     delete [] n_p_grid;
@@ -1028,24 +1028,12 @@ Atoms::Communincation::~Communincation()
  --------------------------------------------*/
 void Atoms::Communincation::auto_grid(type0** H)
 {
-    int eq_p_per_n=1;
+    bool eq_p_per_n=true;
     for(int i=0;i<tot_n;i++)
         if(p_per_n[i]!=p_per_n[0])
-            eq_p_per_n=0;
+            eq_p_per_n=false;
     
-    int prin_dimension=0;
     
-    if(eq_p_per_n)
-    {
-        type0 min_area=1.0/H[0][0];
-        for(int i=1;i<dimension;i++)
-            if(1.0/H[i][i]<min_area)
-            {
-                min_area=1.0/H[i][i];
-                prin_dimension=i;
-            }
-        
-    }
     
     XMath* xmath= new XMath();
     int* fac_list;
@@ -1058,6 +1046,15 @@ void Atoms::Communincation::auto_grid(type0** H)
     
     if(eq_p_per_n && tot_n>1)
     {
+        int prin_dimension=0;
+        type0 min_area=1.0/H[0][0];
+        
+        for(int i=1;i<dimension;i++)
+            if(1.0/H[i][i]<min_area)
+            {
+                min_area=1.0/H[i][i];
+                prin_dimension=i;
+            }
 
         int* ifac_list=fac_list;
         for(int ifac=0;ifac<fac_list_size;ifac++,ifac_list+=dimension)
@@ -1100,6 +1097,11 @@ void Atoms::Communincation::auto_grid(type0** H)
                 }
             }
             
+            /*
+            int my_p_in_my_node=0;
+            for(;p_per_n[my_p_in_my_node]==my_p;my_p_in_my_node++);
+             */
+            
             int my_p_in_my_node=-1;
             for(int i=0;i<p_per_n[my_n];i++)
                 if(n_p_grid[my_n][i]==my_p)
@@ -1107,7 +1109,6 @@ void Atoms::Communincation::auto_grid(type0** H)
             
             for(int i=0;i<dimension-1;i++)
             {
-                
                 int no=1;
                 for(int j=0;j<i;j++)
                     no*=tmp_tot_p_grid[j];
@@ -1271,7 +1272,7 @@ void Atoms::Communincation::auto_grid(type0** H)
         /static_cast<type0>(tot_p_grid[i]);
         
         s_hi[i]=
-        (static_cast<type0>(my_loc[i])+1.0)
+        static_cast<type0>(my_loc[i]+1)
         /static_cast<type0>(tot_p_grid[i]);
     }
 }
@@ -1329,11 +1330,6 @@ dimension(dim),
 nvecs(0)
 {
     vecs=NULL;
-    comm=new Communincation(this);
-    tot_p=comm->tot_p;
-    my_p=comm->my_p;
-    s_lo=comm->s_lo;
-    s_hi=comm->s_hi;
     
     grid_established=false;
     box_chng=false;
@@ -1348,6 +1344,8 @@ nvecs(0)
     
 
     max_cut_s=new type0[dimension];
+    s_lo=new type0[dimension];
+    s_hi=new type0[dimension];
     H=new type0*[dimension];
     B=new type0*[dimension];
     *H=new type0[dimension*dimension];
@@ -1365,7 +1363,8 @@ nvecs(0)
         for(int jdim=0;jdim<dimension;jdim++)
             H[idim][jdim]=B[idim][jdim]=0.0;
     }
-        
+    
+    comm=new Communincation(this);
 }
 /*--------------------------------------------
  destructor
@@ -1377,6 +1376,8 @@ Atoms::~Atoms()
     delete [] B;
     delete [] *H;
     delete [] H;
+    delete [] s_hi;
+    delete [] s_lo;
     delete [] max_cut_s;
 
     while(nvecs)
@@ -1510,20 +1511,21 @@ void Atoms::x2s(int no)
     type0* x_vec=x->begin();
     int x_dim=x->dim;
     
-    for(int icmp=0;icmp<no*x_dim;icmp+=x_dim)
+    for(int i=0;i<no;i++,x_vec+=x_dim)
     {
         for(int idim=0;idim<dimension;idim++)
         {
-            x_vec[icmp+idim]=x_vec[icmp+idim]*B[idim][idim];
+            x_vec[idim]=x_vec[idim]*B[idim][idim];
             for(int jdim=idim+1;jdim<dimension;jdim++)
-                x_vec[icmp+idim]+=x_vec[icmp+jdim]*B[jdim][idim];
-        }
-        for(int idim=0;idim<dimension;idim++)
-        {
-            while(x_vec[icmp+idim]<0.0)
-                x_vec[icmp+idim]++;
-            while(x_vec[icmp+idim]>=1.0)
-                x_vec[icmp+idim]--;
+                x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
+            
+            x_vec[idim]-=floor(x_vec[idim]);
+            /*
+            while(x_vec[idim]<0.0)
+                x_vec[idim]++;
+            while(x_vec[idim]>=1.0)
+                x_vec[idim]--;
+             */
         }
     }
 }
@@ -1535,14 +1537,15 @@ void Atoms::s2x(int no)
     type0* x_vec=x->begin();
     int x_dim=x->dim;
     
-    for(int icmp=0;icmp<no*x_dim;icmp+=x_dim)
+    for(int i=0;i<no;i++,x_vec+=x_dim)
+    {
         for(int idim=0;idim<dimension;idim++)
         {
-            x_vec[icmp+idim]=x_vec[icmp+idim]*H[idim][idim];
+            x_vec[idim]=x_vec[idim]*H[idim][idim];
             for(int jdim=idim+1;jdim<dimension;jdim++)
-                x_vec[icmp+idim]+=x_vec[icmp+jdim]*H[jdim][idim];
+                x_vec[idim]+=x_vec[jdim]*H[jdim][idim];
         }
-
+    }
 }
 /*--------------------------------------------
  insert a number of atoms
@@ -2387,34 +2390,23 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
  |___/     |_____| \_____| |_____| /_____/   |_|
  
  ----------------------------------------------*/
-VecLst::VecLst(Atoms* atoms):
-nxchng_vecs(2),
-nupdt_vecs(1)
+VecLst::VecLst(Atoms* atoms)
 {
-    xchng_vecs=new vec*[nxchng_vecs];
-    xchng_vecs[0]=atoms->x;
-    xchng_vecs[1]=atoms->id;
-    tot_xchng_byte_sz=atoms->x->byte_sz
-    +atoms->id->byte_sz;
-    
-    updt_vecs=new vec*[nupdt_vecs];
-    updt_vecs[0]=atoms->x;
-    tot_updt_byte_sz=atoms->x->byte_sz;
-    
-    narch_vecs=0;
-    tot_arch_byte_sz=0;
+    tot_xchng_byte_sz=tot_updt_byte_sz=tot_arch_byte_sz=0;
+    nxchng_vecs=nupdt_vecs=narch_vecs=0;
+    xchng_vecs=updt_vecs=arch_vecs=NULL;
+    add_xchng(atoms->x);
+    add_xchng(atoms->id);
+    add_updt(atoms->x);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 VecLst::~VecLst()
 {
-    if(nxchng_vecs)
-        delete [] xchng_vecs;
-    if(nupdt_vecs)
-        delete [] updt_vecs;
-    if(narch_vecs)
-        delete [] arch_vecs;
+    delete [] xchng_vecs;
+    delete [] updt_vecs;
+    delete [] arch_vecs;
 }
 /*--------------------------------------------
  
@@ -2432,8 +2424,7 @@ void VecLst::add_updt(vec* v)
     
     vec** updt_vecs_=new vec*[nupdt_vecs+1];
     memcpy(updt_vecs_,updt_vecs,nupdt_vecs*sizeof(vec*));
-    if(nupdt_vecs)
-        delete [] updt_vecs;
+    delete [] updt_vecs;
     updt_vecs=updt_vecs_;
     
     updt_vecs[nupdt_vecs]=v;
@@ -2454,13 +2445,17 @@ void VecLst::del_updt(vec* v)
     if(ivec==nupdt_vecs)
         return;
     
-    vec** updt_vecs_=new vec*[nupdt_vecs-1];
+    vec** updt_vecs_;
+    if(nupdt_vecs-1)
+        updt_vecs_=new vec*[nupdt_vecs-1];
+    else
+        updt_vecs_=NULL;
+    
     for(int jvec=0;jvec<ivec;jvec++)
         updt_vecs_[jvec]=updt_vecs[jvec];
     for(int jvec=ivec+1;jvec<nupdt_vecs;jvec++)
         updt_vecs_[jvec-1]=updt_vecs[jvec];
-    if(nupdt_vecs)
-        delete [] updt_vecs;
+    delete [] updt_vecs;
     updt_vecs=updt_vecs_;
     
     tot_updt_byte_sz-=v->byte_sz;
@@ -2480,8 +2475,7 @@ void VecLst::add_xchng(vec* v)
     
     vec** xchng_vecs_=new vec*[nxchng_vecs+1];
     memcpy(xchng_vecs_,xchng_vecs,nxchng_vecs*sizeof(vec*));
-    if(nxchng_vecs)
-        delete [] xchng_vecs;
+    delete [] xchng_vecs;
     xchng_vecs=xchng_vecs_;
     
     xchng_vecs[nxchng_vecs]=v;
@@ -2503,13 +2497,17 @@ void VecLst::del_xchng(vec* v)
     if(ivec==nxchng_vecs)
         return;
     
-    vec** xchng_vecs_=new vec*[nxchng_vecs-1];
+    vec** xchng_vecs_;
+    if(nxchng_vecs-1)
+        xchng_vecs_=new vec*[nxchng_vecs-1];
+    else
+        xchng_vecs_=NULL;
+    
     for(int jvec=0;jvec<ivec;jvec++)
         xchng_vecs_[jvec]=xchng_vecs[jvec];
     for(int jvec=ivec+1;jvec<nxchng_vecs;jvec++)
         xchng_vecs_[jvec-1]=xchng_vecs[jvec];
-    if(nxchng_vecs)
-        delete [] xchng_vecs;
+    delete [] xchng_vecs;
     xchng_vecs=xchng_vecs_;
     
     tot_xchng_byte_sz-=v->byte_sz;
@@ -2543,8 +2541,7 @@ void VecLst::add_arch(vec* v)
     
     vec** arch_vecs_=new vec*[narch_vecs+1];
     memcpy(arch_vecs_,arch_vecs,narch_vecs*sizeof(vec*));
-    if(narch_vecs)
-        delete [] arch_vecs;
+    delete [] arch_vecs;
     arch_vecs=arch_vecs_;
     
     arch_vecs[narch_vecs]=v;
@@ -2562,13 +2559,16 @@ void VecLst::del_arch(vec* v)
     if(ivec==narch_vecs)
         return;
     
-    vec** arch_vecs_=new vec*[narch_vecs-1];
+    vec** arch_vecs_;
+    if(narch_vecs-1)
+        arch_vecs_=new vec*[narch_vecs-1];
+    else
+        arch_vecs_=NULL;
     for(int jvec=0;jvec<ivec;jvec++)
         arch_vecs_[jvec]=arch_vecs[jvec];
     for(int jvec=ivec+1;jvec<narch_vecs;jvec++)
         arch_vecs_[jvec-1]=arch_vecs[jvec];
-    if(narch_vecs)
-        delete [] arch_vecs;
+    delete [] arch_vecs;
     arch_vecs=arch_vecs_;
     
     tot_arch_byte_sz-=v->byte_sz;

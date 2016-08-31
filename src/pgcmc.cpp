@@ -778,10 +778,9 @@ void PGCMC::ins_succ()
     ngas++;
 }
 
-/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- 
- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-
+/*--------------------------------------------
+ setup the communications
+ --------------------------------------------*/
 void PGCMC::comms_setup(int n_vars_,int n_s_)
 {
     n_vars=n_vars_;
@@ -790,25 +789,6 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     n_p=atoms->tot_p;
  
     memcpy(p_vec,atoms->comm->my_loc,sizeof(int)*dim);
-    memcpy(N_p,atoms->comm->tot_p_grid,sizeof(int)*dim);
-    int ip_test=0;
-    for(int i=0;i<dim;i++)
-    {
-        B_p[i]=atoms->comm->neigh_p[i][1]-ip;
-        if(B_p[i]<0)
-            B_p[i]=ip-atoms->comm->neigh_p[i][0];
-        ip_test+=B_p[i]*p_vec[i];
-    }
-    n_p=1;
-    for(int i=0;i<dim;i++)
-    {
-        B_p[i]=n_p;
-        n_p*=N_p[i];
-    }
-    /*
-    if(ip_test!=ip)
-        error->abort_sing("the dimensions do not match in pgcmc");
-     */
     
     
     /*-----------------------------------------------------------------------------------------
@@ -846,6 +826,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
             max_N_cncrcy[i]=1;
         }
         
+        B_p[i]=n_p;
         B_prll[i]=n_prll;
         B_pcomm[i]=n_pcomm;
         B_comm[i]=n_comm;
@@ -973,7 +954,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
 
 }
 /*--------------------------------------------
- 
+ dismantle communications
  --------------------------------------------*/
 void PGCMC::comms_dismantle()
 {
@@ -1006,7 +987,7 @@ void PGCMC::comms_dismantle()
     n_comm=0;
 }
 /*--------------------------------------------
- 
+ create random communication pattern
  --------------------------------------------*/
 void PGCMC::create_comm_pattern()
 {

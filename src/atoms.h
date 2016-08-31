@@ -230,6 +230,11 @@ namespace MAPP_NS
         
         void x2s(int);
         void s2x(int);
+        void x2s_lcl();
+        void s2x_lcl();
+        void x2s_all();
+        void s2x_all();
+        
         void restart();
         void auto_grid();
         void man_grid(int*);
@@ -307,12 +312,12 @@ namespace MAPP_NS
     protected:
     public:
         
-        int tot_p;
+        int& tot_p;
         /*
          * total number of procs. in this simulation
          * set in: constructor
          */
-        int my_p;
+        int& my_p;
         /*
          * the id of my proc.
          * set in: constructor
@@ -346,8 +351,8 @@ namespace MAPP_NS
          * set in: auto_grid() / man_grid ()
          */
         
-        type0* s_lo;
-        type0* s_hi;
+        type0*& s_lo;
+        type0*& s_hi;
         
         Communincation(Atoms*);
         ~Communincation();
@@ -386,6 +391,7 @@ namespace MAPP_NS
         vec** xchng_vecs;
         int nxchng_vecs;
         int tot_xchng_byte_sz;
+        
         vec** updt_vecs;
         int nupdt_vecs;
         int tot_updt_byte_sz;
@@ -431,8 +437,8 @@ namespace MAPP_NS
         MPI_Comm& world;
         unsigned long& xchng_id;
         
-        int** neigh_p;
-        int my_p;
+        int**& neigh_p;
+        int& my_p;
         
         int buff_grw;
         byte* snd_buff[2];
@@ -443,8 +449,8 @@ namespace MAPP_NS
         int rcv_buff_sz;
         int rcv_buff_cpcty;
         
-        type0* s_lo;
-        type0* s_hi;
+        type0*& s_lo;
+        type0*& s_hi;
         void load(int&,int);
         void load(byte*&,int&);
         int xchng_buff(int,int);
@@ -485,7 +491,7 @@ namespace MAPP_NS
         type0*& s_lo;
         type0*& s_hi;
         type0*& max_cut_s;
-        int my_p;
+        int& my_p;
         
         
         int tot_ncomms;
