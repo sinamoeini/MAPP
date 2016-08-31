@@ -55,7 +55,7 @@ void Neighbor_md::create_list(bool box_change)
     timer->start(NEIGH_TIME_mode);
     
     cell->create(box_change);
-    atoms->s2x(atoms->natms+atoms->natms_ph);
+    atoms->s2x_all();
     
     if(neighbor_list_size_size)
     {

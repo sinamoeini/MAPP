@@ -66,7 +66,7 @@ Command_change_box::Command_change_box(MAPP* mapp
             error->abort("unknown keyword for change_box: %s",args[iarg]);
     }    
     
-    atoms->x2s(atoms->natms);
+    atoms->x2s_lcl();
     
     if(strcmp(args[1],"strain")==0)
     {
@@ -114,7 +114,7 @@ Command_change_box::Command_change_box(MAPP* mapp
         xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
         delete xmath;
     }
-    atoms->s2x(atoms->natms);
+    atoms->s2x_lcl();
 }
 /*--------------------------------------------
  destructor

@@ -1484,10 +1484,10 @@ void Atoms::man_grid(int* n)
 {
     comm->man_grid(n);
     xchng=new Xchng(this,vecs,nvecs);
-    x2s(natms);
+    x2s_lcl();
     xchng->full_xchng();
     natms=x->vec_sz;
-    s2x(natms);
+    s2x_lcl();
     delete xchng;
     grid_established=true;
     
@@ -1512,7 +1512,6 @@ void Atoms::x2s(int no)
     int x_dim=x->dim;
     
     for(int i=0;i<no;i++,x_vec+=x_dim)
-    {
         for(int idim=0;idim<dimension;idim++)
         {
             x_vec[idim]=x_vec[idim]*B[idim][idim];
@@ -1527,7 +1526,6 @@ void Atoms::x2s(int no)
                 x_vec[idim]--;
              */
         }
-    }
 }
 /*--------------------------------------------
  s2x
@@ -1538,14 +1536,94 @@ void Atoms::s2x(int no)
     int x_dim=x->dim;
     
     for(int i=0;i<no;i++,x_vec+=x_dim)
-    {
         for(int idim=0;idim<dimension;idim++)
         {
             x_vec[idim]=x_vec[idim]*H[idim][idim];
             for(int jdim=idim+1;jdim<dimension;jdim++)
                 x_vec[idim]+=x_vec[jdim]*H[jdim][idim];
         }
-    }
+}
+/*--------------------------------------------
+ x2s
+ --------------------------------------------*/
+void Atoms::x2s_lcl()
+{
+    type0* x_vec=x->begin();
+    int x_dim=x->dim;
+    
+    for(int i=0;i<natms;i++,x_vec+=x_dim)
+        for(int idim=0;idim<dimension;idim++)
+        {
+            x_vec[idim]=x_vec[idim]*B[idim][idim];
+            for(int jdim=idim+1;jdim<dimension;jdim++)
+                x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
+            
+            x_vec[idim]-=floor(x_vec[idim]);
+            /*
+             while(x_vec[idim]<0.0)
+             x_vec[idim]++;
+             while(x_vec[idim]>=1.0)
+             x_vec[idim]--;
+             */
+        }
+}
+/*--------------------------------------------
+ s2x
+ --------------------------------------------*/
+void Atoms::s2x_lcl()
+{
+    type0* x_vec=x->begin();
+    int x_dim=x->dim;
+    
+    for(int i=0;i<natms;i++,x_vec+=x_dim)
+        for(int idim=0;idim<dimension;idim++)
+        {
+            x_vec[idim]=x_vec[idim]*H[idim][idim];
+            for(int jdim=idim+1;jdim<dimension;jdim++)
+                x_vec[idim]+=x_vec[jdim]*H[jdim][idim];
+        }
+}
+/*--------------------------------------------
+ x2s
+ --------------------------------------------*/
+void Atoms::x2s_all()
+{
+    type0* x_vec=x->begin();
+    int x_dim=x->dim;
+    int nall=natms+natms_ph;
+    
+    for(int i=0;i<nall;i++,x_vec+=x_dim)
+        for(int idim=0;idim<dimension;idim++)
+        {
+            x_vec[idim]=x_vec[idim]*B[idim][idim];
+            for(int jdim=idim+1;jdim<dimension;jdim++)
+                x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
+            
+            x_vec[idim]-=floor(x_vec[idim]);
+            /*
+             while(x_vec[idim]<0.0)
+             x_vec[idim]++;
+             while(x_vec[idim]>=1.0)
+             x_vec[idim]--;
+             */
+        }
+}
+/*--------------------------------------------
+ s2x
+ --------------------------------------------*/
+void Atoms::s2x_all()
+{
+    type0* x_vec=x->begin();
+    int x_dim=x->dim;
+    int nall=natms+natms_ph;
+    
+    for(int i=0;i<nall;i++,x_vec+=x_dim)
+        for(int idim=0;idim<dimension;idim++)
+        {
+            x_vec[idim]=x_vec[idim]*H[idim][idim];
+            for(int jdim=idim+1;jdim<dimension;jdim++)
+                x_vec[idim]+=x_vec[jdim]*H[jdim][idim];
+        }
 }
 /*--------------------------------------------
  insert a number of atoms
@@ -1741,7 +1819,7 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      */
     
 
-    x2s(natms);
+    x2s_lcl();
 
     /*
      ?. do the xchng
@@ -1899,7 +1977,7 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             return;
         }
         
-        x2s(natms);
+        x2s_lcl();
         for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
             vecs[ivec]->resize(natms);
         xchng->full_xchng();
@@ -1933,7 +2011,7 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             return;
         }
         
-        x2s(natms);
+        x2s_lcl();
         for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
             vecs[ivec]->resize(natms);
         xchng->full_xchng();
@@ -1961,7 +2039,7 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
 void Atoms::init_xchng()
 {
     timer->start(COMM_TIME_mode);
-    x2s(natms);
+    x2s_lcl();
     for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
         vecs[ivec]->resize(natms);
     xchng->full_xchng();
@@ -2013,10 +2091,10 @@ type0 Atoms::get_skin()
 void Atoms::reset()
 {
     xchng=new Xchng(this,vecs,nvecs);
-    x2s(natms);
+    x2s_lcl();
     xchng->full_xchng();
     natms=x->vec_sz;
-    s2x(natms);
+    s2x_lcl();
     delete xchng;
 }
 /*--------------------------------------------

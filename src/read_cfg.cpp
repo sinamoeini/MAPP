@@ -570,7 +570,7 @@ void Read_cfg::set_vecs()
         " recheck your cfg file: %d %d",
         atoms->tot_natms,tot_no);
     
-    atoms->s2x(atoms->natms);
+    atoms->s2x_lcl();
 
     if(mapp->mode==DMD_mode)
     {
