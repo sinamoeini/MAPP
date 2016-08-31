@@ -1094,38 +1094,27 @@ dimension(atoms->dimension)
     tot_p_grid=new int[dimension];
     my_loc=new int[dimension];
     neigh_p=new int*[dimension];
-    for(int idim=0;idim<dimension;idim++)
-        neigh_p[idim]=new int[2];
+    *neigh_p=new int[2*dimension];
+    for(int idim=1;idim<dimension;idim++)
+        neigh_p[idim]=neigh_p[idim-1]+2;
     s_lo=new type0[dimension];
     s_hi=new type0[dimension];
-    
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
 Atoms::Communincation::~Communincation()
 {
-    if(dimension)
-    {
-        for(int i=0;i<dimension;i++)
-        {
-            delete [] neigh_p[i];
-        }
-        delete [] neigh_p;
-        delete [] my_loc;
-        delete [] tot_p_grid;
-        delete [] s_lo;
-        delete [] s_hi;
-    }
+    delete [] *neigh_p;
+    delete [] neigh_p;
+    delete [] my_loc;
+    delete [] tot_p_grid;
+    delete [] s_lo;
+    delete [] s_hi;
     
-    for(int i=0;i<tot_n;i++)
-        if(p_per_n[i])
-            delete [] n_p_grid[i];
-    if(tot_n)
-    {
-        delete [] n_p_grid;
-        delete [] p_per_n;
-    }
+    delete [] *n_p_grid;
+    delete [] n_p_grid;
+    delete [] p_per_n;
 }
 /*--------------------------------------------
  automatically grid the domain
