@@ -27,12 +27,13 @@ namespace MAPP_NS {
     protected:
     public:
         int dim;
+        int orig_dim;
+        int ncmprsd_dims;
         int byte_sz;
         unsigned int vec_sz;
         unsigned int dump_vec_sz;
         unsigned int vec_cpcty;
-        int orig_dim;
-        int cmpctd_dims;
+        
         
         char* name;
         char* print_format;
@@ -64,6 +65,8 @@ namespace MAPP_NS {
         virtual void cpy(byte*&,int*,int)=0;
         virtual void pst(byte*&,int)=0;
         virtual void cpy_pst(int*,int)=0;
+        virtual void assign_print_format(const char*)=0;
+
 
     };
 }
@@ -84,7 +87,7 @@ namespace MAPP_NS
     private:
         T* vec;
         T* dump_vec;
-        T dump_def_val;
+        T def_val;
         Atoms* atoms;
     protected:
     public:
@@ -100,6 +103,7 @@ namespace MAPP_NS
         void del_dump();
         void print_dump(FILE*,int);
         void assign_print_format();
+        void assign_print_format(const char*);
         void change_dimension(int);
         void change_dimension(T,int,int);
         
@@ -137,6 +141,9 @@ namespace MAPP_NS
         T& operator [] (const int);
         const T& operator () (const int iatm,const int idim) const;
         const T& operator [] (const int i) const;
+        
+        void compress(Vec<dmd_type>*&,int,T);
+
     };
 }
 /*-------------------------------------------------
@@ -637,17 +644,26 @@ Vec<T>::Vec(Atoms* atoms_,int dim_):
 atoms(atoms_),
 vec()
 {
+    def_val=0;
+    ncmprsd_dims=0;
     dim=dim_;
-    byte_sz=sizeof(T)*dim;
-    vec_sz=vec_cpcty=atoms->natms;
-    vec=new T[vec_sz*dim];
-    atoms->add_vec(this);
     orig_dim=dim;
-    cmpctd_dims=0;
+    byte_sz=sizeof(T)*dim;
+    
+    vec_sz=vec_cpcty=atoms->natms;
     dump_vec_sz=0;
-    dump_def_val=0;
+    
+    if(vec_sz)
+        vec=new T[vec_sz*dim];
+    else
+        vec=NULL;
+    
+    dump_vec=NULL;
+    
     name=NULL;
     assign_print_format();
+    
+    atoms->add_vec(this);
 }
 /*--------------------------------------------
  constructor with name;
@@ -657,59 +673,111 @@ Vec<T>::Vec(Atoms* atoms_,int dim_,const char* name_):
 atoms(atoms_),
 vec()
 {
+    def_val=0;
+    ncmprsd_dims=0;
     dim=dim_;
-    byte_sz=sizeof(T)*dim;
-    vec_sz=vec_cpcty=atoms->natms;
-    vec=new T[vec_sz*dim];
-    atoms->add_vec(this);
     orig_dim=dim;
-    cmpctd_dims=0;
+    byte_sz=sizeof(T)*dim;
+    
+    vec_sz=vec_cpcty=atoms->natms;
     dump_vec_sz=0;
-    dump_def_val=0;
+    
+    if(vec_sz)
+        vec=new T[vec_sz*dim];
+    else
+        vec=NULL;
+    dump_vec=NULL;
+    
     name=NULL;
     assign_print_format();
     
     int length=static_cast<int>(strlen(name_))+1;
     name=new char[length];
     memcpy(name,name_,length*sizeof(char));
+    
+    atoms->add_vec(this);
 }
 /*--------------------------------------------
  copy costructor
  --------------------------------------------*/
 template<typename T>
-Vec<T>::Vec(Vec<T>& old)
+Vec<T>::Vec(Vec<T>& other)
 {
-    atoms=old.atoms;
+    atoms=other.atoms;
     
-    dim=old.dim;
-    byte_sz=old.byte_sz;
-    vec_sz=old.vec_sz;
-    vec_cpcty=old.vec_cpcty;
-    vec=old.vec;
-    orig_dim=old.orig_dim;
-    cmpctd_dims=old.cmpctd_dims;
-    dump_vec_sz=old.dump_vec_sz;
-    name=old.name;
-    print_format=old.print_format;
+    def_val=other.def_val;
+    ncmprsd_dims=other.ncmprsd_dims;
+    dim=other.dim;
+    orig_dim=other.orig_dim;
+    byte_sz=other.byte_sz;
+    
+    
+    vec_sz=other.vec_sz;
+    vec_cpcty=other.vec_cpcty;
+    dump_vec_sz=other.dump_vec_sz;
+    
+    if(vec_cpcty)
+    {
+        vec=new T[vec_cpcty*dim];
+        memcpy(vec,other.vec,vec_sz*byte_sz);
+    }
+    else
+        vec=NULL;
+    
+    if(dump_vec_sz)
+    {
+        dump_vec=new T[dump_vec_sz*dim];
+        memcpy(dump_vec,other.dump_vec,dump_vec_sz*byte_sz);
+    }
+    else
+        dump_vec=NULL;
+    if(other.name!=NULL)
+    {
+        size_t name_sz=strlen(other.name);
+        size_t cpy_sz=strlen("_copy");
+        name=new char[name_sz+cpy_sz+1];
+        memcpy(name,other.name,name_sz*sizeof(char));
+        memcpy(name+name_sz,"_copy",(cpy_sz+1)*sizeof(char));
+    }
+    else
+        name=NULL;
+    size_t print_sz=strlen(other.print_format)+1;
+    print_format=new char[print_sz];
+    memcpy(print_format,other.print_format,print_sz*sizeof(char));
+    
+    atoms->add_vec(this);
 }
 /*--------------------------------------------
  move costructor
  --------------------------------------------*/
 template<typename T>
-Vec<T>::Vec(const Vec<T>&& old)
+Vec<T>::Vec(const Vec<T>&& other)
 {
-    atoms=old.atoms;
+    atoms=other.atoms;
     
-    dim=old.dim;
-    byte_sz=old.byte_sz;
-    vec_sz=old.vec_sz;
-    vec_cpcty=old.vec_cpcty;
-    vec=old.vec;
-    orig_dim=old.orig_dim;
-    cmpctd_dims=old.cmpctd_dims;
-    dump_vec_sz=old.dump_vec_sz;
-    name=old.name;
-    print_format=old.print_format;
+    def_val=other.def_val;
+    ncmprsd_dims=other.ncmprsd_dims;
+    dim=other.dim;
+    orig_dim=other.orig_dim;
+    byte_sz=other.byte_sz;
+    
+    
+    vec_sz=other.vec_sz;
+    other.vec_sz=0;
+    vec_cpcty=other.vec_cpcty;
+    other.vec_cpcty=0;
+    dump_vec_sz=other.dump_vec_sz;
+    other.dump_vec_sz=0;
+    vec=other.vec;
+    other.vec=NULL;
+    dump_vec=other.dump_vec;
+    other.dump_vec=NULL;
+    name=other.name;
+    other.name=NULL;
+    print_format=other.print_format;
+    other.print_format=NULL;
+    
+    atoms->add_vec(this);
 }
 /*--------------------------------------------
  destructor
@@ -717,8 +785,8 @@ Vec<T>::Vec(const Vec<T>&& old)
 template<typename T>
 inline Vec<T>::~Vec()
 {
-    if(vec_cpcty)
-        delete [] vec;
+    delete [] vec;
+    delete [] dump_vec;
     delete [] name;
     delete [] print_format;
     atoms->del_vec(this);
@@ -735,14 +803,17 @@ void Vec<T>::change_dimension(int dim_)
     int min_dim=MIN(dim_,dim);
 
     
-    T* new_vec=new T[vec_cpcty*dim_];
+    T* new_vec;
+    if(vec_cpcty)
+        new_vec=new T[vec_cpcty*dim_];
+    else
+        new_vec=NULL;
     
     for(int i=0;i<vec_sz;i++)
         for(int j=0;j<min_dim;j++)
             new_vec[i*dim_+j]=vec[i*dim+j];
     
-    if(vec_cpcty)
-        delete [] vec;
+    delete [] vec;
     
     vec=new_vec;
     int del_dim=dim_-dim;
@@ -754,11 +825,11 @@ void Vec<T>::change_dimension(int dim_)
  
  --------------------------------------------*/
 template<typename T>
-void Vec<T>::change_dimension(T dump_def_val_,int cmpctd_dims_,int del_dim)
+void Vec<T>::change_dimension(T def_val_,int ncmprsd_dims_,int del_dim)
 {
     int dim_=dim-del_dim;
-    cmpctd_dims=cmpctd_dims_;
-    dump_def_val=dump_def_val_;
+    ncmprsd_dims=ncmprsd_dims_;
+    def_val=def_val_;
     
     if(dim_==dim)
         return;
@@ -767,14 +838,18 @@ void Vec<T>::change_dimension(T dump_def_val_,int cmpctd_dims_,int del_dim)
     int min_dim=MIN(dim_,dim);
 
     
-    T* new_vec=new T[vec_cpcty*dim_];
+    T* new_vec;
+    if(vec_cpcty)
+        new_vec=new T[vec_cpcty*dim_];
+    else
+        new_vec=NULL;
     
     for(int i=0;i<vec_sz;i++)
         for(int j=0;j<min_dim;j++)
             new_vec[i*dim_+j]=vec[i*dim+j];
     
-    if(vec_cpcty)
-        delete [] vec;
+    
+    delete [] vec;
     
     vec=new_vec;
     dim=dim_;
@@ -792,15 +867,20 @@ inline void Vec<T>::resize(int natms)
         return;
     }
     
-    T* vec_tmp=new T[natms*dim];
     
-    memcpy(vec_tmp,vec,byte_sz*vec_sz);
+    T* new_vec;
+    if(natms)
+        new_vec=new T[natms*dim];
+    else
+        new_vec=NULL;
     
-    if(vec_cpcty) delete [] vec;
     
+    memcpy(new_vec,vec,byte_sz*vec_sz);
+    
+    delete [] vec;
     vec_sz=natms;
     vec_cpcty=natms;
-    vec=vec_tmp;
+    vec=new_vec;
 }
 /*--------------------------------------------
  
@@ -811,14 +891,17 @@ inline void Vec<T>::shrink_to_fit()
     if(vec_cpcty==vec_sz)
         return;
     
-    T* vec_tmp=new T[vec_sz*dim];
+    T* new_vec;
+    if(vec_sz)
+        new_vec=new T[vec_sz*dim];
+    else
+        new_vec=NULL;
     
-    memcpy(vec_tmp,vec,byte_sz*vec_sz);
+    memcpy(new_vec,vec,byte_sz*vec_sz);
     
-    if(vec_cpcty)
-        delete [] vec;
+    delete [] vec;
     vec_cpcty=vec_sz;
-    vec=vec_tmp;
+    vec=new_vec;
 }
 /*--------------------------------------------
  
@@ -829,15 +912,13 @@ inline void Vec<T>::reserve(int xtra_atms)
     if(vec_cpcty>=vec_sz+xtra_atms)
         return;
     
-    T* vec_tmp=new T[(vec_sz+xtra_atms)*dim];
+    T* new_vec=new T[(vec_sz+xtra_atms)*dim];
     
-    memcpy(vec_tmp,vec,byte_sz*vec_sz);
+    memcpy(new_vec,vec,byte_sz*vec_sz);
     
-    if(vec_cpcty)
-        delete [] vec;
-    
+    delete [] vec;
     vec_cpcty=vec_sz+xtra_atms;
-    vec=vec_tmp;
+    vec=new_vec;
 }
 /*--------------------------------------------
  
@@ -846,16 +927,91 @@ template<typename T>
 inline void Vec<T>::rearrange(int* old_pos
 ,int* new_pos,int sz,int new_vec_cpcty)
 {
-    T* vec_tmp=new T[new_vec_cpcty*dim];
+    T* new_vec;
+    if(new_vec_cpcty)
+        new_vec=new T[new_vec_cpcty*dim];
+    else
+        new_vec=NULL;
     
     for(int i=0;i<sz;i++)
-        memcpy(vec_tmp+new_pos[i]*dim,vec+old_pos[i]*dim,byte_sz);
+        memcpy(new_vec+new_pos[i]*dim,vec+old_pos[i]*dim,byte_sz);
     
-    if(vec_cpcty)
-        delete [] vec;
-    vec=vec_tmp;
+    delete [] vec;
+    vec=new_vec;
     vec_cpcty=new_vec_cpcty;
     vec_sz=0;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<typename T>
+void Vec<T>::compress(Vec<dmd_type>*& map,int ncmprsd_dims_,T def_val_)
+{
+    def_val=def_val_;
+    
+    if(map)
+    {
+        int map_dim=map->dim;
+        if(map_dim==ncmprsd_dims_)
+            return;
+        
+        T* vec_=vec+dim-ncmprsd_dims_;
+        dmd_type* map_vec=map->begin();
+        
+        for(int i=0;i<vec_sz;i++,map_vec+=map_dim,vec_+=dim)
+            for(int j=0;j<map_dim;j++)
+                vec_[j]=vec_[map[j]];
+        int dim_reduc=ncmprsd_dims_-map_dim;
+        change_dimension(dim-dim_reduc);
+        orig_dim+=dim_reduc;
+        return;
+    }
+    
+    int map_dim=ncmprsd_dims_;
+    map=new Vec<dmd_type>(atoms,map_dim);
+    
+    int max_dim_lcl=0,max_dim_tmp,dim_reduc;
+    T* vec_=vec+dim-map_dim;
+    for(int i=0;i<vec_sz;i++,vec_+=dim)
+    {
+        max_dim_tmp=0;
+        for(int j=0;j<map_dim;j++)
+            if(vec_[j]!=def_val)
+                max_dim_tmp++;
+        max_dim_lcl=MAX(max_dim_tmp,max_dim_lcl);
+    }
+    MPI_Allreduce(&max_dim_lcl,&dim_reduc,1,MPI_INT,MPI_MAX,atoms->world);
+    dim_reduc=map_dim-dim_reduc;
+    
+    if(dim_reduc==0)
+    {
+        dmd_type* map_vec=map->begin();
+        for(int i=0;i<vec_sz;i++,map_vec+=map_dim)
+            for(dmd_type j=0;j<map_dim;j++)
+                map_vec[j]=j;
+        return;
+    }
+    
+    vec_=vec+dim-map_dim;
+    dmd_type* map_vec=map->begin();
+    for(int i=0,icurs;i<vec_sz;i++,map_vec+=map_dim,vec_+=dim)
+    {
+        icurs=0;
+        for(int j=0;j<map_dim;j++)
+            map_vec[j]=j;
+        for(int j=0;j<map_dim;j++)
+            if(vec_[j]!=def_val)
+            {
+                std::swap(vec_[j],vec_[icurs]);
+                std::swap(map_vec[j],map_vec[icurs]);
+                icurs++;
+            }
+    }
+    
+    change_dimension(dim-dim_reduc);
+    orig_dim+=dim_reduc;
+    
+    map->change_dimension(map_dim-dim_reduc);
 }
 /*--------------------------------------------
  
@@ -948,88 +1104,46 @@ inline void Vec<T>::operator()(Vec<T>& v)
  
  ------------------------------------*/
 template<typename T>
+void Vec<T>::assign_print_format(const char* form)
+{
+    size_t sz=strlen(form)+1;
+    delete [] print_format;
+    print_format=new char[sz];
+    memcpy(print_format,form,sz*sizeof(char));
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<typename T>
 void Vec<T>::assign_print_format()
 {
     print_format=NULL;
-    int lngth;
     if(typeid(T)==typeid(char))
-    {
-        lngth=static_cast<int>(strlen((char*)"%c "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%c ",lngth*sizeof(char));
-    }
+        assign_print_format("%c ");
     else if(typeid(T)==typeid(unsigned char))
-    {
-        lngth=static_cast<int>(strlen((char*)"%c "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%c ",lngth*sizeof(char));
-    }
+        assign_print_format("%c ");
     else if(typeid(T)==typeid(short int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%d "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
-    }
+        assign_print_format("%d ");
     else if(typeid(T)==typeid(unsigned short int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%d "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
-    }
+        assign_print_format("%d ");
     else if(typeid(T)==typeid(int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%d "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
-    }
+        assign_print_format("%d ");
     else if(typeid(T)==typeid(unsigned int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%d "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%d ",lngth*sizeof(char));
-    }
+        assign_print_format("%d ");
     else if(typeid(T)==typeid(long int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%ld "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%ld ",lngth*sizeof(char));
-    }
+        assign_print_format("%ld ");
     else if(typeid(T)==typeid(unsigned long int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%ld "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%ld ",lngth*sizeof(char));
-    }
+        assign_print_format("%ld ");
     else if(typeid(T)==typeid(long long int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%lld "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%lld ",lngth*sizeof(char));
-    }
+        assign_print_format("%lld ");
     else if(typeid(T)==typeid(unsigned long long int))
-    {
-        lngth=static_cast<int>(strlen((char*)"%lld "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%lld ",lngth*sizeof(char));
-    }
+        assign_print_format("%lld ");
     else if(typeid(T)==typeid(float))
-    {
-        lngth=static_cast<int>(strlen((char*)"%f "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%f ",lngth*sizeof(char));
-    }
+        assign_print_format("%f ");
     else if(typeid(T)==typeid(double))
-    {
-        lngth=static_cast<int>(strlen((char*)"%lf "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%lf ",lngth*sizeof(char));
-    }
+        assign_print_format("%lf ");
     else if(typeid(T)==typeid(long double))
-    {
-        lngth=static_cast<int>(strlen((char*)"%Lf "))+1;
-        print_format=new char[lngth];
-        memcpy(print_format,(char*)"%Lf ",lngth*sizeof(char));
-    }
+        assign_print_format("%Lf ");
 }
 /*--------------------------------------------
  
@@ -1047,7 +1161,7 @@ void Vec<T>::gather_dump(class vec* map)
 }
 /*--------------------------------------------
  
-                            cmpctd_dims
+                            ncmprsd_dims
                           ______/\______
                          |              |
                  orig_dim
@@ -1059,7 +1173,7 @@ void Vec<T>::gather_dump(class vec* map)
  after transformation:
  
  
-                    dim-orig_dim+cmpctd_dims
+                    dim-orig_dim+ncmprsd_dims
                           ____/\____
                          |          |
                    dim
@@ -1069,7 +1183,7 @@ void Vec<T>::gather_dump(class vec* map)
  |___________  __________|
              \/
  
-     orig_dim-cmpctd_dims
+     orig_dim-ncmprsd_dims
  
  --------------------------------------------*/
 template<typename T>
@@ -1079,13 +1193,13 @@ void Vec<T>::gather_dump(Vec<dmd_type>* map)
     T* vec_=vec;
     int byte_sz_=byte_sz;
     
-    if(cmpctd_dims)
+    if(ncmprsd_dims)
     {
         dmd_type* map_vec=map->begin();
         int map_dim=map->dim;
-        int ncmp=(dim-orig_dim+cmpctd_dims)/map_dim;
-        int map_dim_=cmpctd_dims/ncmp;
-        int strt_dim=orig_dim-cmpctd_dims;
+        int ncmp=(dim-orig_dim+ncmprsd_dims)/map_dim;
+        int map_dim_=ncmprsd_dims/ncmp;
+        int strt_dim=orig_dim-ncmprsd_dims;
         
         vec_=new T[natms*orig_dim];
         byte_sz_=orig_dim*sizeof(T);
@@ -1098,8 +1212,8 @@ void Vec<T>::gather_dump(Vec<dmd_type>* map)
             for(int idim=0;idim<strt_dim;idim++)
                 vec_[ipos_++]=vec[ipos++];
             
-            for(int idim=0;idim<cmpctd_dims;idim++)
-                vec_[ipos_+idim]=dump_def_val;
+            for(int idim=0;idim<ncmprsd_dims;idim++)
+                vec_[ipos_+idim]=def_val;
             
             for(int icmp=0;icmp<ncmp;icmp++)
             {
@@ -1152,7 +1266,7 @@ void Vec<T>::gather_dump(Vec<dmd_type>* map)
         delete [] rcv_size;
     }
     
-    if(cmpctd_dims && natms)
+    if(ncmprsd_dims && natms)
         delete [] vec_;
 }
 /*--------------------------------------------
@@ -1206,9 +1320,9 @@ void Vec<T>::gather_dump()
 template<typename T>
 void Vec<T>::del_dump()
 {
-    if(atoms->my_p==0 && dump_vec_sz)
-        delete [] dump_vec;
+    delete [] dump_vec;
     dump_vec_sz=0;
+    dump_vec=NULL;
 }
 /*--------------------------------------------
  delete dump

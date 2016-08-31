@@ -1849,17 +1849,28 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      ?. setup and find the phantom atoms and updating simultaniously
      */
     swap->list();
-    /*
-     ?. build the neighbor list and store x0
-     */
-    neighbor->init();
-    swap->eliminate_redundancy();
 
+    /*
+     ?. make sure the vectors that are not in xchng_vecs have enough space
+     */
     for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
     {
         vecs[ivec]->vec_sz=0;
         vecs[ivec]->resize(natms+natms_ph);
     }
+    
+    /*
+     ?. build the neighbor list and store x0
+     */
+    neighbor->init();
+    /*
+     ?. remove the redundant phantom atoms that are not in neighbor list, correct the communicattion and the remaining phantom atoms indices
+     */
+    swap->eliminate_redundancy();
+
+    /*
+     ?. store x0 to decide when to re build the neighbor list
+     */
     
     store_x0();
     timer->stop(COMM_TIME_mode);
@@ -1882,6 +1893,7 @@ void Atoms::fin()
         delete id_arch;
     }
     
+    
     for(int ivec=0;ivec<nvecs;ivec++)
     {
         vecs[ivec]->vec_sz=natms;
@@ -1900,12 +1912,10 @@ inline void Atoms::store_x0()
     type0* x_vec=x->begin();
     type0* x0_vec=x0->begin();
     int x_dim=x->dim;
-    if(box_chng)
-        for(int iatm=0;iatm<natms+natms_ph;iatm++,x0_vec+=dimension,x_vec+=x_dim)
-            memcpy(x0_vec,x_vec,dimension*sizeof(type0));
-    else
-        for(int iatm=0;iatm<natms+natms_ph;iatm++,x0_vec+=dimension,x_vec+=x_dim)
-            memcpy(x0_vec,x_vec,dimension*sizeof(type0));
+    int last_atm=natms;
+    if(box_chng) last_atm+=natms_ph;
+    for(int iatm=0;iatm<last_atm;iatm++,x0_vec+=dimension,x_vec+=x_dim)
+        memcpy(x0_vec,x_vec,dimension*sizeof(type0));
 }
 /*--------------------------------------------
  
@@ -1918,9 +1928,8 @@ inline bool Atoms::decide()
     type0* x_vec=x->begin();
     type0* x0_vec=x0->begin();
     int x_dim=x->dim;
-    int last_atm;
-    if(box_chng) last_atm=natms+natms_ph;
-    else last_atm=natms;
+    int last_atm=natms;
+    if(box_chng) last_atm+=natms_ph;
     
     for(int iatm=0;succ_lcl && iatm<last_atm;iatm++,x0_vec+=dimension,x_vec+=x_dim)
     {
@@ -1982,20 +1991,18 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             vecs[ivec]->resize(natms);
         xchng->full_xchng();
         natms=x->vec_sz;
-        natms_ph=0;
         
         swap->reset();
+        natms_ph=0;
         swap->list();
-        
-        neighbor->create_list(box_chng);
-        
-        natms_ph=x->vec_sz-natms;
         for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
         {
             vecs[ivec]->vec_sz=0;
             vecs[ivec]->resize(natms+natms_ph);
         }
         
+        neighbor->create_list(box_chng);
+
         store_x0();
     }
     else
@@ -2016,17 +2023,17 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             vecs[ivec]->resize(natms);
         xchng->full_xchng();
         natms=x->vec_sz;
+        
         natms_ph=0;
-        
         swap->list();
-        
-        neighbor->create_list(box_chng);
-        
         for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
         {
             vecs[ivec]->vec_sz=0;
             vecs[ivec]->resize(natms+natms_ph);
         }
+        
+        neighbor->create_list(box_chng);
+        
         
         store_x0();
     }
@@ -2419,6 +2426,7 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     }
     else
         *rcv_buff=NULL;
+
     
     byte* _snd_buff=*snd_buff;
     for(int ivec=0;ivec<narch_vecs;ivec++)
@@ -2439,10 +2447,12 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         if(rcv_p<0) rcv_p+=tot_p;
         int snd_p=my_p+idisp;
         if(snd_p>=tot_p) snd_p-=tot_p;
+        MPI_Barrier(world);
+        printf("%d  %d(%d)->%d->%d(%d) tot_p %d\n",idisp,rcv_p,nrcv_comm[rcv_p],my_p,snd_p,nsnd_comm[snd_p],tot_p);
+        MPI_Barrier(world);
         MPI_Sendrecv(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,MPI_BYTE,snd_p,0,
                      rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,MPI_BYTE,rcv_p,0,
                      world,MPI_STATUS_IGNORE);
-        
     }
     
     delete [] *snd_buff;

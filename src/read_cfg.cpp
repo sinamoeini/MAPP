@@ -617,9 +617,7 @@ void Read_cfg::set_vecs()
         mapp->x->change_dimension(0.0,dmd_no_types,dmd_no_types-cdim);
         mapp->c->change_dimension(-1.0,dmd_no_types,dmd_no_types-cdim);
         
-        delete [] mapp->c->print_format;
-        mapp->c->print_format=new char[strlen("%e ")+1];
-        memcpy(mapp->c->print_format,"%e ",strlen("%e ")+1);
+        mapp->c->assign_print_format("%e ");
     }
 }
 
