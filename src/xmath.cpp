@@ -22,50 +22,44 @@ XMath::~XMath()
 {
 }
 /*--------------------------------------------
- autogrid the domain
+ return the list of all possible groups of 
+ integers that their products are equal to a 
+ specific number
  --------------------------------------------*/
-int XMath::fac(int no,int dim,int**& list)
+void XMath::fac_list(int no,int dim,int*& list,int& list_sz)
 {
-    
-    int list_size=0;
+    list_sz=0;
+    list=NULL;
     int* tmp_list=new int[dim];
-    fac_rec(no,dim,0,tmp_list,list,list_size);
-    if(dim)
-        delete [] tmp_list;
-    return list_size;
+    fac_list_rec(no,dim,0,tmp_list,list,list_sz);
+    delete [] tmp_list;
+    
 }
 /*--------------------------------------------
- autogrid the domain
+ 
  --------------------------------------------*/
-void XMath::fac_rec(int no,int dim,int pos,
-int*& tmp_list,int**& list,int& list_size)
+void XMath::fac_list_rec(int no,int idim,int ipos,
+int*& tmp_list,int*& list,int& list_sz)
 {
     
-    if(dim>1)
+    if(idim>1)
     {
         for(int i=1;i<=no;i++)
-        {
             if(no%i==0)
             {
-                tmp_list[pos]=i;
-                fac_rec(no/i,dim-1,pos+1,
-                        tmp_list,list,list_size);
+                tmp_list[ipos]=i;
+                fac_list_rec(no/i,idim-1,ipos+1,tmp_list,list,list_sz);
             }
-        }
     }
     else
     {
-        tmp_list[pos]=no;
-        int** list_=new int*[list_size+1];
-        memcpy(list_,list,list_size*sizeof(type0*));
-        if(list_size)
-            delete [] list;
+        tmp_list[ipos]=no;
+        int* list_=new int[(list_sz+1)*(ipos+1)];
+        memcpy(list_,list,list_sz*(ipos+1)*sizeof(int));
+        memcpy(list_+(ipos+1)*list_sz,tmp_list,(ipos+1)*sizeof(int));
+        delete [] list;
         list=list_;
-        
-        list[list_size]=new int[pos+1];
-        for(int i=0;i<=pos;i++)
-            list[list_size][i]=tmp_list[i];
-        list_size++;
+        list_sz++;
     }
 }
 /*--------------------------------------------

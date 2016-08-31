@@ -12,7 +12,7 @@ namespace MAPP_NS
     {
     private:
         // recursive form of above functions that feeds into it
-        void fac_rec(int,int,int,int*&,int**&,int&);
+        void fac_list_rec(int,int,int,int*&,int*&,int&);
         template<typename,class>
         class XVec;
 
@@ -25,7 +25,8 @@ namespace MAPP_NS
         // inverse lower triangle square matrix
         void invert_lower_triangle(type0**&,type0**&,int&);
         // return the list of all possible groups of integers that their products are equal to specific number
-        int fac(int,int,int**&);
+        void fac_list(int,int,int*&,int&);
+        
         void square2lo_tri(type0**,type0**);
         void quadrature_lg(int,type0*,type0*);
         void quadrature_hg(int,type0*,type0*);

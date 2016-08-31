@@ -1176,33 +1176,24 @@ void Atoms::Communincation::auto_grid(type0** H)
         if(p_per_n[i]!=p_per_n[0])
             eq_p_per_n=0;
     
-    type0 vol;
-    type0* area=new type0[dimension];
     int prin_dimension=0;
     
     if(eq_p_per_n)
     {
-        for(int i=0;i<dimension;i++)
-        {
-            area[i]=1.0;
-            for(int j=0;j<dimension;j++)
-                if(i!=j)
-                    area[i]*=H[j][j];
-        }
-        
-        type0 min_area=-1.0;
-        for(int i=0;i<dimension;i++)
-            if(min_area<0.0 || area[i]<min_area)
+        type0 min_area=1.0/H[0][0];
+        for(int i=1;i<dimension;i++)
+            if(1.0/H[i][i]<min_area)
             {
-                min_area=area[i];
+                min_area=1.0/H[i][i];
                 prin_dimension=i;
             }
         
     }
     
     XMath* xmath= new XMath();
-    int** fac_list;
-    int fac_list_size=xmath->fac(tot_p,dimension,fac_list);
+    int* fac_list;
+    int fac_list_size;
+    xmath->fac_list(tot_p,dimension,fac_list,fac_list_size);
     delete  xmath;
     
     type0 ratio=-1.0;
@@ -1210,38 +1201,25 @@ void Atoms::Communincation::auto_grid(type0** H)
     
     if(eq_p_per_n && tot_n>1)
     {
-        for(int ifac=0;ifac<fac_list_size;ifac++)
+
+        int* ifac_list=fac_list;
+        for(int ifac=0;ifac<fac_list_size;ifac++,ifac_list+=dimension)
         {
-            if(fac_list[ifac][prin_dimension]==tot_n)
+            if(ifac_list[prin_dimension]!=tot_n) continue;
+                
+            tmp_ratio=0.0;
+            for(int i=0;i<dimension;i++)
+                tmp_ratio+=static_cast<type0>(ifac_list[i])/H[i][i];
+            
+            if(tmp_ratio<ratio||ratio<0.0)
             {
-                vol=1.0;
+                ratio=tmp_ratio;
                 for(int i=0;i<dimension;i++)
-                {
-                    vol*=H[i][i]/static_cast<type0>(fac_list[ifac][i]);
-                    area[i]=1.0;
-                    for(int j=0;j<dimension;j++)
-                        if(i!=j)
-                            area[i]*=H[j][j]/static_cast<type0>(fac_list[ifac][j]);
-                }
-                
-                tmp_ratio=0.0;
-                for(int i=0;i<dimension;i++)
-                    tmp_ratio+=2.0*area[i];
-                
-                tmp_ratio=tmp_ratio/vol;
-                if(tmp_ratio<ratio||ratio<0.0)
-                {
-                    ratio=tmp_ratio;
-                    for(int i=0;i<dimension;i++)
-                        tot_p_grid[i]=fac_list[ifac][i];
-                }
+                    tot_p_grid[i]=ifac_list[i];
             }
             
         }
         
-        
-        for(int i=0;i<fac_list_size;i++)
-            delete [] fac_list[i];
         delete [] fac_list;
         
         
@@ -1394,34 +1372,22 @@ void Atoms::Communincation::auto_grid(type0** H)
     }
     else
     {
-        for(int ifac=0;ifac<fac_list_size;ifac++)
+        int* ifac_list=fac_list;
+        for(int ifac=0;ifac<fac_list_size;ifac++,ifac_list+=dimension)
         {
-            vol=1.0;
-            for(int i=0;i<dimension;i++)
-            {
-                vol*=H[i][i]/static_cast<type0>(fac_list[ifac][i]);
-                area[i]=1.0;
-                for(int j=0;j<dimension;j++)
-                    if(i!=j)
-                        area[i]*=H[j][j]/static_cast<type0>(fac_list[ifac][j]);
-            }
-            
             tmp_ratio=0.0;
             for(int i=0;i<dimension;i++)
-                tmp_ratio+=2.0*area[i];
+                tmp_ratio+=static_cast<type0>(ifac_list[i])/H[i][i];
             
-            tmp_ratio=tmp_ratio/vol;
             if(tmp_ratio<ratio||ratio<0.0)
             {
                 ratio=tmp_ratio;
                 for(int i=0;i<dimension;i++)
-                    tot_p_grid[i]=fac_list[ifac][i];
+                    tot_p_grid[i]=ifac_list[i];
             }
             
         }
         
-        for(int i=0;i<fac_list_size;i++)
-            delete [] fac_list[i];
         delete [] fac_list;
         
         int* list=new int[dimension];
@@ -1439,7 +1405,6 @@ void Atoms::Communincation::auto_grid(type0** H)
         delete [] list;
     }
     
-    delete [] area;
     
     
     for(int i=0;i<dimension;i++)
