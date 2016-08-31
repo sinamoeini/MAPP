@@ -1032,101 +1032,62 @@ dimension(atoms->dimension)
     MPI_Comm_rank(world,&my_p);
     MPI_Comm_size(world,&tot_p);
     
-    int name_length;
-    char* node_name=new char[MPI_MAX_PROCESSOR_NAME];
-    MPI_Get_processor_name(node_name,&name_length);
-    if(MPI_MAX_PROCESSOR_NAME)
-        node_name[name_length]='\0';
-    name_length++;
+    char** names=new char*[tot_p];
+    int* rank=new int[tot_p];
+    char* name=new char[MPI_MAX_PROCESSOR_NAME];
+    int name_sz;
+    MPI_Get_processor_name(name,&name_sz);
+    name_sz++;
+    int name_sz_;
+    for(int ip=0;ip<tot_p;ip++)
+    {
+        rank[ip]=ip;
+        if(ip==my_p)
+            name_sz_=name_sz;
+        MPI_Bcast(&name_sz_,1,MPI_INT,ip,world);
+        names[ip]=new char[name_sz_];
+        if(ip==my_p)
+            memcpy(names[ip],name,name_sz_*sizeof(char));
+        MPI_Bcast(names[ip],name_sz_,MPI_CHAR,ip,world);
+    }
+    delete [] name;
     
-
-    int* name_lenghts=new int[tot_p];
-    for(int i=0;i<tot_p;i++)
-        name_lenghts[i]=0;
-    
-    name_lenghts[my_p]=name_length;
-    
-    
-    int* all_name_lenghts=new int[tot_p];
-    MPI_Allreduce(name_lenghts,all_name_lenghts,tot_p, MPI_INT,MPI_SUM,world);
-    if(tot_p)
-        delete [] name_lenghts;
-    
-    char** all_names=new char*[tot_p];
-    for(int i=0;i<tot_p;i++)
-        all_names[i]=new char[all_name_lenghts[i]];
-    
-    
-    
-    for(int i=0;i<name_length;i++)
-        all_names[my_p][i]=node_name[i];
-    if(MPI_MAX_PROCESSOR_NAME)
-        delete [] node_name;
-    
-    
-    for(int i=0;i<tot_p;i++)
-        MPI_Bcast(all_names[i],all_name_lenghts[i],MPI_CHAR,i,world);
-    
-    int* node_no=new int[tot_p];
-    
-    for(int i=0;i<tot_p;i++)
-        node_no[i]=-1;  
     
     tot_n=0;
-    for(int i=0;i<tot_p;i++)
+    p_per_n=NULL;
+    int* p_per_n_;
+    for(int i=0,r,last=0;i<tot_p;i++)
     {
-        if(node_no[i]==-1)
-        {
-            node_no[i]=tot_n;
-            tot_n++;
-        }
+        if(i==my_p)
+            my_n=tot_n;
         for(int j=i+1;j<tot_p;j++)
-            if(strcmp(all_names[i],all_names[j])==0)
-                node_no[j]=node_no[i];
-    }
-    
-    
-    for(int i=0;i<tot_p;i++)
-        if(all_name_lenghts[i])
-            delete [] all_names[i];
-    
-    if(tot_p)
-    {
-        delete [] all_names;
-        delete [] all_name_lenghts;
-    }
-    
-    p_per_n=new int[tot_n];
-    
-    for(int i=0;i<tot_n;i++)
-        p_per_n[i]=0;
-    
-    for(int i=0;i<tot_p;i++)
-        p_per_n[node_no[i]]++;
-    
-    my_n=node_no[my_p];
-
-    
-    n_p_grid=new int*[tot_n];
-    for(int i=0;i<tot_n;i++)
-        n_p_grid[i]=new int[p_per_n[i]];
-    
-    
-    int pos;
-    for(int inode=0;inode<tot_n;inode++)
-    {
-        pos=0;
-        for(int iproc=0;iproc<tot_p;iproc++)
-        {
-            if(node_no[iproc]==inode)
+            if(strcmp(names[i],names[j])==0)
             {
-                n_p_grid[inode][pos]=iproc;
-                pos++;
+                if(j==my_p)
+                    my_n=tot_n;
+                name=names[i+1];
+                names[i+1]=names[j];
+                names[j]=name;
+                r=rank[i+1];
+                rank[i+1]=rank[j];
+                rank[j]=r;
+                i++;
             }
-        }
+        
+        p_per_n_=new int[tot_n+1];
+        memcpy(p_per_n_,p_per_n,tot_n*sizeof(int));
+        delete [] p_per_n;
+        p_per_n=p_per_n_;
+        p_per_n[tot_n++]=i+1-last;
+        last=i+1;
     }
-    if(tot_p)
-        delete [] node_no;
+    for(int ip=0;ip<tot_p;ip++)
+        delete [] names[ip];
+    delete [] names;
+    n_p_grid=new int*[tot_n];
+    *n_p_grid=rank;
+    for(int i=1;i<tot_n;i++)
+        n_p_grid[i]=n_p_grid[i-1]+p_per_n[i-1];
     
     /* end of communication related parameters */
     
