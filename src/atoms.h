@@ -183,6 +183,9 @@ namespace MAPP_NS
         Vec<type0>* x0;
         Vec<int>* id_arch;
         
+        void store_x0();
+        bool decide();
+        
         void re_arrange(vec**,int);
     protected:
     public:

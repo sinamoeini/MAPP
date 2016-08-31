@@ -372,9 +372,11 @@ void Atoms::Swap::eliminate_redundancy()
     int rcv_atms_lst_sz_;
     int snd_atms_lst_sz_=0;
     int snd_atms_lst_cpcty_=max_snd_atms_lst_sz;
-    int* snd_atms_lst_=NULL;
+    int* snd_atms_lst_;
     if(snd_atms_lst_cpcty_)
         snd_atms_lst_=new int[snd_atms_lst_cpcty_];
+    else
+        snd_atms_lst_=NULL;
     
     int nlocomm;
     byte* mark_=mark+natms_ph;
@@ -428,15 +430,19 @@ void Atoms::Swap::eliminate_redundancy()
     delete [] snd_atms_lst_;
     
     int old_2_new_cpcty=natms+natms_ph;
-    int* old_2_new=NULL;
+    int* old_2_new;
     if(old_2_new_cpcty)
         old_2_new=new int[old_2_new_cpcty];
+    else
+        old_2_new=NULL;
     
     int list_sz=0;
     int list_cpcty=natms_ph;
-    int* list=NULL;
+    int* list;
     if(list_cpcty)
         list=new int[list_cpcty];
+    else
+        list=NULL;
     
     for(int iatm=0;iatm<natms;iatm++)
         old_2_new[iatm]=iatm;
@@ -1322,7 +1328,7 @@ output(mapp->output),
 dimension(dim),
 nvecs(0)
 {
-    
+    vecs=NULL;
     comm=new Communincation(this);
     tot_p=comm->tot_p;
     my_p=comm->my_p;
@@ -1367,14 +1373,11 @@ nvecs(0)
 Atoms::~Atoms()
 {
     delete comm;
-    if(dimension)
-    {
-        delete [] *B;
-        delete [] *H;
-        delete [] B;
-        delete [] H;
-        delete [] max_cut_s;
-    }
+    delete [] *B;
+    delete [] B;
+    delete [] *H;
+    delete [] H;
+    delete [] max_cut_s;
 
     while(nvecs)
         delete vecs[0];
@@ -1386,8 +1389,7 @@ void Atoms::add_vec(vec* v)
 {
     vec** vecs_=new vec*[nvecs+1];
     memcpy(vecs_,vecs,nvecs*sizeof(vec*));
-    if(nvecs)
-        delete [] vecs;
+    delete [] vecs;
     vecs=vecs_;
     vecs[nvecs]=v;
     nvecs++;
@@ -1405,8 +1407,7 @@ void Atoms::add_vec(vec* v,const char* name)
     
     vec** vecs_=new vec*[nvecs+1];
     memcpy(vecs_,vecs,nvecs*sizeof(vec*));
-    if(nvecs)
-        delete [] vecs;
+    delete [] vecs;
     vecs=vecs_;
     vecs[nvecs]=v;
     nvecs++;
@@ -1436,15 +1437,15 @@ void Atoms::del_vec(vec* v)
         for(int jvec=0;jvec<nvecs;jvec++)
             if(vecs[jvec]!=v)
                 vecs_[ivec++]=vecs[jvec];
-            
-        if(nvecs)
-            delete [] vecs;
+        
+        delete [] vecs;
         vecs=vecs_;
         nvecs--;
     }
     else
     {
         delete [] vecs;
+        vecs=NULL;
         nvecs=0;
     }
 }
@@ -1779,21 +1780,7 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
         vecs[ivec]->resize(natms+natms_ph);
     }
     
-    type0* x_vec=x->begin();
-    type0* x0_vec=x0->begin();
-    int x_dim=x->dim;
-    if(box_chng)
-    {
-        for(int iatm=0;iatm<natms+natms_ph;iatm++)
-            for(int idim=0;idim<dimension;idim++)
-                x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
-    }
-    else
-    {
-        for(int iatm=0;iatm<natms;iatm++)
-            for(int idim=0;idim<dimension;idim++)
-                x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
-    }
+    store_x0();
     timer->stop(COMM_TIME_mode);
 }
 /*--------------------------------------------
@@ -1825,6 +1812,50 @@ void Atoms::fin()
     timer->fin();
 }
 /*--------------------------------------------
+ 
+ --------------------------------------------*/
+inline void Atoms::store_x0()
+{
+    type0* x_vec=x->begin();
+    type0* x0_vec=x0->begin();
+    int x_dim=x->dim;
+    if(box_chng)
+        for(int iatm=0;iatm<natms+natms_ph;iatm++,x0_vec+=dimension,x_vec+=x_dim)
+            memcpy(x0_vec,x_vec,dimension*sizeof(type0));
+    else
+        for(int iatm=0;iatm<natms+natms_ph;iatm++,x0_vec+=dimension,x_vec+=x_dim)
+            memcpy(x0_vec,x_vec,dimension*sizeof(type0));
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+inline bool Atoms::decide()
+{
+    type0 skin_sq=0.25*skin*skin;
+    type0 dx_sq;
+    int succ,succ_lcl=1;
+    type0* x_vec=x->begin();
+    type0* x0_vec=x0->begin();
+    int x_dim=x->dim;
+    int last_atm;
+    if(box_chng) last_atm=natms+natms_ph;
+    else last_atm=natms;
+    
+    for(int iatm=0;succ_lcl && iatm<last_atm;iatm++,x0_vec+=dimension,x_vec+=x_dim)
+    {
+        dx_sq=0.0;
+        for(int idim=0;idim<dimension;idim++)
+            dx_sq+=(x0_vec[idim]-x_vec[idim])*(x0_vec[idim]-x_vec[idim]);
+        if(dx_sq>skin_sq)
+            succ_lcl=0;
+    }
+    
+    MPI_Allreduce(&succ_lcl,&succ,1,MPI_INT,MPI_MIN,world);
+    if(succ)
+        return true;
+    return false;
+}
+/*--------------------------------------------
  update one vectors
  --------------------------------------------*/
 void Atoms::update(vec* updt_vec)
@@ -1852,7 +1883,6 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
     }
     
     
-    type0 skin_sq=0.25*skin*skin;
     if(box_chng)
     {
         if(nupdt_vecs==1)
@@ -1860,24 +1890,7 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
         else
             swap->update(updt_vecs,nupdt_vecs,true);
 
-        type0 dx_sq;
-        int succ,succ_lcl=1;
-        type0* x_vec=x->begin();
-        type0* x0_vec=x0->begin();
-        int x_dim=x->dim;
-        for(int iatm=0;succ_lcl && iatm<natms+natms_ph;iatm++)
-        {
-            dx_sq=0.0;
-            for(int idim=0;idim<dimension;idim++)
-            {
-                dx_sq+=(x0_vec[iatm*dimension+idim]-x_vec[iatm*x_dim+idim])
-                *(x0_vec[iatm*dimension+idim]-x_vec[iatm*x_dim+idim]);
-            }
-            if(dx_sq>skin_sq)
-                succ_lcl=0;
-        }
-        MPI_Allreduce(&succ_lcl,&succ,1,MPI_INT,MPI_MIN,world);
-        if(succ)
+        if(decide())
         {
             timer->stop(COMM_TIME_mode);
             return;
@@ -1902,33 +1915,11 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             vecs[ivec]->resize(natms+natms_ph);
         }
         
-        x_vec=x->begin();
-        x0_vec=x0->begin();
-        for(int iatm=0;iatm<natms+natms_ph;iatm++)
-            for(int idim=0;idim<dimension;idim++)
-                x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
-        
+        store_x0();
     }
     else
-    {   type0 dx_sq;
-        int succ,succ_lcl=1;
-        type0* x_vec=x->begin();
-        type0* x0_vec=x0->begin();
-        int x_dim=x->dim;
-        for(int iatm=0;succ_lcl && iatm<natms;iatm++)
-        {
-            dx_sq=0.0;
-            for(int idim=0;idim<dimension;idim++)
-            {
-                dx_sq+=(x0_vec[iatm*dimension+idim]-x_vec[iatm*x_dim+idim])
-                *(x0_vec[iatm*dimension+idim]-x_vec[iatm*x_dim+idim]);
-            }
-            if(dx_sq>skin_sq)
-                succ_lcl=0;
-        }
-        MPI_Allreduce(&succ_lcl,&succ,1,MPI_INT,MPI_MIN,world);
-        
-        if(succ)
+    {
+        if(decide())
         {
             if(nupdt_vecs==1)
                 swap->update(x,true);
@@ -1956,11 +1947,7 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             vecs[ivec]->resize(natms+natms_ph);
         }
         
-        x_vec=x->begin();
-        x0_vec=x0->begin();
-        for(int iatm=0;iatm<natms;iatm++)
-            for(int idim=0;idim<dimension;idim++)
-                x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
+        store_x0();
     }
 
     timer->stop(COMM_TIME_mode);
@@ -2000,15 +1987,7 @@ void Atoms::fin_xchng()
         vecs[ivec]->resize(natms+natms_ph);
     }
     
-    type0* x_vec=x->begin();
-    type0* x0_vec=x0->begin();
-    int x_dim=x->dim;
-
-    x_vec=x->begin();
-    x0_vec=x0->begin();
-    for(int iatm=0;iatm<natms;iatm++)
-        for(int idim=0;idim<dimension;idim++)
-            x0_vec[iatm*dimension+idim]=x_vec[iatm*x_dim+idim];
+    store_x0();
     timer->stop(COMM_TIME_mode);
 }
 /*--------------------------------------------
@@ -2069,7 +2048,7 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
             comm_size[ip]=0;
         
         int* lst_sz_per_p=new int[tot_p];
-        int* _lst_=NULL;
+        int* _lst_;
         MPI_Allgather(&lst_sz,1,MPI_INT,lst_sz_per_p,1,MPI_INT,world);
         int _lst_sz_;
         int max_lst_sz=0;
@@ -2077,12 +2056,13 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
             max_lst_sz=MAX(max_lst_sz,lst_sz_per_p[ip]);
         if(max_lst_sz)
             _lst_=new int[max_lst_sz];
+        else
+            _lst_=NULL;
         
-        
-        int* fnd_slst=NULL;
-        int* ufnd_slst=NULL;
-        int* fnd_slst_ref=NULL;
-        int* ufnd_slst_ref=NULL;
+        int* fnd_slst;
+        int* ufnd_slst;
+        int* fnd_slst_ref;
+        int* ufnd_slst_ref;
         
         
         if(slst_sz)
@@ -2092,6 +2072,8 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
             fnd_slst_ref=new int[slst_sz];
             ufnd_slst_ref=new int[slst_sz];
         }
+        else
+            fnd_slst=ufnd_slst=fnd_slst_ref=ufnd_slst_ref=NULL;
         
         for(int ip=0;ip<tot_p;ip++)
         {
@@ -2278,13 +2260,13 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         byte_sz+=arch_vecs[ivec]->byte_sz;
     
     //output
-    int* idx_lst_arch=NULL;
-    int* idx_lst_snd=NULL;
-    int* id_lst_snd=NULL;
+    int* idx_lst_arch;
+    int* idx_lst_snd;
+    int* id_lst_snd;
     
-    int* idx_lst_curr=NULL;
-    int* idx_lst_rcv=NULL;
-    int* id_lst_rcv=NULL;
+    int* idx_lst_curr;
+    int* idx_lst_rcv;
+    int* id_lst_rcv;
     
     if(natms_arch)
     {
@@ -2292,6 +2274,8 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         idx_lst_snd=new int[natms_arch];
         id_lst_snd=new int[natms_arch];
     }
+    else
+        idx_lst_arch=idx_lst_snd=id_lst_snd=NULL;
     
     if(natms_curr)
     {
@@ -2299,6 +2283,8 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         idx_lst_rcv=new int[natms_curr];
         id_lst_rcv=new int[natms_curr];
     }
+    else
+        idx_lst_curr=idx_lst_rcv=id_lst_rcv=NULL;
     
     
     int nkep,nkep_arch=0,nkep_curr=0,nrcv=0,nsnd=0;
@@ -2334,8 +2320,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     
     byte** snd_buff=new byte*[tot_p];
     byte** rcv_buff=new byte*[tot_p];
-    *snd_buff=NULL;
-    *rcv_buff=NULL;
     
     if (nsnd)
     {
@@ -2343,12 +2327,17 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         for(int ip=1;ip<tot_p;ip++)
             snd_buff[ip]=snd_buff[ip-1]+byte_sz*nsnd_comm[ip-1];
     }
+    else
+        *snd_buff=NULL;
+    
     if(nrcv)
     {
         *rcv_buff=new byte[byte_sz*nrcv];
         for(int ip=1;ip<tot_p;ip++)
             rcv_buff[ip]=rcv_buff[ip-1]+byte_sz*nrcv_comm[ip-1];
     }
+    else
+        *rcv_buff=NULL;
     
     byte* _snd_buff=*snd_buff;
     for(int ivec=0;ivec<narch_vecs;ivec++)
