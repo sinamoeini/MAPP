@@ -1230,8 +1230,6 @@ packing
 --------------------------------------------*/
 void SOLVEAXb::xchng(double* vec)
 {
-    MPI_Request request;
-    MPI_Status status;
     int rcvp,sndp;
     int curs=lsize;
     for(int i=0;i<totp-1;i++)
@@ -1245,17 +1243,9 @@ void SOLVEAXb::xchng(double* vec)
             rcvp+=totp;
         for(int j=0;j<comm_snd_size[i];j++)
             buff_snd[i][j]=vec[comm_snd_lst[i][j]];
-        if(comm_rcv_size[i])
-        {
-            MPI_Irecv(&vec[curs],comm_rcv_size[i],
-                      MPI_DOUBLE,rcvp,0,world,
-                      &request);
-        }
-        if(comm_snd_size[i])
-            MPI_Send(&buff_snd[i][0],comm_snd_size[i],
-                     MPI_DOUBLE,sndp,0,world);
-        if(comm_rcv_size[i])
-            MPI_Wait(&request,&status);
+        MPI_Sendrecv(&vec[curs],comm_rcv_size[i],MPI_DOUBLE,rcvp,0,
+                     &buff_snd[i][0],comm_snd_size[i],MPI_DOUBLE,sndp,0,
+                     world,MPI_STATUS_IGNORE);
         curs+=comm_rcv_size[i];
     }
 }

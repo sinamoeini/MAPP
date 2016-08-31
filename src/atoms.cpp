@@ -536,11 +536,10 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load
 inline void Atoms::Swap::LoadUnLoadUpdateComm::unload
 (int& icomm,int& snd_p,int& rcv_p)
 {
-    MPI_Status status[2];
-    MPI_Request request[2];
     
-    MPI_Sendrecv(&snd_atms_lst_sz[icomm],1,MPI_INT,snd_p,0
-    ,&rcv_atms_lst_sz[icomm],1,MPI_INT,rcv_p,0,world,&status[0]);
+    MPI_Sendrecv(&snd_atms_lst_sz[icomm],1,MPI_INT,snd_p,0,
+                 &rcv_atms_lst_sz[icomm],1,MPI_INT,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
     
     rcv_buff_sz=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz;
     if(rcv_buff_cpcty<rcv_buff_sz)
@@ -550,24 +549,9 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::unload
         rcv_buff_cpcty=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz+rcv_buff_grw;
     }
     
-    if(rcv_atms_lst_sz[icomm])
-        MPI_Irecv(rcv_buff,rcv_buff_sz,
-        MPI_BYTE,rcv_p,
-        0,
-        world,&request[0]);
-    
-    if(snd_atms_lst_sz[icomm])
-        MPI_Isend(snd_buff,snd_buff_sz,
-        MPI_BYTE,snd_p,
-        0,
-        world,&request[1]);
-    
-    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
-        MPI_Waitall(2,request,status);
-    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
-        MPI_Waitall(1,&request[0],&status[0]);
-    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
-        MPI_Waitall(1,&request[1],&status[1]);
+    MPI_Sendrecv(snd_buff,snd_buff_sz,MPI_BYTE,snd_p,0,
+                 rcv_buff,rcv_buff_sz,MPI_BYTE,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
     
     byte* tmp_rcv_buff0=rcv_buff;
     for(int ivec=0;ivec<nswap_vecs;ivec++)
@@ -591,12 +575,9 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load_unload
     for(int ivec=0;ivec<nswap_vecs;ivec++)
         swap_vecs[ivec]->cpy(tmp_snd_buff,snd_atms_lst[icomm],snd_atms_lst_sz[icomm]);
     
-    
-    MPI_Status status[2];
-    MPI_Request request[2];
-    
-    MPI_Sendrecv(&snd_atms_lst_sz[icomm],1,MPI_INT,snd_p,0
-    ,&rcv_atms_lst_sz[icomm],1,MPI_INT,rcv_p,0,world,&status[0]);
+    MPI_Sendrecv(&snd_atms_lst_sz[icomm],1,MPI_INT,snd_p,0,
+                 &rcv_atms_lst_sz[icomm],1,MPI_INT,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
     
     rcv_buff_sz=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz;
     if(rcv_buff_cpcty<rcv_buff_sz)
@@ -606,24 +587,9 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load_unload
         rcv_buff_cpcty=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz+rcv_buff_grw;
     }
     
-    if(rcv_atms_lst_sz[icomm])
-        MPI_Irecv(rcv_buff,rcv_buff_sz,
-        MPI_BYTE,rcv_p,
-        0,
-        world,&request[0]);
-    
-    if(snd_atms_lst_sz[icomm])
-        MPI_Isend(snd_buff,snd_buff_sz,
-        MPI_BYTE,snd_p,
-        0,
-        world,&request[1]);
-    
-    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
-        MPI_Waitall(2,request,status);
-    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
-        MPI_Waitall(1,&request[0],&status[0]);
-    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
-        MPI_Waitall(1,&request[1],&status[1]);
+    MPI_Sendrecv(snd_buff,snd_buff_sz,MPI_BYTE,snd_p,0,
+                 rcv_buff,rcv_buff_sz,MPI_BYTE,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
     
     byte* tmp_rcv_buff=rcv_buff;
     for(int ivec=0;ivec<nswap_vecs;ivec++)
@@ -643,26 +609,9 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::update_mult
     for(int ivec=0;ivec<nvecs;ivec++)
         vecs[ivec]->cpy(tmp_snd_buff,snd_atms_lst[icomm],snd_atms_lst_sz[icomm]);
     
-    MPI_Status status[2];
-    MPI_Request request[2];
-    if(rcv_atms_lst_sz[icomm])
-        MPI_Irecv(rcv_buff,rcv_atms_lst_sz[icomm]*vecs_byte_sz,
-        MPI_BYTE,rcv_p,
-        0,
-        world,&request[0]);
-    
-    if(snd_atms_lst_sz[icomm])
-        MPI_Isend(snd_buff,snd_atms_lst_sz[icomm]*vecs_byte_sz,
-        MPI_BYTE,snd_p,
-        0,
-        world,&request[1]);
-    
-    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
-        MPI_Waitall(2,request,status);
-    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
-        MPI_Waitall(1,&request[0],&status[0]);
-    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
-        MPI_Waitall(1,&request[1],&status[1]);
+    MPI_Sendrecv(snd_buff,snd_atms_lst_sz[icomm]*vecs_byte_sz,MPI_BYTE,snd_p,0,
+                 rcv_buff,rcv_atms_lst_sz[icomm]*vecs_byte_sz,MPI_BYTE,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
     
     byte* tmp_rcv_buff=rcv_buff;
     for(int ivec=0;ivec<nvecs;ivec++)
@@ -675,29 +624,11 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::update_sing
 (int& icomm,int& snd_p,int& rcv_p,vec*& v)
 {
     byte* tmp_snd_buff=snd_buff;
-
     v->cpy(tmp_snd_buff,snd_atms_lst[icomm],snd_atms_lst_sz[icomm]);
     
-    MPI_Status status[2];
-    MPI_Request request[2];
-    if(rcv_atms_lst_sz[icomm])
-        MPI_Irecv(v->end(),rcv_atms_lst_sz[icomm]*v->byte_sz,
-        MPI_BYTE,rcv_p,
-        0,
-        world,&request[0]);
-    
-    if(snd_atms_lst_sz[icomm])
-        MPI_Isend(snd_buff,snd_atms_lst_sz[icomm]*v->byte_sz,
-        MPI_BYTE,snd_p,
-        0,
-        world,&request[1]);
-    
-    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
-        MPI_Waitall(2,request,status);
-    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
-        MPI_Waitall(1,&request[0],&status[0]);
-    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
-        MPI_Waitall(1,&request[1],&status[1]);
+    MPI_Sendrecv(snd_buff,snd_atms_lst_sz[icomm]*v->byte_sz,MPI_BYTE,snd_p,0,
+                 v->end(),rcv_atms_lst_sz[icomm]*v->byte_sz,MPI_BYTE,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
     
     v->vec_sz+=rcv_atms_lst_sz[icomm];
 }
@@ -708,26 +639,9 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::xchng_buff
 (int& snd_p,int& snd_buff_sz_,byte*& snd_buff_
 ,int& rcv_p,int& rcv_buff_sz_,byte*& rcv_buff_)
 {
-    MPI_Status status[2];
-    MPI_Request request[2];
-    if(rcv_buff_sz_)
-        MPI_Irecv(rcv_buff_,rcv_buff_sz_,
-        MPI_BYTE,rcv_p,
-        0,
-        world,&request[0]);
-    
-    if(snd_buff_sz_)
-        MPI_Isend(snd_buff_,snd_buff_sz_,
-        MPI_BYTE,snd_p,
-        0,
-        world,&request[1]);
-    
-    if(rcv_buff_sz_ && snd_buff_sz_)
-        MPI_Waitall(2,request,status);
-    else if(rcv_buff_sz_ && snd_buff_sz_==0)
-        MPI_Waitall(1,&request[0],&status[0]);
-    else if(rcv_buff_sz_==0 && snd_buff_sz_)
-        MPI_Waitall(1,&request[1],&status[1]);
+    MPI_Sendrecv(snd_buff_,snd_buff_sz_,MPI_BYTE,snd_p,0,
+                 rcv_buff_,rcv_buff_sz_,MPI_BYTE,rcv_p,0,
+                 world,MPI_STATUS_IGNORE);
 }
 /*--------------------------------------------
  
@@ -893,14 +807,15 @@ inline void Atoms::Xchng::load(byte*& buff,int& idir)
 int Atoms::Xchng::xchng_buff(int idim,int idir)
 {
     rcv_buff_sz=0;
-    MPI_Request request[2];
-    MPI_Status status[2];
     int max_snd_sz;
     MPI_Allreduce(&snd_buff_sz[idir],&max_snd_sz,1,MPI_INT,MPI_MAX,world);
     if(max_snd_sz==0)
         return 0;
     
-    MPI_Sendrecv(&snd_buff_sz[idir],1,MPI_INT,neigh_p[idim][idir],0,&rcv_buff_sz,1,MPI_INT,neigh_p[idim][1-idir],0,world,&status[0]);
+    MPI_Sendrecv(&snd_buff_sz[idir],1,MPI_INT,neigh_p[idim][idir],0,
+                 &rcv_buff_sz,1,MPI_INT,neigh_p[idim][1-idir],0,
+                 world,MPI_STATUS_IGNORE);
+    
     if(rcv_buff_cpcty<rcv_buff_sz)
     {
         delete [] rcv_buff;
@@ -908,24 +823,10 @@ int Atoms::Xchng::xchng_buff(int idim,int idir)
         rcv_buff_cpcty=rcv_buff_sz+buff_grw;
     }
     
-    if(rcv_buff_sz)
-        MPI_Irecv(rcv_buff,rcv_buff_sz,
-        MPI_BYTE,neigh_p[idim][1-idir],
-        0,
-        world,&request[0]);
-    
-    if(snd_buff_sz[idir])
-        MPI_Isend(snd_buff[idir],snd_buff_sz[idir],
-        MPI_BYTE,neigh_p[idim][idir],
-        0,
-        world,&request[1]);
+    MPI_Sendrecv(snd_buff[idir],snd_buff_sz[idir],MPI_BYTE,neigh_p[idim][idir],0,
+                 rcv_buff,rcv_buff_sz,MPI_BYTE,neigh_p[idim][1-idir],0,
+                 world,MPI_STATUS_IGNORE);
 
-    if(rcv_buff_sz && snd_buff_sz[idir])
-        MPI_Waitall(2,request,status);
-    else if(rcv_buff_sz && snd_buff_sz[idir]==0)
-        MPI_Waitall(1,&request[0],&status[0]);
-    else if(rcv_buff_sz==0 && snd_buff_sz[idir])
-        MPI_Waitall(1,&request[1],&status[1]);
     
     snd_buff_sz[idir]=0;
     
@@ -2462,39 +2363,15 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     delete [] idx_lst_arch;
     delete [] idx_lst_curr;
     
-    
-    MPI_Status status[2];
-    MPI_Request request[2];
-    
     for(int idisp=1;idisp<tot_p;idisp++)
     {
         int rcv_p=my_p-idisp;
         if(rcv_p<0) rcv_p+=tot_p;
         int snd_p=my_p+idisp;
         if(snd_p>=tot_p) snd_p-=tot_p;
-        
-        if(nrcv_comm[rcv_p])
-        {
-            MPI_Irecv(rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,
-                      MPI_BYTE,rcv_p,
-                      0,
-                      world,&request[0]);
-        }
-        
-        if(nsnd_comm[snd_p])
-        {
-            MPI_Isend(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,
-                      MPI_BYTE,snd_p,
-                      0,
-                      world,&request[1]);
-        }
-        
-        if(nrcv_comm[rcv_p] && nsnd_comm[snd_p])
-            MPI_Waitall(2,request,status);
-        else if(nrcv_comm[rcv_p] && nsnd_comm[snd_p]==0)
-            MPI_Waitall(1,&request[0],&status[0]);
-        else if(nrcv_comm[rcv_p]==0 && nsnd_comm[snd_p])
-            MPI_Waitall(1,&request[1],&status[1]);
+        MPI_Sendrecv(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,MPI_BYTE,snd_p,0,
+                     rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,MPI_BYTE,rcv_p,0,
+                     world,MPI_STATUS_IGNORE);
         
     }
     

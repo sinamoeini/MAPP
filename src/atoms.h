@@ -1117,10 +1117,9 @@ void Vec<T>::gather_dump(Vec<dmd_type>* map)
     if(my_p==0)
     {
         rcv_size=new int[tot_p];
-        MPI_Status status;
         for(int ip=1;ip<tot_p;ip++)
             MPI_Recv(&rcv_size[ip],1
-            ,MPI_INT,ip,ip,world,&status);
+            ,MPI_INT,ip,ip,world,MPI_STATUS_IGNORE);
 
         dump_vec=new T[orig_dim*tot_natms];
         dump_vec_sz=tot_natms;
@@ -1132,13 +1131,12 @@ void Vec<T>::gather_dump(Vec<dmd_type>* map)
     
     if(my_p==0)
     {
-        MPI_Status status;
         int tot_atoms=natms;
         for(int ip=1;ip<tot_p;ip++)
         {
             MPI_Recv(&dump_vec[tot_atoms*orig_dim]
             ,(byte_sz_*rcv_size[ip]),MPI_BYTE
-            ,ip,ip,world,&status);
+            ,ip,ip,world,MPI_STATUS_IGNORE);
             tot_atoms+=rcv_size[ip];
         }
         
@@ -1167,10 +1165,9 @@ void Vec<T>::gather_dump()
     if(my_p==0)
     {
         rcv_size=new int[tot_p];
-        MPI_Status status;
         for(int ip=1;ip<tot_p;ip++)
             MPI_Recv(&rcv_size[ip],1
-                     ,MPI_INT,ip,ip,world,&status);
+            ,MPI_INT,ip,ip,world,MPI_STATUS_IGNORE);
         
         dump_vec=new T[orig_dim*tot_natms];
         dump_vec_sz=tot_natms;
@@ -1182,13 +1179,12 @@ void Vec<T>::gather_dump()
     
     if(my_p==0)
     {
-        MPI_Status status;
         int tot_atoms=natms;
         for(int ip=1;ip<tot_p;ip++)
         {
             MPI_Recv(&dump_vec[tot_atoms*dim]
             ,(byte_sz*rcv_size[ip]),MPI_BYTE
-            ,ip,ip,world,&status);
+            ,ip,ip,world,MPI_STATUS_IGNORE);
             tot_atoms+=rcv_size[ip];
         }
         
