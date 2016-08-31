@@ -799,6 +799,12 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
             B_p[i]=ip-atoms->comm->neigh_p[i][0];
         ip_test+=B_p[i]*p_vec[i];
     }
+    n_p=1;
+    for(int i=0;i<dim;i++)
+    {
+        B_p[i]=n_p;
+        n_p*=N_p[i];
+    }
     /*
     if(ip_test!=ip)
         error->abort_sing("the dimensions do not match in pgcmc");
@@ -896,6 +902,11 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     
     MPI_Comm dummy;
     int jcomm,d,t,r,s,l,jkey,jcolor;
+    jkey=0;
+    for(int i=0;i<dim;i++)
+        jkey+=p_vec[i]*B_p[i];
+    MPI_Comm_split(world,0,jkey,&gcmc_world);
+    
     for(int i=0;i<no;i++)
     {
         jcomm=0;
@@ -957,6 +968,9 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
                 cntr[j+1]++;
             }
     }
+    
+
+
 }
 /*--------------------------------------------
  
@@ -984,6 +998,7 @@ void PGCMC::comms_dismantle()
     int_buff=NULL;
     delete [] roots;
     roots=NULL;
+    if(n_comm) MPI_Comm_free(&gcmc_world);
     for(int i=0;i<n_comm;i++) MPI_Comm_free(&comms[i]);
     delete [] comms;
     comms=NULL;
@@ -1133,8 +1148,8 @@ void PGCMC::decide()
 {
     if(prev_p!=-1)
     {
-        MPI_Recv(&int_buff_sz,1,MPI_INT,prev_p,0,world,MPI_STATUS_IGNORE);
-        MPI_Recv(int_buff,int_buff_sz,MPI_INT,prev_p,1,world,MPI_STATUS_IGNORE);
+        MPI_Recv(&int_buff_sz,1,MPI_INT,prev_p,0,gcmc_world,MPI_STATUS_IGNORE);
+        MPI_Recv(int_buff,int_buff_sz,MPI_INT,prev_p,1,gcmc_world,MPI_STATUS_IGNORE);
     }
     else
     {
@@ -1198,8 +1213,8 @@ void PGCMC::decide()
     
     if(next_p!=-1)
     {
-        MPI_Send(&int_buff_sz,1,MPI_INT,next_p,0,world);
-        MPI_Send(int_buff,int_buff_sz,MPI_INT,next_p,1,world);
+        MPI_Send(&int_buff_sz,1,MPI_INT,next_p,0,gcmc_world);
+        MPI_Send(int_buff,int_buff_sz,MPI_INT,next_p,1,gcmc_world);
     }
     
     if(root_succ)
@@ -1213,8 +1228,8 @@ void PGCMC::decide()
  --------------------------------------------*/
 void PGCMC::finalize()
 {
-    MPI_Bcast(&int_buff_sz,1,MPI_INT,origin_p,world);
-    MPI_Bcast(int_buff,int_buff_sz,MPI_INT,origin_p,world);
+    MPI_Bcast(&int_buff_sz,1,MPI_INT,origin_p,gcmc_world);
+    MPI_Bcast(int_buff,int_buff_sz,MPI_INT,origin_p,gcmc_world);
     
     
     if(int_buff[1]>0)
