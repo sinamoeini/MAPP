@@ -2129,7 +2129,7 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     auto sort_by_p=
     [] (int*& comm_size,MPI_Comm& world,int tot_p,int my_p,
         int* lst,int lst_sz,
-        int* slst,int* slst_ref,int slst_sz)->void
+        const int* slst,int* slst_ref,int slst_sz)->void
     {
         comm_size=new int[tot_p];
         for(int ip=0;ip<tot_p;ip++)
@@ -2147,21 +2147,21 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         else
             _lst_=NULL;
         
-        int* fnd_slst;
-        int* ufnd_slst;
+        //int* fnd_slst;
+        //int* ufnd_slst;
         int* fnd_slst_ref;
         int* ufnd_slst_ref;
         
         
         if(slst_sz)
         {
-            fnd_slst=new int[slst_sz];
-            ufnd_slst=new int[slst_sz];
+            //fnd_slst=new int[slst_sz];
+            //ufnd_slst=new int[slst_sz];
             fnd_slst_ref=new int[slst_sz];
             ufnd_slst_ref=new int[slst_sz];
         }
         else
-            fnd_slst=ufnd_slst=fnd_slst_ref=ufnd_slst_ref=NULL;
+            /*fnd_slst=ufnd_slst=*/fnd_slst_ref=ufnd_slst_ref=NULL;
         
         for(int ip=0;ip<tot_p;ip++)
         {
@@ -2196,7 +2196,7 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                         {
                             while(incmplt && slst[slst_pos]<_lst_[_lst_pos_])
                             {
-                                ufnd_slst[nufnd]=slst[slst_pos];
+                                //ufnd_slst[nufnd]=slst[slst_pos];
                                 ufnd_slst_ref[nufnd]=slst_ref[slst_pos];
                                 nufnd++;
                                 slst_pos++;
@@ -2208,7 +2208,7 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                     
                     while(incmplt && _lst_[_lst_pos_]==slst[slst_pos])
                     {
-                        fnd_slst[nfnd]=slst[slst_pos];
+                        //fnd_slst[nfnd]=slst[slst_pos];
                         fnd_slst_ref[nfnd]=slst_ref[slst_pos];
                         
                         nfnd++;
@@ -2220,8 +2220,8 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                     }
                 }
                 
-                memcpy(slst,fnd_slst,nfnd*sizeof(int));
-                memcpy(slst+nfnd,ufnd_slst,nufnd*sizeof(int));
+                //memcpy(slst,fnd_slst,nfnd*sizeof(int));
+                //memcpy(slst+nfnd,ufnd_slst,nufnd*sizeof(int));
                 
                 memcpy(slst_ref,fnd_slst_ref,nfnd*sizeof(int));
                 memcpy(slst_ref+nfnd,ufnd_slst_ref,nufnd*sizeof(int));
@@ -2235,8 +2235,8 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         
         delete [] fnd_slst_ref;
         delete [] ufnd_slst_ref;
-        delete [] fnd_slst;
-        delete [] ufnd_slst;
+        //delete [] fnd_slst;
+        //delete [] ufnd_slst;
         delete [] _lst_;
         delete [] lst_sz_per_p;
         
@@ -2447,9 +2447,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         if(rcv_p<0) rcv_p+=tot_p;
         int snd_p=my_p+idisp;
         if(snd_p>=tot_p) snd_p-=tot_p;
-        MPI_Barrier(world);
-        printf("%d  %d(%d)->%d->%d(%d) tot_p %d\n",idisp,rcv_p,nrcv_comm[rcv_p],my_p,snd_p,nsnd_comm[snd_p],tot_p);
-        MPI_Barrier(world);
         MPI_Sendrecv(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,MPI_BYTE,snd_p,0,
                      rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,MPI_BYTE,rcv_p,0,
                      world,MPI_STATUS_IGNORE);
