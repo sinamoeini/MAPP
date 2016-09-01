@@ -14,20 +14,28 @@ using namespace MAPP_NS;
 /_____/ |___/|___/     /_/   |_| |_|
  
  --------------------------------------*/
-Atoms::Swap::Swap(Atoms* atoms_,vec** vecs,int nvecs):
-atoms(atoms_),
-world(atoms->world),
-swap_vecs(vecs),
-nswap_vecs(nvecs),
+Atoms::Swap::Swap(Atoms* atoms,vec** vecs_,int nvecs_):
 dimension(atoms->dimension),
-neigh_p(atoms->comm->neigh_p),
-my_p(atoms->my_p),
+world(atoms->world),
+natms(atoms->natms),
+natms_ph(atoms->natms_ph),
 H(atoms->H),
 B(atoms->B),
 max_cut_s(atoms->max_cut_s),
+
+my_p(atoms->my_p),
+neigh_p(atoms->comm->neigh_p),
 s_lo(atoms->s_lo),
 s_hi(atoms->s_hi),
-x(atoms->x)
+max_cut(atoms->max_cut),
+x(atoms->x),
+nvecs(atoms->nvecs),
+vecs(atoms->vecs),
+nxchng_vecs(atoms->vec_list->nxchng_vecs),
+neighbor(atoms->neighbor),
+
+swap_vecs(vecs_),
+nswap_vecs(nvecs_)
 {
 
     snd_buff=NULL;
@@ -117,7 +125,7 @@ void Atoms::Swap::reset()
         max_cut_s[idim]=sqrt(tmp);
     }
     for(int idim=0;idim<dimension;idim++)
-        max_cut_s[idim]*=atoms->max_cut;
+        max_cut_s[idim]*=max_cut;
     
     int icurs=0;
     int tot_ncomms_=0;
@@ -199,15 +207,15 @@ inline void Atoms::Swap::reserve_snd_buff(int xtra)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Atoms::Swap::update(vec** vecs,int nvecs,bool x_xst)
+void Atoms::Swap::update(vec** updt_vecs,int nupdt_vecs,bool x_xst)
 {
     type0* x_vec=x->begin();
     int x_dim=x->dim;
     int tot_byte_sz=0;
-    for(int ivec=0;ivec<nvecs;ivec++)
+    for(int ivec=0;ivec<nupdt_vecs;ivec++)
     {
-        vecs[ivec]->vec_sz=atoms->natms;
-        tot_byte_sz+=vecs[ivec]->byte_sz;
+        updt_vecs[ivec]->vec_sz=natms;
+        tot_byte_sz+=updt_vecs[ivec]->byte_sz;
     }
     snd_buff_sz=rcv_buff_sz=0;
     reserve_snd_buff(tot_byte_sz*max_snd_atms_lst_sz);
@@ -225,7 +233,7 @@ void Atoms::Swap::update(vec** vecs,int nvecs,bool x_xst)
                 comm_manager[idim]->update_mult(icomm
                 ,neigh_p[idim][idir]
                 ,neigh_p[idim][1-idir]
-                ,vecs,nvecs,tot_byte_sz);
+                ,updt_vecs,nupdt_vecs,tot_byte_sz);
                 
                 if(x_xst && pbc_correction[icurs])
                 {
@@ -251,13 +259,13 @@ void Atoms::Swap::update(vec** vecs,int nvecs,bool x_xst)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Atoms::Swap::update(vec* v,bool x_xst)
+void Atoms::Swap::update(vec* updt_vec,bool x_xst)
 {
     type0* x_vec=x->begin();
     int x_dim=x->dim;
     snd_buff_sz=0;
-    reserve_snd_buff(v->byte_sz*max_snd_atms_lst_sz);
-    v->vec_sz=atoms->natms;
+    reserve_snd_buff(updt_vec->byte_sz*max_snd_atms_lst_sz);
+    updt_vec->vec_sz=natms;
     
     int icurs=0;
     int icomm=0;
@@ -270,7 +278,7 @@ void Atoms::Swap::update(vec* v,bool x_xst)
                 comm_manager[idim]->update_sing(icomm
                 ,neigh_p[idim][idir]
                 ,neigh_p[idim][1-idir]
-                ,v);
+                ,updt_vec);
                 
                 if(x_xst && pbc_correction[icurs])
                 {
@@ -298,6 +306,7 @@ void Atoms::Swap::update(vec* v,bool x_xst)
  --------------------------------------------*/
 void Atoms::Swap::list()
 {
+    natms_ph=0;
     type0*& x_vec=x->begin();
     int x_dim=x->dim;
     int icurs=0;
@@ -347,27 +356,25 @@ void Atoms::Swap::list()
             dir=!dir;
         }
     }
-    atoms->natms_ph=x->vec_sz-atoms->natms;
+    natms_ph=x->vec_sz-natms;
+    for(int ivec=nxchng_vecs;ivec<nvecs;ivec++)
+    {
+        vecs[ivec]->vec_sz=0;
+        vecs[ivec]->resize(x->vec_sz);
+    }
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Atoms::Swap::eliminate_redundancy()
+void Atoms::Swap::rm_rdndncy()
 {
-    int natms=atoms->natms,natms_ph=atoms->natms_ph;
     snd_buff_sz=rcv_buff_sz=0;
     reserve_rcv_buff(max_snd_atms_lst_sz);
     reserve_snd_buff(natms_ph);
     
     byte* mark=snd_buff;
-    memset(mark,'0',natms_ph);
-
-    int** neighbor_list=atoms->neighbor->neighbor_list;
-    int* neighbor_list_sz=atoms->neighbor->neighbor_list_size;
-    for(int iatm=0;iatm<natms;iatm++)
-        for(int j=0;j<neighbor_list_sz[iatm];j++)
-            if(neighbor_list[iatm][j]>=natms)
-                mark[neighbor_list[iatm][j]-natms]='1';
+    neighbor->mark_redndnt_ph(mark);
+    
     
     int rcv_atms_lst_sz_;
     int snd_atms_lst_sz_=0;
@@ -461,10 +468,7 @@ void Atoms::Swap::eliminate_redundancy()
         for(int i=0; i<snd_atms_lst_sz[icomm];i++)
             snd_atms_lst[icomm][i]=old_2_new[snd_atms_lst[icomm][i]];
 
-    for(int iatm=0;iatm<natms;iatm++)
-        for(int j=0;j<neighbor_list_sz[iatm];j++)
-            neighbor_list[iatm][j]=old_2_new[neighbor_list[iatm][j]];
-
+    neighbor->rename_atoms(old_2_new);
     
     delete [] old_2_new;
     
@@ -486,7 +490,7 @@ void Atoms::Swap::eliminate_redundancy()
     
     delete [] list;
     
-    atoms->natms_ph=new_natms_ph;
+    natms_ph=new_natms_ph;
 }
 /*--------------------------------------------
  
@@ -734,16 +738,19 @@ __    __  _____   _   _   __   _   _____
  ---------------------------------------*/
 Atoms::Xchng::Xchng(Atoms* atoms
 ,vec** x_vecs,int nx_vecs):
+dimension(atoms->dimension),
 world(atoms->world),
-xchng_vecs(x_vecs),
-nxchng_vecs(nx_vecs),
-neigh_p(atoms->comm->neigh_p),
+natms(atoms->natms),
+xchng_id(atoms->xchng_id),
+
 my_p(atoms->my_p),
+neigh_p(atoms->comm->neigh_p),
 s_lo(atoms->s_lo),
 s_hi(atoms->s_hi),
-dimension(atoms->dimension),
 x(atoms->x),
-xchng_id(atoms->xchng_id)
+
+xchng_vecs(x_vecs),
+nxchng_vecs(nx_vecs)
 {
     buff_grw=1024;
     
@@ -851,6 +858,9 @@ int Atoms::Xchng::xchng_buff(int idim,int idir)
  --------------------------------------------*/
 void Atoms::Xchng::full_xchng()
 {
+    
+    for(int ivec=0;ivec<nxchng_vecs;ivec++)
+        xchng_vecs[ivec]->resize(natms);
     int disp;
     type0 s,ds_lo,ds_hi;
     int iatm;
@@ -920,6 +930,7 @@ void Atoms::Xchng::full_xchng()
     MPI_Allreduce(&xchng_lcl,&xchng,1,MPI_INT,MPI_MAX,world);
     if(xchng)
         xchng_id++;
+    natms=x->vec_sz;
 }
 /*----------------------------------------------------------------------------------------------------------------
  _____   _____       ___  ___       ___  ___   _   _   __   _   _   _____       ___   _____   _   _____   __   _  
@@ -1487,7 +1498,6 @@ void Atoms::man_grid(int* n)
     xchng=new Xchng(this,vecs,nvecs);
     x2s_lcl();
     xchng->full_xchng();
-    natms=x->vec_sz;
     s2x_lcl();
     delete xchng;
     grid_established=true;
@@ -1702,40 +1712,10 @@ bool Atoms::xchng_chk(unsigned long& xchng_id_)
     }
 }
 /*--------------------------------------------
- init a simulation
+ 
  --------------------------------------------*/
-void Atoms::init(VecLst* vec_list_,bool box_chng_)
+void Atoms::reorder_vecs(VecLst* vec_list_)
 {
-    type0 det=1.0;
-    for(int idim=0;idim<dimension;idim++)
-        det*=H[idim][idim]*H[idim][idim];
-    if(det==0.0)
-        error->abort("cannot start the simulation "
-        "domain griding, the domain is not defined");
-    if(!grid_established)
-        error->abort("cannot start the simulation "
-        "domain grid has not been established");
-    
-    /*
-     ?. check wether the forcefield is NULL
-     */
-    if(forcefield==NULL)
-        error->abort("cannot start the simulation, force field has not been established");
-    /*
-     ?. check wether the neighbor is NULL
-     */
-    if(neighbor==NULL)
-        error->abort("cannot start the simulation, neighbior list has not been established");
-    
-    
-    timer->init();
-    timer->start(COMM_TIME_mode);
-    box_chng=box_chng_;
-    /*
-     ?. reorder vecs so that vec_list->xchng_vecs
-     are the first vec_list->nxchng_vecs vectors
-     */
-    
     int* vec_mapping=new int[nvecs];
     for(int ivec=0;ivec<nvecs;ivec++) vec_mapping[ivec]=-1;
     int vecs_mapped=0;
@@ -1753,7 +1733,7 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
     
     if(vecs_mapped!=vec_list_->nxchng_vecs)
         error->abort("not all xchng vectors were found");
-
+    
     for(int ivec=0;ivec<nvecs;ivec++)
         if(vec_mapping[ivec]==-1)
         {
@@ -1770,103 +1750,62 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
         delete [] vecs;
     }
     vecs=vecs_;
+}
+/*--------------------------------------------
+ init a simulation
+ --------------------------------------------*/
+void Atoms::init(VecLst* vec_list_,bool box_chng_)
+{
     
-    /*id_arch=new Vec<int>(this,1);
-    int* id_0=id->begin();
-    int* id_1=id_arch->begin();
-    memcpy(id_1,id_0,natms*sizeof(int));*/
-    /*
-     ?. set vec_list to vec_list_
-     */
+    
+    type0 det=1.0;
+    for(int idim=0;idim<dimension;idim++)
+        det*=H[idim][idim]*H[idim][idim];
+    if(det==0.0)
+        error->abort("cannot start the simulation "
+        "domain griding, the domain is not defined");
+    if(!grid_established)
+        error->abort("cannot start the simulation "
+        "domain grid has not been established");
+    
+
+    if(forcefield==NULL)
+        error->abort("cannot start the simulation, force field has not been established");
+    
+    if(neighbor==NULL)
+        error->abort("cannot start the simulation, neighbior list has not been established");
+    
+    
+    timer->init();
+    timer->start(COMM_TIME_mode);
+    
+
+    
+    reorder_vecs(vec_list_);
+    box_chng=box_chng_;
     vec_list=vec_list_;
     
     store_arch_vecs();
     
-
-    /*
-     ?. add the x0 vector
-     */
     x0=new Vec<type0>(this,dimension);
     
-    /*
-     ?. check wether the grid is created
-     */
-    // not done yet
-    
 
-    
 
-    
-    /*
-     ?. make sure that all vec_list->xchng_vecs sizes are
-     natms if not increase or decrease them.
-     */
-    for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
-        vecs[ivec]->resize(natms);
-
-    /*
-     ?. create a new xchng
-     */
     xchng=new Xchng(this,vec_list->xchng_vecs,vec_list->nxchng_vecs);
-    /*
-     ?. do x2s()
-     */
-    
 
     x2s_lcl();
-
-    /*
-     ?. do the xchng
-     */
     xchng->full_xchng();
-
-    /* 
-     ?. update natms
-     */
-    natms=x->vec_sz;
-    /*
-     ?. initiate forcefield,
-     and obtain max_cut
-     */
+    
     forcefield->init();
     max_cut=forcefield->max_cut();
-    /*
-     ?. create the new swaps (it does calculate max_cut_s)
-     */
+
     swap=new Swap(this,vec_list->updt_vecs,vec_list->nupdt_vecs);
-
-    /*
-     ?. set natms_ph to 0
-     */
-    natms_ph=0;
-    /*
-     ?. setup and find the phantom atoms and updating simultaniously
-     */
     swap->list();
-
-    /*
-     ?. make sure the vectors that are not in xchng_vecs have enough space
-     */
-    for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
-    {
-        vecs[ivec]->vec_sz=0;
-        vecs[ivec]->resize(natms+natms_ph);
-    }
     
-    /*
-     ?. build the neighbor list and store x0
-     */
     neighbor->init();
-    /*
-     ?. remove the redundant phantom atoms that are not in neighbor list, correct the communicattion and the remaining phantom atoms indices
-     */
-    swap->eliminate_redundancy();
-
-    /*
-     ?. store x0 to decide when to re build the neighbor list
-     */
-    
+    swap->rm_rdndncy();
     store_x0();
+    
     timer->stop(COMM_TIME_mode);
 }
 /*--------------------------------------------
@@ -1973,20 +1912,12 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
             return;
         }
         
+        
         x2s_lcl();
-        for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
-            vecs[ivec]->resize(natms);
         xchng->full_xchng();
-        natms=x->vec_sz;
         
         swap->reset();
-        natms_ph=0;
         swap->list();
-        for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
-        {
-            vecs[ivec]->vec_sz=0;
-            vecs[ivec]->resize(natms+natms_ph);
-        }
         
         neighbor->create_list(box_chng);
 
@@ -2006,18 +1937,9 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
         }
         
         x2s_lcl();
-        for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
-            vecs[ivec]->resize(natms);
         xchng->full_xchng();
-        natms=x->vec_sz;
         
-        natms_ph=0;
         swap->list();
-        for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
-        {
-            vecs[ivec]->vec_sz=0;
-            vecs[ivec]->resize(natms+natms_ph);
-        }
         
         neighbor->create_list(box_chng);
         
@@ -2033,18 +1955,11 @@ void Atoms::update(vec** updt_vecs,int nupdt_vecs)
 void Atoms::init_xchng()
 {
     timer->start(COMM_TIME_mode);
+
     x2s_lcl();
-    for(int ivec=0;ivec<vec_list->nxchng_vecs;ivec++)
-        vecs[ivec]->resize(natms);
     xchng->full_xchng();
-    natms=x->vec_sz;
-    natms_ph=0;
     swap->list();
-    for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
-    {
-        vecs[ivec]->vec_sz=0;
-        vecs[ivec]->resize(natms+natms_ph);
-    }
+
     timer->stop(COMM_TIME_mode);
 }
 /*--------------------------------------------
@@ -2055,13 +1970,6 @@ void Atoms::fin_xchng()
     timer->start(COMM_TIME_mode);
     swap->list();
     neighbor->create_list(box_chng);
-    
-    for(int ivec=vec_list->nxchng_vecs;ivec<nvecs;ivec++)
-    {
-        vecs[ivec]->vec_sz=0;
-        vecs[ivec]->resize(natms+natms_ph);
-    }
-    
     store_x0();
     timer->stop(COMM_TIME_mode);
 }
@@ -2087,7 +1995,6 @@ void Atoms::reset()
     xchng=new Xchng(this,vecs,nvecs);
     x2s_lcl();
     xchng->full_xchng();
-    natms=x->vec_sz;
     s2x_lcl();
     delete xchng;
 }
@@ -2117,25 +2024,25 @@ void Atoms::restore_arch_vecs()
     for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
         byte_sz+=vec_list->arch_vecs[ivec]->byte_sz;
     
-    int natms_o=id_arch->vec_sz;
-    int* id_o=id_arch->begin();
-    int* key_o;
-    if(natms_o) key_o=new int[natms_o];
-    else key_o=NULL;
-    for(int i=0;i<natms_o;i++) key_o[i]=i;
-    xmath->quicksort(key_o,key_o+natms_o
-    ,[&id_o](int* rank_i,int* rank_j){return (id_o[*rank_i]<id_o[*rank_j]);}
+    int natms_old=id_arch->vec_sz;
+    int* id_old=id_arch->begin();
+    int* key_old;
+    if(natms_old) key_old=new int[natms_old];
+    else key_old=NULL;
+    for(int i=0;i<natms_old;i++) key_old[i]=i;
+    xmath->quicksort(key_old,key_old+natms_old
+    ,[&id_old](int* rank_i,int* rank_j){return (id_old[*rank_i]<id_old[*rank_j]);}
     ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
     );
     
-    int natms_n=id->vec_sz;
-    int* id_n=id->begin();
-    int* key_n;
-    if(natms_n) key_n=new int[natms_n];
-    else key_n=NULL;
-    for(int i=0;i<natms_n;i++) key_n[i]=i;
-    xmath->quicksort(key_n,key_n+natms_n
-    ,[&id_n](int* rank_i,int* rank_j){return (id_n[*rank_i]<id_n[*rank_j]);}
+    int natms_new=id->vec_sz;
+    int* id_new=id->begin();
+    int* key_new;
+    if(natms_new) key_new=new int[natms_new];
+    else key_new=NULL;
+    for(int i=0;i<natms_new;i++) key_new[i]=i;
+    xmath->quicksort(key_new,key_new+natms_new
+    ,[&id_new](int* rank_i,int* rank_j){return (id_new[*rank_i]<id_new[*rank_j]);}
     ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
     );
     
@@ -2144,10 +2051,10 @@ void Atoms::restore_arch_vecs()
     int nsnd=0;
     int* idx_lst_snd;
     int* id_lst_snd;
-    if(natms_o)
+    if(natms_old)
     {
-        idx_lst_snd=new int[natms_o];
-        id_lst_snd=new int[natms_o];
+        idx_lst_snd=new int[natms_old];
+        id_lst_snd=new int[natms_old];
     }
     else
        idx_lst_snd=id_lst_snd=NULL;
@@ -2155,68 +2062,57 @@ void Atoms::restore_arch_vecs()
     int nrcv=0;
     int* idx_lst_rcv;
     int* id_lst_rcv;
-    if(natms_n)
+    if(natms_new)
     {
-        idx_lst_rcv=new int[natms_n];
-        id_lst_rcv=new int[natms_n];
+        idx_lst_rcv=new int[natms_new];
+        id_lst_rcv=new int[natms_new];
     }
     else
         idx_lst_rcv=id_lst_rcv=NULL;
     
     int nkeep=0;
-    int* idx_map_o;
-    int* idx_map_n;
-    if(MIN(natms_o,natms_n))
+    int* idx_keep_old;
+    int* idx_keep_new;
+    if(MIN(natms_old,natms_new))
     {
-        idx_map_o=new int[MIN(natms_o,natms_n)];
-        idx_map_n=new int[MIN(natms_o,natms_n)];
+        idx_keep_old=new int[MIN(natms_old,natms_new)];
+        idx_keep_new=new int[MIN(natms_old,natms_new)];
     }
-    else idx_map_o=idx_map_n=NULL;
+    else idx_keep_old=idx_keep_new=NULL;
     
-    int i_o=0,i_n=0;
-    for(;i_o<natms_o && i_n<natms_n;)
+    int i_old=0,i_new=0;
+    for(;i_old<natms_old && i_new<natms_new;)
     {
-        if(id_o[key_o[i_o]]<id_n[key_n[i_n]])
+        if(id_old[key_old[i_old]]<id_new[key_new[i_new]])
         {
-            id_lst_snd[nsnd]=id_o[key_o[i_o]];
-            idx_lst_snd[nsnd]=key_o[i_o];
-            nsnd++;
-            i_o++;
+            id_lst_snd[nsnd]=id_old[key_old[i_old]];
+            idx_lst_snd[nsnd++]=key_old[i_old++];
         }
-        else if(id_o[key_o[i_o]]>id_n[key_n[i_n]])
+        else if(id_old[key_old[i_old]]>id_new[key_new[i_new]])
         {
-            id_lst_rcv[nrcv]=id_n[key_n[i_n]];
-            idx_lst_rcv[nrcv]=key_n[i_n];
-            nrcv++;
-            i_n++;
+            id_lst_rcv[nrcv]=id_new[key_new[i_new]];
+            idx_lst_rcv[nrcv++]=key_new[i_new++];
         }
         else
         {
-            idx_map_o[nkeep]=key_o[i_o];
-            idx_map_n[nkeep]=key_n[i_n];
-            nkeep++;
-            i_o++;
-            i_n++;
+            idx_keep_old[nkeep]=key_old[i_old++];
+            idx_keep_new[nkeep++]=key_new[i_new++];
         }
     }
     
-    for(;i_o<natms_o;)
+    for(;i_old<natms_old;)
     {
-        id_lst_snd[nsnd]=id_o[key_o[i_o]];
-        idx_lst_snd[nsnd]=key_o[i_o];
-        nsnd++;
-        i_o++;
+        id_lst_snd[nsnd]=id_old[key_old[i_old]];
+        idx_lst_snd[nsnd++]=key_old[i_old++];
     }
-    for(;i_n<natms_n;)
+    for(;i_new<natms_new;)
     {
-        id_lst_rcv[nrcv]=id_n[key_n[i_n]];
-        idx_lst_rcv[nrcv]=key_n[i_n];
-        nrcv++;
-        i_n++;
+        id_lst_rcv[nrcv]=id_new[key_new[i_new]];
+        idx_lst_rcv[nrcv++]=key_new[i_new++];
     }
     
-    delete [] key_o;
-    delete [] key_n;
+    delete [] key_old;
+    delete [] key_new;
     
     /*-------------------------------------------------*/
     
@@ -2239,12 +2135,12 @@ void Atoms::restore_arch_vecs()
     
     /*---------------------------------------------------*/
     
-    shrnk_2_fit(id_lst_snd,nsnd,natms_o);
-    shrnk_2_fit(idx_lst_snd,nsnd,natms_o);
-    shrnk_2_fit(id_lst_rcv,nrcv,natms_n);
-    shrnk_2_fit(idx_lst_rcv,nrcv,natms_n);
-    shrnk_2_fit(idx_map_o,nkeep,MIN(natms_o,natms_n));
-    shrnk_2_fit(idx_map_n,nkeep,MIN(natms_o,natms_n));
+    shrnk_2_fit(id_lst_snd,nsnd,natms_old);
+    shrnk_2_fit(idx_lst_snd,nsnd,natms_old);
+    shrnk_2_fit(id_lst_rcv,nrcv,natms_new);
+    shrnk_2_fit(idx_lst_rcv,nrcv,natms_new);
+    shrnk_2_fit(idx_keep_old,nkeep,MIN(natms_old,natms_new));
+    shrnk_2_fit(idx_keep_new,nkeep,MIN(natms_old,natms_new));
     
     
     auto sort_idx_by_p=
@@ -2263,29 +2159,25 @@ void Atoms::restore_arch_vecs()
         else
             mother_lst=NULL;
         
-        int fnd_sz=0,ufnd_sz=sub_lst_sz,ufnd_tmp_sz;
+        int fnd_sz,ufnd_sz;
+        
         int* ufnd;
-        int* ufnd_tmp;
-        int* fnd_idx;
         int* ufnd_idx;
-        int* ufnd_idx_tmp;
+        int* fnd_idx;
         if(sub_lst_sz)
         {
             ufnd=new int[sub_lst_sz];
-            ufnd_tmp=new int[sub_lst_sz];
-            fnd_idx=new int[sub_lst_sz];
             ufnd_idx=new int[sub_lst_sz];
-            ufnd_idx_tmp=new int[sub_lst_sz];
+            fnd_idx=new int[sub_lst_sz];
         }
         else
-            ufnd=ufnd_tmp=fnd_idx=ufnd_idx=ufnd_idx_tmp=NULL;
+            ufnd=ufnd_idx=fnd_idx=NULL;
         
+        fnd_sz=0;
+        ufnd_sz=sub_lst_sz;
         memcpy(ufnd,sub_lst,sub_lst_sz*sizeof(int));
         memcpy(ufnd_idx,sub_lst_idx,sub_lst_sz*sizeof(int));
-        
-        
-        int imother_lst,iufnd;
-        for(int ip=0;ip<tot_p;ip++)
+        for(int imother_lst,iufnd,ufnd_tmp_sz,ip=0;ip<tot_p;ip++)
         {
             if(ip==my_p)
             {
@@ -2304,8 +2196,8 @@ void Atoms::restore_arch_vecs()
                     imother_lst++;
                 else if(mother_lst[imother_lst]>ufnd[iufnd])
                 {
-                    ufnd_idx_tmp[ufnd_tmp_sz]=ufnd_idx[iufnd];
-                    ufnd_tmp[ufnd_tmp_sz++]=ufnd[iufnd++];
+                    ufnd_idx[ufnd_tmp_sz]=ufnd_idx[iufnd];
+                    ufnd[ufnd_tmp_sz++]=ufnd[iufnd++];
                 }
                 else
                 {
@@ -2317,23 +2209,18 @@ void Atoms::restore_arch_vecs()
             
             for(;iufnd<ufnd_sz;)
             {
-                ufnd_idx_tmp[ufnd_tmp_sz]=ufnd_idx[iufnd];
-                ufnd_tmp[ufnd_tmp_sz++]=ufnd[iufnd++];
+                ufnd_idx[ufnd_tmp_sz]=ufnd_idx[iufnd];
+                ufnd[ufnd_tmp_sz++]=ufnd[iufnd++];
             }
             
-            std::swap(ufnd_tmp,ufnd);
-            std::swap(ufnd_idx_tmp,ufnd_idx);
             ufnd_sz=ufnd_tmp_sz;
             
         }
         
         delete [] sub_lst_idx;
         sub_lst_idx=fnd_idx;
-        
         delete [] ufnd;
-        delete [] ufnd_tmp;
         delete [] ufnd_idx;
-        delete [] ufnd_idx_tmp;
         delete [] mother_lst;
     };
    
@@ -2374,9 +2261,9 @@ void Atoms::restore_arch_vecs()
     
     
     for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
-        vec_list->arch_vecs[ivec]->rearrange(idx_map_o,idx_map_n,nkeep,natms_n);
-    delete [] idx_map_o;
-    delete [] idx_map_n;
+        vec_list->arch_vecs[ivec]->rearrange(idx_keep_old,idx_keep_new,nkeep,natms_new);
+    delete [] idx_keep_old;
+    delete [] idx_keep_new;
     
     for(int idisp=1;idisp<tot_p;idisp++)
     {
@@ -2431,112 +2318,6 @@ void Atoms::restore_arch_vecs_()
         delete [] arr;
         arr=_arr;
     };
-    /*
-    auto sort_by_p2=
-    [] (int*& comm_size,MPI_Comm& world,int tot_p,int my_p,
-        const int* lst,int lst_sz,
-        const int* slst,int* slst_ref,int slst_sz)->void
-    {
-        comm_size=new int[tot_p];
-        for(int ip=0;ip<tot_p;ip++)
-            comm_size[ip]=0;
-        
-        int* lst_sz_per_p=new int[tot_p];
-        int* _lst_;
-        MPI_Allgather(&lst_sz,1,MPI_INT,lst_sz_per_p,1,MPI_INT,world);
-        int _lst_sz_;
-        int max_lst_sz=0;
-        for(int ip=0;ip<tot_p;ip++)
-            max_lst_sz=MAX(max_lst_sz,lst_sz_per_p[ip]);
-        if(max_lst_sz)
-            _lst_=new int[max_lst_sz];
-        else
-            _lst_=NULL;
-        int* fnd_slst_ref;
-        int* ufnd_slst_ref;
-        
-        
-        if(slst_sz)
-        {
-            fnd_slst_ref=new int[slst_sz];
-            ufnd_slst_ref=new int[slst_sz];
-        }
-        else
-            fnd_slst_ref=ufnd_slst_ref=NULL;
-        
-        for(int ip=0;ip<tot_p;ip++)
-        {
-            _lst_sz_=lst_sz_per_p[ip];
-            if(my_p==ip)
-                memcpy(_lst_,lst,sizeof(int)*_lst_sz_);
-            MPI_Bcast(_lst_,_lst_sz_,MPI_INT,ip,world);
-            if(my_p==ip)
-                continue;
-            if(_lst_sz_ && slst_sz)
-            {
-                bool incmplt=true;
-                int slst_pos=0,_lst_pos_=0;
-                int nfnd=0;
-                int nufnd=0;
-
-                
-                while (incmplt)
-                {
-                    while(incmplt && _lst_[_lst_pos_]!=slst[slst_pos])
-                    {
-                        if(_lst_[_lst_pos_]<slst[slst_pos])
-                        {
-                            while(incmplt && _lst_[_lst_pos_]<slst[slst_pos])
-                            {
-                                _lst_pos_++;
-                                if(_lst_pos_==_lst_sz_)
-                                    incmplt=false;
-                            }
-                        }
-                        else
-                        {
-                            while(incmplt && slst[slst_pos]<_lst_[_lst_pos_])
-                            {
-                                ufnd_slst_ref[nufnd]=slst_ref[slst_pos];
-                                nufnd++;
-                                slst_pos++;
-                                if(slst_pos==slst_sz)
-                                    incmplt=false;
-                            }
-                        }
-                    }
-                    
-                    while(incmplt && _lst_[_lst_pos_]==slst[slst_pos])
-                    {
-                        fnd_slst_ref[nfnd]=slst_ref[slst_pos];
-                        
-                        nfnd++;
-                        _lst_pos_++;
-                        slst_pos++;
-                        
-                        if(_lst_pos_==_lst_sz_ || slst_pos==slst_sz)
-                            incmplt=false;
-                    }
-                }
-                
-                memcpy(slst_ref,fnd_slst_ref,nfnd*sizeof(int));
-                memcpy(slst_ref+nfnd,ufnd_slst_ref,nufnd*sizeof(int));
-                
-                slst+=nfnd;
-                slst_ref+=nfnd;
-                slst_sz-=nfnd;
-                comm_size[ip]=nfnd;
-            }
-        }
-        
-        delete [] fnd_slst_ref;
-        delete [] ufnd_slst_ref;
-        delete [] _lst_;
-        delete [] lst_sz_per_p;
-        
-    };
-     */
-    
     
     auto sort_idx_by_p=
     [this] (const int* lst,int lst_sz,const int* sub_lst,int sub_lst_sz,

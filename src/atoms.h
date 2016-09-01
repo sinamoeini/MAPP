@@ -197,6 +197,7 @@ namespace MAPP_NS
         void store_arch_vecs();
         void restore_arch_vecs_();
         void restore_arch_vecs();
+        void reorder_vecs(VecLst*);
     protected:
     public:
         
@@ -444,11 +445,19 @@ namespace MAPP_NS
     class Atoms::Xchng
     {
     private:
+        const int dimension;
+        
+        /*things that reference cannot be removed*/
         MPI_Comm& world;
+        int& natms;
         unsigned long& xchng_id;
         
-        int**& neigh_p;
+        /*things that reference cannot be removed*/
         int& my_p;
+        int**& neigh_p;
+        type0*& s_lo;
+        type0*& s_hi;
+        Vec<type0>*& x;
         
         int buff_grw;
         byte* snd_buff[2];
@@ -459,8 +468,6 @@ namespace MAPP_NS
         int rcv_buff_sz;
         int rcv_buff_cpcty;
         
-        type0*& s_lo;
-        type0*& s_hi;
         void load(int&,int);
         void load(byte*&,int&);
         int xchng_buff(int,int);
@@ -468,10 +475,6 @@ namespace MAPP_NS
         vec** xchng_vecs;
         int nxchng_vecs;
         int tot_xchng_sz;
-        
-        const int dimension;
-        
-        Vec<type0>*& x;
     protected:
     public:        
         Xchng(Atoms*,vec**,int);
@@ -493,15 +496,26 @@ namespace MAPP_NS
     class Atoms::Swap
     {
     private:
-        Atoms* atoms;
+        const int dimension;
+        /*things that reference cannot be removed*/
         MPI_Comm& world;
-        int**& neigh_p;
+        int& natms;
+        int& natms_ph;
         type0**& H;
         type0**& B;
+        type0*& max_cut_s;
+        
+        /*things that reference can be removed*/
+        int& my_p;
+        int**& neigh_p;
         type0*& s_lo;
         type0*& s_hi;
-        type0*& max_cut_s;
-        int& my_p;
+        type0& max_cut;
+        Vec<type0>*& x;
+        int& nvecs;
+        vec**& vecs;
+        int& nxchng_vecs;
+        Neighbor*& neighbor;
         
         
         int tot_ncomms;
@@ -528,15 +542,11 @@ namespace MAPP_NS
         int rcv_buff_cpcty;
         int rcv_buff_grw;
         
-
         
         vec** swap_vecs;
         int nswap_vecs;
         int tot_swap_vecs_sz;
         
-        Vec<type0>*& x;
-        
-        const int dimension;
         void add_to_snd_lst(int&,int&);
         void reserve_snd_buff(int);
         void reserve_rcv_buff(int);
@@ -554,7 +564,7 @@ namespace MAPP_NS
         void update(vec*,bool);
         void update(vec**,int,bool);
         void list();
-        void eliminate_redundancy();
+        void rm_rdndncy();
     };
 
     

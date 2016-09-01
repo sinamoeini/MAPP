@@ -92,6 +92,9 @@ namespace MAPP_NS
         virtual void fin();
         
         void print_stats();
+        
+        void mark_redndnt_ph(byte*);
+        void rename_atoms(int*);
     };
 }
 #endif
