@@ -1519,6 +1519,7 @@ void Atoms::x2s(int no)
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
             x_vec[idim]-=floor(x_vec[idim]);
+            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
             /*
             while(x_vec[idim]<0.0)
                 x_vec[idim]++;
@@ -1559,6 +1560,7 @@ void Atoms::x2s_lcl()
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
             x_vec[idim]-=floor(x_vec[idim]);
+            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
             /*
              while(x_vec[idim]<0.0)
              x_vec[idim]++;
@@ -1600,6 +1602,7 @@ void Atoms::x2s_all()
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
             x_vec[idim]-=floor(x_vec[idim]);
+            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
             /*
              while(x_vec[idim]<0.0)
              x_vec[idim]++;
@@ -2109,7 +2112,7 @@ void Atoms::reset()
  --------------------------------------------*/
 void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
 {
-    auto fit_2_shrk=
+    auto shrnk_2_fit=
     [](int*& arr,int sz,int cpcty)->void
     {
         if(cpcty==sz)
@@ -2128,7 +2131,7 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     
     auto sort_by_p=
     [] (int*& comm_size,MPI_Comm& world,int tot_p,int my_p,
-        int* lst,int lst_sz,
+        const int* lst,int lst_sz,
         const int* slst,int* slst_ref,int slst_sz)->void
     {
         comm_size=new int[tot_p];
@@ -2146,22 +2149,17 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
             _lst_=new int[max_lst_sz];
         else
             _lst_=NULL;
-        
-        //int* fnd_slst;
-        //int* ufnd_slst;
         int* fnd_slst_ref;
         int* ufnd_slst_ref;
         
         
         if(slst_sz)
         {
-            //fnd_slst=new int[slst_sz];
-            //ufnd_slst=new int[slst_sz];
             fnd_slst_ref=new int[slst_sz];
             ufnd_slst_ref=new int[slst_sz];
         }
         else
-            /*fnd_slst=ufnd_slst=*/fnd_slst_ref=ufnd_slst_ref=NULL;
+            fnd_slst_ref=ufnd_slst_ref=NULL;
         
         for(int ip=0;ip<tot_p;ip++)
         {
@@ -2196,7 +2194,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                         {
                             while(incmplt && slst[slst_pos]<_lst_[_lst_pos_])
                             {
-                                //ufnd_slst[nufnd]=slst[slst_pos];
                                 ufnd_slst_ref[nufnd]=slst_ref[slst_pos];
                                 nufnd++;
                                 slst_pos++;
@@ -2208,7 +2205,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                     
                     while(incmplt && _lst_[_lst_pos_]==slst[slst_pos])
                     {
-                        //fnd_slst[nfnd]=slst[slst_pos];
                         fnd_slst_ref[nfnd]=slst_ref[slst_pos];
                         
                         nfnd++;
@@ -2219,9 +2215,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                             incmplt=false;
                     }
                 }
-                
-                //memcpy(slst,fnd_slst,nfnd*sizeof(int));
-                //memcpy(slst+nfnd,ufnd_slst,nufnd*sizeof(int));
                 
                 memcpy(slst_ref,fnd_slst_ref,nfnd*sizeof(int));
                 memcpy(slst_ref+nfnd,ufnd_slst_ref,nufnd*sizeof(int));
@@ -2235,8 +2228,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         
         delete [] fnd_slst_ref;
         delete [] ufnd_slst_ref;
-        //delete [] fnd_slst;
-        //delete [] ufnd_slst;
         delete [] _lst_;
         delete [] lst_sz_per_p;
         
@@ -2389,13 +2380,13 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     
     nkep=nkep_curr;
     
-    fit_2_shrk(idx_lst_arch,nkep_arch,natms_arch);
-    fit_2_shrk(idx_lst_snd,nsnd,natms_arch);
-    fit_2_shrk(id_lst_snd,nsnd,natms_arch);
+    shrnk_2_fit(idx_lst_arch,nkep_arch,natms_arch);
+    shrnk_2_fit(idx_lst_snd,nsnd,natms_arch);
+    shrnk_2_fit(id_lst_snd,nsnd,natms_arch);
     
-    fit_2_shrk(idx_lst_curr,nkep_curr,natms_curr);
-    fit_2_shrk(idx_lst_rcv,nrcv,natms_curr);
-    fit_2_shrk(id_lst_rcv,nrcv,natms_curr);
+    shrnk_2_fit(idx_lst_curr,nkep_curr,natms_curr);
+    shrnk_2_fit(idx_lst_rcv,nrcv,natms_curr);
+    shrnk_2_fit(id_lst_rcv,nrcv,natms_curr);
     
     
     int* nsnd_comm;
