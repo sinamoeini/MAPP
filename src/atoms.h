@@ -143,6 +143,7 @@ namespace MAPP_NS
         const T& operator [] (const int i) const;
         
         void compress(Vec<dmd_type>*&,int,T);
+        void decompress_dump(Vec<dmd_type>*&);
 
     };
 }
@@ -193,7 +194,9 @@ namespace MAPP_NS
         void store_x0();
         bool decide();
         
-        void re_arrange(vec**,int);
+        void store_arch_vecs();
+        void restore_arch_vecs_();
+        void restore_arch_vecs();
     protected:
     public:
         
@@ -940,6 +943,36 @@ inline void Vec<T>::rearrange(int* old_pos
     vec=new_vec;
     vec_cpcty=new_vec_cpcty;
     vec_sz=0;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<typename T>
+void Vec<T>::decompress_dump(Vec<dmd_type>*& map)
+{
+    T* dump_vec_;
+    if(dump_vec_sz)
+        dump_vec_=new T[orig_dim*dump_vec_sz];
+    else
+        dump_vec_=NULL;
+    T* v0=dump_vec;
+    T* v1=dump_vec_;
+    for(int i=0;i<dump_vec_sz;i++,v0+=dim,v1+=orig_dim)
+        memcpy(v1,v0,byte_sz);
+    delete [] dump_vec;
+    dump_vec=dump_vec_;
+    int map_dim=map->dim;
+    
+    int xtndd_dim=orig_dim-dim+map_dim;
+    v0=dump_vec+(dim-map_dim);
+    dmd_type* map_vec=map->begin();
+    for(int i=0;i<dump_vec_sz;i++,v0+=dim,v0+=orig_dim,map_vec+=map_dim)
+    {
+        for(int j=0;j<xtndd_dim;j++)
+            v0[j]=def_val;
+        for(int j=0;j<map_dim;j++)
+            v0[map_vec[j]]=v0[j];
+    }
 }
 /*--------------------------------------------
  

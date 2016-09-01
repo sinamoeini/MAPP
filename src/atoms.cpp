@@ -1330,6 +1330,7 @@ dimension(dim),
 nvecs(0)
 {
     vecs=NULL;
+    id_arch=NULL;
     
     grid_established=false;
     box_chng=false;
@@ -1519,6 +1520,7 @@ void Atoms::x2s(int no)
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
             x_vec[idim]-=floor(x_vec[idim]);
+            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
             /*
             while(x_vec[idim]<0.0)
                 x_vec[idim]++;
@@ -1559,6 +1561,7 @@ void Atoms::x2s_lcl()
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
             x_vec[idim]-=floor(x_vec[idim]);
+            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
             /*
              while(x_vec[idim]<0.0)
              x_vec[idim]++;
@@ -1600,6 +1603,7 @@ void Atoms::x2s_all()
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
             x_vec[idim]-=floor(x_vec[idim]);
+            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
             /*
              while(x_vec[idim]<0.0)
              x_vec[idim]++;
@@ -1776,17 +1780,7 @@ void Atoms::init(VecLst* vec_list_,bool box_chng_)
      */
     vec_list=vec_list_;
     
-    if(vec_list->narch_vecs)
-    {
-        id_arch=new Vec<int>(this,1);
-        int* id_0=id->begin();
-        int* id_1=id_arch->begin();
-        memcpy(id_1,id_0,natms*sizeof(int));
-        del_vec(id_arch);
-        for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
-            del_vec(vec_list->arch_vecs[ivec]);
-        
-    }
+    store_arch_vecs();
     
 
     /*
@@ -1884,16 +1878,9 @@ void Atoms::fin()
     delete swap;
     delete x0;
 
-    if(vec_list->narch_vecs)
-    {
-        re_arrange(vec_list->arch_vecs,vec_list->narch_vecs);
-        for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
-            add_vec(vec_list->arch_vecs[ivec]);
-        add_vec(id_arch);
-        delete id_arch;
-    }
-    
-    
+    //restore_arch_vecs_();
+    restore_arch_vecs();
+
     for(int ivec=0;ivec<nvecs;ivec++)
     {
         vecs[ivec]->vec_sz=natms;
@@ -2107,9 +2094,328 @@ void Atoms::reset()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
+void Atoms::store_arch_vecs()
 {
-    auto fit_2_shrk=
+    if(vec_list->narch_vecs==0) return;
+    id_arch=new Vec<int>(this,1);
+    int* id_0=id->begin();
+    int* id_1=id_arch->begin();
+    memcpy(id_1,id_0,natms*sizeof(int));
+    del_vec(id_arch);
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        del_vec(vec_list->arch_vecs[ivec]);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Atoms::restore_arch_vecs()
+{
+    if(vec_list->narch_vecs==0) return;
+    
+    XMath* xmath=new XMath();
+    int byte_sz=0;
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        byte_sz+=vec_list->arch_vecs[ivec]->byte_sz;
+    
+    int natms_o=id_arch->vec_sz;
+    int* id_o=id_arch->begin();
+    int* key_o;
+    if(natms_o) key_o=new int[natms_o];
+    else key_o=NULL;
+    for(int i=0;i<natms_o;i++) key_o[i]=i;
+    xmath->quicksort(key_o,key_o+natms_o
+    ,[&id_o](int* rank_i,int* rank_j){return (id_o[*rank_i]<id_o[*rank_j]);}
+    ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
+    );
+    
+    int natms_n=id->vec_sz;
+    int* id_n=id->begin();
+    int* key_n;
+    if(natms_n) key_n=new int[natms_n];
+    else key_n=NULL;
+    for(int i=0;i<natms_n;i++) key_n[i]=i;
+    xmath->quicksort(key_n,key_n+natms_n
+    ,[&id_n](int* rank_i,int* rank_j){return (id_n[*rank_i]<id_n[*rank_j]);}
+    ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
+    );
+    
+    delete xmath;
+    
+    int nsnd=0;
+    int* idx_lst_snd;
+    int* id_lst_snd;
+    if(natms_o)
+    {
+        idx_lst_snd=new int[natms_o];
+        id_lst_snd=new int[natms_o];
+    }
+    else
+       idx_lst_snd=id_lst_snd=NULL;
+    
+    int nrcv=0;
+    int* idx_lst_rcv;
+    int* id_lst_rcv;
+    if(natms_n)
+    {
+        idx_lst_rcv=new int[natms_n];
+        id_lst_rcv=new int[natms_n];
+    }
+    else
+        idx_lst_rcv=id_lst_rcv=NULL;
+    
+    int nkeep=0;
+    int* idx_map_o;
+    int* idx_map_n;
+    if(MIN(natms_o,natms_n))
+    {
+        idx_map_o=new int[MIN(natms_o,natms_n)];
+        idx_map_n=new int[MIN(natms_o,natms_n)];
+    }
+    else idx_map_o=idx_map_n=NULL;
+    
+    int i_o=0,i_n=0;
+    for(;i_o<natms_o && i_n<natms_n;)
+    {
+        if(id_o[key_o[i_o]]<id_n[key_n[i_n]])
+        {
+            id_lst_snd[nsnd]=id_o[key_o[i_o]];
+            idx_lst_snd[nsnd]=key_o[i_o];
+            nsnd++;
+            i_o++;
+        }
+        else if(id_o[key_o[i_o]]>id_n[key_n[i_n]])
+        {
+            id_lst_rcv[nrcv]=id_n[key_n[i_n]];
+            idx_lst_rcv[nrcv]=key_n[i_n];
+            nrcv++;
+            i_n++;
+        }
+        else
+        {
+            idx_map_o[nkeep]=key_o[i_o];
+            idx_map_n[nkeep]=key_n[i_n];
+            nkeep++;
+            i_o++;
+            i_n++;
+        }
+    }
+    
+    for(;i_o<natms_o;)
+    {
+        id_lst_snd[nsnd]=id_o[key_o[i_o]];
+        idx_lst_snd[nsnd]=key_o[i_o];
+        nsnd++;
+        i_o++;
+    }
+    for(;i_n<natms_n;)
+    {
+        id_lst_rcv[nrcv]=id_n[key_n[i_n]];
+        idx_lst_rcv[nrcv]=key_n[i_n];
+        nrcv++;
+        i_n++;
+    }
+    
+    delete [] key_o;
+    delete [] key_n;
+    
+    /*-------------------------------------------------*/
+    
+    auto shrnk_2_fit=
+    [](int*& arr,const int sz,const int cpcty)->void
+    {
+        if(cpcty==0 || cpcty==sz)
+            return;
+        if(sz==0)
+        {
+            delete [] arr;
+            arr=NULL;
+        }
+        
+        int* _arr=new int[sz];
+        memcpy(_arr,arr,sz*sizeof(int));
+        delete [] arr;
+        arr=_arr;
+    };
+    
+    /*---------------------------------------------------*/
+    
+    shrnk_2_fit(id_lst_snd,nsnd,natms_o);
+    shrnk_2_fit(idx_lst_snd,nsnd,natms_o);
+    shrnk_2_fit(id_lst_rcv,nrcv,natms_n);
+    shrnk_2_fit(idx_lst_rcv,nrcv,natms_n);
+    shrnk_2_fit(idx_map_o,nkeep,MIN(natms_o,natms_n));
+    shrnk_2_fit(idx_map_n,nkeep,MIN(natms_o,natms_n));
+    
+    
+    auto sort_idx_by_p=
+    [this] (const int* lst,int lst_sz,const int* sub_lst,int sub_lst_sz,
+            int*& sub_lst_idx,int* comm_size)->void
+    {
+        for(int ip=0;ip<tot_p;ip++)
+            comm_size[ip]=0;
+        
+        int max_lst_sz;
+        MPI_Allreduce(&lst_sz,&max_lst_sz,1,MPI_INT,MPI_MAX,world);
+        int* mother_lst;
+        int mother_lst_sz;
+        if(max_lst_sz)
+            mother_lst=new int[max_lst_sz];
+        else
+            mother_lst=NULL;
+        
+        int fnd_sz=0,ufnd_sz=sub_lst_sz,ufnd_tmp_sz;
+        int* ufnd;
+        int* ufnd_tmp;
+        int* fnd_idx;
+        int* ufnd_idx;
+        int* ufnd_idx_tmp;
+        if(sub_lst_sz)
+        {
+            ufnd=new int[sub_lst_sz];
+            ufnd_tmp=new int[sub_lst_sz];
+            fnd_idx=new int[sub_lst_sz];
+            ufnd_idx=new int[sub_lst_sz];
+            ufnd_idx_tmp=new int[sub_lst_sz];
+        }
+        else
+            ufnd=ufnd_tmp=fnd_idx=ufnd_idx=ufnd_idx_tmp=NULL;
+        
+        memcpy(ufnd,sub_lst,sub_lst_sz*sizeof(int));
+        memcpy(ufnd_idx,sub_lst_idx,sub_lst_sz*sizeof(int));
+        
+        
+        int imother_lst,iufnd;
+        for(int ip=0;ip<tot_p;ip++)
+        {
+            if(ip==my_p)
+            {
+                mother_lst_sz=lst_sz;
+                memcpy(mother_lst,lst,mother_lst_sz*sizeof(int));
+            }
+            MPI_Bcast(&mother_lst_sz,1,MPI_INT,ip,world);
+            MPI_Bcast(mother_lst,mother_lst_sz,MPI_INT,ip,world);
+            
+            if(ip==my_p || ufnd_sz==0 || mother_lst_sz==0) continue;
+            
+            ufnd_tmp_sz=0;
+            for(imother_lst=0,iufnd=0;imother_lst<mother_lst_sz && iufnd<ufnd_sz;)
+            {
+                if(mother_lst[imother_lst]<ufnd[iufnd])
+                    imother_lst++;
+                else if(mother_lst[imother_lst]>ufnd[iufnd])
+                {
+                    ufnd_idx_tmp[ufnd_tmp_sz]=ufnd_idx[iufnd];
+                    ufnd_tmp[ufnd_tmp_sz++]=ufnd[iufnd++];
+                }
+                else
+                {
+                    fnd_idx[fnd_sz++]=ufnd_idx[iufnd++];
+                    imother_lst++;
+                    comm_size[ip]++;
+                }
+            }
+            
+            for(;iufnd<ufnd_sz;)
+            {
+                ufnd_idx_tmp[ufnd_tmp_sz]=ufnd_idx[iufnd];
+                ufnd_tmp[ufnd_tmp_sz++]=ufnd[iufnd++];
+            }
+            
+            std::swap(ufnd_tmp,ufnd);
+            std::swap(ufnd_idx_tmp,ufnd_idx);
+            ufnd_sz=ufnd_tmp_sz;
+            
+        }
+        
+        delete [] sub_lst_idx;
+        sub_lst_idx=fnd_idx;
+        
+        delete [] ufnd;
+        delete [] ufnd_tmp;
+        delete [] ufnd_idx;
+        delete [] ufnd_idx_tmp;
+        delete [] mother_lst;
+    };
+   
+    int* nsnd_comm=new int[tot_p];
+    int* nrcv_comm=new int[tot_p];
+    sort_idx_by_p(id_lst_rcv,nrcv,id_lst_snd,nsnd,idx_lst_snd,nsnd_comm);
+    sort_idx_by_p(id_lst_snd,nsnd,id_lst_rcv,nrcv,idx_lst_rcv,nrcv_comm);
+    delete [] id_lst_snd;
+    delete [] id_lst_rcv;
+    
+    byte** snd_buff=new byte*[tot_p];
+    byte** rcv_buff=new byte*[tot_p];
+    
+    if (nsnd)
+    {
+        *snd_buff=new byte[byte_sz*nsnd];
+        for(int ip=1;ip<tot_p;ip++)
+            snd_buff[ip]=snd_buff[ip-1]+byte_sz*nsnd_comm[ip-1];
+    }
+    else
+        *snd_buff=NULL;
+    
+    if(nrcv)
+    {
+        *rcv_buff=new byte[byte_sz*nrcv];
+        for(int ip=1;ip<tot_p;ip++)
+            rcv_buff[ip]=rcv_buff[ip-1]+byte_sz*nrcv_comm[ip-1];
+    }
+    else
+        *rcv_buff=NULL;
+    
+    
+    byte* _snd_buff=*snd_buff;
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        for(int i=0;i<nsnd;i++)
+            vec_list->arch_vecs[ivec]->cpy(_snd_buff,idx_lst_snd[i]);
+    delete [] idx_lst_snd;
+    
+    
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        vec_list->arch_vecs[ivec]->rearrange(idx_map_o,idx_map_n,nkeep,natms_n);
+    delete [] idx_map_o;
+    delete [] idx_map_n;
+    
+    for(int idisp=1;idisp<tot_p;idisp++)
+    {
+        int rcv_p=my_p-idisp;
+        if(rcv_p<0) rcv_p+=tot_p;
+        int snd_p=my_p+idisp;
+        if(snd_p>=tot_p) snd_p-=tot_p;
+        MPI_Sendrecv(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,MPI_BYTE,snd_p,0,
+                     rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,MPI_BYTE,rcv_p,0,
+                     world,MPI_STATUS_IGNORE);
+    }
+    delete [] nsnd_comm;
+    delete [] nrcv_comm;
+    
+    delete [] *snd_buff;
+    delete [] snd_buff;
+    
+    byte* _rcv_buff=*rcv_buff;
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        for(int i=0;i<nrcv;i++)
+            vec_list->arch_vecs[ivec]->cpy(_rcv_buff,idx_lst_rcv[i]);
+    
+    delete [] idx_lst_rcv;
+    delete [] *rcv_buff;
+    delete [] rcv_buff;
+    
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        add_vec(vec_list->arch_vecs[ivec]);
+    add_vec(id_arch);
+    delete id_arch;
+    id_arch=NULL;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Atoms::restore_arch_vecs_()
+{
+    if(vec_list->narch_vecs==0) return;
+    auto shrnk_2_fit=
     [](int*& arr,int sz,int cpcty)->void
     {
         if(cpcty==sz)
@@ -2125,11 +2431,11 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         delete [] arr;
         arr=_arr;
     };
-    
-    auto sort_by_p=
+    /*
+    auto sort_by_p2=
     [] (int*& comm_size,MPI_Comm& world,int tot_p,int my_p,
-        int* lst,int lst_sz,
-        int* slst,int* slst_ref,int slst_sz)->void
+        const int* lst,int lst_sz,
+        const int* slst,int* slst_ref,int slst_sz)->void
     {
         comm_size=new int[tot_p];
         for(int ip=0;ip<tot_p;ip++)
@@ -2146,22 +2452,17 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
             _lst_=new int[max_lst_sz];
         else
             _lst_=NULL;
-        
-        int* fnd_slst;
-        int* ufnd_slst;
         int* fnd_slst_ref;
         int* ufnd_slst_ref;
         
         
         if(slst_sz)
         {
-            fnd_slst=new int[slst_sz];
-            ufnd_slst=new int[slst_sz];
             fnd_slst_ref=new int[slst_sz];
             ufnd_slst_ref=new int[slst_sz];
         }
         else
-            fnd_slst=ufnd_slst=fnd_slst_ref=ufnd_slst_ref=NULL;
+            fnd_slst_ref=ufnd_slst_ref=NULL;
         
         for(int ip=0;ip<tot_p;ip++)
         {
@@ -2196,7 +2497,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                         {
                             while(incmplt && slst[slst_pos]<_lst_[_lst_pos_])
                             {
-                                ufnd_slst[nufnd]=slst[slst_pos];
                                 ufnd_slst_ref[nufnd]=slst_ref[slst_pos];
                                 nufnd++;
                                 slst_pos++;
@@ -2208,7 +2508,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                     
                     while(incmplt && _lst_[_lst_pos_]==slst[slst_pos])
                     {
-                        fnd_slst[nfnd]=slst[slst_pos];
                         fnd_slst_ref[nfnd]=slst_ref[slst_pos];
                         
                         nfnd++;
@@ -2219,9 +2518,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
                             incmplt=false;
                     }
                 }
-                
-                memcpy(slst,fnd_slst,nfnd*sizeof(int));
-                memcpy(slst+nfnd,ufnd_slst,nufnd*sizeof(int));
                 
                 memcpy(slst_ref,fnd_slst_ref,nfnd*sizeof(int));
                 memcpy(slst_ref+nfnd,ufnd_slst_ref,nufnd*sizeof(int));
@@ -2235,11 +2531,101 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         
         delete [] fnd_slst_ref;
         delete [] ufnd_slst_ref;
-        delete [] fnd_slst;
-        delete [] ufnd_slst;
         delete [] _lst_;
         delete [] lst_sz_per_p;
         
+    };
+     */
+    
+    
+    auto sort_idx_by_p=
+    [this] (const int* lst,int lst_sz,const int* sub_lst,int sub_lst_sz,
+            int*& sub_lst_idx,int* comm_size)->void
+    {
+        for(int ip=0;ip<tot_p;ip++)
+            comm_size[ip]=0;
+        
+        int max_lst_sz;
+        MPI_Allreduce(&lst_sz,&max_lst_sz,1,MPI_INT,MPI_MAX,world);
+        int* mother_lst;
+        int mother_lst_sz;
+        if(max_lst_sz)
+            mother_lst=new int[max_lst_sz];
+        else
+            mother_lst=NULL;
+        
+        int fnd_sz=0,ufnd_sz=sub_lst_sz,ufnd_tmp_sz;
+        int* ufnd;
+        int* ufnd_tmp;
+        int* fnd_idx;
+        int* ufnd_idx;
+        int* ufnd_idx_tmp;
+        if(sub_lst_sz)
+        {
+            ufnd=new int[sub_lst_sz];
+            ufnd_tmp=new int[sub_lst_sz];
+            fnd_idx=new int[sub_lst_sz];
+            ufnd_idx=new int[sub_lst_sz];
+            ufnd_idx_tmp=new int[sub_lst_sz];
+        }
+        else
+            ufnd=ufnd_tmp=fnd_idx=ufnd_idx=ufnd_idx_tmp=NULL;
+        
+        memcpy(ufnd,sub_lst,sub_lst_sz*sizeof(int));
+        memcpy(ufnd_idx,sub_lst_idx,sub_lst_sz*sizeof(int));
+        
+        
+        int imother_lst,iufnd;
+        for(int ip=0;ip<tot_p;ip++)
+        {
+            if(ip==my_p)
+            {
+                mother_lst_sz=lst_sz;
+                memcpy(mother_lst,lst,mother_lst_sz*sizeof(int));
+            }
+            MPI_Bcast(&mother_lst_sz,1,MPI_INT,ip,world);
+            MPI_Bcast(mother_lst,mother_lst_sz,MPI_INT,ip,world);
+            
+            if(ip==my_p || ufnd_sz==0 || mother_lst_sz==0) continue;
+            
+            ufnd_tmp_sz=0;
+            for(imother_lst=0,iufnd=0;imother_lst<mother_lst_sz && iufnd<ufnd_sz;)
+            {
+                if(mother_lst[imother_lst]<ufnd[iufnd])
+                    imother_lst++;
+                else if(mother_lst[imother_lst]>ufnd[iufnd])
+                {
+                    ufnd_idx_tmp[ufnd_tmp_sz]=ufnd_idx[iufnd];
+                    ufnd_tmp[ufnd_tmp_sz++]=ufnd[iufnd++];
+                }
+                else
+                {
+                    fnd_idx[fnd_sz++]=ufnd_idx[iufnd++];
+                    imother_lst++;
+                    comm_size[ip]++;
+                }
+            }
+            
+            for(;iufnd<ufnd_sz;)
+            {
+                ufnd_idx_tmp[ufnd_tmp_sz]=ufnd_idx[iufnd];
+                ufnd_tmp[ufnd_tmp_sz++]=ufnd[iufnd++];
+            }
+            
+            std::swap(ufnd_tmp,ufnd);
+            std::swap(ufnd_idx_tmp,ufnd_idx);
+            ufnd_sz=ufnd_tmp_sz;
+            
+        }
+        
+        delete [] sub_lst_idx;
+        sub_lst_idx=fnd_idx;
+        
+        delete [] ufnd;
+        delete [] ufnd_tmp;
+        delete [] ufnd_idx;
+        delete [] ufnd_idx_tmp;
+        delete [] mother_lst;
     };
     
     class act
@@ -2344,8 +2730,8 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     int natms_arch=id_arch->vec_sz;
     int natms_curr=id->vec_sz;
     int byte_sz=0;
-    for(int ivec=0;ivec<narch_vecs;ivec++)
-        byte_sz+=arch_vecs[ivec]->byte_sz;
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        byte_sz+=vec_list->arch_vecs[ivec]->byte_sz;
     
     //output
     int* idx_lst_arch;
@@ -2389,20 +2775,19 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     
     nkep=nkep_curr;
     
-    fit_2_shrk(idx_lst_arch,nkep_arch,natms_arch);
-    fit_2_shrk(idx_lst_snd,nsnd,natms_arch);
-    fit_2_shrk(id_lst_snd,nsnd,natms_arch);
+    shrnk_2_fit(idx_lst_arch,nkep_arch,natms_arch);
+    shrnk_2_fit(idx_lst_snd,nsnd,natms_arch);
+    shrnk_2_fit(id_lst_snd,nsnd,natms_arch);
     
-    fit_2_shrk(idx_lst_curr,nkep_curr,natms_curr);
-    fit_2_shrk(idx_lst_rcv,nrcv,natms_curr);
-    fit_2_shrk(id_lst_rcv,nrcv,natms_curr);
+    shrnk_2_fit(idx_lst_curr,nkep_curr,natms_curr);
+    shrnk_2_fit(idx_lst_rcv,nrcv,natms_curr);
+    shrnk_2_fit(id_lst_rcv,nrcv,natms_curr);
     
     
-    int* nsnd_comm;
-    int* nrcv_comm;
-    sort_by_p(nsnd_comm,world,tot_p,my_p,id_lst_rcv,nrcv,id_lst_snd,idx_lst_snd,nsnd);
-    sort_by_p(nrcv_comm,world,tot_p,my_p,id_lst_snd,nsnd,id_lst_rcv,idx_lst_rcv,nrcv);
-    
+    int* nsnd_comm=new int[tot_p];
+    int* nrcv_comm=new int[tot_p];
+    sort_idx_by_p(id_lst_rcv,nrcv,id_lst_snd,nsnd,idx_lst_snd,nsnd_comm);
+    sort_idx_by_p(id_lst_snd,nsnd,id_lst_rcv,nrcv,idx_lst_rcv,nrcv_comm);
     delete [] id_lst_snd;
     delete [] id_lst_rcv;
     
@@ -2429,14 +2814,14 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
 
     
     byte* _snd_buff=*snd_buff;
-    for(int ivec=0;ivec<narch_vecs;ivec++)
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
         for(int i=0;i<nsnd;i++)
-            arch_vecs[ivec]->cpy(_snd_buff,idx_lst_snd[i]);
+            vec_list->arch_vecs[ivec]->cpy(_snd_buff,idx_lst_snd[i]);
     
     delete [] idx_lst_snd;
     
-    for(int ivec=0;ivec<narch_vecs;ivec++)
-        arch_vecs[ivec]->rearrange(idx_lst_arch,idx_lst_curr,nkep,natms_curr);
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        vec_list->arch_vecs[ivec]->rearrange(idx_lst_arch,idx_lst_curr,nkep,natms_curr);
     
     delete [] idx_lst_arch;
     delete [] idx_lst_curr;
@@ -2447,9 +2832,6 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
         if(rcv_p<0) rcv_p+=tot_p;
         int snd_p=my_p+idisp;
         if(snd_p>=tot_p) snd_p-=tot_p;
-        MPI_Barrier(world);
-        printf("%d  %d(%d)->%d->%d(%d) tot_p %d\n",idisp,rcv_p,nrcv_comm[rcv_p],my_p,snd_p,nsnd_comm[snd_p],tot_p);
-        MPI_Barrier(world);
         MPI_Sendrecv(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,MPI_BYTE,snd_p,0,
                      rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,MPI_BYTE,rcv_p,0,
                      world,MPI_STATUS_IGNORE);
@@ -2461,13 +2843,20 @@ void Atoms::re_arrange(vec** arch_vecs,int narch_vecs)
     delete [] nrcv_comm;
     
     byte* _rcv_buff=*rcv_buff;
-    for(int ivec=0;ivec<narch_vecs;ivec++)
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
         for(int i=0;i<nrcv;i++)
-            arch_vecs[ivec]->cpy(_rcv_buff,idx_lst_rcv[i]);
+            vec_list->arch_vecs[ivec]->cpy(_rcv_buff,idx_lst_rcv[i]);
     
     delete [] idx_lst_rcv;
     delete [] *rcv_buff;
     delete [] rcv_buff;
+    
+    
+    for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
+        add_vec(vec_list->arch_vecs[ivec]);
+    add_vec(id_arch);
+    delete id_arch;
+    id_arch=NULL;
 }
 /*----------------------------------------------
   _     _   _____   _____   _       _____   _____
