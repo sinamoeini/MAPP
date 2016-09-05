@@ -4,6 +4,7 @@
 #include "ff.h"
 #include "neighbor.h"
 #include "memory.h"
+#define BLOCK_COMM
 using namespace MAPP_NS;
 /*--------------------------------------
  _____   _          __      ___   _____
@@ -55,7 +56,7 @@ nswap_vecs(nvecs_)
     
     
     ncomms=new int[2*dimension];
-    pbc_correction=new int[2*dimension];
+    pbc_correction=new bool[2*dimension];
     s_bnd=new type0[2*dimension];
     comm_manager=new LoadUnLoadUpdate*[dimension];
     int icurs=0;
@@ -68,16 +69,16 @@ nswap_vecs(nvecs_)
         
         // snd_to_bhnd && rcv_fm_frnt
         if(atoms->comm->my_loc[idim]==atoms->comm->tot_p_grid[idim]-1)
-            pbc_correction[icurs]=1;
+            pbc_correction[icurs]=true;
         else
-            pbc_correction[icurs]=0;
+            pbc_correction[icurs]=false;
         icurs++;
         
         // snd_to_frnt && rcv_fm_bhnd
         if(atoms->comm->my_loc[idim]==0)
-            pbc_correction[icurs]=1;
+            pbc_correction[icurs]=true;
         else
-            pbc_correction[icurs]=0;
+            pbc_correction[icurs]=false;
         icurs++;
     }
 

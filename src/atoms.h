@@ -469,7 +469,7 @@ namespace MAPP_NS
         
         int tot_ncomms;
         int* ncomms;
-        int* pbc_correction;
+        bool* pbc_correction;
         type0* s_bnd;
         
         int** snd_atms_lst;
