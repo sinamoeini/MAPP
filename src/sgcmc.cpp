@@ -57,7 +57,7 @@ m(m_)
         {
             sum+=countr[j]*countr[j];
             if(countr[j]!=0)
-                sum+=1-2*fabs(countr[j]);
+                sum+=1-2*std::abs(countr[j]);
         }
         
         if(sum<rc_sq)

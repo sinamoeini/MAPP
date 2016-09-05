@@ -109,11 +109,8 @@ Command_change_box::Command_change_box(MAPP* mapp
     if(dim==3)
         M3INV_LT(atoms->H,atoms->B);
     else
-    {
-        XMath* xmath=new XMath();
-        xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
-        delete xmath;
-    }
+        XMath::invert_lower_triangle(atoms->H,atoms->B,dim);
+    
     atoms->s2x_lcl();
 }
 /*--------------------------------------------

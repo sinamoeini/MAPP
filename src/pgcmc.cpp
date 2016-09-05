@@ -23,6 +23,7 @@ m(m_)
     success=NULL;
     ntrial_atms=NULL;
     gcmc_mode=NULL;
+    gcmc_world=NULL;
     curr_comms=NULL;
     vars_comm=NULL;
     lcl_vars_comm=NULL;
@@ -97,7 +98,7 @@ m(m_)
         {
             sum+=countr[j]*countr[j];
             if(countr[j]!=0)
-                sum+=1-2*fabs(countr[j]);
+                sum+=1-2*std::abs(countr[j]);
         }
         
         if(sum<rc_sq)
@@ -862,6 +863,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     
     roots=new int[n_comm];
     comms=new MPI_Comm[n_comm];
+    gcmc_world=new MPI_Comm;
     
     int hi[dim];
     int mid[dim];
@@ -886,7 +888,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     jkey=0;
     for(int i=0;i<dim;i++)
         jkey+=p_vec[i]*B_p[i];
-    MPI_Comm_split(world,0,jkey,&gcmc_world);
+    MPI_Comm_split(world,0,jkey,gcmc_world);
     
     for(int i=0;i<no;i++)
     {
@@ -979,7 +981,9 @@ void PGCMC::comms_dismantle()
     int_buff=NULL;
     delete [] roots;
     roots=NULL;
-    if(n_comm) MPI_Comm_free(&gcmc_world);
+    if(gcmc_world) MPI_Comm_free(gcmc_world);
+    delete gcmc_world;
+    gcmc_world=NULL;
     for(int i=0;i<n_comm;i++) MPI_Comm_free(&comms[i]);
     delete [] comms;
     comms=NULL;
@@ -1129,8 +1133,8 @@ void PGCMC::decide()
 {
     if(prev_p!=-1)
     {
-        MPI_Recv(&int_buff_sz,1,MPI_INT,prev_p,0,gcmc_world,MPI_STATUS_IGNORE);
-        MPI_Recv(int_buff,int_buff_sz,MPI_INT,prev_p,1,gcmc_world,MPI_STATUS_IGNORE);
+        MPI_Recv(&int_buff_sz,1,MPI_INT,prev_p,0,*gcmc_world,MPI_STATUS_IGNORE);
+        MPI_Recv(int_buff,int_buff_sz,MPI_INT,prev_p,1,*gcmc_world,MPI_STATUS_IGNORE);
     }
     else
     {
@@ -1194,8 +1198,8 @@ void PGCMC::decide()
     
     if(next_p!=-1)
     {
-        MPI_Send(&int_buff_sz,1,MPI_INT,next_p,0,gcmc_world);
-        MPI_Send(int_buff,int_buff_sz,MPI_INT,next_p,1,gcmc_world);
+        MPI_Send(&int_buff_sz,1,MPI_INT,next_p,0,*gcmc_world);
+        MPI_Send(int_buff,int_buff_sz,MPI_INT,next_p,1,*gcmc_world);
     }
     
     if(root_succ)
@@ -1209,8 +1213,8 @@ void PGCMC::decide()
  --------------------------------------------*/
 void PGCMC::finalize()
 {
-    MPI_Bcast(&int_buff_sz,1,MPI_INT,origin_p,gcmc_world);
-    MPI_Bcast(int_buff,int_buff_sz,MPI_INT,origin_p,gcmc_world);
+    MPI_Bcast(&int_buff_sz,1,MPI_INT,origin_p,*gcmc_world);
+    MPI_Bcast(int_buff,int_buff_sz,MPI_INT,origin_p,*gcmc_world);
     
     
     if(int_buff[1]>0)

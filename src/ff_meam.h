@@ -9,6 +9,47 @@ namespace MAPP_NS
 {
     class ForceField_meam : public ForceFieldMD
     {
+        enum{
+            i_rho0,
+            i_rho1,
+            i_rho2,
+            i_rho3,
+            i_Arho1_1,
+            i_Arho1_2,
+            i_Arho1_3,
+            i_Arho2_1,
+            i_Arho2_2,
+            i_Arho2_3,
+            i_Arho2_4,
+            i_Arho2_5,
+            i_Arho2_6,
+            i_Arho2b,
+            i_Arho3_1,
+            i_Arho3_2,
+            i_Arho3_3,
+            i_Arho3_4,
+            i_Arho3_5,
+            i_Arho3_6,
+            i_Arho3_7,
+            i_Arho3_8,
+            i_Arho3_9,
+            i_Arho3_10,
+            i_Arho3b_1,
+            i_Arho3b_2,
+            i_Arho3b_3,
+            i_t_ave_1,
+            i_t_ave_2,
+            i_t_ave_3,
+            i_tsq_ave_1,
+            i_tsq_ave_2,
+            i_tsq_ave_3,
+            i_gamma,
+            i_dgamma1,
+            i_dgamma2,
+            i_dgamma3,
+            i_fhop};
+
+        
     private:
         int no_types;
         void allocate();

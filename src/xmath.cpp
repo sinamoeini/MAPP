@@ -10,18 +10,6 @@
 #include "memory.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
- constructor
- --------------------------------------------*/
-XMath::XMath()
-{
-}
-/*--------------------------------------------
- destructor
- --------------------------------------------*/
-XMath::~XMath()
-{
-}
-/*--------------------------------------------
  return the list of all possible groups of 
  integers that their products are equal to a 
  specific number
@@ -1128,26 +1116,6 @@ double* b,int size): InitPtrs(mapp)
             }
         }
     }
-    /*
-    int sndp,rcvp;
-    MPI_Status status;
-    
-    for(int i=0;i<totp-1;i++)
-    {
-        rcvp=myno+i+1;
-        sndp=myno-i-1;
-
-        if(rcvp>=totp)
-            rcvp-=totp;
-        if(sndp<0)
-            sndp+=totp;
-        
-        MPI_Sendrecv(&comm_snd_size[totp-2-i],1,
-        MPI_INT,sndp,0,&comm_rcv_size[i],
-                     1,MPI_INT,rcvp,0,world,
-                     &status);
-    }
-    */
 
     CREATE1D(buff_snd,totp-1);
     for(int i=0;i<totp-1;i++)
@@ -1180,7 +1148,6 @@ double* b,int size): InitPtrs(mapp)
         x[i]=0.0;
     for(int i=lcl_lo;i<lcl_hi;i++)
     {
-        //x[i-lcl_lo]=b[i];
         x[i-lcl_lo]=0.0;
     }
     xchng(x);
@@ -1354,7 +1321,7 @@ int SOLVEAXb::solve(double tol)
         MPI_Allreduce(&xBx_l,&xBx,1,MPI_DOUBLE,MPI_SUM,world);
         MPI_Allreduce(&cx_l,&cx,1,MPI_DOUBLE,MPI_SUM,world);
         
-        error=abs(xBx-2.0*cx+d_sq);
+        error=std::abs(xBx-2.0*cx+d_sq);
         if(error<=tol)
         {
             if(atoms->my_p==0)

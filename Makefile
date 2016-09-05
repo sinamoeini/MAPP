@@ -4,7 +4,7 @@ PROGRAMS    = main
 CC          = mpic++ 
 OBJ         = obj/
 MAKEFILE    = Makefile
-CFLAGS      = -std=c++0x -O3
+CFLAGS      = -std=c++0x -O3 -fstrict-aliasing -Wstrict-aliasing=2 
 LIBS        = 
 INCLUDES    = 
         

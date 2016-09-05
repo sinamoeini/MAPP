@@ -54,15 +54,10 @@ const char* group_name,int nfiles,char** files)
     int* rank=new int[natms];
     for(int i=0;i<natms;i++) rank[i]=i;
     
-    
-    XMath* xmath=new XMath();
-    
-    xmath->quicksort(rank,rank+natms
+    XMath::quicksort(rank,rank+natms
     ,[&id](int* rank_i,int* rank_j){return (id[*rank_i]<id[*rank_j]);}
     ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
     );
-    
-    delete xmath;
    
     auto binary_srch=
     [] (int i,int* id,int* rank,int size)->int
@@ -232,12 +227,10 @@ void Group_general::update()
     
     act* _act_orig=_act_orig_;
     act* _act_grp=_act_grp_;
-    XMath* xmath=new XMath();
-    xmath->srch_lst_lst(id,natms,_act_grp,grp_id_tot,grp_sz_tot,_act_orig);
+    XMath::srch_lst_lst(id,natms,_act_grp,grp_id_tot,grp_sz_tot,_act_orig);
     if(grp_sz_tot) delete [] grp_id_tot;
     delete _act_orig_;
     delete _act_grp_;
-    delete xmath;
     
     int* _grp_idx=new int[grp_sz];
     int* _grp_id=new int[grp_sz];

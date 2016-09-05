@@ -379,11 +379,8 @@ void Atoms::Swap::rm_rdndncy()
     int rcv_atms_lst_sz_;
     int snd_atms_lst_sz_=0;
     int snd_atms_lst_cpcty_=max_snd_atms_lst_sz;
-    int* snd_atms_lst_;
-    if(snd_atms_lst_cpcty_)
-        snd_atms_lst_=new int[snd_atms_lst_cpcty_];
-    else
-        snd_atms_lst_=NULL;
+    int* snd_atms_lst_=NULL;
+    if(snd_atms_lst_cpcty_) snd_atms_lst_=new int[snd_atms_lst_cpcty_];
     
     int nlocomm;
     byte* mark_=mark+natms_ph;
@@ -437,19 +434,13 @@ void Atoms::Swap::rm_rdndncy()
     delete [] snd_atms_lst_;
     
     int old_2_new_cpcty=natms+natms_ph;
-    int* old_2_new;
-    if(old_2_new_cpcty)
-        old_2_new=new int[old_2_new_cpcty];
-    else
-        old_2_new=NULL;
+    int* old_2_new=NULL;
+    if(old_2_new_cpcty) old_2_new=new int[old_2_new_cpcty];
     
     int list_sz=0;
     int list_cpcty=natms_ph;
-    int* list;
-    if(list_cpcty)
-        list=new int[list_cpcty];
-    else
-        list=NULL;
+    int* list=NULL;
+    if(list_cpcty) list=new int[list_cpcty];
     
     for(int iatm=0;iatm<natms;iatm++)
         old_2_new[iatm]=iatm;
@@ -558,10 +549,31 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::unload
         rcv_buff=new byte[rcv_buff_sz+rcv_buff_grw];
         rcv_buff_cpcty=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz+rcv_buff_grw;
     }
-    
+
+#ifdef BLOCK_COMM
     MPI_Sendrecv(snd_buff,snd_buff_sz,MPI_BYTE,snd_p,0,
                  rcv_buff,rcv_buff_sz,MPI_BYTE,rcv_p,0,
                  world,MPI_STATUS_IGNORE);
+#else
+    if(rcv_atms_lst_sz[icomm])
+        MPI_Irecv(rcv_buff,rcv_buff_sz,
+        MPI_BYTE,rcv_p,
+        0,
+        world,&request[0]);
+    
+    if(snd_atms_lst_sz[icomm])
+        MPI_Isend(snd_buff,snd_buff_sz,
+        MPI_BYTE,snd_p,
+        0,
+        world,&request[1]);
+    
+    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
+        MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
+        MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
+        MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
     
     byte* tmp_rcv_buff0=rcv_buff;
     for(int ivec=0;ivec<nswap_vecs;ivec++)
@@ -596,10 +608,31 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::load_unload
         rcv_buff=new byte[rcv_buff_sz+rcv_buff_grw];
         rcv_buff_cpcty=rcv_atms_lst_sz[icomm]*tot_swap_vecs_sz+rcv_buff_grw;
     }
-    
+
+#ifdef BLOCK_COMM
     MPI_Sendrecv(snd_buff,snd_buff_sz,MPI_BYTE,snd_p,0,
                  rcv_buff,rcv_buff_sz,MPI_BYTE,rcv_p,0,
                  world,MPI_STATUS_IGNORE);
+#else
+    if(rcv_atms_lst_sz[icomm])
+        MPI_Irecv(rcv_buff,rcv_buff_sz,
+        MPI_BYTE,rcv_p,
+        0,
+        world,&request[0]);
+    
+    if(snd_atms_lst_sz[icomm])
+        MPI_Isend(snd_buff,snd_buff_sz,
+        MPI_BYTE,snd_p,
+        0,
+        world,&request[1]);
+    
+    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
+        MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
+        MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
+        MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
     
     byte* tmp_rcv_buff=rcv_buff;
     for(int ivec=0;ivec<nswap_vecs;ivec++)
@@ -618,11 +651,30 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::update_mult
     byte* tmp_snd_buff=snd_buff;
     for(int ivec=0;ivec<nvecs;ivec++)
         vecs[ivec]->cpy(tmp_snd_buff,snd_atms_lst[icomm],snd_atms_lst_sz[icomm]);
-    
+#ifdef BLOCK_COMM
     MPI_Sendrecv(snd_buff,snd_atms_lst_sz[icomm]*vecs_byte_sz,MPI_BYTE,snd_p,0,
                  rcv_buff,rcv_atms_lst_sz[icomm]*vecs_byte_sz,MPI_BYTE,rcv_p,0,
                  world,MPI_STATUS_IGNORE);
+#else
+    if(rcv_atms_lst_sz[icomm])
+        MPI_Irecv(rcv_buff,rcv_atms_lst_sz[icomm]*vecs_byte_sz,
+        MPI_BYTE,rcv_p,
+        0,
+        world,&request[0]);
     
+    if(snd_atms_lst_sz[icomm])
+        MPI_Isend(snd_buff,snd_atms_lst_sz[icomm]*vecs_byte_sz,
+        MPI_BYTE,snd_p,
+        0,
+        world,&request[1]);
+    
+    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
+        MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
+        MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
+        MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
     byte* tmp_rcv_buff=rcv_buff;
     for(int ivec=0;ivec<nvecs;ivec++)
         vecs[ivec]->pst(tmp_rcv_buff,rcv_atms_lst_sz[icomm]);
@@ -635,11 +687,30 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::update_sing
 {
     byte* tmp_snd_buff=snd_buff;
     v->cpy(tmp_snd_buff,snd_atms_lst[icomm],snd_atms_lst_sz[icomm]);
-    
+#ifdef BLOCK_COMM
     MPI_Sendrecv(snd_buff,snd_atms_lst_sz[icomm]*v->byte_sz,MPI_BYTE,snd_p,0,
                  v->end(),rcv_atms_lst_sz[icomm]*v->byte_sz,MPI_BYTE,rcv_p,0,
                  world,MPI_STATUS_IGNORE);
+#else
+    if(rcv_atms_lst_sz[icomm])
+        MPI_Irecv(v->end(),rcv_atms_lst_sz[icomm]*v->byte_sz,
+        MPI_BYTE,rcv_p,
+        0,
+        world,&request[0]);
     
+    if(snd_atms_lst_sz[icomm])
+        MPI_Isend(snd_buff,snd_atms_lst_sz[icomm]*v->byte_sz,
+        MPI_BYTE,snd_p,
+        0,
+        world,&request[1]);
+    
+    if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm])
+        MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm] && snd_atms_lst_sz[icomm]==0)
+        MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+    else if(rcv_atms_lst_sz[icomm]==0 && snd_atms_lst_sz[icomm])
+        MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
     v->vec_sz+=rcv_atms_lst_sz[icomm];
 }
 /*--------------------------------------------
@@ -649,9 +720,30 @@ inline void Atoms::Swap::LoadUnLoadUpdateComm::xchng_buff
 (int& snd_p,int& snd_buff_sz_,byte*& snd_buff_
 ,int& rcv_p,int& rcv_buff_sz_,byte*& rcv_buff_)
 {
+#ifdef BLOCK_COMM
     MPI_Sendrecv(snd_buff_,snd_buff_sz_,MPI_BYTE,snd_p,0,
                  rcv_buff_,rcv_buff_sz_,MPI_BYTE,rcv_p,0,
                  world,MPI_STATUS_IGNORE);
+#else
+    if(rcv_buff_sz_)
+        MPI_Irecv(rcv_buff_,rcv_buff_sz_,
+        MPI_BYTE,rcv_p,
+        0,
+        world,&request[0]);
+    
+    if(snd_buff_sz_)
+        MPI_Isend(snd_buff_,snd_buff_sz_,
+        MPI_BYTE,snd_p,
+        0,
+        world,&request[1]);
+    
+    if(rcv_buff_sz_ && snd_buff_sz_)
+        MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+    else if(rcv_buff_sz_ && snd_buff_sz_==0)
+        MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+    else if(rcv_buff_sz_==0 && snd_buff_sz_)
+        MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
 }
 /*--------------------------------------------
  
@@ -836,10 +928,30 @@ int Atoms::Xchng::xchng_buff(int idim,int idir)
         rcv_buff_cpcty=rcv_buff_sz+buff_grw;
     }
     
+#ifdef BLOCK_COMM
     MPI_Sendrecv(snd_buff[idir],snd_buff_sz[idir],MPI_BYTE,neigh_p[idim][idir],0,
                  rcv_buff,rcv_buff_sz,MPI_BYTE,neigh_p[idim][1-idir],0,
                  world,MPI_STATUS_IGNORE);
+#else
+    if(rcv_buff_sz)
+        MPI_Irecv(rcv_buff,rcv_buff_sz,
+        MPI_BYTE,neigh_p[idim][1-idir],
+        0,
+        world,&request[0]);
+    
+    if(snd_buff_sz[idir])
+        MPI_Isend(snd_buff[idir],snd_buff_sz[idir],
+        MPI_BYTE,neigh_p[idim][idir],
+        0,
+        world,&request[1]);
 
+    if(rcv_buff_sz && snd_buff_sz[idir])
+        MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+    else if(rcv_buff_sz && snd_buff_sz[idir]==0)
+        MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+    else if(rcv_buff_sz==0 && snd_buff_sz[idir])
+        MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
     
     snd_buff_sz[idir]=0;
     
@@ -1044,13 +1156,9 @@ void Atoms::Communincation::auto_grid(type0** H)
         if(p_per_n[i]!=p_per_n[0])
             eq_p_per_n=false;
     
-    
-    
-    XMath* xmath= new XMath();
     int* fac_list;
     int fac_list_size;
-    xmath->fac_list(tot_p,dimension,fac_list,fac_list_size);
-    delete  xmath;
+    XMath::fac_list(tot_p,dimension,fac_list,fac_list_size);
     
     type0 ratio=-1.0;
     type0 tmp_ratio;
@@ -1528,15 +1636,10 @@ void Atoms::x2s(int no)
             x_vec[idim]=x_vec[idim]*B[idim][idim];
             for(int jdim=idim+1;jdim<dimension;jdim++)
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
-            
-            x_vec[idim]-=floor(x_vec[idim]);
-            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
-            /*
             while(x_vec[idim]<0.0)
                 x_vec[idim]++;
             while(x_vec[idim]>=1.0)
                 x_vec[idim]--;
-             */
         }
 }
 /*--------------------------------------------
@@ -1570,14 +1673,10 @@ void Atoms::x2s_lcl()
             for(int jdim=idim+1;jdim<dimension;jdim++)
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
-            x_vec[idim]-=floor(x_vec[idim]);
-            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
-            /*
-             while(x_vec[idim]<0.0)
-             x_vec[idim]++;
-             while(x_vec[idim]>=1.0)
-             x_vec[idim]--;
-             */
+            while(x_vec[idim]<0.0)
+                x_vec[idim]++;
+            while(x_vec[idim]>=1.0)
+                x_vec[idim]--;
         }
 }
 /*--------------------------------------------
@@ -1612,14 +1711,10 @@ void Atoms::x2s_all()
             for(int jdim=idim+1;jdim<dimension;jdim++)
                 x_vec[idim]+=x_vec[jdim]*B[jdim][idim];
             
-            x_vec[idim]-=floor(x_vec[idim]);
-            if(x_vec[idim]==1.0) x_vec[idim]=0.0;
-            /*
-             while(x_vec[idim]<0.0)
-             x_vec[idim]++;
-             while(x_vec[idim]>=1.0)
-             x_vec[idim]--;
-             */
+            while(x_vec[idim]<0.0)
+                x_vec[idim]++;
+            while(x_vec[idim]>=1.0)
+                x_vec[idim]--;
         }
 }
 /*--------------------------------------------
@@ -1817,7 +1912,6 @@ void Atoms::fin()
     delete swap;
     delete x0;
 
-    //restore_arch_vecs_();
     restore_arch_vecs();
 
     for(int ivec=0;ivec<nvecs;ivec++)
@@ -1840,6 +1934,11 @@ inline void Atoms::store_x0()
     int x_dim=x->dim;
     int last_atm=natms;
     if(box_chng) last_atm+=natms_ph;
+    if(x_dim==dimension)
+    {
+        memcpy(x0_vec,x_vec,last_atm*dimension*sizeof(type0));
+        return;
+    }
     for(int iatm=0;iatm<last_atm;iatm++,x0_vec+=dimension,x_vec+=x_dim)
         memcpy(x0_vec,x_vec,dimension*sizeof(type0));
 }
@@ -1867,8 +1966,7 @@ inline bool Atoms::decide()
     }
     
     MPI_Allreduce(&succ_lcl,&succ,1,MPI_INT,MPI_MIN,world);
-    if(succ)
-        return true;
+    if(succ) return true;
     return false;
 }
 /*--------------------------------------------
@@ -2019,66 +2117,57 @@ void Atoms::restore_arch_vecs()
 {
     if(vec_list->narch_vecs==0) return;
     
-    XMath* xmath=new XMath();
     int byte_sz=0;
     for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
         byte_sz+=vec_list->arch_vecs[ivec]->byte_sz;
     
     int natms_old=id_arch->vec_sz;
     int* id_old=id_arch->begin();
-    int* key_old;
+    int* key_old=NULL;
     if(natms_old) key_old=new int[natms_old];
-    else key_old=NULL;
     for(int i=0;i<natms_old;i++) key_old[i]=i;
-    xmath->quicksort(key_old,key_old+natms_old
+    XMath::quicksort(key_old,key_old+natms_old
     ,[&id_old](int* rank_i,int* rank_j){return (id_old[*rank_i]<id_old[*rank_j]);}
     ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
     );
     
     int natms_new=id->vec_sz;
     int* id_new=id->begin();
-    int* key_new;
+    int* key_new=NULL;
     if(natms_new) key_new=new int[natms_new];
-    else key_new=NULL;
     for(int i=0;i<natms_new;i++) key_new[i]=i;
-    xmath->quicksort(key_new,key_new+natms_new
+    XMath::quicksort(key_new,key_new+natms_new
     ,[&id_new](int* rank_i,int* rank_j){return (id_new[*rank_i]<id_new[*rank_j]);}
     ,[](int* rank_i,int* rank_j){std::swap(*rank_i,*rank_j);}
     );
     
-    delete xmath;
     
     int nsnd=0;
-    int* idx_lst_snd;
-    int* id_lst_snd;
+    int* idx_lst_snd=NULL;
+    int* id_lst_snd=NULL;
     if(natms_old)
     {
         idx_lst_snd=new int[natms_old];
         id_lst_snd=new int[natms_old];
     }
-    else
-       idx_lst_snd=id_lst_snd=NULL;
     
     int nrcv=0;
-    int* idx_lst_rcv;
-    int* id_lst_rcv;
+    int* idx_lst_rcv=NULL;
+    int* id_lst_rcv=NULL;
     if(natms_new)
     {
         idx_lst_rcv=new int[natms_new];
         id_lst_rcv=new int[natms_new];
     }
-    else
-        idx_lst_rcv=id_lst_rcv=NULL;
     
     int nkeep=0;
-    int* idx_keep_old;
-    int* idx_keep_new;
+    int* idx_keep_old=NULL;
+    int* idx_keep_new=NULL;
     if(MIN(natms_old,natms_new))
     {
         idx_keep_old=new int[MIN(natms_old,natms_new)];
         idx_keep_new=new int[MIN(natms_old,natms_new)];
     }
-    else idx_keep_old=idx_keep_new=NULL;
     
     int i_old=0,i_new=0;
     for(;i_old<natms_old && i_new<natms_new;)
@@ -2141,7 +2230,16 @@ void Atoms::restore_arch_vecs()
     shrnk_2_fit(idx_lst_rcv,nrcv,natms_new);
     shrnk_2_fit(idx_keep_old,nkeep,MIN(natms_old,natms_new));
     shrnk_2_fit(idx_keep_new,nkeep,MIN(natms_old,natms_new));
-    
+
+#ifdef ARCH_RESTORE_DEBUG
+    int tot_nsnd;
+    int tot_nrcv;
+    MPI_Allreduce(&nsnd,&tot_nsnd,1,MPI_INT,MPI_SUM,world);
+    MPI_Allreduce(&nrcv,&tot_nrcv,1,MPI_INT,MPI_SUM,world);
+    if(tot_nsnd==tot_nrcv)
+        error->abort("sanity check failed number of atoms to be sent(%d) "
+        "is unequal to number of atoms to be recieved(%d)",tot_nsnd,tot_nrcv);
+#endif
     
     auto sort_idx_by_p=
     [this] (const int* lst,int lst_sz,const int* sub_lst,int sub_lst_sz,
@@ -2152,26 +2250,21 @@ void Atoms::restore_arch_vecs()
         
         int max_lst_sz;
         MPI_Allreduce(&lst_sz,&max_lst_sz,1,MPI_INT,MPI_MAX,world);
-        int* mother_lst;
         int mother_lst_sz;
-        if(max_lst_sz)
-            mother_lst=new int[max_lst_sz];
-        else
-            mother_lst=NULL;
+        int* mother_lst=NULL;
+        if(max_lst_sz) mother_lst=new int[max_lst_sz];
         
         int fnd_sz,ufnd_sz;
         
-        int* ufnd;
-        int* ufnd_idx;
-        int* fnd_idx;
+        int* ufnd=NULL;
+        int* ufnd_idx=NULL;
+        int* fnd_idx=NULL;
         if(sub_lst_sz)
         {
             ufnd=new int[sub_lst_sz];
             ufnd_idx=new int[sub_lst_sz];
             fnd_idx=new int[sub_lst_sz];
         }
-        else
-            ufnd=ufnd_idx=fnd_idx=NULL;
         
         fnd_sz=0;
         ufnd_sz=sub_lst_sz;
@@ -2230,28 +2323,37 @@ void Atoms::restore_arch_vecs()
     sort_idx_by_p(id_lst_snd,nsnd,id_lst_rcv,nrcv,idx_lst_rcv,nrcv_comm);
     delete [] id_lst_snd;
     delete [] id_lst_rcv;
+ 
+#ifdef ARCH_RESTORE_DEBUG
+    int comm_sz_snd=0,comm_sz_rcv=0;
+    for(int i=0;i<tot_p;i++)
+    {
+        comm_sz_snd+=nsnd_comm[i];
+        comm_sz_rcv+=nrcv_comm[i];
+    }
+    if(nsnd!=comm_sz_snd)
+        error->abort_sing("sanity check failed just found %d out of %d atoms that should be sent");
+    if(nrcv!=comm_sz_rcv)
+        error->abort_sing("sanity check failed just found %d out of %d atoms that should be recieved");
+#endif
     
     byte** snd_buff=new byte*[tot_p];
-    byte** rcv_buff=new byte*[tot_p];
-    
+    *snd_buff=NULL;
     if (nsnd)
     {
         *snd_buff=new byte[byte_sz*nsnd];
         for(int ip=1;ip<tot_p;ip++)
             snd_buff[ip]=snd_buff[ip-1]+byte_sz*nsnd_comm[ip-1];
     }
-    else
-        *snd_buff=NULL;
     
+    byte** rcv_buff=new byte*[tot_p];
+    *rcv_buff=NULL;
     if(nrcv)
     {
         *rcv_buff=new byte[byte_sz*nrcv];
         for(int ip=1;ip<tot_p;ip++)
             rcv_buff[ip]=rcv_buff[ip-1]+byte_sz*nrcv_comm[ip-1];
     }
-    else
-        *rcv_buff=NULL;
-    
     
     byte* _snd_buff=*snd_buff;
     for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
@@ -2264,16 +2366,40 @@ void Atoms::restore_arch_vecs()
         vec_list->arch_vecs[ivec]->rearrange(idx_keep_old,idx_keep_new,nkeep,natms_new);
     delete [] idx_keep_old;
     delete [] idx_keep_new;
-    
+
+#ifndef BLOCK_COMM
+    MPI_Request request[2];
+#endif
     for(int idisp=1;idisp<tot_p;idisp++)
     {
         int rcv_p=my_p-idisp;
         if(rcv_p<0) rcv_p+=tot_p;
         int snd_p=my_p+idisp;
         if(snd_p>=tot_p) snd_p-=tot_p;
+#ifdef BLOCK_COMM
         MPI_Sendrecv(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,MPI_BYTE,snd_p,0,
                      rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,MPI_BYTE,rcv_p,0,
                      world,MPI_STATUS_IGNORE);
+#else
+        if(nrcv_comm[rcv_p])
+            MPI_Irecv(rcv_buff[rcv_p],nrcv_comm[rcv_p]*byte_sz,
+                      MPI_BYTE,rcv_p,
+                      0,
+                      world,&request[0]);
+        
+        if(nsnd_comm[snd_p])
+            MPI_Isend(snd_buff[snd_p],nsnd_comm[snd_p]*byte_sz,
+                      MPI_BYTE,snd_p,
+                      0,
+                      world,&request[1]);
+        
+        if(nrcv_comm[rcv_p] && nsnd_comm[snd_p])
+            MPI_Waitall(2,request,MPI_STATUS_IGNORE);
+        else if(nrcv_comm[rcv_p] && nsnd_comm[snd_p]==0)
+            MPI_Waitall(1,&request[0],MPI_STATUS_IGNORE);
+        else if(nrcv_comm[rcv_p]==0 && nsnd_comm[snd_p])
+            MPI_Waitall(1,&request[1],MPI_STATUS_IGNORE);
+#endif
     }
     delete [] nsnd_comm;
     delete [] nrcv_comm;
@@ -2328,19 +2454,17 @@ void Atoms::restore_arch_vecs_()
         
         int max_lst_sz;
         MPI_Allreduce(&lst_sz,&max_lst_sz,1,MPI_INT,MPI_MAX,world);
-        int* mother_lst;
+        int* mother_lst=NULL;
         int mother_lst_sz;
         if(max_lst_sz)
             mother_lst=new int[max_lst_sz];
-        else
-            mother_lst=NULL;
         
         int fnd_sz=0,ufnd_sz=sub_lst_sz,ufnd_tmp_sz;
-        int* ufnd;
-        int* ufnd_tmp;
-        int* fnd_idx;
-        int* ufnd_idx;
-        int* ufnd_idx_tmp;
+        int* ufnd=NULL;
+        int* ufnd_tmp=NULL;
+        int* fnd_idx=NULL;
+        int* ufnd_idx=NULL;
+        int* ufnd_idx_tmp=NULL;
         if(sub_lst_sz)
         {
             ufnd=new int[sub_lst_sz];
@@ -2349,8 +2473,6 @@ void Atoms::restore_arch_vecs_()
             ufnd_idx=new int[sub_lst_sz];
             ufnd_idx_tmp=new int[sub_lst_sz];
         }
-        else
-            ufnd=ufnd_tmp=fnd_idx=ufnd_idx=ufnd_idx_tmp=NULL;
         
         memcpy(ufnd,sub_lst,sub_lst_sz*sizeof(int));
         memcpy(ufnd_idx,sub_lst_idx,sub_lst_sz*sizeof(int));
@@ -2515,13 +2637,13 @@ void Atoms::restore_arch_vecs_()
         byte_sz+=vec_list->arch_vecs[ivec]->byte_sz;
     
     //output
-    int* idx_lst_arch;
-    int* idx_lst_snd;
-    int* id_lst_snd;
+    int* idx_lst_arch=NULL;
+    int* idx_lst_snd=NULL;
+    int* id_lst_snd=NULL;
     
-    int* idx_lst_curr;
-    int* idx_lst_rcv;
-    int* id_lst_rcv;
+    int* idx_lst_curr=NULL;
+    int* idx_lst_rcv=NULL;
+    int* id_lst_rcv=NULL;
     
     if(natms_arch)
     {
@@ -2529,8 +2651,6 @@ void Atoms::restore_arch_vecs_()
         idx_lst_snd=new int[natms_arch];
         id_lst_snd=new int[natms_arch];
     }
-    else
-        idx_lst_arch=idx_lst_snd=id_lst_snd=NULL;
     
     if(natms_curr)
     {
@@ -2538,9 +2658,6 @@ void Atoms::restore_arch_vecs_()
         idx_lst_rcv=new int[natms_curr];
         id_lst_rcv=new int[natms_curr];
     }
-    else
-        idx_lst_curr=idx_lst_rcv=id_lst_rcv=NULL;
-    
     
     int nkep,nkep_arch=0,nkep_curr=0,nrcv=0,nsnd=0;
     
@@ -2548,11 +2665,9 @@ void Atoms::restore_arch_vecs_()
     act_curr* _act_curr_=new act_curr(id_lst_rcv,idx_lst_rcv,idx_lst_curr,nkep_curr,nrcv,id_lst_curr);
     act* _act_arch=_act_arch_;
     act* _act_curr=_act_curr_;
-    XMath* xmath=new XMath();
-    xmath->srch_lst_lst(id_lst_arch,natms_arch,_act_arch,id_lst_curr,natms_curr,_act_curr);
+    XMath::srch_lst_lst(id_lst_arch,natms_arch,_act_arch,id_lst_curr,natms_curr,_act_curr);
     delete _act_curr_;
     delete _act_arch_;
-    delete xmath;
     
     nkep=nkep_curr;
     
@@ -2573,26 +2688,22 @@ void Atoms::restore_arch_vecs_()
     delete [] id_lst_rcv;
     
     byte** snd_buff=new byte*[tot_p];
-    byte** rcv_buff=new byte*[tot_p];
-    
+    *snd_buff=NULL;
     if (nsnd)
     {
         *snd_buff=new byte[byte_sz*nsnd];
         for(int ip=1;ip<tot_p;ip++)
             snd_buff[ip]=snd_buff[ip-1]+byte_sz*nsnd_comm[ip-1];
     }
-    else
-        *snd_buff=NULL;
     
+    byte** rcv_buff=new byte*[tot_p];
+    *rcv_buff=NULL;
     if(nrcv)
     {
         *rcv_buff=new byte[byte_sz*nrcv];
         for(int ip=1;ip<tot_p;ip++)
             rcv_buff[ip]=rcv_buff[ip-1]+byte_sz*nrcv_comm[ip-1];
     }
-    else
-        *rcv_buff=NULL;
-
     
     byte* _snd_buff=*snd_buff;
     for(int ivec=0;ivec<vec_list->narch_vecs;ivec++)
@@ -2703,11 +2814,9 @@ void VecLst::del_updt(vec* v)
     if(ivec==nupdt_vecs)
         return;
     
-    vec** updt_vecs_;
+    vec** updt_vecs_=NULL;
     if(nupdt_vecs-1)
         updt_vecs_=new vec*[nupdt_vecs-1];
-    else
-        updt_vecs_=NULL;
     
     for(int jvec=0;jvec<ivec;jvec++)
         updt_vecs_[jvec]=updt_vecs[jvec];
@@ -2755,11 +2864,9 @@ void VecLst::del_xchng(vec* v)
     if(ivec==nxchng_vecs)
         return;
     
-    vec** xchng_vecs_;
+    vec** xchng_vecs_=NULL;;
     if(nxchng_vecs-1)
         xchng_vecs_=new vec*[nxchng_vecs-1];
-    else
-        xchng_vecs_=NULL;
     
     for(int jvec=0;jvec<ivec;jvec++)
         xchng_vecs_[jvec]=xchng_vecs[jvec];
@@ -2817,11 +2924,10 @@ void VecLst::del_arch(vec* v)
     if(ivec==narch_vecs)
         return;
     
-    vec** arch_vecs_;
+    vec** arch_vecs_=NULL;;
     if(narch_vecs-1)
         arch_vecs_=new vec*[narch_vecs-1];
-    else
-        arch_vecs_=NULL;
+    
     for(int jvec=0;jvec<ivec;jvec++)
         arch_vecs_[jvec]=arch_vecs[jvec];
     for(int jvec=ivec+1;jvec<narch_vecs;jvec++)

@@ -2201,8 +2201,8 @@ void ForceField_meam::read_global(char* file_name)
     char* buff;
     if(atoms->my_p==0)
     {
-        fstream file(file_name,ios::in);
-        file.seekg(0,ios::end);
+        std::fstream file(file_name,std::ios::in);
+        file.seekg(0,std::ios::end);
         byte_sz=file.tellg();
     }
     
@@ -2253,7 +2253,7 @@ void ForceField_meam::read_global(char* file_name)
         pch=strchr(pch+1,'#');
     }
     memcpy(new_buff_,st,buff+byte_sz-st);
-    swap(new_buff,buff);
+    std::swap(new_buff,buff);
     
     buff_=buff;
     new_buff_=new_buff;
@@ -2555,7 +2555,6 @@ void ForceField_meam::read_local(char* file_name)
         }
         else if(sscanf(line,"lattce(%d,%d) = %s",&icmp,&jcmp,tmp_str)==3)
         {
-            cout <<line << endl;
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)

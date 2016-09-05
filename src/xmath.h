@@ -8,18 +8,12 @@
 
 namespace MAPP_NS
 {
-    class XMath
+    namespace XMath
     {
-    private:
         // recursive form of above functions that feeds into it
         void fac_list_rec(int,int,int,int*&,int*&,int&);
         template<typename,class>
         class XVec;
-
-    protected:
-    public:
-        XMath();
-        ~XMath();
         // inverse square matrix
         void invert(type0**,type0**,int);
         // inverse lower triangle square matrix
@@ -149,7 +143,7 @@ namespace MAPP_NS
             }
         };
         
-        XVec(XMath* xmath,T0* _data
+        XVec(T0* _data
              ,int _size,C0& _act):
         data(_data),
         size(_size),
@@ -160,7 +154,7 @@ namespace MAPP_NS
             
             key=new int[size];
             for(int i=0;i<size;i++) key[i]=i;
-            xmath->quicksort(key,key+size,
+            quicksort(key,key+size,
             [this](int* ikey,int* jkey){return (data[*ikey]<data[*jkey]);},
             [](int* ikey,int* jkey){std::swap(*ikey,*jkey);});
         }
@@ -271,8 +265,8 @@ template<typename T0,class C0>
 void XMath::srch_lst_lst(T0* ilst,int isize,C0* iact
 ,T0* jlst,int jsize,C0* jact)
 {
-    XVec<T0,C0> _ilst(this,ilst,isize,*iact);
-    XVec<T0,C0> _jlst(this,jlst,jsize,*jact);
+    XVec<T0,C0> _ilst(ilst,isize,*iact);
+    XVec<T0,C0> _jlst(jlst,jsize,*jact);
     
     if(isize==0 || jsize==0)
     {

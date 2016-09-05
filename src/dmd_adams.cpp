@@ -79,19 +79,16 @@ DMD_adams::DMD_adams(MAPP* mapp,int nargs
         CREATE1D(wi[i],i+1);
     }
     
-    XMath* xmath= new XMath();
     for(int i=0;i<n;i++)
     {
-        xmath->quadrature_lg(i+1,xi[i],wi[i]);
+        XMath::quadrature_lg(i+1,xi[i],wi[i]);
         for(int j=0;j<i+1;j++)
         {
             xi[i][j]*=0.5;
             xi[i][j]+=0.5;
             wi[i][j]*=0.5;
         }
-    }
-    delete xmath;
-    
+    }    
 }
 /*--------------------------------------------
  destructor
@@ -160,7 +157,7 @@ inline void DMD_adams::start()
 {
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
     dt=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(t_fin-t_cur));
-    type0 dt_max_lcl=numeric_limits<type0>::infinity(),dt_max;
+    type0 dt_max_lcl=std::numeric_limits<type0>::infinity(),dt_max;
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     rectify(c_d);

@@ -63,8 +63,7 @@ nrgy_strss(forcefield->nrgy_strss)
         for(int j=0;j<dim;j++)
             H_dof[i][j]=false;
     
-    xmath=new XMath();
-        
+    
     if(mapp->mode==DMD_mode)
         forcefield_dmd=dynamic_cast<ForceFieldDMD*>(forcefield);
     max_dx=1.0;
@@ -82,7 +81,6 @@ Min::~Min()
         delete [] H_dof;
     }
     
-    delete xmath;
 }
 /*--------------------------------------------
  error messages
@@ -552,7 +550,7 @@ type0 Min::F(type0 alpha)
         if(dim==3)
             M3INV_LT(atoms->H,atoms->B);
         else
-            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
+            XMath::invert_lower_triangle(atoms->H,atoms->B,dim);
     }
     
     atoms->update(mapp->x);
@@ -572,7 +570,7 @@ type0 Min::dF(type0 alpha,type0& drev)
         if(dim==3)
             M3INV_LT(atoms->H,atoms->B);
         else
-            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
+            XMath::invert_lower_triangle(atoms->H,atoms->B,dim);
     }
     
     atoms->update(mapp->x);
@@ -725,7 +723,7 @@ void Min::F_reset()
         if(dim==3)
             M3INV_LT(atoms->H,atoms->B);
         else
-            xmath->invert_lower_triangle(atoms->H,atoms->B,dim);
+            XMath::invert_lower_triangle(atoms->H,atoms->B,dim);
     }
 }
 

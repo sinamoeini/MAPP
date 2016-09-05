@@ -44,11 +44,11 @@ nrgy_strss(forcefield->nrgy_strss)
     forcefield_dmd=dynamic_cast<ForceFieldDMD*>(forcefield);
     neighbor_dmd=dynamic_cast<Neighbor_dmd*>(neighbor);
     
-    a_tol=sqrt(2.0*numeric_limits<type0>::epsilon());
+    a_tol=sqrt(2.0*std::numeric_limits<type0>::epsilon());
     dt_min=std::numeric_limits<type0>::epsilon();
     eps=std::numeric_limits<type0>::epsilon();
     eps_sqr=sqrt(2.0*std::numeric_limits<type0>::epsilon());
-    inf=numeric_limits<type0>::infinity();
+    inf=std::numeric_limits<type0>::infinity();
     t_fin=1.0e7;
     f_tol=1.0e-5;
     cd_tol=1.0e-4;

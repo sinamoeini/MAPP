@@ -863,9 +863,7 @@ type0 ForceField_eam_dmd_II::set_weight_abs(int n)
     CREATE1D(wi_1,n);
     CREATE1D(wi_2,n);
     
-    XMath* xmath=new XMath();
-    xmath->quadrature_hg(n,xi,wi_0);
-    delete xmath;
+    XMath::quadrature_hg(n,xi,wi_0);
     
     for(int i=0;i<no_i;i++)
     {

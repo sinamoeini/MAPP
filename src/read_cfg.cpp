@@ -231,11 +231,9 @@ void Read_cfg::set_box()
         type0** eta_sq;
         
         CREATE_2D(eta_sq,3,3);
-        XMath* xmath=new XMath();
-        if(xmath->M3sqroot(eta,eta_sq)==0)
+        if(XMath::M3sqroot(eta,eta_sq)==0)
             error->abort("eta in %s should be positive definite",file_name);
-        delete xmath;
-        
+
         M3EQV(H_x,H0);
         M3ZERO(H_x);
         for(int i=0;i<3;i++)
@@ -258,9 +256,8 @@ void Read_cfg::set_box()
     if(M3DET(H_x)==0.0)
         error->abort("determinant of H in %s file is 0.0",file_name);
     
-    XMath* xmath= new XMath();
-    xmath->square2lo_tri(H_x,atoms->H);
-    delete xmath;
+
+    XMath::square2lo_tri(H_x,atoms->H);
     
     M3EQV(atoms->H,H_x);
     M3INV_LT(atoms->H,atoms->B);
@@ -606,9 +603,9 @@ void Read_cfg::set_vecs()
             for(int j=0;j<dmd_no_types;j++)
                 if(c[iatm*dmd_no_types+j]>=0.0)
                 {
-                    swap(c[iatm*dmd_no_types+j],c[iatm*dmd_no_types+icurs]);
-                    swap(x[iatm*(dmd_no_types+3)+3+j],x[iatm*(dmd_no_types+3)+3+icurs]);
-                    swap(ctype[iatm*dmd_no_types+j],ctype[iatm*dmd_no_types+icurs]);
+                    std::swap(c[iatm*dmd_no_types+j],c[iatm*dmd_no_types+icurs]);
+                    std::swap(x[iatm*(dmd_no_types+3)+3+j],x[iatm*(dmd_no_types+3)+3+icurs]);
+                    std::swap(ctype[iatm*dmd_no_types+j],ctype[iatm*dmd_no_types+icurs]);
                     icurs++;
                 }
         }

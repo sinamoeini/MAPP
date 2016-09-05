@@ -82,7 +82,7 @@ namespace MAPP_NS
         int* ntrial_atms;
         int* roots;
         int* gcmc_mode;
-        MPI_Comm gcmc_world;
+        MPI_Comm* gcmc_world;
         MPI_Comm* comms;
         MPI_Comm** curr_comms;
         int** comm_id;

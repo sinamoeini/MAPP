@@ -17,7 +17,6 @@ namespace MAPP_NS
     class Min : protected InitPtrs
     {
     private:
-        XMath* xmath;
         ForceFieldDMD* forcefield_dmd;
         type0 max_dx;
     protected:

@@ -35,7 +35,6 @@ namespace MAPP_NS
 
     };
 }
-using namespace std;
 using namespace MAPP_NS;
 /*--------------------------------------------
  create 1d vector
@@ -49,7 +48,7 @@ TYPE* Memory::create(TYPE*& array,long d0
     {
         array = new TYPE [d0];
     }
-    catch(bad_alloc&)
+    catch(std::bad_alloc&)
     {
         error->abort("memory allocation failure "
         "in file  %s, function %s, line: %d for "
@@ -129,7 +128,7 @@ const char* file,const char* function)
             delete [] array;
             array=newarray;
         }
-        catch (bad_alloc&)
+        catch (std::bad_alloc&)
         {
             error->abort("reallocation "
             "failure in file  %s, function %s, "

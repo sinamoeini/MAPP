@@ -431,57 +431,6 @@ namespace MAPP_NS
         
     };
 }
-/*---------------------------------------
-__    __  _____   _   _   __   _   _____  
-\ \  / / /  ___| | | | | |  \ | | /  ___| 
- \ \/ /  | |     | |_| | |   \| | | |     
-  }  {   | |     |  _  | | |\   | | |  _
- / /\ \  | |___  | | | | | | \  | | |_| | 
-/_/  \_\ \_____| |_| |_| |_|  \_| \_____/
-
- ---------------------------------------*/
-namespace MAPP_NS
-{
-    class Atoms::Xchng
-    {
-    private:
-        const int dimension;
-        
-        /*things that reference cannot be removed*/
-        MPI_Comm& world;
-        int& natms;
-        unsigned long& xchng_id;
-        
-        /*things that reference cannot be removed*/
-        int& my_p;
-        int**& neigh_p;
-        type0*& s_lo;
-        type0*& s_hi;
-        Vec<type0>*& x;
-        
-        int buff_grw;
-        byte* snd_buff[2];
-        int snd_buff_sz[2];
-        int snd_buff_cpcty[2];
-        
-        byte* rcv_buff;
-        int rcv_buff_sz;
-        int rcv_buff_cpcty;
-        
-        void load(int&,int);
-        void load(byte*&,int&);
-        int xchng_buff(int,int);
-        
-        vec** xchng_vecs;
-        int nxchng_vecs;
-        int tot_xchng_sz;
-    protected:
-    public:        
-        Xchng(Atoms*,vec**,int);
-        ~Xchng();
-        void full_xchng();
-    };
-}
 /*--------------------------------------
  _____   _          __      ___   _____  
 /  ___/ | |        / /     /   | |  _  \ 
@@ -501,11 +450,11 @@ namespace MAPP_NS
         MPI_Comm& world;
         int& natms;
         int& natms_ph;
+        
+        /*things that reference can be removed*/
         type0**& H;
         type0**& B;
         type0*& max_cut_s;
-        
-        /*things that reference can be removed*/
         int& my_p;
         int**& neigh_p;
         type0*& s_lo;
@@ -606,6 +555,9 @@ namespace MAPP_NS
         vec**& swap_vecs;
         int& nswap_vecs;
         int& tot_swap_vecs_sz;
+#ifndef BLOCK_COMM
+        MPI_Request request[2];
+#endif
     protected:
     public:
         LoadUnLoadUpdateComm(Swap*);
@@ -638,7 +590,61 @@ namespace MAPP_NS
         void xchng_buff(int&,int&,byte*&,int&,int&,byte*&);
     };
 }
+/*---------------------------------------
+__    __  _____   _   _   __   _   _____  
+\ \  / / /  ___| | | | | |  \ | | /  ___| 
+ \ \/ /  | |     | |_| | |   \| | | |     
+  }  {   | |     |  _  | | |\   | | |  _
+ / /\ \  | |___  | | | | | | \  | | |_| | 
+/_/  \_\ \_____| |_| |_| |_|  \_| \_____/
 
+ ---------------------------------------*/
+namespace MAPP_NS
+{
+    class Atoms::Xchng
+    {
+    private:
+        const int dimension;
+        
+        /*things that reference cannot be removed*/
+        MPI_Comm& world;
+        int& natms;
+        unsigned long& xchng_id;
+        
+        /*things that reference cannot be removed*/
+        int& my_p;
+        int**& neigh_p;
+        type0*& s_lo;
+        type0*& s_hi;
+        Vec<type0>*& x;
+        
+        int buff_grw;
+        byte* snd_buff[2];
+        int snd_buff_sz[2];
+        int snd_buff_cpcty[2];
+        
+        byte* rcv_buff;
+        int rcv_buff_sz;
+        int rcv_buff_cpcty;
+        
+        void load(int&,int);
+        void load(byte*&,int&);
+        int xchng_buff(int,int);
+        
+        vec** xchng_vecs;
+        int nxchng_vecs;
+        int tot_xchng_sz;
+        
+#ifndef BLOCK_COMM
+        MPI_Request request[2];
+#endif
+    protected:
+    public:        
+        Xchng(Atoms*,vec**,int);
+        ~Xchng();
+        void full_xchng();
+    };
+}
 using namespace MAPP_NS;
 /*-----------------------
  _     _   _____   _____  
@@ -666,10 +672,8 @@ vec()
     vec_sz=vec_cpcty=atoms->natms;
     dump_vec_sz=0;
     
-    if(vec_sz)
-        vec=new T[vec_sz*dim];
-    else
-        vec=NULL;
+    vec=NULL;
+    if(vec_sz) vec=new T[vec_sz*dim];
     
     dump_vec=NULL;
     
@@ -695,10 +699,9 @@ vec()
     vec_sz=vec_cpcty=atoms->natms;
     dump_vec_sz=0;
     
-    if(vec_sz)
-        vec=new T[vec_sz*dim];
-    else
-        vec=NULL;
+    vec=NULL;
+    if(vec_sz) vec=new T[vec_sz*dim];
+        
     dump_vec=NULL;
     
     name=NULL;
@@ -729,21 +732,21 @@ Vec<T>::Vec(Vec<T>& other)
     vec_cpcty=other.vec_cpcty;
     dump_vec_sz=other.dump_vec_sz;
     
+    vec=NULL;
     if(vec_cpcty)
     {
         vec=new T[vec_cpcty*dim];
         memcpy(vec,other.vec,vec_sz*byte_sz);
     }
-    else
-        vec=NULL;
     
+    dump_vec=NULL;
     if(dump_vec_sz)
     {
         dump_vec=new T[dump_vec_sz*dim];
         memcpy(dump_vec,other.dump_vec,dump_vec_sz*byte_sz);
     }
-    else
-        dump_vec=NULL;
+    
+    name=NULL;
     if(other.name!=NULL)
     {
         size_t name_sz=strlen(other.name);
@@ -752,8 +755,7 @@ Vec<T>::Vec(Vec<T>& other)
         memcpy(name,other.name,name_sz*sizeof(char));
         memcpy(name+name_sz,"_copy",(cpy_sz+1)*sizeof(char));
     }
-    else
-        name=NULL;
+        
     size_t print_sz=strlen(other.print_format)+1;
     print_format=new char[print_sz];
     memcpy(print_format,other.print_format,print_sz*sizeof(char));
@@ -816,11 +818,8 @@ void Vec<T>::change_dimension(int dim_)
     int min_dim=MIN(dim_,dim);
 
     
-    T* new_vec;
-    if(vec_cpcty)
-        new_vec=new T[vec_cpcty*dim_];
-    else
-        new_vec=NULL;
+    T* new_vec=NULL;
+    if(vec_cpcty) new_vec=new T[vec_cpcty*dim_];
     
     for(int i=0;i<vec_sz;i++)
         for(int j=0;j<min_dim;j++)
@@ -851,11 +850,8 @@ void Vec<T>::change_dimension(T def_val_,int ncmprsd_dims_,int del_dim)
     int min_dim=MIN(dim_,dim);
 
     
-    T* new_vec;
-    if(vec_cpcty)
-        new_vec=new T[vec_cpcty*dim_];
-    else
-        new_vec=NULL;
+    T* new_vec=NULL;
+    if(vec_cpcty) new_vec=new T[vec_cpcty*dim_];
     
     for(int i=0;i<vec_sz;i++)
         for(int j=0;j<min_dim;j++)
@@ -881,12 +877,8 @@ inline void Vec<T>::resize(int natms)
     }
     
     
-    T* new_vec;
-    if(natms)
-        new_vec=new T[natms*dim];
-    else
-        new_vec=NULL;
-    
+    T* new_vec=NULL;
+    if(natms) new_vec=new T[natms*dim];
     
     memcpy(new_vec,vec,byte_sz*vec_sz);
     
@@ -904,11 +896,8 @@ inline void Vec<T>::shrink_to_fit()
     if(vec_cpcty==vec_sz)
         return;
     
-    T* new_vec;
-    if(vec_sz)
-        new_vec=new T[vec_sz*dim];
-    else
-        new_vec=NULL;
+    T* new_vec=NULL;
+    if(vec_sz) new_vec=new T[vec_sz*dim];
     
     memcpy(new_vec,vec,byte_sz*vec_sz);
     
@@ -940,11 +929,8 @@ template<typename T>
 inline void Vec<T>::rearrange(int* old_pos
 ,int* new_pos,int sz,int new_vec_cpcty)
 {
-    T* new_vec;
-    if(new_vec_cpcty)
-        new_vec=new T[new_vec_cpcty*dim];
-    else
-        new_vec=NULL;
+    T* new_vec=NULL;
+    if(new_vec_cpcty) new_vec=new T[new_vec_cpcty*dim];
     
     for(int i=0;i<sz;i++)
         memcpy(new_vec+new_pos[i]*dim,vec+old_pos[i]*dim,byte_sz);
@@ -960,11 +946,9 @@ inline void Vec<T>::rearrange(int* old_pos
 template<typename T>
 void Vec<T>::decompress_dump(Vec<dmd_type>*& map)
 {
-    T* dump_vec_;
-    if(dump_vec_sz)
-        dump_vec_=new T[orig_dim*dump_vec_sz];
-    else
-        dump_vec_=NULL;
+    T* dump_vec_=NULL;
+    if(dump_vec_sz) dump_vec_=new T[orig_dim*dump_vec_sz];
+
     T* v0=dump_vec;
     T* v1=dump_vec_;
     for(int i=0;i<dump_vec_sz;i++,v0+=dim,v1+=orig_dim)
