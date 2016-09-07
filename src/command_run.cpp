@@ -3,7 +3,7 @@
 #include "error.h"
 #include "md.h"
 #include "dmd.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

@@ -1,5 +1,5 @@
 #include "command_reset.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------

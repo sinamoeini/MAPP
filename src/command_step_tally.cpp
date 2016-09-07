@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include "command_step_tally.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include "command_temp.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 #include "ff.h"
 using namespace MAPP_NS;

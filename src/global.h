@@ -35,6 +35,7 @@ namespace MAPP_NS
     extern class AtomTypes* atom_types;
     extern class Atoms<MAPP_NS::dimension>* atoms;
     extern class MAPP* mapp;
+    extern class VarManager* g_vm;
 }
 #endif
 

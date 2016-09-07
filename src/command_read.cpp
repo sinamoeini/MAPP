@@ -1,5 +1,5 @@
 #include "command_read.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 #include "read_styles.h"
 using namespace MAPP_NS;

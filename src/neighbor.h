@@ -1,6 +1,6 @@
 #ifndef __MAPP__neighbor__
 #define __MAPP__neighbor__
-#include "init.h"
+#include "global.h"
 namespace MAPP_NS
 {
     template<typename T> class Vec;

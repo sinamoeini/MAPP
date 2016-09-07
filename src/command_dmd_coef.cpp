@@ -1,5 +1,5 @@
 #include "command_dmd_coef.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 #include "dmd.h"
 using namespace MAPP_NS;

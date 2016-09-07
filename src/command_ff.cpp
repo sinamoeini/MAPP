@@ -1,5 +1,5 @@
 #include "command_ff.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 #include "ff_styles.h"
 using namespace MAPP_NS;

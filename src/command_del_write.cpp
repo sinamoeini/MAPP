@@ -1,7 +1,7 @@
 #include "command_del_write.h"
 #include "error.h"
 #include "write.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

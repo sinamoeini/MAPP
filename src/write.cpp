@@ -1,6 +1,6 @@
 #include "write.h"
 #include "timer.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

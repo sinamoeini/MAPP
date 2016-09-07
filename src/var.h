@@ -4,6 +4,7 @@
  
  --------------------------------------------*/
 #include "error.h"
+#include "global.h"
 #include <stdio.h>
 #include <string.h>
 #include <type_traits>
@@ -45,29 +46,7 @@ namespace MAPP_NS
     template<class T>
     struct approp_k<T&&> {typedef typename approp_k<T>::type type;};
     
-    template <typename... T0>
-    inline void append(char*& buff,const char* format,T0... vals)
-    {
-        size_t len=snprintf(NULL,0,format,vals...)+1;
-        if(buff!=NULL)
-        {
-            size_t old_len=strlen(buff);
-            char* buff_=new char[old_len+len];
-            memcpy(buff_,buff,old_len);
-            sprintf(buff_+old_len,format,vals...);
-            delete [] buff;
-            buff=buff_;
-        }
-        else
-        {
-            buff=new char[len];
-            sprintf(buff,format,vals...);
-        }
-    }
-    
-    extern void append(char*&,const char*);
-    extern void change_form(char*&,const char*,const char*);
-    extern void revert_form(char*&);
+
 
     class FindReplace
     {
@@ -328,9 +307,6 @@ namespace MAPP_NS
         
     };
     
-    
-    extern VarManager* g_vm;
-    
     template<typename T>
     bool dynamic_static()
     {
@@ -422,6 +398,45 @@ namespace MAPP_NS
         void det_loc();
         void att_loc();
         virtual const char* get_type_name();
+        
+        template <typename... T0>
+        inline static void append(char*& buff,const char* format,T0... vals)
+        {
+            size_t len=snprintf(NULL,0,format,vals...)+1;
+            if(buff!=NULL)
+            {
+                size_t old_len=strlen(buff);
+                char* buff_=new char[old_len+len];
+                memcpy(buff_,buff,old_len);
+                sprintf(buff_+old_len,format,vals...);
+                delete [] buff;
+                buff=buff_;
+            }
+            else
+            {
+                buff=new char[len];
+                sprintf(buff,format,vals...);
+            }
+        }
+        
+        static inline void append(char*& buff,const char* format)
+        {
+            size_t len=strlen(format)+1;
+            if(buff!=NULL)
+            {
+                size_t old_len=strlen(buff);
+                char* buff_=new char[old_len+len];
+                memcpy(buff_,buff,old_len);
+                memcpy(buff_+old_len,format,len);
+                delete [] buff;
+                buff=buff_;
+            }
+            else
+            {
+                buff=new char[len];
+                memcpy(buff,format,len);
+            }
+        }
     };
     
     template<typename T0>
@@ -595,9 +610,9 @@ namespace MAPP_NS
             
             char* v_name=NULL;
             if(var_name==NULL)
-                append(v_name,"entry #%d after %s",nvars+1,vars[0]->name);
+                Var::append(v_name,"entry #%d after %s",nvars+1,vars[0]->name);
             else
-                append(v_name,"%s (entry #%d after %s)",var_name,nvars+1,vars[0]->name);
+                Var::append(v_name,"%s (entry #%d after %s)",var_name,nvars+1,vars[0]->name);
             
             vars[nvars]=var_mngr->add_var(v,v_name);
             delete [] v_name;
@@ -609,7 +624,7 @@ namespace MAPP_NS
             if(nargs<nvars)
             {
                 char* err_msg=NULL;
-                append(err_msg,"%d arguments are expected for %s",nvars-1,name);
+                Var::append(err_msg,"%d arguments are expected for %s",nvars-1,name);
                 return err_msg;
             }
             

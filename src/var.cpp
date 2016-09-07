@@ -1,49 +1,5 @@
 #include "var.h"
 #include "atom_types.h"
-namespace MAPP_NS
-{
-    VarManager* g_vm(NULL);
-    void append(char*& buff,const char* format)
-    {
-        size_t len=strlen(format)+1;
-        if(buff!=NULL)
-        {
-            size_t old_len=strlen(buff);
-            char* buff_=new char[old_len+len];
-            memcpy(buff_,buff,old_len);
-            memcpy(buff_+old_len,format,len);
-            delete [] buff;
-            buff=buff_;
-        }
-        else
-        {
-            buff=new char[len];
-            memcpy(buff,format,len);
-        }
-    }
-    
-    
-    void change_form(char*& str,const char* l,const char* r)
-    {
-        if(str==NULL)
-            return;
-        char* _str=NULL;
-        append(_str,"%s%s%s%c%s",l,str,r,'\0',str);
-        delete [] str;
-        str=_str;
-    }
-    void revert_form(char*& str)
-    {
-        if(str==NULL)
-            return;
-        char* pch=strchr(str,'\0');
-        size_t len=strchr(pch+1,'\0')-pch;
-        char* _str=new char[len];
-        memcpy(_str,pch+1,len);
-        delete [] str;
-        str=_str;
-    }
-}
 
 using namespace MAPP_NS;
 const char* verb_aux ="should";
@@ -747,9 +703,9 @@ void Logics::Log::finish_sntnc(char*& err_msg,char*& L,char*& _verb_,char*& op,c
     if(L==NULL)
         return;
     if(R!=NULL)
-        append(err_msg,"%s %s %s %s",L,_verb_,op,R);
+        Var::append(err_msg,"%s %s %s %s",L,_verb_,op,R);
     else
-        append(err_msg,"%s %s %s",L,_verb_,op);
+        Var::append(err_msg,"%s %s %s",L,_verb_,op);
     
     
     delete [] L;
@@ -780,20 +736,20 @@ void Logics::Log::start_sntnc(char*& L,char*& _verb_,char*& op,char*& R,int v_fl
     op=NULL;
     R=NULL;
     
-    append(L,"%s",l_name);
+    Var::append(L,"%s",l_name);
     
     if(v_flag==AUX_VERB && _is_)
-        append(_verb_,"%s %s",verb_aux,verb);
+        Var::append(_verb_,"%s %s",verb_aux,verb);
     else if(v_flag==AUX_VERB && !_is_)
-        append(_verb_,"%s %s %s",verb_aux,negate,verb);
+        Var::append(_verb_,"%s %s %s",verb_aux,negate,verb);
     else if(v_flag==VERB && _is_)
-        append(_verb_,"%s",s_verb);
+        Var::append(_verb_,"%s",s_verb);
     else if(v_flag==VERB && !_is_)
-        append(_verb_,"%s %s",s_verb,negate);
+        Var::append(_verb_,"%s %s",s_verb,negate);
     
-    append(op,"%s",op_name);
+    Var::append(op,"%s",op_name);
     if(r_name!=NULL)
-        append(R,"%s",r_name);
+        Var::append(R,"%s",r_name);
     else
         r_name=NULL;
     
@@ -816,7 +772,7 @@ void Logics::Log::process_sntnc(char*& err_msg,char*& L,char*& _verb_,char*& op,
     if(_is_!=__is__ || case_no<3 || case_no==7)
     {
         finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
-        append(err_msg,", %s ",del);
+        Var::append(err_msg,", %s ",del);
         print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
         return;
     }
@@ -829,40 +785,40 @@ void Logics::Log::process_sntnc(char*& err_msg,char*& L,char*& _verb_,char*& op,
             {
                 delete [] _verb_;
                 _verb_=NULL;
-                append(_verb_,"%s",p_verb);
+                Var::append(_verb_,"%s",p_verb);
             }
             else if(v_flag==VERB && !_is_)
             {
                 delete [] _verb_;
                 _verb_=NULL;
-                append(_verb_,"%s %s",p_verb,negate);
+                Var::append(_verb_,"%s %s",p_verb,negate);
             }
         }
         p_flag=true;
-        append(L," %s %s",del,l_name);
+        Var::append(L," %s %s",del,l_name);
         
     }
     else if(case_no==4)
     {
         if(R!=NULL)
-            append(op," %s %s %s",R,del,op_name);
+            Var::append(op," %s %s %s",R,del,op_name);
         else
-            append(op," %s %s",del,op_name);
+            Var::append(op," %s %s",del,op_name);
         delete [] R;
         R=NULL;
         if(r_name!=NULL)
-            append(R,"%s",r_name);
+            Var::append(R,"%s",r_name);
         else
             R=NULL;
     }
     else if(case_no==5)
     {
-        append(op," %s %s",del,op_name);
+        Var::append(op," %s %s",del,op_name);
     }
     else if(case_no==6)
     {
         if(r_name!=NULL)
-            append(R," %s %s",del,r_name);
+            Var::append(R," %s %s",del,r_name);
     }
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------
@@ -1397,14 +1353,14 @@ void Logics::LogIf::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*&
 {
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     if(err_msg !=NULL)
-        append(err_msg,". ");
+        Var::append(err_msg,". ");
     
     v_flag=AUX_VERB;
     right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     
-    append(err_msg,", %s ","when");
+    Var::append(err_msg,", %s ","when");
     
     v_flag=VERB;
     left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
@@ -1413,18 +1369,18 @@ void Logics::LogIf::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*&
 {
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     if(err_msg !=NULL)
-        append(err_msg,". ");
+        Var::append(err_msg,". ");
     
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     if(err_msg !=NULL)
-        append(err_msg,". ");
+        Var::append(err_msg,". ");
     
     v_flag=AUX_VERB;
     right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
     
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     
-    append(err_msg,", %s ","when");
+    Var::append(err_msg,", %s ","when");
     
     v_flag=VERB;
     left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
@@ -1475,14 +1431,14 @@ void Logics::LogIff::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*
 {
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     if(err_msg !=NULL)
-        append(err_msg,". ");
+        Var::append(err_msg,". ");
 
     v_flag=AUX_VERB;
     right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     
-    append(err_msg,", %s ","if and only if");
+    Var::append(err_msg,", %s ","if and only if");
 
     v_flag=VERB;
     left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
@@ -1491,14 +1447,14 @@ void Logics::LogIff::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*
 {
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     if(err_msg !=NULL)
-        append(err_msg,". ");
+        Var::append(err_msg,". ");
     
     v_flag=AUX_VERB;
     right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
     
     finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
     
-    append(err_msg,", %s ","if and only if");
+    Var::append(err_msg,", %s ","if and only if");
     
     v_flag=VERB;
     left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
@@ -1786,50 +1742,6 @@ Logics& Logics::operator /= (Logics&& other)
 /*--------------------------------------------
  
  --------------------------------------------*/
-/*
-char* Logics::print()
-{
-    int v_flag=AUX_VERB;
-    if(op==NULL)
-        return NULL;
-    
-    char* err_msg=NULL;
-    char* del;
-    char* l=NULL;
-    char* r=NULL;
-    char* oper=NULL;
-    char* _verb_=NULL;
-    bool p_flag;
-    bool __is__;
-    
-    op->print(err_msg,l,_verb_,oper,r,__is__,del,v_flag,p_flag);
-    op->finish_sntnc(err_msg,l,_verb_,oper,r,__is__,del,v_flag,p_flag);
-    append(err_msg,".");
-    
-    delete [] l;
-    delete [] oper;
-    delete [] r;
-    delete [] _verb_;
-    
-    if(next!=NULL)
-    {
-        char* next_msg=next->print();
-        if(next_msg!=NULL)
-        {
-            char* err_msg_=err_msg;
-            err_msg=NULL;
-            append(err_msg,"%s %s",err_msg_,next_msg);
-            delete [] err_msg_;
-        }
-        delete [] next_msg;
-    }
-    
-    
-    return err_msg;
-}*/
-/*--------------------------------------------
- 
- --------------------------------------------*/
 char* Logics::print(Var* v)
 {
     int v_flag=AUX_VERB;
@@ -1847,7 +1759,7 @@ char* Logics::print(Var* v)
     
     op->print(err_msg,l,_verb_,oper,r,__is__,del,v_flag,p_flag,v);
     op->finish_sntnc(err_msg,l,_verb_,oper,r,__is__,del,v_flag,p_flag);
-    append(err_msg,".");
+    Var::append(err_msg,".");
     
     delete [] l;
     delete [] oper;
@@ -1861,7 +1773,7 @@ char* Logics::print(Var* v)
         {
             char* err_msg_=err_msg;
             err_msg=NULL;
-            append(err_msg,"%s %s",err_msg_,next_msg);
+            Var::append(err_msg,"%s %s",err_msg_,next_msg);
             delete [] err_msg_;
         }
         delete [] next_msg;

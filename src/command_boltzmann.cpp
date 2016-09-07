@@ -2,7 +2,7 @@
 #include "command_boltzmann.h"
 #include "md.h"
 #include "error.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

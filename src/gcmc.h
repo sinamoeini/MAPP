@@ -4,7 +4,7 @@
  --------------------------------------------*/
 #ifndef __MAPP__gcmc__
 #define __MAPP__gcmc__
-#include "init.h"
+#include "global.h"
 namespace MAPP_NS
 {
     enum{NOEX_MODE,INS_MODE,DEL_MODE};

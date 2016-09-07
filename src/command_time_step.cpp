@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include "command_time_step.h"
-#include "init.h"
+#include "global.h"
 #include "md.h"
 #include "error.h" 
 using namespace MAPP_NS;

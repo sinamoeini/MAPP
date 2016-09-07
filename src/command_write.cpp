@@ -1,7 +1,7 @@
 #include "command_write.h"
 #include "error.h"
 #include "write_styles.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

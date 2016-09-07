@@ -1,5 +1,5 @@
 #include "command_dmd.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 #include "dmd_styles.h"
 using namespace MAPP_NS;

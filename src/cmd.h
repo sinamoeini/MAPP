@@ -4,7 +4,7 @@
  
  --------------------------------------------*/
 #include "error.h"
-#include "init.h"
+#include "global.h"
 #include "var.h"
 #include <stdio.h>
 #include <string.h>
@@ -194,6 +194,8 @@ namespace MAPP_NS
     private:
     protected:
     public:
+        static void change_form(char*&,const char*,const char*);
+        static void revert_form(char*&);
         class SubPattern;
         template<typename T0>
         class SubPattern_DY;
@@ -475,13 +477,13 @@ ndy_vars(n)
     dy_vars=NULL;
     ndy_vars=0;
     char* _name=NULL;
-    append(_name,"no. of %s",name_);
+    Var::append(_name,"no. of %s",name_);
     var_mngr.add_var(n,_name);
     delete [] _name;
     
     var_adj();
     vars[0]=var_mngr.add_var(s_val,name);
-    append(var_types[0],vars[0]->get_type_name());
+    Var::append(var_types[0],vars[0]->get_type_name());
 }
 /*--------------------------------------------
  
@@ -505,7 +507,7 @@ bool Pattern::SubPattern_DY<T0>::scan(char*& err_msg,char**& args,int& nargs)
     dy_vars[ndy_vars]=NULL;
     
     char* v_name=NULL;
-    append(v_name,"%s_%d",name,ndy_vars);
+    Var::append(v_name,"%s_%d",name,ndy_vars);
     Var* var_=var_mngr.add_var(dy_vars[ndy_vars],v_name);
     delete [] v_name;
     
@@ -537,11 +539,11 @@ char* Pattern::SubPattern_DY<T0>::finalize()
 template<typename T0>
 void Pattern::SubPattern_DY<T0>::print_pattern(PrintStyle& ps,char*& buff)
 {
-    append(buff,ps.pattern_prop_brc[0]);
-    append(buff,vars[0]->name);
-    append(buff," ");
-    append(buff,"...");
-    append(buff,ps.pattern_prop_brc[1]);
+    Var::append(buff,ps.pattern_prop_brc[0]);
+    Var::append(buff,vars[0]->name);
+    Var::append(buff," ");
+    Var::append(buff,"...");
+    Var::append(buff,ps.pattern_prop_brc[1]);
 }
 /*---------------------------------------------------------------------------------
  _____   _   _   _____   _____       ___   _____   _____   _____   _____    __   _
@@ -631,7 +633,7 @@ void Pattern::SubPattern_0D::add_var(T0& v,const char* var_name_)
     kywrd.add_var(v,var_name_);
     var_adj();
     vars[nvars-1]=head_kywrd->vars[nvars-rank];
-    append(var_types[nvars-1],vars[nvars-1]->get_type_name());
+    Var::append(var_types[nvars-1],vars[nvars-1]->get_type_name());
 }
 /*----------------------------------------------------------------------------------------------------
  _____   _   _   _____   _____       ___   _____   _____   _____   _____    __   _        ___   _____
@@ -648,7 +650,7 @@ void Pattern::SubPattern_1D::add_var(T0*& v,const char* var_name_)
         kywrds[i].add_var(v[i],var_name_);
     var_adj();
     vars[nvars-1]=head_kywrd->vars[nvars-rank];
-    append(var_types[nvars-1],vars[nvars-1]->get_type_name());
+    Var::append(var_types[nvars-1],vars[nvars-1]->get_type_name());
 }
 /*----------------------------------------------------------------------------------------------------------------------------
  _____   _   _   _____   _____       ___   _____   _____   _____   _____    __   _        _     _   _____   _   _____   _____
@@ -666,7 +668,7 @@ void Pattern::SubPattern_Voigt::add_var(T0*& v,const char* var_name_)
     var_adj();
     
     vars[nvars-1]=head_kywrd->vars[nvars-rank];
-    append(var_types[nvars-1],vars[nvars-1]->get_type_name());
+    Var::append(var_types[nvars-1],vars[nvars-1]->get_type_name());
 }
 /*------------------------------------------------------------------------------------------------------
  _____   _   _   _____   _____       ___   _____   _____   _____   _____    __   _        _____   _____
@@ -684,7 +686,7 @@ void Pattern::SubPattern_2D::add_var(T0**& v,const char* var_name_)
             kywrds[i][j].add_var(v[i][j],var_name_);
     var_adj();
     vars[nvars-1]=head_kywrd->vars[nvars-rank];
-    append(var_types[nvars-1],vars[nvars-1]->get_type_name());
+    Var::append(var_types[nvars-1],vars[nvars-1]->get_type_name());
 }
 /*---------------------------------------------------------------------------------------------------------------------------
  _____   _   _   _____   _____       ___   _____   _____   _____   _____    __   _        _____   _____        _       _____
@@ -702,7 +704,7 @@ void Pattern::SubPattern_2D_LT::add_var(T0**& v,const char* var_name_)
             kywrds[i][j].add_var(v[i][j],var_name_);
     var_adj();
     vars[nvars-1]=head_kywrd->vars[nvars-rank];
-    append(var_types[nvars-1],vars[nvars-1]->get_type_name());
+    Var::append(var_types[nvars-1],vars[nvars-1]->get_type_name());
 }
 /*---------------------------------------------------------
   _____       ___   _____   _____   _____   _____    __   _
@@ -801,7 +803,7 @@ Ten(fr,name_)
     head=&kywrds[0];
     
     char* cmp_name=NULL;
-    append(cmp_name,"1st component of %s",name);
+    Var::append(cmp_name,"1st component of %s",name);
     vi0=varmngr.add_var(i0,cmp_name);
     delete [] cmp_name;
 }
@@ -839,13 +841,13 @@ Ten(fr,name_)
     head=&kywrds[0][0];
     
     char* cmp_name=NULL;
-    append(cmp_name,"1st component of %s",name);
+    Var::append(cmp_name,"1st component of %s",name);
     vi0=varmngr.add_var(i0,cmp_name);
     delete [] cmp_name;
 
     
     cmp_name=NULL;
-    append(cmp_name,"2nd component of %s",name);
+    Var::append(cmp_name,"2nd component of %s",name);
     vi1=varmngr.add_var(i1,cmp_name);
     delete [] cmp_name;
 }
@@ -896,7 +898,7 @@ bool FileReader::Ten_0D<T0>::scan(char*& err_msg,char** args,int nargs)
             
     if(nargs!=2)
     {
-        append(err_msg,"quantity %s should be scalar",name);
+        Var::append(err_msg,"quantity %s should be scalar",name);
         return true;
     }
         
@@ -914,7 +916,7 @@ bool FileReader::Ten_1D<T0>::scan(char*& err_msg,char** args,int nargs)
     
     if(nargs!=3)
     {
-        append(err_msg,"quantity %s should be %d dimensional",name,1);
+        Var::append(err_msg,"quantity %s should be %d dimensional",name,1);
         return true;
     }
     
@@ -943,7 +945,7 @@ bool FileReader::Ten_2D<T0>::scan(char*& err_msg,char** args,int nargs)
     
     if(nargs!=4)
     {
-        append(err_msg,"quantity %s should be %d dimensional",name,2);
+        Var::append(err_msg,"quantity %s should be %d dimensional",name,2);
         return true;
     }
     

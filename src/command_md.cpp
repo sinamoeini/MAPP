@@ -1,7 +1,7 @@
 #include "command_md.h"
 #include "error.h"
 #include "md_styles.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

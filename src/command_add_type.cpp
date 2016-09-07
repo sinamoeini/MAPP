@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "command_add_type.h"
 #include "atom_types.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------

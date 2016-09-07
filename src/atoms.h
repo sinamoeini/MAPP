@@ -6,7 +6,7 @@
 #include <cmath>
 #include <mpi.h>
 #include "macros.h"
-#include "init.h"
+#include "global.h"
 enum {snd_to_bhnd,snd_to_frnt};
 enum {rcv_fm_frnt,rcv_fm_bhnd};
 

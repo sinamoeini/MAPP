@@ -1,6 +1,6 @@
 #include "script_reader.h"
 #include "macros.h"
-#include "init.h"
+#include "global.h"
 #include "error.h"
 #include "atoms.h"
 using namespace MAPP_NS;

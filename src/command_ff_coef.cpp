@@ -1,7 +1,7 @@
 #include "command_ff_coef.h"
 #include "error.h"
 #include "ff.h"
-#include "init.h"
+#include "global.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

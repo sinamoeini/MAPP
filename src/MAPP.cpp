@@ -39,6 +39,8 @@ namespace MAPP_NS
     LineSearch<Min>* ls(NULL);
     Atoms<MAPP_NS::dimension>* atoms(NULL);
     MAPP* mapp(NULL);
+    VarManager* g_vm(NULL);
+
 }
 using namespace MAPP_NS;
 /*--------------------------------------------

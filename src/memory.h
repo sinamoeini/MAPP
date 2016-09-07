@@ -35,7 +35,7 @@ namespace MAPP_NS
 }
 using namespace MAPP_NS;
 #include "error.h"
-#include "init.h"
+#include "global.h"
 /*--------------------------------------------
  create 1d vector
  --------------------------------------------*/

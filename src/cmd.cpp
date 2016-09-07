@@ -137,6 +137,32 @@ Pattern::~Pattern()
 /*--------------------------------------------
  
  --------------------------------------------*/
+void Pattern::change_form(char*& str,const char* l,const char* r)
+{
+    if(str==NULL)
+        return;
+    char* _str=NULL;
+    Var::append(_str,"%s%s%s%c%s",l,str,r,'\0',str);
+    delete [] str;
+    str=_str;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void Pattern::revert_form(char*& str)
+{
+    if(str==NULL)
+        return;
+    char* pch=strchr(str,'\0');
+    size_t len=strchr(pch+1,'\0')-pch;
+    char* _str=new char[len];
+    memcpy(_str,pch+1,len);
+    delete [] str;
+    str=_str;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 void Pattern::add_sp(SubPattern* sp)
 {
     SubPattern** sub_ptrns_=new SubPattern*[nsub_ptrns+1];
@@ -334,7 +360,7 @@ void Pattern::print_info()
     /*---------------------------------------------------------------------------*/
     
     char* buff=NULL;
-    append(buff,ps.all_cmd_prop_brc[0]);
+    Var::append(buff,ps.all_cmd_prop_brc[0]);
     
     for(int i=0;i<nsub_ptrns;i++)
     {
@@ -350,7 +376,7 @@ void Pattern::print_info()
         dy_sp->print_cmd_prop(ps,buff);
         dy_sp->print_vars_prop(ps,buff);
     }
-    append(buff,ps.all_cmd_prop_brc[1]);
+    Var::append(buff,ps.all_cmd_prop_brc[1]);
     
     FindReplace func0;
     func0("_","\\_");
@@ -460,11 +486,11 @@ void Pattern::SubPattern::add_vdesc(int i,const char* desc)
 
     delete [] var_descs[i];
     var_descs[i]=NULL;
-    append(var_descs[i],desc);
+    Var::append(var_descs[i],desc);
     
     size_t len=strlen(desc);
     if(var_descs[i][len-1]!='.')
-        append(var_descs[i],".");
+        Var::append(var_descs[i],".");
 }
 /*--------------------------------------------
  
@@ -473,11 +499,11 @@ void Pattern::SubPattern::add_cdesc(const char* desc)
 {
     delete [] cmd_desc;
     cmd_desc=NULL;
-    append(cmd_desc,desc);
+    Var::append(cmd_desc,desc);
     
     size_t len=strlen(desc);
     if(cmd_desc[len-1]!='.')
-        append(cmd_desc,".");
+        Var::append(cmd_desc,".");
 }
 /*--------------------------------------------
  
@@ -543,14 +569,14 @@ char* Pattern::SubPattern::finalize()
  --------------------------------------------*/
 void Pattern::SubPattern::print_pattern(PrintStyle& ps,char*& buff)
 {
-    append(buff,ps.pattern_prop_brc[0]);
-    append(buff,name);
+    Var::append(buff,ps.pattern_prop_brc[0]);
+    Var::append(buff,name);
     for(int i=rank;i<nvars;i++)
     {
-        append(buff," ");
-        append(buff,vars[i]->name);
+        Var::append(buff," ");
+        Var::append(buff,vars[i]->name);
     }
-    append(buff,ps.pattern_prop_brc[1]);
+    Var::append(buff,ps.pattern_prop_brc[1]);
 }
 /*--------------------------------------------
  
@@ -563,25 +589,25 @@ void Pattern::SubPattern::print_cmd_prop(PrintStyle& ps,char*& buff)
     delete v;
     
     
-    append(buff,ps.cmd_prop_brc[0]);
+    Var::append(buff,ps.cmd_prop_brc[0]);
     
     if(cmd_desc==NULL && msg==NULL)
         return;
     
     if(cmd_desc!=NULL)
     {
-        append(buff,cmd_desc);
+        Var::append(buff,cmd_desc);
     }
     
     if(msg!=NULL)
     {
         if(cmd_desc!=NULL)
-            append(buff," ");
-        append(buff,msg);
+            Var::append(buff," ");
+        Var::append(buff,msg);
     }
     delete [] msg;
     
-    append(buff,ps.cmd_prop_brc[1]);
+    Var::append(buff,ps.cmd_prop_brc[1]);
 }
 /*--------------------------------------------
  
@@ -590,40 +616,40 @@ void Pattern::SubPattern::print_vars_prop(PrintStyle& ps,char*& buff)
 {
     if(nvars==0)
         return;
-    append(buff,ps.all_vars_prop_brc[0]);
+    Var::append(buff,ps.all_vars_prop_brc[0]);
     
     for(int i=0;i<nvars;i++)
         print_vars_prop(ps,buff,i);
         
-    append(buff,ps.all_vars_prop_brc[1]);
+    Var::append(buff,ps.all_vars_prop_brc[1]);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 void Pattern::SubPattern::print_vars_prop(PrintStyle& ps,char*& buff,int i)
 {
-    append(buff,ps.vars_prop_brc[0]);
+    Var::append(buff,ps.vars_prop_brc[0]);
     
-    append(buff,vars[i]->name);
-    append(buff,var_types[i]);
+    Var::append(buff,vars[i]->name);
+    Var::append(buff,var_types[i]);
     
     
     char* msg=var_logics[i].print(vars[i]);
     
     if(var_descs[i]!=NULL)
     {
-        append(buff," ");
-        append(buff,var_descs[i]);
+        Var::append(buff," ");
+        Var::append(buff,var_descs[i]);
     }
     
     if(msg!=NULL)
     {
-        append(buff," ");
-        append(buff,msg);
+        Var::append(buff," ");
+        Var::append(buff,msg);
     }
     delete [] msg;
     
-    append(buff,ps.vars_prop_brc[1]);
+    Var::append(buff,ps.vars_prop_brc[1]);
 }
 /*--------------------------------------------
  
@@ -710,8 +736,8 @@ bool Pattern::SubPattern_0D::scan(char*& err_msg,char**& args,int& nargs)
 void Pattern::SubPattern_0D::conv_name(PrintStyle& ps)
 {
     char* name_=NULL;
-    append(name_,"%s%s%s",ps.cmd_brc[0],name,ps.cmd_brc[1]);
-    append(name_,"%c%s",'\0',name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],name,ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
     delete [] name;
     name=name_;
 }
@@ -752,7 +778,7 @@ Pattern::SubPattern_1D::~SubPattern_1D()
 void Pattern::SubPattern_1D::init()
 {
     format=NULL;
-    append(format,"%s[%%d]",name);
+    Var::append(format,"%s[%%d]",name);
     kywrds=new KeyWord[dim];
     head_kywrd=kywrds;
     nkywrds=dim;
@@ -765,7 +791,7 @@ void Pattern::SubPattern_1D::init()
     
     delete [] vars[0]->name;
     vars[0]->name=NULL;
-    append(vars[0]->name,"i (1st compoent of %s)",name);
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
 }
 /*--------------------------------------------
  
@@ -800,10 +826,10 @@ bool Pattern::SubPattern_1D::scan(char*& err_msg,char**& args,int& nargs)
 void Pattern::SubPattern_1D::conv_name(PrintStyle& ps)
 {
     char* name_=NULL;
-    append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    append(name_,"%s",comp0.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    append(name_,"%c%s",'\0',name);
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp0.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
     delete [] name;
     name=name_;
 }
@@ -850,7 +876,7 @@ Pattern::SubPattern_Voigt::~SubPattern_Voigt()
 void Pattern::SubPattern_Voigt::init()
 {
     format=NULL;
-    append(format,"%s[%%d][%%d]",name);
+    Var::append(format,"%s[%%d][%%d]",name);
     kywrds=new KeyWord[dim*(dim+1)/2];
     
     head_kywrd=kywrds;
@@ -867,13 +893,13 @@ void Pattern::SubPattern_Voigt::init()
     
     delete [] vars[0]->name;
     vars[0]->name=NULL;
-    append(vars[0]->name,"i (1st compoent of %s)",name);
-    append(var_types[0],vars[0]->get_type_name());
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
+    Var::append(var_types[0],vars[0]->get_type_name());
     
     delete [] vars[1]->name;
     vars[1]->name=NULL;
-    append(vars[1]->name,"j (2nd compoent of %s)",name);
-    append(var_types[1],vars[1]->get_type_name());
+    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
+    Var::append(var_types[1],vars[1]->get_type_name());
 }
 /*--------------------------------------------
  
@@ -984,12 +1010,12 @@ bool Pattern::SubPattern_Voigt::scan(char*& err_msg,char**& args,int& nargs)
 void Pattern::SubPattern_Voigt::conv_name(PrintStyle& ps)
 {
     char* name_=NULL;
-    append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    append(name_,"%s",comp0.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
-    append(name_,"%s",comp1.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    append(name_,"%c%s",'\0',name);
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp0.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp1.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
     delete [] name;
     name=name_;
 }
@@ -1040,7 +1066,7 @@ void Pattern::SubPattern_2D::init()
 {
     
     format=NULL;
-    append(format,"%s[%%d][%%d]",name);
+    Var::append(format,"%s[%%d][%%d]",name);
     kywrds=new KeyWord*[dim0];
     *kywrds=new KeyWord[dim0*dim1];
     for(int i=1;i<dim0;i++)
@@ -1061,13 +1087,13 @@ void Pattern::SubPattern_2D::init()
     
     delete [] vars[0]->name;
     vars[0]->name=NULL;
-    append(vars[0]->name,"i (1st compoent of %s)",name);
-    append(var_types[0],vars[0]->get_type_name());
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
+    Var::append(var_types[0],vars[0]->get_type_name());
     
     delete [] vars[1]->name;
     vars[1]->name=NULL;
-    append(vars[1]->name,"j (2nd compoent of %s)",name);
-    append(var_types[1],vars[1]->get_type_name());
+    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
+    Var::append(var_types[1],vars[1]->get_type_name());
 }
 /*--------------------------------------------
  
@@ -1105,12 +1131,12 @@ bool Pattern::SubPattern_2D::scan(char*& err_msg,char**& args,int& nargs)
 void Pattern::SubPattern_2D::conv_name(PrintStyle& ps)
 {
     char* name_=NULL;
-    append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    append(name_,"%s",comp0.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
-    append(name_,"%s",comp1.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    append(name_,"%c%s",'\0',name);
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp0.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp1.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
     delete [] name;
     name=name_;
 }
@@ -1158,7 +1184,7 @@ Pattern::SubPattern_2D_LT::~SubPattern_2D_LT()
 void Pattern::SubPattern_2D_LT::init()
 {
     format=NULL;
-    append(format,"%s[%%d][%%d]",name);
+    Var::append(format,"%s[%%d][%%d]",name);
     kywrds=new KeyWord*[dim];
     *kywrds=new KeyWord[dim*(dim+1)/2];
     for(int i=1;i<dim;i++)
@@ -1178,13 +1204,13 @@ void Pattern::SubPattern_2D_LT::init()
     
     delete [] vars[0]->name;
     vars[0]->name=NULL;
-    append(vars[0]->name,"i (1st compoent of %s)",name);
-    append(var_types[0],vars[0]->get_type_name());
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
+    Var::append(var_types[0],vars[0]->get_type_name());
     
     delete [] vars[1]->name;
     vars[1]->name=NULL;
-    append(vars[1]->name,"j (2nd compoent of %s)",name);
-    append(var_types[1],vars[1]->get_type_name());
+    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
+    Var::append(var_types[1],vars[1]->get_type_name());
 }
 /*--------------------------------------------
  
@@ -1221,12 +1247,12 @@ bool Pattern::SubPattern_2D_LT::scan(char*& err_msg,char**& args,int& nargs)
 void Pattern::SubPattern_2D_LT::conv_name(PrintStyle& ps)
 {
     char* name_=NULL;
-    append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    append(name_,"%s",comp0.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
-    append(name_,"%s",comp1.name);
-    append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    append(name_,"%c%s",'\0',name);
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp0.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp1.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
     delete [] name;
     name=name_;
 }
@@ -1820,7 +1846,7 @@ char* FileReader::QuantityReader::operator()(char* line,char**& args,int& nargs)
     if(!stx_chk)
     {
         char* err_msg=NULL;
-        append(err_msg,"syntax error");
+        Var::append(err_msg,"syntax error");
         return err_msg;
     }
     
