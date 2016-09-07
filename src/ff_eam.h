@@ -4,7 +4,6 @@
 #ifndef __MAPP__ff_eam__
 #define __MAPP__ff_eam__
 #include "ff.h"
-#include "eam_file_reader.h"
 namespace MAPP_NS
 {
     class ForceField_eam: public ForceFieldMD
@@ -26,7 +25,7 @@ namespace MAPP_NS
         int** type2rho;
         int** type2phi;
         
-        EAMFileReader* eam_reader;
+        class EAMFileReader* eam_reader;
         
                 
         /*--------------------------------------------*/
@@ -40,7 +39,7 @@ namespace MAPP_NS
         type0 xchng_energy(GCMC*);
         void post_xchng_energy(GCMC*);
     public:
-        ForceField_eam(MAPP *);
+        ForceField_eam();
         ~ForceField_eam();
         void init();
         void fin();

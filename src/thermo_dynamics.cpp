@@ -1,6 +1,7 @@
 #include "thermo_dynamics.h"
 #include "error.h"
 #include "memory.h"
+#include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  init the quantity
@@ -114,14 +115,12 @@ void ThermoQuantity::mod(int lngth)
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ThermoDynamics::ThermoDynamics(MAPP* mapp
-,int nargs,char** args):InitPtrs(mapp),
-precision(mapp->precision)
+ThermoDynamics::ThermoDynamics(int nargs,char** args)
 {
     step_name_lngth=15;
     mod_lngth=precision+9;    
     
-    if(atoms->dimension!=3)
+    if(dimension!=3)
         error->abort("the thermodynamics "
         "works only with box dimension 3");
 

@@ -1,6 +1,5 @@
-
-#ifndef vec_h
-#define vec_h
+#ifndef __MAPP__vec__
+#define __MAPP__vec__
 #include "atoms.h"
 namespace MAPP_NS
 {
@@ -14,7 +13,6 @@ namespace MAPP_NS
         T** A;
         int* pnatms;
         int x_dim;
-        MPI_Comm* world;
         int dim;
         int alloc_flag;
         MPI_Datatype MPI_T;
@@ -51,12 +49,11 @@ namespace MAPP_NS
                 MPI_T=MPI_TYPE0;
         }
         
-        void init(Atoms* atoms,bool bc)
+        void init(Atoms<MAPP_NS::dimension>* atoms,bool bc)
         {
             pnatms=&atoms->natms;
             x_dim=atoms->x->dim;
-            dim=atoms->dimension;
-            world=&atoms->world;
+            dim=dimension;
             box_chng=bc;
             assign_mpi_type();
             alloc_flag=3;
@@ -70,12 +67,11 @@ namespace MAPP_NS
                 for(int jdim=0;jdim<dim;jdim++)
                     A[idim][jdim]=0.0;
         }
-        void init(Atoms* atoms,Vec<T>*& v,bool bc)
+        void init(Atoms<MAPP_NS::dimension>* atoms,Vec<T>*& v,bool bc)
         {
             pnatms=&atoms->natms;
             x_dim=atoms->x->dim;
-            dim=atoms->dimension;
-            world=&atoms->world;
+            dim=dimension;
             box_chng=bc;
             assign_mpi_type();
             alloc_flag=2;
@@ -89,12 +85,11 @@ namespace MAPP_NS
                 for(int jdim=0;jdim<dim;jdim++)
                     A[idim][jdim]=0.0;
         }
-        void init(Atoms* atoms,Vec<T>*& v,T**& A_,bool bc)
+        void init(Atoms<MAPP_NS::dimension>* atoms,Vec<T>*& v,T**& A_,bool bc)
         {
             pnatms=&atoms->natms;
             x_dim=atoms->x->dim;
-            dim=atoms->dimension;
-            world=&atoms->world;
+            dim=dimension;
             box_chng=bc;
             assign_mpi_type();
             
@@ -138,7 +133,7 @@ namespace MAPP_NS
             for(int i=0;i<*pnatms*x_dim;i++)
                 ans_lcl+=vec0[i]*vec1[i];
             
-            MPI_Allreduce(&ans_lcl,&ans,1,MPI_T,MPI_SUM,*world);
+            MPI_Allreduce(&ans_lcl,&ans,1,MPI_T,MPI_SUM,world);
             if(!box_chng) return ans;
             vec0=*this->A;
             vec1=*rhs.A;

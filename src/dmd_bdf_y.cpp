@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <limits>
+#include "atoms.h"
 #include "dmd_bdf_y.h"
 #include "ff.h"
 #include "error.h"
@@ -7,18 +8,19 @@
 #include "write.h"
 #include "thermo_dynamics.h"
 #include "cmd.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-DMD_bdf_y::DMD_bdf_y(MAPP* mapp,int nargs
-,char** args):DMDImplicit(mapp)
+DMD_bdf_y::DMD_bdf_y(int nargs
+,char** args):DMDImplicit()
 {
     q_max=5;
     
     char* dmd_style=NULL;
     
-    Pattern cmd(error);
+    Pattern cmd;
     
     /*----------------------------*/
     cmd.cmd("dmd");

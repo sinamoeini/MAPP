@@ -8,17 +8,18 @@
 #include "atom_types.h"
 #include "memory.h"
 #include "error.h"
+#include "atoms.h"
 #include "cmd.h"
-
+#include "MAPP.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 ForceField_lj::
-ForceField_lj(MAPP* mapp):ForceFieldMD(mapp)
+ForceField_lj():ForceFieldMD()
 {
-    if(mapp->mode!=MD_mode)
+    if(mode!=MD_mode)
         error->abort("ff lj works only "
         "for md mode");
     
@@ -144,7 +145,7 @@ force_calc(bool st_clc)
 {
 
 
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* fvec=f->begin();
     md_type* type=mapp->type->begin();
     
@@ -241,7 +242,7 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_lj::energy_calc()
 {
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     md_type* type=mapp->type->begin();
     
     int natms=atoms->natms;
@@ -299,7 +300,7 @@ type0 ForceField_lj::energy_calc()
  --------------------------------------------*/
 void ForceField_lj::read_file(char* file_name)
 {
-    FileReader fr(mapp);
+    FileReader fr;
     
     fr.add_2D("sigma",sigma);
     fr.symmetric();

@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_skin__
 #define __MAPP__command_skin__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_skin:protected InitPtrs
+    class Command_skin
     {
     private:
     protected:
     public:
-        Command_skin(MAPP*,int,char**);
+        Command_skin(int,char**);
         ~Command_skin();
     };
 }

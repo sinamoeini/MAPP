@@ -6,6 +6,8 @@
 #include "error.h"
 #include <stdio.h>
 #include <string.h>
+#include <type_traits>
+#include <mpi.h>
 enum {VERB,AUX_VERB};
 namespace MAPP_NS
 {
@@ -99,8 +101,7 @@ namespace MAPP_NS
         Var ** dy_vars;
         int nst_vars;
         int ndy_vars;
-        Error*& error;
-        VarManager(Error*&);
+        VarManager();
         ~VarManager();
 
         template<typename T0>
@@ -736,6 +737,7 @@ namespace MAPP_NS
         
     };
 }
+using namespace MAPP_NS;
 /*-----------------------------------------------
   _     _       ___   ____       __  _____  __
  | |   / /     /   | |  _  \    / / |_   _| \ \

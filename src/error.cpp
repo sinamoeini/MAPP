@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include "error.h"
+#include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor of the error handler:
  --------------------------------------------*/
-Error::Error(MAPP* mapp):InitPtrs(mapp)
+Error::Error()
 {
     MPI_Comm_rank(world,&my_no);
 }

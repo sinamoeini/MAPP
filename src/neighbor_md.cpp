@@ -6,6 +6,8 @@
 #include "ff.h"
 #include "memory.h"
 #include "timer.h"
+#include "atoms.h"
+#include "MAPP.h"
 #ifdef DEBUG_NEIGH
 #include "atom_types.h"
 #endif
@@ -13,7 +15,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor_md::Neighbor_md(MAPP* mapp):Neighbor(mapp)
+Neighbor_md::Neighbor_md():Neighbor()
 {
 }
 /*--------------------------------------------

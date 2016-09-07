@@ -1,10 +1,9 @@
 #ifndef __MAPP__md__
 #define __MAPP__md__
-#include "init.h"
-#include "thermo_dynamics.h"
-namespace MAPP_NS {
-    
-    class MD : protected InitPtrs
+#include "type_def.h"
+namespace MAPP_NS
+{
+    class MD 
     {
     private:
     protected:
@@ -13,11 +12,11 @@ namespace MAPP_NS {
         int temp_idx;
         int stress_idx;
         type0*& nrgy_strss;
-        VecLst* vecs_comm;
-        ThermoDynamics* thermo;
+        class VecLst* vecs_comm;
+        class ThermoDynamics* thermo;
     public:
         
-        MD(MAPP*);
+        MD();
         virtual ~MD()=0;
         virtual void init()=0;
         virtual void fin()=0;
@@ -26,5 +25,4 @@ namespace MAPP_NS {
         type0 dt,boltz,hplanck;
     };
 }
-
 #endif

@@ -9,11 +9,10 @@ enum {disp_x,disp_s};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_displace::Command_displace(MAPP* mapp
-,int nargs,char** args):InitPtrs(mapp)
+Command_displace::Command_displace(int nargs,char** args)
 {
     int mode=-1;
-    int dim=atoms->dimension;
+    int dim=dimension;
     if(nargs<3+dim)
         error->abort("incorrect displace command");
     if(strcmp(args[1],"x")==0)
@@ -48,9 +47,9 @@ Command_displace::Command_displace(MAPP* mapp
         iarg++;
     }
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* xi;
-    int x_dim=mapp->x->dim;
+    int x_dim=atoms->x->dim;
     
     if(mode==disp_s)
         V3M_LT(disp,atoms->H,disp);

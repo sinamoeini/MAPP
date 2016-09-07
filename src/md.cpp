@@ -2,13 +2,14 @@
 #include "md.h"
 #include "error.h"
 #include "memory.h"
+#include "script_reader.h"
 #include "thermo_dynamics.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-MD::MD(MAPP* mapp):InitPtrs(mapp),
+MD::MD():
 nrgy_strss(forcefield->nrgy_strss)
 {
     boltz=dt=hplanck=0.0;
@@ -16,12 +17,12 @@ nrgy_strss(forcefield->nrgy_strss)
         error->abort("ff should be "
         "initiated before md");
     
-    if(mapp->mode!=MD_mode)
+    if(mode!=MD_mode)
         error->abort("md works only "
         "for md mode");
     
     char** args;
-    int nargs=mapp->parse_line("KE Temp. "
+    int nargs=ScriptReader::parse_line("KE Temp. "
     "PE S[0][0] S[1][1] S[2][2] S[1][2] S[2][0] S[0][1]",args);
     ke_idx=0;
     temp_idx=1;
@@ -29,7 +30,7 @@ nrgy_strss(forcefield->nrgy_strss)
     stress_idx=3;
     
     
-    thermo=new ThermoDynamics(mapp,nargs,args);
+    thermo=new ThermoDynamics(nargs,args);
     for(int i=0;i<nargs;i++)
         delete [] args[i];
     if(nargs)

@@ -4,50 +4,37 @@
  --------------------------------------------*/
 #ifndef MAPP_init_h
 #define MAPP_init_h
+#include "type_def.h"
 #include <mpi.h>
-#include "MAPP.h"
 namespace MAPP_NS
 {
-    class InitPtrs
-    {
-    private:
-    public:
-        InitPtrs(MAPP* _mapp):
-        mapp(_mapp),
-        memory(_mapp->memory),
-        error(_mapp->error),
-        timer(_mapp->timer),
-        forcefield(_mapp->forcefield),
-        world(_mapp->world),
-        atoms(_mapp->atoms),
-        groups(_mapp->groups),
-        neighbor(_mapp->neighbor),
-        ls(_mapp->ls),
-        atom_types(_mapp->atom_types),
-        output(_mapp->output),
-        write(_mapp->write),
-        step_no(_mapp->step_no),
-        step_tally(_mapp->step_tally)
-        {}
-        virtual ~InitPtrs(){}
-    protected:
-        MAPP* mapp;
-        Memory*& memory;
-        Error*& error;
-        Timer*& timer;
-        ForceField*& forcefield;
-        MPI_Comm &world;
-        Neighbor*& neighbor;
-        GroupCollection*& groups;
-        Atoms*& atoms;
-        LineSearch<Min>*& ls;
-        AtomTypes*& atom_types;
-        FILE*& output;
-        Write*& write;
-        int& step_no;
-        int& step_tally;
-    };
-    
+    enum {MD_mode,DMD_mode};
+
+    template<const int> class Atoms;
+    template<typename> class Vec;
+    template<class Func> class LineSearch;
+    class Min;
+
+    constexpr int dimension=3;
+    extern int mode;
+    extern int precision;
+    extern class Neighbor* neighbor;
+    extern class ForceField* forcefield;
+    extern class Error* error;
+    extern class Timer* timer;
+    extern FILE* output;
+    extern MPI_Comm world;
+    extern class Write* write;
+    extern class MD* md;
+    extern class DMD* dmd;
+    extern class GroupCollection* groups;
+    extern class Memory* memory;
+    extern LineSearch<Min>* ls;
+    extern int step_no;
+    extern int step_tally;
+    extern class AtomTypes* atom_types;
+    extern class Atoms<MAPP_NS::dimension>* atoms;
+    extern class MAPP* mapp;
 }
 #endif
 

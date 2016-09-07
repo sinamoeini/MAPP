@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_del_write__
 #define __MAPP__command_del_write__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_del_write:protected InitPtrs
+    class Command_del_write
     {
     private:
     protected:
     public:
-        Command_del_write(MAPP*,int,char**);
+        Command_del_write(int,char**);
         ~Command_del_write();
     };
 }

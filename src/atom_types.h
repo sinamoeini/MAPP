@@ -4,15 +4,15 @@
  --------------------------------------------*/
 #ifndef __MAPP__atom_types__
 #define __MAPP__atom_types__
-#include "init.h"
-
-namespace MAPP_NS {
-    class AtomTypes : protected InitPtrs
+#include "type_def.h"
+namespace MAPP_NS
+{
+    class AtomTypes 
     {
     private:
     protected:
     public:
-        AtomTypes(MAPP *);
+        AtomTypes();
         ~AtomTypes();
         
         int no_types;

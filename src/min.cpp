@@ -9,13 +9,15 @@
 #include "neighbor.h"
 #include "thermo_dynamics.h"
 #include "ls_styles.h"
+#include "MAPP.h"
+#include "script_reader.h"
 #define INV_SQ_2 0.7071067811865475
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min::Min(MAPP* mapp):InitPtrs(mapp),
+Min::Min():
 nrgy_strss(forcefield->nrgy_strss)
 {
     output_flag=true;
@@ -25,23 +27,23 @@ nrgy_strss(forcefield->nrgy_strss)
     
     
     chng_box=false;
-    dim=atoms->dimension;
-    x_dim=mapp->x->dim;
+    dim=dimension;
+    x_dim=atoms->x->dim;
     err=LS_S;
     
     char** args;
     int nargs;
-    if(mapp->mode==MD_mode)
-        nargs=mapp->parse_line(
+    if(mode==MD_mode)
+        nargs=ScriptReader::parse_line(
         "PE S_xx S_yy S_zz S_yz S_zx S_xy",args);
-    else if(mapp->mode==DMD_mode)
-        nargs=mapp->parse_line(
+    else if(mode==DMD_mode)
+        nargs=ScriptReader::parse_line(
         "FE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     
     pe_idx=0;
     stress_idx=1;
     
-    thermo=new ThermoDynamics(mapp,nargs,args);
+    thermo=new ThermoDynamics(nargs,args);
     for(int i=0;i<nargs;i++)
         delete [] args[i];
     if(nargs)
@@ -64,7 +66,7 @@ nrgy_strss(forcefield->nrgy_strss)
             H_dof[i][j]=false;
     
     
-    if(mapp->mode==DMD_mode)
+    if(mode==DMD_mode)
         forcefield_dmd=dynamic_cast<ForceFieldDMD*>(forcefield);
     max_dx=1.0;
 }
@@ -386,7 +388,7 @@ type0 Min::calc_ave_f_norm()
 type0 Min::calc_ndofs()
 {
     type0 ndofs_lcl=0.0;
-    if(mapp->mode==DMD_mode)
+    if(mode==DMD_mode)
     {
         type0* c=mapp->c->begin();
         int c_dim=mapp->c->dim;
@@ -474,13 +476,13 @@ void Min::init()
     
     vecs_comm=new VecLst(atoms);
 
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         vecs_comm->add_updt(mapp->type);
         if(mapp->x_dof!=NULL)
             vecs_comm->add_xchng(mapp->x_dof);
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         vecs_comm->add_updt(mapp->c);
         vecs_comm->add_updt(mapp->ctype);
@@ -501,18 +503,8 @@ void Min::init()
     
     if(ls==NULL)
     {
-        /*
-        char** args;
-        int nargs=mapp->parse_line("ls bt",args);
-        ls=new LineSearch_backtrack<Min>(mapp,0,args);
-        for(int i=0;i<nargs;i++)
-            delete [] args[i];
-        if(nargs)
-            delete [] args;
-         */
-        
         LineSearch_backtrack<Min>* ls_=NULL;
-        mapp->create(ls_,"ls bt");
+        ScriptReader::create(ls_,"ls bt");
         ls=ls_;
         
     }
@@ -553,7 +545,7 @@ type0 Min::F(type0 alpha)
             XMath::invert_lower_triangle(atoms->H,atoms->B,dim);
     }
     
-    atoms->update(mapp->x);
+    atoms->update(atoms->x);
     return forcefield->energy_calc_timer();
 }
 /*--------------------------------------------
@@ -573,7 +565,7 @@ type0 Min::dF(type0 alpha,type0& drev)
             XMath::invert_lower_triangle(atoms->H,atoms->B,dim);
     }
     
-    atoms->update(mapp->x);
+    atoms->update(atoms->x);
     force_calc();
 
     if(affine)
@@ -669,13 +661,13 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
     h_norm=sqrt(h_norm);
     
     
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         type0* hvec=h()->begin();
         for(int i=0;i<atoms->natms*x_dim;i++)
             max_a_lcl=MIN(max_a_lcl,0.999*fabs(max_dx/hvec[i]));
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         type0* hvec=h()->begin();
         int icmp=0;
@@ -683,7 +675,7 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
         type0 a_min=forcefield_dmd->alpha_min;
 
         max_a_lcl=a_max;
-        type0* x=mapp->x->begin();
+        type0* x=atoms->x->begin();
         for(int i=0;i<atoms->natms;i++)
         {
             for(int j=0;j<dim;j++)
@@ -717,7 +709,7 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
 void Min::F_reset()
 {
     x=x0;
-    atoms->update(mapp->x);
+    atoms->update(atoms->x);
     if(chng_box)
     {
         if(dim==3)

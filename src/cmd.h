@@ -4,6 +4,7 @@
  
  --------------------------------------------*/
 #include "error.h"
+#include "init.h"
 #include "var.h"
 #include <stdio.h>
 #include <string.h>
@@ -35,7 +36,7 @@ namespace MAPP_NS
         char* pattern_prop_brc[2];
     };
     
-    class FileReader:protected InitPtrs
+    class FileReader
     {
     private:
         class QuantityReader
@@ -72,7 +73,6 @@ namespace MAPP_NS
         public:
             Logics var_logics;
             Logics cmd_logic;
-            Error*& error;
             VarManager& varmngr;
             FileReader* fr;
             char* name;
@@ -163,7 +163,7 @@ namespace MAPP_NS
     protected:
     public:
         VarManager varmngr;
-        FileReader(MAPP*);
+        FileReader();
         ~FileReader();
 
         void read_file(const char*);
@@ -203,7 +203,6 @@ namespace MAPP_NS
         class SubPattern_Voigt;
         class SubPattern_2D_LT;
         
-        Error*& error;
         SubPattern** sub_ptrns;
         int nsub_ptrns;
         
@@ -216,7 +215,7 @@ namespace MAPP_NS
         
 
         VarManager varmngr;
-        Pattern(Error*&);
+        Pattern();
         ~Pattern();
         
        
@@ -266,7 +265,6 @@ namespace MAPP_NS
     {
     private:
     protected:
-        Error*& error;
         VarManager& var_mngr;
 
         char* vlog_chek(KeyWord&,char**&,int&);

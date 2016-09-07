@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_time_step__
 #define __MAPP__command_time_step__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_time_step:protected InitPtrs
+    class Command_time_step
     {
     private:
     protected:
     public:
-        Command_time_step(MAPP*,int,char**);
+        Command_time_step(int,char**);
         ~Command_time_step();
     };
 }

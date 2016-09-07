@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include "command_add_type.h"
 #include "atom_types.h"
+#include "init.h"
 #include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_add_type::Command_add_type(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+Command_add_type::Command_add_type(int nargs,char** args)
+
 {
 
     if(nargs!=3)

@@ -1,16 +1,18 @@
 #include <stdlib.h>
+#include "atoms.h"
 #include "dmd_fe.h"
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
 #include "write.h"
 #include "thermo_dynamics.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-DMD_fe::DMD_fe(MAPP* mapp,int nargs
-,char** args):DMDExplicit(mapp)
+DMD_fe::DMD_fe(int nargs
+,char** args):DMDExplicit()
 {
     if(nargs>2)
     {

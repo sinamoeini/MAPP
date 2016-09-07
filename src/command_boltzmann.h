@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_boltzmann__
 #define __MAPP__command_boltzmann__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_boltzmann:protected InitPtrs
+    class Command_boltzmann
     {
     private:
     protected:
     public:
-        Command_boltzmann(MAPP*,int,char**);
+        Command_boltzmann(int,char**);
         ~Command_boltzmann();
     };
 }

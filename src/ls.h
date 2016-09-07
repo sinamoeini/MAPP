@@ -1,5 +1,6 @@
 #ifndef __MAPP__ls__
 #define __MAPP__ls__
+#include "type_def.h"
 namespace MAPP_NS
 {
     enum
@@ -48,7 +49,7 @@ namespace MAPP_NS
         Func* func;
     public:
 
-        LineSearch(MAPP*);
+        LineSearch();
         virtual ~LineSearch();
         virtual int line_min(type0&,type0&,int)=0;
         virtual void init(Func*);
@@ -58,12 +59,14 @@ namespace MAPP_NS
 
 }
 #include <limits>
+#include <cmath>
+#include "macros.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 template<class Func>
-LineSearch<Func>::LineSearch(MAPP* mapp)
+LineSearch<Func>::LineSearch()
 {
     max_dx=1.0;
     prev_val=0.0;
@@ -216,6 +219,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
 template<class Func>
 void LineSearch<Func>::test(type0 fa,type0 dfa,type0 max_a)
 {
+    /*
     int no=100;
     type0 frac=1.0e-2*max_a;
     type0 fu,u=0.0;
@@ -223,14 +227,14 @@ void LineSearch<Func>::test(type0 fa,type0 dfa,type0 max_a)
     
     printf("dfa %e\n",dfa);
     printf("u fu f_x u*dfa\n");
-
+     
     for(int i=0;i<no;i++)
     {
         fu=func->F(u);
         printf("%22.20lf %22.20lf %22.20lf \n",u,fu-fa,u*dfa);
         u+=frac;
     }
-    
+    */
 }
 
 

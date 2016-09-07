@@ -1,15 +1,16 @@
 #include <stdlib.h>
 #include "command_time_step.h"
+#include "init.h"
 #include "md.h"
 #include "error.h" 
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_time_step::Command_time_step(MAPP* mapp,
-int nargs,char** args):InitPtrs(mapp)
+Command_time_step::Command_time_step(
+int nargs,char** args)
 {
-    if(mapp->md==NULL)
+    if(md==NULL)
         error->abort("before adjusting the "
         "time_step, ensemble should be initialized");
     
@@ -21,7 +22,7 @@ int nargs,char** args):InitPtrs(mapp)
         error->abort("time_step should be"
         " greater than 0.0");
     
-    mapp->md->dt=dt;
+    md->dt=dt;
     
 }
 /*--------------------------------------------

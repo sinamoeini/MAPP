@@ -1,8 +1,10 @@
 #ifndef __MAPP__timer__
 #define __MAPP__timer__
-#include "init.h"
-namespace MAPP_NS {
-    enum{
+#include "type_def.h"
+namespace MAPP_NS
+{
+    enum
+    {
         COMM_TIME_mode,
         NEIGH_TIME_mode,
         FORCE_TIME_mode,
@@ -10,7 +12,7 @@ namespace MAPP_NS {
         OTHER_TIME_mode
     };
     
-    class Timer:protected InitPtrs
+    class Timer
     {
     private:
         int curr_time_mode;
@@ -39,7 +41,7 @@ namespace MAPP_NS {
         type0 tst_stop();
         int add_mode(const char*);
         
-        Timer(MAPP*);
+        Timer();
         ~Timer();
 
     };

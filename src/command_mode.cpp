@@ -4,12 +4,13 @@
 #include "ff.h"
 #include "neighbor_md.h"
 #include "neighbor_dmd.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_mode::Command_mode(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+Command_mode::Command_mode(int nargs,char** args)
+
 {
     if(mapp->no_commands!=0)
         error->abort("mode command should be the first command");
@@ -20,25 +21,25 @@ Command_mode::Command_mode(MAPP* mapp,int nargs,char** args)
     if(strcmp(args[1],"md")==0)
     {
         new_mode=MD_mode;
-        delete mapp->neighbor;
-        mapp->neighbor=new Neighbor_md(mapp);
+        delete neighbor;
+        neighbor=new Neighbor_md();
         if(atoms->my_p==0)
             printf("mode set to md\n");
     }
     else if(strcmp(args[1],"dmd")==0)
     {
         new_mode=DMD_mode;
-        delete mapp->neighbor;
-        mapp->neighbor=new Neighbor_dmd(mapp);
-        delete mapp->forcefield;
+        delete neighbor;
+        neighbor=new Neighbor_dmd();
+        delete forcefield;
         if(atoms->my_p==0)
             printf("mode set to dmd\n");
     }
     else
         error->abort("unknown mode: %s",args[1]);
-    if(new_mode==mapp->mode)
+    if(new_mode==mode)
         return;
-    mapp->mode=new_mode;
+    mode=new_mode;
 }
 /*--------------------------------------------
  destructor

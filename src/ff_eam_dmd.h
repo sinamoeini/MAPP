@@ -4,7 +4,6 @@
 #ifndef __MAPP__ff_eam_dmd__
 #define __MAPP__ff_eam_dmd__
 #include "ff.h"
-#include "eam_file_reader.h"
 namespace MAPP_NS
 {    
     class ForceField_eam_dmd : public ForceFieldDMD
@@ -35,7 +34,7 @@ namespace MAPP_NS
         Vec<type0>* s_ptr;
         Vec<type0>* t_ptr;
         
-        EAMFileReader* eam_reader;
+        class EAMFileReader* eam_reader;
         
         void read_file(char*);
         
@@ -103,7 +102,7 @@ namespace MAPP_NS
         type0 ddc_norm();
         void ddc(type0*);
     public:
-        ForceField_eam_dmd(MAPP *);
+        ForceField_eam_dmd();
         ~ForceField_eam_dmd();
         void init();
         void fin();

@@ -1,7 +1,3 @@
-/*--------------------------------------------
- Created by Sina on 06/29/16.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifndef __MAPP__pgcmc__
 #define __MAPP__pgcmc__
 #include "gcmc.h"
@@ -15,36 +11,36 @@ namespace MAPP_NS
         type0 tot_du_test;
 #endif
         
-        int* N_c;
-        int* N_s;
-        int* N_curr_comms;
-        int* i_curr_comms;
-        bool* prll_dim;
+        int N_c[dimension];
+        int N_s[dimension];
+        int N_curr_comms[dimension];
+        int i_curr_comms[dimension];
+        bool prll_dim[dimension];
         
         int max_n_cncrcy;
-        int* max_N_cncrcy;
+        int max_N_cncrcy[dimension];
         
         int comm_buff_size;
         byte* comm_buff;
         
         int ip;
         int n_p;
-        int* op_vec;
-        int* p_vec;
-        int* N_p;
-        int* B_p;
+        int op_vec[dimension];
+        int p_vec[dimension];
+        int N_p[dimension];
+        int B_p[dimension];
         
         int n_prll;
-        int* N_prll;
-        int* B_prll;
+        int N_prll[dimension];
+        int B_prll[dimension];
         
         int n_pcomm;
-        int* N_pcomm;
-        int* B_pcomm;
+        int N_pcomm[dimension];
+        int B_pcomm[dimension];
 
         int n_comm;
-        int* N_comm;
-        int* B_comm;
+        int N_comm[dimension];
+        int B_comm[dimension];
 
         
         const int m;
@@ -52,11 +48,11 @@ namespace MAPP_NS
         //static stuff
         //allocate in constructor
         //deallocate in destructor
-        int* N_cells;
-        int* B_cells;
-        int* icell_coord;
-        int* jcell_coord;
-        type0* cell_size;
+        int N_cells[dimension];
+        int B_cells[dimension];
+        int icell_coord[dimension];
+        int jcell_coord[dimension];
+        type0 cell_size[dimension];
 
 
         //dynamic determined by m
@@ -148,7 +144,7 @@ namespace MAPP_NS
         
         
     public:
-        PGCMC(MAPP*,int,dmd_type,type0,type0,int);
+        PGCMC(int,dmd_type,type0,type0,int);
         ~PGCMC();
         
         void init();

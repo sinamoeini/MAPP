@@ -4,12 +4,14 @@
 #include "error.h"
 #include "memory.h"
 #include "xmath.h"
+#include "MAPP.h"
+#include "script_reader.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-Group::Group(MAPP* mapp,const char* _group_name)
-:InitPtrs(mapp)
+Group::Group(const char* _group_name)
+
 {
     grp_sz=0;
     int lngth=static_cast<int>(strlen(_group_name))+1;
@@ -39,12 +41,12 @@ void Group::get_idx(int& grp_sz_,int*& grp_idx_)
 /*--------------------------------------------
  
  --------------------------------------------*/
-Group_general::Group_general(MAPP* mapp,
+Group_general::Group_general(
 const char* group_name,int nfiles,char** files)
-:Group(mapp,group_name)
+:Group(group_name)
 {
     
-    int* id=mapp->id->begin();
+    int* id=atoms->id->begin();
     int natms=atoms->natms;
     int tot_natms=atoms->tot_natms;
     int nargs,iatm;
@@ -95,11 +97,11 @@ const char* group_name,int nfiles,char** files)
     
     for(int ifile=0;ifile<nfiles;ifile++)
     {
-        mapp->open_file(fp,files[ifile],"r");
+        ScriptReader::open_file(fp,files[ifile],"r");
 
-        while(mapp->read_line(fp,line)!=-1)
+        while(ScriptReader::read_line(fp,line)!=-1)
         {
-            nargs=mapp->hash_remover(line);
+            nargs=ScriptReader::hash_remover(line);
             if(nargs==0)
                 continue;
             
@@ -178,7 +180,7 @@ void Group_general::update()
     grp_idx=new int[natms];
     grp_id=new int[natms];
     grp_sz=0;
-    int* id=mapp->id->begin();
+    int* id=atoms->id->begin();
     
     class act
     {
@@ -249,9 +251,9 @@ void Group_general::update()
 /*--------------------------------------------
  
  --------------------------------------------*/
-Group_type::Group_type(MAPP* mapp,const char*
+Group_type::Group_type(const char*
 group_name,int ntypes_,char** types)
-:Group(mapp,group_name)
+:Group(group_name)
 {
     ntypes=atom_types->no_types;
     type=new bool[ntypes];
@@ -280,14 +282,14 @@ void Group_type::update()
     int natms=atoms->natms;
     int* _grp_idx=new int[natms];
     grp_sz=0;
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         md_type* _type=mapp->type->begin();
         for(int i=0;i<natms;i++)
             if(type[_type[i]])
                 _grp_idx[grp_sz++]=i;
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         int c_dim=mapp->ctype->dim;
         dmd_type* _type=mapp->ctype->begin();
@@ -311,8 +313,8 @@ void Group_type::update()
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-GroupCollection::GroupCollection(MAPP* mapp)
-:InitPtrs(mapp)
+GroupCollection::GroupCollection()
+
 {
     ngrps=0;
 }
@@ -351,7 +353,7 @@ Group* GroupCollection::add_grp_file(const char* name,int nfiles,char** files)
             return NULL;
         }
     
-    Group* grp=new Group_general(mapp,name,nfiles,files);
+    Group* grp=new Group_general(name,nfiles,files);
     
     Group** _grps=new Group*[ngrps+1];
     memcpy(_grps,grps,ngrps*sizeof(Group*));
@@ -374,7 +376,7 @@ Group* GroupCollection::add_grp_type(const char* name,int ntypes,char** types)
             return NULL;
         }
     
-    Group* grp=new Group_type(mapp,name,ntypes,types);
+    Group* grp=new Group_type(name,ntypes,types);
     
     Group** _grps=new Group*[ngrps+1];
     memcpy(_grps,grps,ngrps*sizeof(Group*));

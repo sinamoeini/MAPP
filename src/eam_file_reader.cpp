@@ -3,13 +3,15 @@
 #include "atom_types.h"
 #include "memory.h"
 #include "error.h"
+#include "atoms.h"
+#include "script_reader.h"
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 using namespace MAPP_NS;
 /*--------------------------------------------
  
  --------------------------------------------*/
-EAMFileReader::EAMFileReader(MAPP* mapp)
-:InitPtrs(mapp)
+EAMFileReader::EAMFileReader()
+
 {
     allocated=0;
     no_types=0;
@@ -158,13 +160,13 @@ void EAMFileReader::set_funcfl()
     
     for(int ityp=0;ityp<no_types;ityp++)
     {
-        mapp->open_file(fp,files[ityp],"r");
+        ScriptReader::open_file(fp,files[ityp],"r");
         
         for(int i=0;i<2;i++)
-            if(mapp->read_line(fp,line)==-1)
+            if(ScriptReader::read_line(fp,line)==-1)
                 error->abort("%s file ended immaturely",files[ityp]);
         
-        nargs=mapp->parse_line(line,args,args_cpcty);
+        nargs=ScriptReader::parse_line(line,args,args_cpcty);
         if(nargs!=4)
             error->abort("invalid line in %s file: %s",files[ityp],line);
         
@@ -177,10 +179,10 @@ void EAMFileReader::set_funcfl()
             "used",atom_types->atom_names[ityp],files[ityp],mass
             ,atom_types->mass[ityp]);
   
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[ityp]);
         
-        nargs=mapp->parse_line(line,args,args_cpcty);
+        nargs=ScriptReader::parse_line(line,args,args_cpcty);
         if(nargs!=5)
             error->abort("invalid line in %s file: %s",files[ityp],line);
         
@@ -207,10 +209,10 @@ void EAMFileReader::set_funcfl()
         int ipos=0;
         while (ipos<tot)
         {
-            if(mapp->read_line(fp,line)==-1)
+            if(ScriptReader::read_line(fp,line)==-1)
                 error->abort("%s file ended immaturely",files[ityp]);
             
-            nargs=mapp->parse_line(line,args,args_cpcty);
+            nargs=ScriptReader::parse_line(line,args,args_cpcty);
             
             if(ipos+nargs>tot)
                 error->abort("%s file ended immaturely",files[ityp]);
@@ -364,17 +366,17 @@ void EAMFileReader::set_setfl()
     char* line;
     CREATE1D(line,MAXCHAR);
 
-    mapp->open_file(fp,files[0],"r");
+    ScriptReader::open_file(fp,files[0],"r");
     
     for(int i=0;i<4;i++)
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
     
     char** args=NULL;
     int args_cpcty=0;
     int nargs;
     
-    nargs=mapp->parse_line(line,args,args_cpcty);
+    nargs=ScriptReader::parse_line(line,args,args_cpcty);
     if(nargs<2 || nargs-1 < no_types)
         error->abort("invalid line in %s file: %s",files[0],line);
     
@@ -402,9 +404,9 @@ void EAMFileReader::set_setfl()
         delete [] tmp_type_ref;
     
     
-    if(mapp->read_line(fp,line)==-1)
+    if(ScriptReader::read_line(fp,line)==-1)
         error->abort("%s file ended immaturely",files[0]);
-    nargs=mapp->parse_line(line,args,args_cpcty);
+    nargs=ScriptReader::parse_line(line,args,args_cpcty);
     
     
     if(nargs!=5)
@@ -433,15 +435,15 @@ void EAMFileReader::set_setfl()
     CREATE1D(tmp,tot);
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
         int lim=(ityp+1)*(nrho+nr);
         while (ipos<lim)
         {
-            if(mapp->read_line(fp,line)==-1)
+            if(ScriptReader::read_line(fp,line)==-1)
                 error->abort("%s file ended immaturely",files[0]);
             
-            nargs=mapp->parse_line(line,args,args_cpcty);
+            nargs=ScriptReader::parse_line(line,args,args_cpcty);
             for(int i=0;i<nargs;i++)
             {
                 tmp[ipos]=atof(args[i]);
@@ -454,10 +456,10 @@ void EAMFileReader::set_setfl()
     
     while (ipos<tot)
     {
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
         
-        nargs=mapp->parse_line(line,args,args_cpcty);
+        nargs=ScriptReader::parse_line(line,args,args_cpcty);
         for(int i=0;i<nargs;i++)
         {
             tmp[ipos]=atof(args[i]);
@@ -551,17 +553,17 @@ void EAMFileReader::set_fs()
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    mapp->open_file(fp,files[0],"r");
+    ScriptReader::open_file(fp,files[0],"r");
     
     for(int i=0;i<4;i++)
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
     
     char** args=NULL;
     int args_cpcty=0;
     int nargs;
     
-    nargs=mapp->parse_line(line,args,args_cpcty);
+    nargs=ScriptReader::parse_line(line,args,args_cpcty);
     if(nargs<2 || nargs-1<no_types)
         error->abort("invalid line in %s file: %s",files[0],line);
     
@@ -592,9 +594,9 @@ void EAMFileReader::set_fs()
         delete [] tmp_type_ref;
     
     
-    if(mapp->read_line(fp,line)==-1)
+    if(ScriptReader::read_line(fp,line)==-1)
         error->abort("%s file ended immaturely",files[0]);
-    nargs=mapp->parse_line(line,args,args_cpcty);
+    nargs=ScriptReader::parse_line(line,args,args_cpcty);
     
     if(nargs!=5)
         error->abort("invalid line in %s file: %s",files[0],line);
@@ -631,15 +633,15 @@ void EAMFileReader::set_fs()
     
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
         ipos_loc=0;
         while (ipos_loc<tot_loc)
         {
-            if(mapp->read_line(fp,line)==-1)
+            if(ScriptReader::read_line(fp,line)==-1)
                 error->abort("%s file ended immaturely",files[0]);
             
-            nargs=mapp->parse_line(line,args,args_cpcty);
+            nargs=ScriptReader::parse_line(line,args,args_cpcty);
             
             if(ipos_loc+nargs>tot_loc)
                 error->abort("%s file ended immaturely",files[0]);
@@ -657,10 +659,10 @@ void EAMFileReader::set_fs()
     ipos_loc=0;
     while (ipos_loc<tot_loc)
     {
-        if(mapp->read_line(fp,line)==-1)
+        if(ScriptReader::read_line(fp,line)==-1)
             error->abort("%s file ended immaturely",files[0]);
         
-        nargs=mapp->parse_line(line,args,args_cpcty);
+        nargs=ScriptReader::parse_line(line,args,args_cpcty);
         
         if(ipos_loc+nargs>tot_loc)
             error->abort("%s file ended immaturely",files[0]);
@@ -883,12 +885,12 @@ void EAMFileReader::allocate()
     int rho_phi_ncomp=0;
     int F_ncomp=0;
     
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         rho_phi_ncomp=7;
         F_ncomp=7;
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         rho_phi_ncomp=4;
         F_ncomp=5;
@@ -945,7 +947,7 @@ void EAMFileReader::allocate()
  --------------------------------------------*/
 void EAMFileReader::set_arrays()
 {
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         for(int itype=0;itype<no_types;itype++)
             interpolate_7(nrho,drho,F_arr[itype]);
@@ -967,7 +969,7 @@ void EAMFileReader::set_arrays()
         }
         
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         for(int itype=0;itype<no_types;itype++)
             interpolate_5(nrho,drho,F_arr[itype]);

@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_grid__
 #define __MAPP__command_grid__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_grid:protected InitPtrs
+    class Command_grid
     {
     private:
     protected:
     public:
-        Command_grid(MAPP*,int,char**);
+        Command_grid(int,char**);
         ~Command_grid();
     };
 }

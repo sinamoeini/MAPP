@@ -4,7 +4,8 @@
 #ifndef __MAPP__dmd_bdf_y__
 #define __MAPP__dmd_bdf_y__
 #include "dmd.h"
-namespace MAPP_NS {
+namespace MAPP_NS
+{
     class DMD_bdf_y :public DMDImplicit
     {
     private:
@@ -36,11 +37,10 @@ namespace MAPP_NS {
         void err_fac_calc();        
         void start();        
     public:
-        DMD_bdf_y(MAPP*,int,char**);
+        DMD_bdf_y(int,char**);
         ~DMD_bdf_y();
 
     };
 }
-
 #endif 
 #endif

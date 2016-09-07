@@ -1,14 +1,8 @@
 #ifndef __MAPP__gmres__
 #define __MAPP__gmres__
-
-#include "init.h"
-/*--------------------------------------------
- 
- --------------------------------------------*/
-
+#include "atoms.h"
 namespace MAPP_NS
 {
-    
     template<typename T0,class C0>
     class GMRES_m
     {
@@ -223,25 +217,11 @@ namespace MAPP_NS
         
     };
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     
     
     template<typename T0,class C0>
-    class GMRES: protected InitPtrs
+    class GMRES
     {
     private:
         const int m;
@@ -288,8 +268,6 @@ namespace MAPP_NS
             
             return 1.0/ans;
         }
-        
-        
         T0 solve_y(int nvecs,type0* x)
         {
             for(int i=nvecs-1;i>-1;i--)
@@ -359,10 +337,8 @@ namespace MAPP_NS
         
     protected:
     public:
+        GMRES(int m_,int dim_,C0& kernel_):
         
-        
-        GMRES(MAPP* mapp,int m_,int dim_,C0& kernel_):
-        InitPtrs(mapp),
         m(m_),
         dim(dim_),
         kernel(kernel_)
@@ -470,21 +446,7 @@ namespace MAPP_NS
             }
             return b_hat[m];
         }
-        
-        
-        
-        
-        
-        
-        
-        
+
     };
-    
-    
-    
-    
-    
 }
-
-
 #endif

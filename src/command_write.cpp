@@ -1,13 +1,14 @@
 #include "command_write.h"
 #include "error.h"
 #include "write_styles.h"
+#include "init.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 Command_write::Command_write
-(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+(int nargs,char** args)
+
 {
     if(nargs<2)
         error->abort("wrong command: %s",args[0]);
@@ -18,7 +19,7 @@ Command_write::Command_write
     #define Write_Style
     #define WriteStyle(class_name,style_name)   \
     else if(strcmp(args[1],#style_name)==0)     \
-    write= new class_name(mapp,nargs,args);
+    write= new class_name(nargs,args);
     
     if(0){}
     #include "write_styles.h"

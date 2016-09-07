@@ -1,11 +1,7 @@
-/*--------------------------------------------
- Created by Sina on 2/5/14.
- Copyright (c) 2014 MIT. All rights reserved.
- --------------------------------------------*/
 #ifndef __MAPP__xmath__
 #define __MAPP__xmath__
-#include "init.h"
-
+#include <utility> 
+#include "type_def.h"
 namespace MAPP_NS
 {
     namespace XMath
@@ -203,6 +199,246 @@ namespace MAPP_NS
         }
     };
 }
+namespace MAPP_NS
+{
+    namespace XMatrixVector
+    {
+        template<const int i>
+        class _rsq_
+        {
+        public:
+            template<typename T>
+            static inline T fun(T* V0,T* V1)
+            {
+                return _rsq_<i-1>::fun(V0+1,V1+1)+(*V0-*V1)*(*V0-*V1);
+            }
+        };
+        
+        template<>
+        class _rsq_<1>
+        {
+        public:
+            template<typename T>
+            static inline T fun(T* V0,T* V1)
+            {
+                return (*V0-*V1)*(*V0-*V1);
+            }
+        };
+        
+        template<const int i>
+        class _V_V_
+        {
+        public:
+            template<typename T>
+            static inline T fun(T* V0,T* V1)
+            {
+                return _V_V_<i-1>::fun(V0+1,V1+1)+(*V0)*(*V1);
+            }
+        };
+        
+        template<>
+        class _V_V_<1>
+        {
+        public:
+            template<typename T>
+            static inline T fun(T* V0,T* V1)
+            {
+                return (*V0)*(*V1);
+            }
+        };
+        
+        template<const int stride,const int i>
+        class _V_V_str_
+        {
+        public:
+            template<typename T>
+            static inline T fun(T* V0,T* V1)
+            {
+                return _V_V_str_<stride,i-1>::fun(V0+stride,V1+1)+(*V0)*(*V1);
+            }
+        };
+        
+        template<const int stride>
+        class _V_V_str_<stride,1>
+        {
+        public:
+            template<typename T>
+            static inline T fun(T* V0,T* V1)
+            {
+                return (*V0)*(*V1);
+            }
+        };
+        
+        
+        template<const int dim,const int i>
+        class _V_Mlt_
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* Mlt,T* V)
+            {
+                *V=_V_V_str_<dim,i>::fun(Mlt,V);
+                _V_Mlt_<dim,i-1>::fun(Mlt+dim+1,V+1);
+            }
+        };
+        
+        template<const int dim>
+        class _V_Mlt_<dim,1>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* Mlt,T* V)
+            {
+                *V*=*Mlt;
+            }
+        };
+        
+        
+        template<const int dim,const int i>
+        class _x2s_
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* Mlt,T* V)
+            {
+                *V=_V_V_str_<dim,i>::fun(Mlt,V);
+                while(*V<0.0)
+                    (*V)++;
+                while(*V>=1.0)
+                    (*V)--;
+                _x2s_<dim,i-1>::fun(Mlt+dim+1,V+1);
+            }
+        };
+        
+        template<const int dim>
+        class _x2s_<dim,1>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* Mlt,T* V)
+            {
+                *V*=*Mlt;
+                while(*V<0.0)
+                    (*V)++;
+                while(*V>=1.0)
+                    (*V)--;
+            }
+        };
+        
+        
+        template<const int dim,const int i,const int j>
+        class _Mlt_inv_
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* M,T* Minv)
+            {
+                *Minv=-_V_V_str_<dim,i-j>::fun(Minv-(i-j)*dim,M)*(*(Minv+i-j));
+                _Mlt_inv_<dim,i,j-1>::fun(Minv-1,M-1);
+            }
+        };
+        
+        template<const int dim,const int i>
+        class _Mlt_inv_<dim,i,i>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* M,T* Minv)
+            {
+                *Minv=1.0/(*M);
+                _Mlt_inv_<dim,i,i-1>::fun(Minv-1,M-1);
+            }
+        };
+        template<const int dim,const int i>
+        class _Mlt_inv_<dim,i,0>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* M,T* Minv)
+            {
+                *Minv=-_V_V_str_<dim,i>::fun(Minv-i*dim,M)*(*(Minv+i));
+                _Mlt_inv_<dim,i+1,i+1>::fun(Minv+dim+i+1,M+dim+i+1);
+            }
+        };
+        
+        template<const int dim>
+        class _Mlt_inv_<dim,dim,dim>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* M,T* Minv)
+            {}
+        };
+        
+        /*-------------------------------------------------------------------*/
+        template <const int i>
+        class UnrolledLoop
+        {
+        public:
+            template < typename FuncType >
+            static inline void Do(FuncType func)
+            {
+                UnrolledLoop <i-1>::Do( func);
+                func(i);
+            }
+        };
+        template <>
+        class UnrolledLoop<0>
+        {
+        public:
+            template < typename FuncType >
+            static inline void Do(FuncType func){}
+        };
+        
+        template<const int dim,typename T>
+        inline T rsq(T* V0,T* V1)
+        {
+            return _rsq_<dim>::fun(V0,V1);
+        }
+        
+        template<const int dim,typename T>
+        inline T V_V(T* V0,T* V1)
+        {
+            return _V_V_<dim>(V0,V1);
+        }
+        
+        template<const int dim,typename T>
+        inline void V_Mlt(T* V,T** Mlt)
+        {
+            _V_Mlt_<dim,dim>::fun(*Mlt,V);
+        }
+        template<const int dim,typename T>
+        static inline void V_Mlt(T* V,T (&Mlt)[dim][dim])
+        {
+            _V_Mlt_<dim,dim>::fun((T*)Mlt,V);
+        }
+        
+        template<const int dim,typename T>
+        inline void s2x(T* s,T** H)
+        {
+            _V_Mlt_<dim,dim>::fun(*H,s);
+        }
+        
+        template<const int dim,typename T>
+        inline void x2s(T* x,T** B)
+        {
+            _x2s_<dim,dim>::fun(*B,x);
+        }
+        
+        template<const int dim,typename T>
+        inline void Mlt_inv(T** A,T** Ainv)
+        {
+            _Mlt_inv_<dim,0,0>(*A,*Ainv);
+        }
+        
+        template<const int dim,typename T>
+        inline void Mlt_inv(T (&A)[dim][dim],T (&Ainv)[dim][dim])
+        {
+            **Ainv=1.0/(**A);
+            _Mlt_inv_<dim,1,1>::fun((T*)A+dim+1,(T*)Ainv+dim+1);
+        }
+    }
+}
 /*--------------------------------------------
  quick sort algorithm
  
@@ -242,6 +478,7 @@ namespace MAPP_NS
  delete rand;
  delete [] list;
  --------------------------------------------*/
+using namespace MAPP_NS;
 template<typename T0,class COMP,class SWAP>
 void XMath::quicksort(T0 start,T0 end,COMP comp,SWAP swap)
 {
@@ -341,117 +578,5 @@ void XMath::srch_lst_lst(T0* ilst,int isize,C0* iact
                 return exit();
         }
     }    
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-namespace MAPP_NS
-{
-    class SPARSE : protected InitPtrs
-    {
-    private:
-    protected:
-    public:
-        
-        SPARSE(MAPP*,int,int);
-        ~SPARSE();
-        int no_elem;
-        int h0,h1;
-        int* idx0;
-        int* idx1;
-        double* mtrx;
-        void add(int,int,double);
-        void add(int,int*,int*,double*);
-        void sort(int);
-        void vectorize(int);
-        
-        int no_vec;
-        int* idx_vec;
-        int* init_pos;
-        int* fin_pos;
-        
-    };
-    
-    // Parallel sparse decomposed by rows (h0)
-    class SPARSE_P : protected InitPtrs
-    {
-    private:
-    protected:
-    public:
-        SPARSE_P(MAPP*,int,int);
-        ~SPARSE_P();
-        
-        int no_elem;
-        int lcl_no_elem;
-        int h0,h1;
-        int lcl_h0;
-        int lo_h0;
-        int hi_h0;
-        int totp;
-        int myno;
-        int* lcl_idx0;
-        int* lcl_idx1;
-        double* lcl_mtrx;
-        void add(int,int,double);
-        void addd(int,int,double);
-        void add(int,int*,int*,double*);
-        void sort(int);
-        void vectorize(int);
-        
-        
-        int lcl_no_vec;
-        int* lcl_idx_vec;
-        int* lcl_init_pos;
-        int* lcl_fin_pos;
-    };
-    
-    
-    class SOLVEAXb : protected InitPtrs
-    {
-    private:
-        SPARSE* A;
-        int lsize;
-        int tot_lsize;
-        int totp;
-        int myno;
-        int lcl_lo,lcl_hi;
-        
-        int* lcl_idx0;
-        int* lcl_idx1;
-        double* lcl_mtrx;
-        int lcl_no_elem;
-        
-        int* comm_snd_size;
-        int* comm_rcv_size;
-        int** comm_snd_lst;
-        double** buff_snd;
-        double* c;
-        
-        double** g;
-        double* h;
-        double d_sq;
-    protected:
-    public:
-        SOLVEAXb(MAPP*,SPARSE*,double*,int);
-        ~SOLVEAXb();
-        void xchng(double*);
-        void construct_ans();
-        int solve(double);
-        double* x;
-        double* ans;
-    };
-    
-    class COMB : protected InitPtrs
-    {
-        COMB(MAPP*);
-        ~COMB();
-        void clean();
-        void comb(int*,int);
-        void comb_rec(int,int,int,int,int*&,int*& ,int*,int,int);
-        int** perm_list;
-        int perm_list_size_0;
-        int perm_list_size_1;
-    };
-
 }
 #endif 

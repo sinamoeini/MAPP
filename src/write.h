@@ -1,10 +1,8 @@
 #ifndef __MAPP__write__
 #define __MAPP__write__
-
-#include "init.h"
-
-namespace MAPP_NS {
-    class Write: protected InitPtrs
+namespace MAPP_NS
+{
+    class Write
     {
     private:
     protected:
@@ -12,13 +10,12 @@ namespace MAPP_NS {
         int write_step;
         int last_write_step;
     public:
-        Write(MAPP *);
+        Write();
         virtual ~Write();
         virtual void write_file(int)=0;
         virtual void init();
         void write();
         virtual void fin();
     };
-    
 }
 #endif

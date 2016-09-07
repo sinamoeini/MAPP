@@ -1,13 +1,10 @@
-/*--------------------------------------------
- Created by Sina on 06/05/13.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifndef __MAPP__neighbor__
 #define __MAPP__neighbor__
 #include "init.h"
 namespace MAPP_NS
 {
-    class Neighbor:protected InitPtrs
+    template<typename T> class Vec;
+    class Neighbor
     {
     private:
     protected:
@@ -16,7 +13,6 @@ namespace MAPP_NS
         {
         private:
             /*----------------------*/
-            const int dim;
             const int m;
             int& natms;
             int& natms_ph;
@@ -28,9 +24,9 @@ namespace MAPP_NS
             /*----------------------*/
             
             //size: dim
-            type0* cell_size;
-            int* cell_denom;
-            int* ncells_per_dim;
+            type0 cell_size[dimension];
+            int cell_denom[dimension];
+            int ncells_per_dim[dimension];
             
             //size: ncells
             int ncells;
@@ -55,7 +51,7 @@ namespace MAPP_NS
 
         protected:
         public:
-            Cell(MAPP*,int,type0*&);
+            Cell(int,type0*&);
             ~Cell();
            
             void create(bool);
@@ -84,8 +80,8 @@ namespace MAPP_NS
         int* neighbor_list_size_2nd;
         int neighbor_list_size_size_2nd;
         
-        Neighbor(MAPP*);
-        ~Neighbor();
+        Neighbor();
+        virtual ~Neighbor();
         
         virtual void create_list(bool)=0;
         virtual void init();

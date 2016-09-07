@@ -1,4 +1,5 @@
 #include "command_ff.h"
+#include "init.h"
 #include "error.h"
 #include "ff_styles.h"
 using namespace MAPP_NS;
@@ -6,8 +7,8 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Command_ff::Command_ff
-(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+(int nargs,char** args)
+
 {
     if(nargs!=2)
         error->abort("wrong command: %s",args[0]);
@@ -18,7 +19,7 @@ Command_ff::Command_ff
     #define FF_Style
     #define FFStyle(class_name,style_name)     \
     else if(strcmp(args[1],#style_name)==0)    \
-    forcefield=new class_name(mapp);
+    forcefield=new class_name();
     
     //different forcefileds
     if(0){}

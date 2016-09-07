@@ -211,8 +211,7 @@ void FindReplace::attach(char*& str,size_t& str_len,char c)
 | |/ / / /  | | | | \ \   / /       | |  / /  | | | | \  |  / /  | | | |_| | | |___  | | \ \  
 |___/ /_/   |_| |_|  \_\ /_/        |_| /_/   |_| |_|  \_| /_/   |_| \_____/ |_____| |_|  \_\
  -------------------------------------------------------------------------------------------*/
-VarManager::VarManager(Error*& error_):
-error(error_)
+VarManager::VarManager()
 {
     MAPP_NS::g_vm=this;
     

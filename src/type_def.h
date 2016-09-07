@@ -4,5 +4,3 @@ typedef unsigned char dmd_type;
 typedef unsigned char md_type;
 typedef unsigned char byte;
 #define MPI_TYPE0 MPI_DOUBLE
-
-

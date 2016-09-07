@@ -7,8 +7,8 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Command_ls::Command_ls
-(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+(int nargs,char** args)
+
 {
     if(nargs<2)
         error->abort("wrong command: %s",args[0]);
@@ -19,7 +19,7 @@ Command_ls::Command_ls
     #define LS_Style
     #define LSStyle(class_name,style_name)     \
     else if(strcmp(args[1],#style_name)==0)    \
-    ls=new class_name<Min>(mapp,nargs,args);
+    ls=new class_name<Min>(nargs,args);
     
     if(0){}
     #include "ls_styles.h"

@@ -7,13 +7,13 @@
 #include "timer.h"
 #include "error.h"
 #include "memory.h"
-
+#include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 ForceField::
-ForceField(MAPP* mapp) : InitPtrs(mapp)
+ForceField()
 {
     gcmc_tag_enabled=false;
     gcmc_n_vars=gcmc_n_cutoff=1;
@@ -28,14 +28,14 @@ ForceField(MAPP* mapp) : InitPtrs(mapp)
         error->abort("system configuration "
         "should be loaded before initiating ff");
 
-    if(atoms->dimension!=3)
+    if(dimension!=3)
         error->abort("the dimension of the box for ff");
     
     cut_off_alloc();
-    int dim=atoms->dimension;
+    int dim=dimension;
     if(dim)
     {
-        f=new Vec<type0>(atoms,mapp->x->dim);
+        f=new Vec<type0>(atoms,atoms->x->dim);
         CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
         CREATE1D(nrgy_strss_lcl,dim*(dim+1)/2+1);
         ns_alloc=1;
@@ -117,10 +117,9 @@ void ForceField::force_calc_timer(bool flag)
     force_calc(flag);
     if(flag)
     {
-        type0** H=atoms->H;
         type0 vol=1.0;
-        for(int idim=0;idim<atoms->dimension;idim++)
-            vol*=H[idim][idim];
+        for(int idim=0;idim<dimension;idim++)
+            vol*=atoms->H[idim][idim];
         for(int i=1;i<7;i++)
             nrgy_strss[i]/=vol;
     }

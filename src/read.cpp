@@ -6,13 +6,13 @@
 #include "ff.h"
 #include "atom_types.h"
 #include "error.h"
-
+#include "atoms.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Read::Read(MAPP* mapp):InitPtrs(mapp)
+Read::Read()
 {
     
     if(forcefield!=NULL)
@@ -26,7 +26,7 @@ Read::Read(MAPP* mapp):InitPtrs(mapp)
     
     atoms->restart();
     delete atom_types;
-    atom_types=new AtomTypes(mapp);
+    atom_types=new AtomTypes();
      
 }
 /*--------------------------------------------

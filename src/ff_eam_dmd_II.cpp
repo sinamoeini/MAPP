@@ -1,11 +1,14 @@
 #include <stdlib.h>
 #include "ff_eam_dmd_II.h"
+#include "eam_file_reader.h"
 #include "neighbor.h"
 #include "error.h"
 #include "memory.h"
 #include "atom_types.h"
+#include "atoms.h"
 #include "xmath.h"
 #include "cmd.h"
+#include "MAPP.h"
 #include <limits>
 #define PI_IN_SQ 0.564189583547756286948079451561
 #define GAMMA_FAC 0.25
@@ -15,9 +18,9 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 ForceField_eam_dmd_II::
-ForceField_eam_dmd_II(MAPP* mapp): ForceFieldDMD(mapp)
+ForceField_eam_dmd_II(): ForceFieldDMD()
 {
-    if(mapp->mode!=DMD_mode)
+    if(mode!=DMD_mode)
         error->abort("ff eam_dmd works only "
         "for dmd mode");
 
@@ -55,7 +58,7 @@ force_calc(bool st_clc)
     if(!dynamic_flag)
         return force_calc_static(st_clc);
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* fvec=f->begin();
     type0* E=E_ptr->begin();
@@ -393,7 +396,7 @@ force_calc(bool st_clc)
 type0 ForceField_eam_dmd_II::energy_calc()
 {
     type0 en=0.0,en_tot;
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* E=E_ptr->begin();
     type0* c=mapp->c->begin();
@@ -654,8 +657,8 @@ void ForceField_eam_dmd_II::coef(int nargs,char** args)
 
     no_types=atom_types->no_types;
     c_dim=mapp->c->dim;
-    x_dim=mapp->x->dim;
-    dim=atoms->dimension;
+    x_dim=atoms->x->dim;
+    dim=dimension;
     
     read_file(args[1]);
 }
@@ -702,7 +705,7 @@ void ForceField_eam_dmd_II::read_file(char* file_name)
     for(int i=0;i<no_types;i++)
         files[i]=NULL;
     
-    FileReader fr(mapp);
+    FileReader fr;
     
     fr.add_scl("degree",degree);
     fr.add_vlog()=vlogic("gt",0);
@@ -745,7 +748,7 @@ void ForceField_eam_dmd_II::read_file(char* file_name)
         rsq_crd[i]*=rsq_crd[i];
     
     delete eam_reader;
-    eam_reader=new EAMFileReader(mapp);
+    eam_reader=new EAMFileReader();
     
     eam_reader->file_format(file_format);
     eam_reader->add_file(files[0],0);
@@ -762,8 +765,8 @@ void ForceField_eam_dmd_II::read_file(char* file_name)
         Q_nrm[i]/=f_t[i]*sqrt(f_t[i]);
 
     
-    type0* x=mapp->x->begin();
-    int* id=mapp->id->begin();
+    type0* x=atoms->x->begin();
+    int* id=atoms->id->begin();
     dmd_type* type=mapp->ctype->begin();
     type0 alpha_bound=alpha_max/sqrt(2.0);
     for(int iatm=0;iatm<atoms->natms;iatm++)
@@ -900,7 +903,7 @@ void ForceField_eam_dmd_II::dc()
 {
     calc_mu();
 
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* c=mapp->c->begin();
     type0* c_d=mapp->c_d->begin();
     dmd_type* type=mapp->ctype->begin();
@@ -1010,7 +1013,7 @@ void ForceField_eam_dmd_II::calc_mu()
     int natms=atoms->natms;
     type0* c=mapp->c->begin();
     dmd_type* type=mapp->ctype->begin();
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* E=E_ptr->begin();
     type0* mu=mu_ptr->begin();
     type0* dE=dE_ptr->begin();
@@ -1256,7 +1259,7 @@ void ForceField_eam_dmd_II::init_static()
 void ForceField_eam_dmd_II::
 force_calc_static(bool st_clc)
 {
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* fvec=f->begin();
     type0* dE=dE_ptr->begin();
     type0* c=mapp->c->begin();
@@ -1341,7 +1344,7 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
     calc_mu();
     
     type0* c=mapp->c->begin();
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     dmd_type* type=mapp->ctype->begin();
     type0* mu=mu_ptr->begin();
     type0* cv=cv_ptr->begin();

@@ -2,14 +2,15 @@
 #include "command_planck.h"
 #include "md.h"
 #include "error.h"
+#include "init.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_planck::Command_planck(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+Command_planck::Command_planck(int nargs,char** args)
+
 {
-    if(mapp->md==NULL)
+    if(md==NULL)
         error->abort("before assigning the planck"
         " constant, md ensemble should be initialized");
     
@@ -20,7 +21,7 @@ Command_planck::Command_planck(MAPP* mapp,int nargs,char** args)
     
     if(planck<=0.0)
         error->abort("planck should be greater than 0.0");
-    mapp->md->hplanck=planck;
+    md->hplanck=planck;
     
 }
 /*--------------------------------------------

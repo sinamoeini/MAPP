@@ -3,7 +3,6 @@
 #else
 #ifndef __MAPP__ff_meam__
 #define __MAPP__ff_meam__
-
 #include "ff.h"
 namespace MAPP_NS
 {
@@ -228,7 +227,7 @@ namespace MAPP_NS
         type0 xchng_energy(GCMC*);
         void post_xchng_energy(GCMC*);
     public:
-        ForceField_meam(MAPP *);
+        ForceField_meam();
         ~ForceField_meam();
         void init();
         void fin();

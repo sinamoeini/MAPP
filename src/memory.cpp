@@ -8,7 +8,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Memory::Memory(MAPP* mapp):InitPtrs(mapp)
+Memory::Memory()
 {
 }
 /*--------------------------------------------

@@ -1,10 +1,11 @@
 #include "write.h"
 #include "timer.h"
+#include "init.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Write::Write(MAPP* mapp):InitPtrs(mapp)
+Write::Write()
 {
     last_write_step=-1;
 }

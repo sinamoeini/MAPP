@@ -3,6 +3,7 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "random.h"
+#include "init.h"
 #include "error.h"
 #include <cmath>
 #define RNG_M 2147483647
@@ -14,8 +15,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Random::Random(MAPP* mapp,int num)
-: InitPtrs(mapp)
+Random::Random(int num)
 {
     if(num<=0)
         error->abort("random seed cannot be"

@@ -1,11 +1,9 @@
 #ifndef __MAPP__eam_file_reader__
 #define __MAPP__eam_file_reader__
-#include "init.h"
-#include <stdio.h>
-
+#include "type_def.h"
 namespace MAPP_NS
 {
-    class EAMFileReader:protected InitPtrs
+    class EAMFileReader
     {
     private:
         int no_types;
@@ -28,7 +26,7 @@ namespace MAPP_NS
         int* types;
     protected:
     public:
-        EAMFileReader(MAPP*);
+        EAMFileReader();
         ~EAMFileReader();
         void setup();
         void set_cut_sq();

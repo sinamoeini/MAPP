@@ -1,7 +1,3 @@
-/*--------------------------------------------
- Created by Sina on 06/29/16.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifndef __MAPP__sgcmc__
 #define __MAPP__sgcmc__
 #include "gcmc.h"
@@ -56,11 +52,11 @@ namespace MAPP_NS
         int ngas_before;
         
         // size dim
-        type0* cell_size;
-        int* N_cells;
-        int* B_cells;
-        int* icell_coord;
-        int* jcell_coord;
+        type0 cell_size[dimension];
+        int N_cells[dimension];
+        int B_cells[dimension];
+        int icell_coord[dimension];
+        int jcell_coord[dimension];
 
         int* rel_neigh_lst_coord;
         
@@ -107,7 +103,7 @@ namespace MAPP_NS
         void box_dismantle();
 
     public:
-        SGCMC(MAPP*,int,dmd_type,type0,type0,int);
+        SGCMC(int,dmd_type,type0,type0,int);
         ~SGCMC();
         
         void init();

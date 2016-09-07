@@ -6,11 +6,13 @@
 #include "ff.h"
 #include "memory.h"
 #include "timer.h"
+#include "atoms.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor_dmd::Neighbor_dmd(MAPP* mapp):Neighbor(mapp)
+Neighbor_dmd::Neighbor_dmd():Neighbor()
 {
     neighbor_list_size_size_2nd=0;
 }
@@ -194,7 +196,7 @@ void Neighbor_dmd::create_2nd_list()
     int natms=atoms->natms;
 
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* c=mapp->c->begin();
     int c_dim=mapp->c->dim;
     dmd_type* type=mapp->ctype->begin();

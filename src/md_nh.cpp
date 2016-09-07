@@ -4,6 +4,7 @@
  --------------------------------------------*/
 #include <stdlib.h>
 #include "md_nh.h"
+#include "atoms.h"
 #include "ff.h"
 #include "random.h"
 #include "atom_types.h"
@@ -15,7 +16,7 @@
 #include "thermo_dynamics.h"
 #include "cmd.h"
 #include "pgcmc.h"
-
+#include "MAPP.h"
 
 
 using namespace MAPP_NS;
@@ -23,8 +24,7 @@ enum {NONE,X,Y,XY,Z,ZX,YZ,XYZ,TAU};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
-: MD(mapp)
+MD_nh::MD_nh(int nargs,char** args):MD()
 {
     //the defaults
     gcmc=NULL;
@@ -49,7 +49,7 @@ MD_nh::MD_nh(MAPP* mapp,int nargs,char** args)
     cmd(nargs,args);
     if(xchng_seed)
     {
-        gcmc=new PGCMC(mapp,1,gas_type,mu,t_tar,xchng_seed);
+        gcmc=new PGCMC(1,gas_type,mu,t_tar,xchng_seed);
         count_idx=thermo->add("count");
     }
 }
@@ -283,7 +283,7 @@ void MD_nh::run(int no_stps)
             update_x_d(dt2);
             
             update_x(dt);
-            atoms->update(mapp->x);
+            atoms->update(atoms->x);
             
             thermo->thermo_print();
             if(write!=NULL) write->write();
@@ -341,7 +341,7 @@ void MD_nh::run(int no_stps)
                     error->abort("degrees of freedom shoud be greater than 0 for md nh");
             }
             else
-               atoms->update(mapp->x);
+               atoms->update(atoms->x);
             
             memset(forcefield->f->begin(),0,atoms->natms*3*sizeof(type0));
             thermo->thermo_print();
@@ -494,7 +494,7 @@ void MD_nh::update_H(type0 dlt)
  --------------------------------------------*/
 void MD_nh::update_x(type0 dlt)
 {
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* x_d=mapp->x_d->begin();
     int natms=atoms->natms;
 
@@ -606,7 +606,7 @@ void MD_nh::update_x(type0 dlt)
             if(!dof_adj[i])
                 dx_ave[i]=0.0;
             
-        x=mapp->x->begin();
+        x=atoms->x->begin();
         for(int i=0;i<natms;i++)
         {
             x[0]-=dx_ave[0];
@@ -993,7 +993,7 @@ void MD_nh::create_vel(int seed,type0 temperature)
     for(int i=0;i<6;i++)
         ke_vec_lcl[i]=0.0;
     
-    class Random* random=new Random(mapp,seed);
+    class Random* random=new Random(seed);
 
     if(dof_xst)
     {
@@ -1181,7 +1181,7 @@ void MD_nh::calc_sigma(int istep)
  --------------------------------------------*/
 void MD_nh::modify_vrial()
 {
-    type0* xvec=mapp->x->begin();
+    type0* xvec=atoms->x->begin();
     type0* fvec=forcefield->f->begin();
     bool* dof=mapp->x_dof->begin();
     type0 st_lcl[6];
@@ -1223,7 +1223,7 @@ void MD_nh::cmd(int nargs,char** args)
     char* couple=NULL;
     char* gcmc_type=NULL;
     
-    Pattern cmd(error);
+    Pattern cmd;
     
     /*----------------------------*/
     cmd.cmd("nh");
@@ -1421,7 +1421,7 @@ void MD_nh::cmd(int nargs,char** args)
     char* ensemble=NULL;
     char* couple=NULL;
     
-    Pattern cmd(error);
+    Pattern cmd;
     
     cmd.cmd("nh");
     cmd.add_var(ensemble,"ensemble");

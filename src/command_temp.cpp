@@ -1,16 +1,17 @@
 #include <stdlib.h>
 #include "command_temp.h"
+#include "init.h"
 #include "error.h"
 #include "ff.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_temp::Command_temp(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+Command_temp::Command_temp(int nargs,char** args)
+
 {
     
-    if(mapp->mode!=DMD_mode)
+    if(mode!=DMD_mode)
         error->abort("temp works only in dmd mode");
             
     if(nargs!=2)

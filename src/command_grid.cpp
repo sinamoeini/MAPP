@@ -7,10 +7,9 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_grid::Command_grid(MAPP* mapp,int nargs
-,char** args):InitPtrs(mapp)
+Command_grid::Command_grid(int nargs
+,char** args)
 {
-    int dimension=atoms->dimension;
     if(nargs!=dimension+1)
         error->abort("grid command needs "
         "%d arguments",dimension);

@@ -3,13 +3,14 @@
 #include "write_cfg.h"
 #include "error.h"
 #include "memory.h"
+#include "atoms.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Write_cfg::Write_cfg(MAPP* mapp,int nargs
-,char** args) : Write(mapp)
+Write_cfg::Write_cfg(int nargs,char** args):Write()
 {
     thresh=1.0;
     strech=1.0;
@@ -19,19 +20,19 @@ Write_cfg::Write_cfg(MAPP* mapp,int nargs
     ndump_vecs_names=0;
     dim=3;
     
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         GROW(dump_vecs,ndump_vecs,ndump_vecs+1);
         dump_vecs[ndump_vecs]=mapp->type;
         ndump_vecs++;
         GROW(dump_vecs,ndump_vecs,ndump_vecs+1);
-        dump_vecs[ndump_vecs]=mapp->x;
+        dump_vecs[ndump_vecs]=atoms->x;
         ndump_vecs++;
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         GROW(dump_vecs,ndump_vecs,ndump_vecs+1);
-        dump_vecs[ndump_vecs]=mapp->x;
+        dump_vecs[ndump_vecs]=atoms->x;
         ndump_vecs++;
         GROW(dump_vecs,ndump_vecs,ndump_vecs+1);
         dump_vecs[ndump_vecs]=mapp->c;
@@ -91,7 +92,7 @@ Write_cfg::Write_cfg(MAPP* mapp,int nargs
         CREATE1D(dump_vecs_,ndump_vecs+1);
         for(int ivec=0;ivec<ndump_vecs;ivec++)
             dump_vecs_[ivec+1]=dump_vecs[ivec];
-        dump_vecs_[0]=mapp->id;
+        dump_vecs_[0]=atoms->id;
         if(ndump_vecs)
             delete [] dump_vecs;
         dump_vecs=dump_vecs_;
@@ -100,7 +101,7 @@ Write_cfg::Write_cfg(MAPP* mapp,int nargs
     }
 
 
-    if(usr_nabled || mapp->mode==DMD_mode)
+    if(usr_nabled || mode==DMD_mode)
         CREATE1D(clr_r,4);
 }
 /*--------------------------------------------
@@ -115,7 +116,7 @@ Write_cfg::~Write_cfg()
         delete [] dump_vecs_names;
     }
     
-    if(usr_nabled || mapp->mode==DMD_mode)
+    if(usr_nabled || mode==DMD_mode)
         delete [] clr_r;
     
     delete [] file_name;
@@ -128,9 +129,9 @@ Write_cfg::~Write_cfg()
  --------------------------------------------*/
 void Write_cfg::write_file(int stp)
 {
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
         write_file_md(stp);
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
         write_file_dmd(stp);
 }
 /*--------------------------------------------
@@ -144,7 +145,7 @@ void Write_cfg::write_file_md(int stp)
     int max_id=0;
     if(sorting)
     {
-        int* id=mapp->id->begin();
+        int* id=atoms->id->begin();
         int max_id_=-1;
         for(int i=0;i<atoms->natms;i++) max_id_=MAX(max_id_,id[i]);
         MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
@@ -195,7 +196,7 @@ void Write_cfg::write_file_md(int stp)
             }
             
             int tot_natms=atoms->tot_natms;
-            int* id=mapp->id->begin_dump();
+            int* id=atoms->id->begin_dump();
             int* sort;
             CREATE1D(sort,max_id);
             for(int i=0;i<max_id;i++)
@@ -337,7 +338,7 @@ void Write_cfg::write_file_dmd(int stp)
     int max_id=0;
     if(sorting)
     {
-        int* id=mapp->id->begin();
+        int* id=atoms->id->begin();
         int max_id_=-1;
         for(int i=0;i<atoms->natms;i++) max_id_=MAX(max_id_,id[i]);
         MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
@@ -366,7 +367,7 @@ void Write_cfg::write_file_dmd(int stp)
         
         
         int icomp=0;
-        int xx_dim=mapp->x->orig_dim-3;
+        int xx_dim=atoms->x->orig_dim-3;
         if(xx_dim==1)
         {
             fprintf(fp,"auxiliary[%d] = alpha [reduced unit]\n",icomp++);
@@ -406,7 +407,7 @@ void Write_cfg::write_file_dmd(int stp)
             int tot_natms=atoms->tot_natms;
             type0* c=mapp->c->begin_dump();
             int c_dim=mapp->c->orig_dim;
-            int* id=mapp->id->begin_dump();
+            int* id=atoms->id->begin_dump();
             int* sort;
             
             CREATE1D(sort,max_id);
@@ -510,8 +511,8 @@ void Write_cfg::write_file_dmd(int stp)
 void Write_cfg::x2s(int no)
 {
     
-    type0* x=mapp->x->begin_dump();
-    int x_dim=mapp->x->orig_dim;
+    type0* x=atoms->x->begin_dump();
+    int x_dim=atoms->x->orig_dim;
     type0** B=atoms->B;
     
     int icomp=0;
@@ -611,11 +612,11 @@ void Write_cfg::init()
     for(int ivec=0;ivec<ndump_vecs;ivec++)
         tot_dim+=dump_vecs[ivec]->orig_dim;
 
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
         tot_dim-=mapp->type->dim;
     
     if(sorting)
-        tot_dim-=mapp->id->dim;
+        tot_dim-=atoms->id->dim;
     
     Write::init();
 

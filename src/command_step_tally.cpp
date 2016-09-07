@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include "command_step_tally.h"
+#include "init.h"
 #include "error.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_step_tally::Command_step_tally(MAPP* mapp,
-int nargs,char** args):InitPtrs(mapp)
+Command_step_tally::Command_step_tally(
+int nargs,char** args)
 {
     if(nargs!=2)
         error->abort("step_tally command "

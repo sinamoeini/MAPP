@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_dmd_min__
 #define __MAPP__command_dmd_min__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_dmd_min:protected InitPtrs
+    class Command_dmd_min
     {
     private:
     protected:
     public:
-        Command_dmd_min(MAPP*,int,char**);
+        Command_dmd_min(int,char**);
         ~Command_dmd_min();
     };
 }

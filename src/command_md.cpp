@@ -1,13 +1,14 @@
 #include "command_md.h"
 #include "error.h"
 #include "md_styles.h"
+#include "init.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 Command_md::Command_md
-(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+(int nargs,char** args)
+
 {
     if(nargs<2)
         error->abort("wrong command: %s"
@@ -15,17 +16,17 @@ Command_md::Command_md
     
     int nh_xist=0;
     type0 t_step = 0.0,boltz=0.0;
-    if(mapp->md!=NULL)
+    if(md!=NULL)
     {
         nh_xist=1;
-        t_step=mapp->md->dt;
-        boltz=mapp->md->boltz;
-        delete mapp->md;
+        t_step=md->dt;
+        boltz=md->boltz;
+        delete md;
     }
     #define MD_Style
     #define MDStyle(class_name,style_name)      \
     else if(strcmp(args[1],#style_name)==0)     \
-    mapp->md= new class_name(mapp,nargs,args);
+    md=new class_name(nargs,args);
 
     if(0){}
     #include "md_styles.h"
@@ -36,8 +37,8 @@ Command_md::Command_md
     #undef MD_Style
     if(nh_xist)
     {
-        mapp->md->dt=t_step;
-        mapp->md->boltz=boltz;
+        md->dt=t_step;
+        md->boltz=boltz;
     }
 
     

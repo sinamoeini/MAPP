@@ -2,14 +2,15 @@
 #include "command_boltzmann.h"
 #include "md.h"
 #include "error.h"
+#include "init.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_boltzmann::Command_boltzmann(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+Command_boltzmann::Command_boltzmann(int nargs,char** args)
+
 {
-    if(mapp->md==NULL)
+    if(md==NULL)
         error->abort("before assigning the boltzmann"
         " constant, md ensemble should be initialized");
     
@@ -20,7 +21,7 @@ Command_boltzmann::Command_boltzmann(MAPP* mapp,int nargs,char** args)
     
     if(boltz<=0.0)
         error->abort("boltzmann should be greater than 0.0");
-    mapp->md->boltz=boltz;
+    md->boltz=boltz;
     
 }
 /*--------------------------------------------

@@ -46,16 +46,14 @@ namespace MAPP_NS
      del_ids;
      
      --------------------------------------------*/
-    
-    
-    class GCMC:protected InitPtrs
+    template<typename T>
+    class Vec;
+    class GCMC
     {
     private:
     protected:
         class ForceFieldMD* ff;
-        
-        const int dim;
-        
+                
         int igas,gas_id,ngas;
         md_type gas_type;
         type0 vol;
@@ -70,13 +68,13 @@ namespace MAPP_NS
         type0*& s_hi;
         
         // size dim
-        type0* s_buff;
-        type0* vel_buff;
-        type0* cut_s;
-        type0* s_lo_ph;
-        type0* s_hi_ph;
+        type0 s_buff[dimension];
+        type0 vel_buff[dimension];
+        type0 cut_s[dimension];
+        type0 s_lo_ph[dimension];
+        type0 s_hi_ph[dimension];
         
-        int** nimages_per_dim;
+        int nimages_per_dim[dimension][2];
         type0** s_trials;
 
         
@@ -103,8 +101,8 @@ namespace MAPP_NS
         int get_new_id();
 
     public:
-        GCMC(MAPP*,dmd_type,type0,type0,int);
-        ~GCMC();
+        GCMC(dmd_type,type0,type0,int);
+        virtual ~GCMC();
         
         virtual void init();
         virtual void fin();
@@ -138,19 +136,6 @@ namespace MAPP_NS
         int curr_root;
         bool root_succ;
     };
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
 }
 #endif
 

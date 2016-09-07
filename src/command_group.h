@@ -3,18 +3,16 @@
 #else
 #ifndef __MAPP__command_group__
 #define __MAPP__command_group__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_group: protected InitPtrs
+    class Command_group
     {
     private:
     protected:
     public:
-        Command_group(MAPP*,int,char**);
+        Command_group(int,char**);
         ~Command_group();
     };
 }
-
 #endif 
 #endif

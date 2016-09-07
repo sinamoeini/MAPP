@@ -20,16 +20,17 @@
 #include "write.h"
 #include "thermo_dynamics.h"
 #include "cmd.h"
+#include "ls.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min_lbfgs::Min_lbfgs(MAPP* mapp,int nargs,char** args):Min(mapp)
+Min_lbfgs::Min_lbfgs(int nargs,char** args):Min()
 {
     m_it=2;
     char* min_style;
     
-    Pattern cmd(error);
+    Pattern cmd;
     
     /*----------------------------*/
     cmd.cmd("min");

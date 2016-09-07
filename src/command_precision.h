@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_precision__
 #define __MAPP__command_precision__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_precision:protected InitPtrs
+    class Command_precision
     {
     private:
     protected:
     public:
-        Command_precision(MAPP*,int,char**);
+        Command_precision(int,char**);
         ~Command_precision();
     };
 }

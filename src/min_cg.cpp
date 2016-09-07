@@ -6,15 +6,16 @@
 #include "write.h"
 #include "thermo_dynamics.h"
 #include "cmd.h"
+#include "ls.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Min_cg::Min_cg(MAPP* mapp,int nargs,char** args):Min(mapp)
+Min_cg::Min_cg(int nargs,char** args):Min()
 {
     char* min_style=NULL;
     
-    Pattern cmd(error);
+    Pattern cmd;
     
     /*----------------------------*/
     cmd.cmd("min");

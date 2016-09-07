@@ -2,16 +2,14 @@
 #define __MAPP__memory__
 #include <exception>
 #include <new>
-#include "init.h"
-#include "error.h"
-
+#include "macros.h"
 namespace MAPP_NS
 {
-    class Memory : protected InitPtrs{
+    class Memory {
     private:
     protected:
     public:
-        Memory(MAPP *);
+        Memory();
         ~Memory();
         
         template <typename TYPE>
@@ -36,6 +34,8 @@ namespace MAPP_NS
     };
 }
 using namespace MAPP_NS;
+#include "error.h"
+#include "init.h"
 /*--------------------------------------------
  create 1d vector
  --------------------------------------------*/

@@ -1,10 +1,3 @@
-//
-//  ff_meam.cpp
-//  MAPP
-//
-//  Created by Sina on 7/23/14.
-//  Copyright (c) 2014 Li Group/Sina. All rights reserved.
-//
 #include "neighbor.h"
 #include "ff_meam.h"
 #include "atom_types.h"
@@ -12,13 +5,16 @@
 #include "error.h"
 #include <iostream>
 #include <fstream>
+#include "atoms.h"
+#include "MAPP.h"
+#include "script_reader.h"
 using namespace MAPP_NS;
 enum{FCC,BCC,HCP,DIM,DIAMOND,B1,C11,L12,B2};
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
 ForceField_meam::
-ForceField_meam(MAPP* mapp):ForceFieldMD(mapp)
+ForceField_meam():ForceFieldMD()
 {
     max_pairs=0;
     no_types=0;
@@ -681,7 +677,7 @@ void ForceField_meam::force_calc
     type0 fi[3],fj[3];
     type0 v[6];
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
     type0* rho_vec=rho_vec_ptr->begin();
@@ -1726,7 +1722,7 @@ type0 ForceField_meam::energy_calc()
     type0 A1i,A2i,A3i,A1j,A2j,A3j,B1i,B1j;
     
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* rho=rho_ptr->begin();
     type0* rho_vec=rho_vec_ptr->begin();
     md_type* type=mapp->type->begin();
@@ -2211,7 +2207,7 @@ void ForceField_meam::read_global(char* file_name)
     CREATE1D(buff,byte_sz);
     
     FILE* fp;
-    mapp->open_file(fp,file_name,"r");
+    ScriptReader::open_file(fp,file_name,"r");
     
     if(atoms->my_p==0)
     {
@@ -2410,16 +2406,16 @@ void ForceField_meam::read_local(char* file_name)
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    mapp->open_file(fp,file_name,"r");
+    ScriptReader::open_file(fp,file_name,"r");
     
     
     int icmp,jcmp,kcmp;
     type0 tmp;
     int tmp_;
     char tmp_str[20];
-    while(mapp->read_line(fp,line)!=-1)
+    while(ScriptReader::read_line(fp,line)!=-1)
     {
-        if(mapp->hash_remover(line)==0)
+        if(ScriptReader::hash_remover(line)==0)
             continue;
         if(0);
         else if(sscanf(line,"gsmooth_factor = %lf",&tmp)==1)

@@ -6,11 +6,13 @@
 #include "ff.h"
 #include "memory.h"
 #include "timer.h"
+#include "atoms.h"
+#include "xmath.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor::Neighbor(MAPP* mapp):InitPtrs(mapp)
+Neighbor::Neighbor()
 {
     pair_wise=true;
     neighbor_list_size_size=0;
@@ -39,7 +41,7 @@ void Neighbor::print_stats()
 void Neighbor::init()
 {
     no_neigh_lists=0;
-    cell=new Cell(mapp,1,atoms->max_cut_s);
+    cell=new Cell(1,atoms->max_cut_s);
     create_list(true);
 }
 /*--------------------------------------------
@@ -74,20 +76,15 @@ void Neighbor::rename_atoms(int* old_2_new)
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor::Cell::Cell(MAPP* mapp,int m_,type0*& cut_s_):
-dim(mapp->atoms->dimension),
+Neighbor::Cell::Cell(int m_,type0*& cut_s_):
 m(m_),
-natms(mapp->atoms->natms),
-natms_ph(mapp->atoms->natms_ph),
-x(mapp->atoms->x),
+natms(atoms->natms),
+natms_ph(atoms->natms_ph),
+x(atoms->x),
 cut_s(cut_s_),
-s_lo(mapp->atoms->s_lo),
-s_hi(mapp->atoms->s_hi)
+s_lo(atoms->s_lo),
+s_hi(atoms->s_hi)
 {
-    ncells_per_dim=new int[dim];
-    cell_denom=new int[dim];
-    cell_size=new type0[dim];
-    
     ncells=0;
     head_atm=NULL;
     
@@ -107,10 +104,7 @@ Neighbor::Cell::~Cell()
     delete [] rel_neigh_lst;
     
     delete [] head_atm;
-    
-    delete [] ncells_per_dim;
-    delete [] cell_denom;
-    delete [] cell_size;
+
 }
 /*--------------------------------------------
  
@@ -118,7 +112,7 @@ Neighbor::Cell::~Cell()
 void Neighbor::Cell::box_setup()
 {
     int ncells_=1;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         cell_size[i]=cut_s[i]/static_cast<type0>(m);
         ncells_per_dim[i]=static_cast<int>
@@ -127,11 +121,11 @@ void Neighbor::Cell::box_setup()
         ncells_*=ncells_per_dim[i];
     }
     
-    int countr[dim];
-    for(int i=0;i<dim;i++)
+    int countr[dimension];
+    for(int i=0;i<dimension;i++)
         countr[i]=-m;
     int max_no_neighs=1;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
         max_no_neighs*=2*m+1;
     
     delete [] rel_neigh_lst;
@@ -143,7 +137,7 @@ void Neighbor::Cell::box_setup()
     for(int i=0;i<max_no_neighs;i++)
     {
         sum=0;
-        for(int j=0;j<dim;j++)
+        for(int j=0;j<dimension;j++)
         {
             sum+=countr[j]*countr[j];
             if(countr[j]!=0)
@@ -153,14 +147,14 @@ void Neighbor::Cell::box_setup()
         if(sum<rc_sq)
         {
             tmp=0;
-            for(int j=0;j<dim;j++)
+            for(int j=0;j<dimension;j++)
                 tmp+=cell_denom[j]*countr[j];
             
             rel_neigh_lst[nneighs++]=tmp;
         }
         
         countr[0]++;
-        for(int j=0;j<dim-1;j++)
+        for(int j=0;j<dimension-1;j++)
             if(countr[j]==m+1)
             {
                 countr[j]=-m;
@@ -178,7 +172,7 @@ void Neighbor::Cell::box_setup()
 inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
 {    
     cell_no=0;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         if(s[i]<s_lo[i])
         {
@@ -277,9 +271,7 @@ void Neighbor::Cell::nxt_i()
         return;
     }
     jx=x->begin()+jatm*x->dim;
-    rsq=0.0;
-    for(int i=0;i<dim;i++)
-        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+    rsq=XMatrixVector::rsq<dimension>(ix,jx);
 }
 /*--------------------------------------------
  
@@ -301,9 +293,7 @@ void Neighbor::Cell::nxt_j()
         return;
     }
     jx=x->begin()+jatm*x->dim;
-    rsq=0.0;
-    for(int i=0;i<dim;i++)
-        rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+    rsq=XMatrixVector::rsq<dimension>(ix,jx);
 }
 
 

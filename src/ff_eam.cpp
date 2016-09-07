@@ -5,6 +5,10 @@
 #include "error.h"
 #include "memory.h"
 #include "cmd.h"
+#include "atoms.h"
+#include "MAPP.h"
+#include "eam_file_reader.h"
+#include "gcmc.h"
 using namespace MAPP_NS;
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 
@@ -12,13 +16,13 @@ enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
  constructor
  --------------------------------------------*/
 ForceField_eam::
-ForceField_eam(MAPP* mapp):ForceFieldMD(mapp)
+ForceField_eam():ForceFieldMD()
 {
     gcmc_n_cutoff=2;
     gcmc_n_vars=2;
     gcmc_tag_enabled=true;
 
-    if(mapp->mode!=MD_mode)
+    if(mode!=MD_mode)
         error->abort("ff eam works only "
         "for md mode");
 
@@ -51,7 +55,7 @@ force_calc(bool st_clc)
         CREATE1D(drhoj_dr,max_pairs);
     }
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
     md_type* type=mapp->type->begin();
@@ -244,7 +248,7 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_eam::energy_calc()
 {
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* rho=rho_ptr->begin();
     md_type* type=mapp->type->begin();
     
@@ -527,7 +531,7 @@ void ForceField_eam::init_xchng()
     rho_xchng_ptr=new Vec<type0>(atoms,1);
     F_xchng_ptr=new Vec<type0>(atoms,1);
     
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* rho=rho_ptr->begin();
     type0* F=F_ptr->begin();
     type0* rho_xchng=rho_xchng_ptr->begin();
@@ -615,7 +619,7 @@ void ForceField_eam::coef(int nargs,char** args)
     char** files;
     int nfiles;
     
-    Pattern cmd(error);
+    Pattern cmd;
     add_var(atom_types->no_types,"no. of elements in simulation");
     
     /*----------------------------*/
@@ -641,7 +645,7 @@ void ForceField_eam::coef(int nargs,char** args)
     cut_off_alloc();
     
     delete eam_reader;
-    eam_reader=new EAMFileReader(mapp);
+    eam_reader=new EAMFileReader();
     eam_reader->file_format(file_format);
     for(int i=0;i<nfiles;i++)
         eam_reader->add_file(files[i],i);

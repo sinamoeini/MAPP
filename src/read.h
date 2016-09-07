@@ -1,16 +1,13 @@
-/*--------------------------------------------
- Created by Sina on 07/23/13.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifndef __MAPP__read__
 #define __MAPP__read__
-#include "init.h"
-namespace MAPP_NS {
-    class Read : protected InitPtrs{
+namespace MAPP_NS
+{
+    class Read
+    {
     private:
     protected:
     public:
-        Read(MAPP *);
+        Read();
         virtual ~Read();
 
     };

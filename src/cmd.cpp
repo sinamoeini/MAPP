@@ -1,6 +1,7 @@
 #include "cmd.h"
 #include "atom_types.h"
-
+#include "atoms.h"
+#include "script_reader.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  
@@ -114,9 +115,7 @@ void PrintStyle::pattern_prop(const char* str_0,const char* str_1)
 |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|
  
  ---------------------------------------------------------*/
-Pattern::Pattern(Error*& err):
-error(err),
-varmngr(err)
+Pattern::Pattern()
 {
     curr_var=NULL;
     nsub_ptrns=0;
@@ -389,8 +388,7 @@ void Pattern::print_info()
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|
  ---------------------------------------------------------------------------------*/
 Pattern::SubPattern::SubPattern(VarManager& var_mngr_,const char* name_):
-var_mngr(var_mngr_),
-error(var_mngr_.error)
+var_mngr(var_mngr_)
 {
     name=new char[strlen(name_)+1];
     memcpy(name,name_,strlen(name_)+1);
@@ -1240,9 +1238,9 @@ void Pattern::SubPattern_2D_LT::conv_name(PrintStyle& ps)
 | |     | | | |___  | |___  | | \ \  | |___   / /  | | | |_| | | |___  | | \ \  
 |_|     |_| |_____| |_____| |_|  \_\ |_____| /_/   |_| |_____/ |_____| |_|  \_\
  ------------------------------------------------------------------------------*/
-FileReader::FileReader(MAPP* mapp):
-InitPtrs(mapp),varmngr(mapp->error),
-ntypes(mapp->atom_types->no_types)
+FileReader::FileReader():
+varmngr(),
+ntypes(atom_types->no_types)
 {
     file_name=NULL;
     type_ref=NULL;
@@ -1298,7 +1296,7 @@ void FileReader::read_header()
     int args_cpcty=0;
     
     while(nargs==0 && read_line(line)!=-1)
-        nargs=mapp->parse_line(line,args,args_cpcty);
+        nargs=ScriptReader::parse_line(line,args,args_cpcty);
     
     if(nargs==0)
         error->abort("%s file ended immaturely",file_name);
@@ -1540,8 +1538,7 @@ void FileReader::symmetric()
  --------------------------------------------*/
 FileReader::Ten::Ten(FileReader* fr_, const char* name_):
 fr(fr_),
-varmngr(fr_->varmngr),
-error(fr_->error)
+varmngr(fr_->varmngr)
 {
     size_t len=strlen(name_)+1;
     name=new char[len];

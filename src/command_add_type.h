@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_add_type__
 #define __MAPP__command_add_type__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_add_type:protected InitPtrs
+    class Command_add_type
     {
     private:
     protected:
     public:
-        Command_add_type(MAPP*,int,char**);
+        Command_add_type(int,char**);
         ~Command_add_type();
     };
 }

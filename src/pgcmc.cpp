@@ -3,6 +3,7 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "pgcmc.h"
+#include "atoms.h"
 #include "memory.h"
 #include "random.h"
 #include "atom_types.h"
@@ -10,12 +11,13 @@
 #include "ff.h"
 #include "md.h"
 #include "xmath.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-PGCMC::PGCMC(MAPP* mapp,int m_,dmd_type gas_type_,type0 mu_,type0 T_,int seed):
-GCMC(mapp,gas_type_,mu_,T_,seed),
+PGCMC::PGCMC(int m_,dmd_type gas_type_,type0 mu_,type0 T_,int seed):
+GCMC(gas_type_,mu_,T_,seed),
 m(m_)
 {
     n_comm=0;
@@ -43,31 +45,11 @@ m(m_)
     s_x_buff=NULL;
     s_buff=NULL;
     
-    N_c=new int[dim];
-    N_s=new int[dim];
-    N_curr_comms=new int[dim];
-    i_curr_comms=new int[dim];
-    max_N_cncrcy=new int[dim];
-    prll_dim=new bool[dim];
-    comm_buff=new byte[dim*sizeof(type0)+1];
-    p_vec=new int[dim];
-    op_vec=new int[dim];
-    N_p=new int[dim];
-    B_p=new int[dim];
-    N_prll=new int[dim];
-    B_prll=new int[dim];
-    N_pcomm=new int[dim];
-    B_pcomm=new int[dim];
-    N_comm=new int[dim];
-    B_comm=new int[dim];
-    N_cells=new int[dim];
-    B_cells=new int[dim];
-    icell_coord=new int[dim];
-    jcell_coord=new int[dim];
-    cell_size=new type0[dim];
     
-    comm_buff_size=dim*sizeof(type0)+1;
-    lcl_random=new Random(mapp,seed+atoms->my_p);
+    comm_buff=new byte[dimension*sizeof(type0)+1];
+    
+    comm_buff_size=dimension*sizeof(type0)+1;
+    lcl_random=new Random(seed+atoms->my_p);
     
     
     
@@ -80,21 +62,21 @@ m(m_)
      rel_neigh_lst requires knowledge of the box and 
      domain, it will be differed to create()
      --------------------------------------------------*/
-    int countr[dim];
-    for(int i=0;i<dim;i++)
+    int countr[dimension];
+    for(int i=0;i<dimension;i++)
         countr[i]=-m;
     int max_no_neighs=1;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
         max_no_neighs*=2*m+1;
     nneighs=0;
-    rel_neigh_lst_coord=new int[max_no_neighs*dim];
+    rel_neigh_lst_coord=new int[max_no_neighs*dimension];
     int* rel_neigh_lst_coord_=rel_neigh_lst_coord;
     int sum;
     int rc_sq=m*m;
     for(int i=0;i<max_no_neighs;i++)
     {
         sum=0;
-        for(int j=0;j<dim;j++)
+        for(int j=0;j<dimension;j++)
         {
             sum+=countr[j]*countr[j];
             if(countr[j]!=0)
@@ -103,22 +85,22 @@ m(m_)
         
         if(sum<rc_sq)
         {
-            for(int j=0;j<dim;j++)
+            for(int j=0;j<dimension;j++)
                 rel_neigh_lst_coord_[j]=countr[j];
-            rel_neigh_lst_coord_+=dim;
+            rel_neigh_lst_coord_+=dimension;
             nneighs++;
         }
         
         countr[0]++;
-        for(int j=0;j<dim-1;j++)
+        for(int j=0;j<dimension-1;j++)
             if(countr[j]==m+1)
             {
                 countr[j]=-m;
                 countr[j+1]++;
             }
     }
-    rel_neigh_lst_coord_=new int[nneighs*dim];
-    memcpy(rel_neigh_lst_coord_,rel_neigh_lst_coord,nneighs*dim*sizeof(int));
+    rel_neigh_lst_coord_=new int[nneighs*dimension];
+    memcpy(rel_neigh_lst_coord_,rel_neigh_lst_coord,nneighs*dimension*sizeof(int));
     delete [] rel_neigh_lst_coord;
     rel_neigh_lst_coord=rel_neigh_lst_coord_;
     
@@ -131,31 +113,9 @@ m(m_)
 PGCMC::~PGCMC()
 {
     delete [] rel_neigh_lst_coord;
-    delete lcl_random;
-    
-    
-    delete [] N_c;
-    delete [] N_s;
-    delete [] N_curr_comms;
-    delete [] i_curr_comms;
-    delete [] max_N_cncrcy;
-    delete [] prll_dim;
+    delete lcl_random;    
     delete [] comm_buff;
-    delete [] p_vec;
-    delete [] op_vec;
-    delete [] N_p;
-    delete [] B_p;
-    delete [] N_prll;
-    delete [] B_prll;
-    delete [] N_pcomm;
-    delete [] B_pcomm;
-    delete [] N_comm;
-    delete [] B_comm;
-    delete [] N_cells;
-    delete [] B_cells;
-    delete [] icell_coord;
-    delete [] jcell_coord;
-    delete [] cell_size;
+
 }
 /*--------------------------------------------
  
@@ -168,10 +128,10 @@ void PGCMC::init()
     {
         fprintf(output,"gcmc parallel grid: ");
         
-        for(int i=0;i<dim-1;i++)
+        for(int i=0;i<dimension-1;i++)
             fprintf(output,"%dx",N_prll[i]);
         
-        fprintf(output,"%d",N_prll[dim-1]);
+        fprintf(output,"%d",N_prll[dimension-1]);
         
         fprintf(output,"\n");
     }
@@ -192,7 +152,7 @@ void PGCMC::box_setup()
     box_dismantle();
     GCMC::box_setup();
     n_cells=1;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         cell_size[i]=cut_s[i]/static_cast<type0>(m);
         N_cells[i]=static_cast<int>((s_hi[i]-s_lo[i])/cell_size[i])+1;
@@ -206,19 +166,19 @@ void PGCMC::box_setup()
     
     
     s_buff=new type0*[max_n_cncrcy];
-    *s_buff=new type0[max_n_cncrcy*dim];
+    *s_buff=new type0[max_n_cncrcy*dimension];
     for(int i=1;i<max_n_cncrcy;i++)
-        s_buff[i]=s_buff[i-1]+dim;
+        s_buff[i]=s_buff[i-1]+dimension;
     
     cell_coord_buff=new int*[max_n_cncrcy];
-    *cell_coord_buff=new int[max_n_cncrcy*max_ntrial_atms*dim];
+    *cell_coord_buff=new int[max_n_cncrcy*max_ntrial_atms*dimension];
     for(int i=1;i<max_n_cncrcy;i++)
-        cell_coord_buff[i]=cell_coord_buff[i-1]+max_ntrial_atms*dim;
+        cell_coord_buff[i]=cell_coord_buff[i-1]+max_ntrial_atms*dimension;
     
     s_x_buff=new type0*[max_n_cncrcy];
-    *s_x_buff=new type0[max_n_cncrcy*max_ntrial_atms*dim];
+    *s_x_buff=new type0[max_n_cncrcy*max_ntrial_atms*dimension];
     for(int i=1;i<max_n_cncrcy;i++)
-        s_x_buff[i]=s_x_buff[i-1]+max_ntrial_atms*dim;
+        s_x_buff[i]=s_x_buff[i-1]+max_ntrial_atms*dimension;
 }
 /*--------------------------------------------
  release the memory allocated by box_setup
@@ -261,8 +221,8 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
     else tag_vec_p=NULL;
     cell_vec_p=new Vec<int>(atoms,1);
     next_vec_p=new Vec<int>(atoms,1);
-    s_vec_p=new Vec<type0>(atoms,dim);
-    memcpy(s_vec_p->begin(),mapp->x->begin(),sizeof(type0)*natms*dim);
+    s_vec_p=new Vec<type0>(atoms,dimension);
+    memcpy(s_vec_p->begin(),atoms->x->begin(),sizeof(type0)*natms*dimension);
     
     /*--------------------------------------------------
      here we reset head_atm
@@ -276,8 +236,8 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
      --------------------------------------------------*/
     int* next_vec=next_vec_p->begin();
     int* cell_vec=cell_vec_p->begin();
-    type0* s=mapp->x->begin()+(natms-1)*dim;
-    for(int i=natms-1;i>-1;i--,s-=dim)
+    type0* s=atoms->x->begin()+(natms-1)*dimension;
+    for(int i=natms-1;i>-1;i--,s-=dimension)
     {
         find_cell_no(s,cell_vec[i]);
         next_vec[i]=head_atm[cell_vec[i]];
@@ -312,7 +272,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
     
     
     ff->fin_xchng();
-    memcpy(mapp->x->begin(),s_vec_p->begin(),sizeof(type0)*natms*dim);
+    memcpy(atoms->x->begin(),s_vec_p->begin(),sizeof(type0)*natms*dimension);
     
     delete s_vec_p;
     delete next_vec_p;
@@ -334,7 +294,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
 inline void PGCMC::find_cell_no(type0*& s,int& cell_no)
 {
     cell_no=0;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
         cell_no+=B_cells[i]*MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1);
 }
 /*--------------------------------------------
@@ -342,7 +302,7 @@ inline void PGCMC::find_cell_no(type0*& s,int& cell_no)
  --------------------------------------------*/
 inline void PGCMC::find_cell_coord(type0*& s,int*& cell_coord)
 {
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         if(s[i]<s_lo[i])
             cell_coord[i]=-static_cast<int>((s_lo[i]-s[i])/cell_size[i])-1;
@@ -358,8 +318,8 @@ inline void PGCMC::find_cell_coord(type0*& s,int*& cell_coord)
 void PGCMC::prep_s_x_buff()
 {
     
-    int count[dim];
-    int n_per_dim[dim];
+    int count[dimension];
+    int n_per_dim[dimension];
     type0* buff;
     int* cell_coord;
     type0** H=atoms->H;
@@ -374,11 +334,9 @@ void PGCMC::prep_s_x_buff()
         }
         
         ntrial_atms[i]=1;
-
-        for(int j=0;j<dim;j++)
+        
+        for(int j=0;j<dimension;j++)
         {
-            
-
             no=0;
             s=s_buff[i][j];
             for(type0 s_=s;s_<s_hi_ph[j];s_++)
@@ -399,30 +357,25 @@ void PGCMC::prep_s_x_buff()
         buff=s_x_buff[i];
         cell_coord=cell_coord_buff[i];
         
-        for(int j=0;j<dim;j++) count[j]=0;
+        for(int j=0;j<dimension;j++) count[j]=0;
         for(int j=0;j<ntrial_atms[i];j++)
         {
-            for(int k=0;k<dim;k++)
+            for(int k=0;k<dimension;k++)
                 buff[k]=s_trials[k][count[k]];
             
             find_cell_coord(buff,cell_coord);
             
-            for(int k=0;k<dim;k++)
-            {
-                buff[k]*=H[k][k];
-                for(int l=k+1;l<dim;l++)
-                    buff[k]+=buff[l]*H[l][k];
-            }
+            XMatrixVector::s2x<dimension>(buff,H);
             
             count[0]++;
-            for(int k=0;k<dim-1;k++)
+            for(int k=0;k<dimension-1;k++)
                 if(count[k]==n_per_dim[k])
                 {
                     count[k]=0;
                     count[k+1]++;
                 }
-            cell_coord+=dim;
-            buff+=dim;
+            cell_coord+=dimension;
+            buff+=dimension;
         }
     }
 }
@@ -468,13 +421,13 @@ void PGCMC::next_iatm()
      assign the cell number and the already calculated
      cell coordinates
      --------------------------------------------------*/
-    for(int i=0;i<dim;i++)
-        icell_coord[i]=cell_coord_buff[icomm][dim*itrial_atm+i];
+    for(int i=0;i<dimension;i++)
+        icell_coord[i]=cell_coord_buff[icomm][dimension*itrial_atm+i];
     
     /*--------------------------------------------------
      assign the position of iatm
      --------------------------------------------------*/
-    ix=s_x_buff[icomm]+itrial_atm*dim;
+    ix=s_x_buff[icomm]+itrial_atm*dimension;
 }
 /*--------------------------------------------
  this is used for insertion trial
@@ -496,9 +449,9 @@ inline void PGCMC::next_jatm_reg()
         {
             bool lcl=true;
             jcell=0;
-            for(int i=0;i<dim && lcl;i++)
+            for(int i=0;i<dimension && lcl;i++)
             {
-                jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*dim+i];
+                jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*dimension+i];
                 jcell+=B_cells[i]*jcell_coord[i];
                 
                 if(jcell_coord[i]<0 || jcell_coord[i]>N_cells[i]-1)
@@ -527,12 +480,9 @@ inline void PGCMC::next_jatm_reg()
         
         if(jatm==iatm) continue;
         
-        jx=mapp->x->begin()+dim*jatm;
+        jx=atoms->x->begin()+dimension*jatm;
         jtype=mapp->type->begin()[jatm];
-        
-        rsq=0.0;
-        for(int i=0;i<dim;i++) rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
-        
+        rsq=XMatrixVector::rsq<dimension>(ix,jx);
         if(rsq>=cut_sq[itype][jtype]) continue;
         
         if(tag_vec_p) tag_vec_p->begin()[jatm]=icomm;
@@ -555,11 +505,9 @@ inline void PGCMC::next_jatm_self()
         }
         
         jatm=natms+iself;
-        jx=s_x_buff[icomm]+iself*dim;
+        jx=s_x_buff[icomm]+iself*dimension;
         jtype=gas_type;
-        rsq=0.0;
-        for(int i=0;i<dim;i++)
-            rsq+=(ix[i]-jx[i])*(ix[i]-jx[i]);
+        rsq=XMatrixVector::rsq<dimension>(ix,jx);
         
         if(rsq>=cut_sq[itype][jtype]) continue;
         
@@ -632,9 +580,9 @@ void PGCMC::attmpt()
         {
             gcmc_mode[0]=INS_MODE;
             comm_buff[0]=0;
-            for(int i=0;i<dim;i++)
+            for(int i=0;i<dimension;i++)
                 s_buff[0][i]=s_lo[i]+lcl_random->uniform()*(s_hi[i]-s_lo[i]);
-            memcpy(comm_buff+1,s_buff[0],dim*sizeof(type0));
+            memcpy(comm_buff+1,s_buff[0],dimension*sizeof(type0));
         }
         else
         {
@@ -649,10 +597,10 @@ void PGCMC::attmpt()
             for(;icount!=n;del_idx++)
                 if(type[del_idx]==gas_type) icount++;
             del_idx--;
-            gas_id=mapp->id->begin()[del_idx];
+            gas_id=atoms->id->begin()[del_idx];
             
-            memcpy(s_buff[0],s_vec_p->begin()+del_idx*dim,dim*sizeof(type0));
-            memcpy(comm_buff+1,s_buff[0],dim*sizeof(type0));
+            memcpy(s_buff[0],s_vec_p->begin()+del_idx*dimension,dimension*sizeof(type0));
+            memcpy(comm_buff+1,s_buff[0],dimension*sizeof(type0));
         }
         
         MPI_Bcast(comm_buff,comm_buff_size,MPI_BYTE,roots[0],*curr_comms[0]);
@@ -662,7 +610,7 @@ void PGCMC::attmpt()
         for(int i=0;i<n_curr_comms;i++)
         {
             MPI_Bcast(comm_buff,comm_buff_size,MPI_BYTE,roots[i],*curr_comms[i]);
-            memcpy(s_buff[i],comm_buff+1,dim*sizeof(type0));
+            memcpy(s_buff[i],comm_buff+1,dimension*sizeof(type0));
             
             if(comm_buff[0]==0)
                 gcmc_mode[i]=INS_MODE;
@@ -751,23 +699,23 @@ void PGCMC::del_succ()
 void PGCMC::ins_succ()
 {
     atoms->add();
-    for(int i=0;i<dim;i++) vel_buff[i]=lcl_random->gaussian()*sigma;
-    memcpy(mapp->x->begin()+(natms-1)*dim,s_x_buff[0],dim*sizeof(type0));
-    memcpy(mapp->x_d->begin()+(natms-1)*dim,vel_buff,dim*sizeof(type0));
+    for(int i=0;i<dimension;i++) vel_buff[i]=lcl_random->gaussian()*sigma;
+    memcpy(atoms->x->begin()+(natms-1)*dimension,s_x_buff[0],dimension*sizeof(type0));
+    memcpy(mapp->x_d->begin()+(natms-1)*dimension,vel_buff,dimension*sizeof(type0));
     mapp->type->begin()[natms-1]=gas_type;
-    mapp->id->begin()[natms-1]=new_id;
+    atoms->id->begin()[natms-1]=new_id;
     if(tag_vec_p) tag_vec_p->begin()[natms-1]=-1;
     if(mapp->x_dof)
     {
-        bool* dof=mapp->x_dof->begin()+(natms-1)*dim;
-        for(int i=0;i<dim;i++) dof[i]=true;
+        bool* dof=mapp->x_dof->begin()+(natms-1)*dimension;
+        for(int i=0;i<dimension;i++) dof[i]=true;
     }
     
     
-    memcpy(s_vec_p->begin()+(natms-1)*dim,s_buff[0],dim*sizeof(type0));
+    memcpy(s_vec_p->begin()+(natms-1)*dimension,s_buff[0],dimension*sizeof(type0));
     
     int cell_=0;
-    for(int i=0;i<dim;i++) cell_+=B_cells[i]*cell_coord_buff[0][i];
+    for(int i=0;i<dimension;i++) cell_+=B_cells[i]*cell_coord_buff[0][i];
     cell_vec_p->begin()[natms-1]=cell_;
     
     
@@ -786,10 +734,10 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
 {
     n_vars=n_vars_;
     n_s=n_s_;
-    ip=mapp->atoms->my_p;
+    ip=atoms->my_p;
     n_p=atoms->tot_p;
  
-    memcpy(p_vec,atoms->comm->my_loc,sizeof(int)*dim);
+    memcpy(p_vec,atoms->comm->my_loc,sizeof(int)*dimension);
     
     
     /*-----------------------------------------------------------------------------------------
@@ -805,7 +753,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     max_n_cncrcy=1;
     n_p=n_prll=n_pcomm=n_comm=1;
     int comm_id_sz=0;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         N_p[i]=atoms->comm->tot_p_grid[i];
         N_c[i]=static_cast<int>(ceil(static_cast<type0>(N_p[i])*cut_s[i]));
@@ -842,9 +790,9 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
         comm_id_sz+=max_N_cncrcy[i];
     }
     
-    comm_id=new int*[dim];
+    comm_id=new int*[dimension];
     *comm_id=new int[comm_id_sz];
-    for(int i=1;i<dim;i++) comm_id[i]=comm_id[i-1]+max_N_cncrcy[i-1];
+    for(int i=1;i<dimension;i++) comm_id[i]=comm_id[i-1]+max_N_cncrcy[i-1];
     
     success=new int[max_n_cncrcy];
     ntrial_atms=new int[max_n_cncrcy];
@@ -865,11 +813,11 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     comms=new MPI_Comm[n_comm];
     gcmc_world=new MPI_Comm;
     
-    int hi[dim];
-    int mid[dim];
-    int cntr[dim];
+    int hi[dimension];
+    int mid[dimension];
+    int cntr[dimension];
     int no=1;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         if(prll_dim[i])
         {
@@ -886,7 +834,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     MPI_Comm dummy;
     int jcomm,d,t,r,s,l,jkey,jcolor;
     jkey=0;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
         jkey+=p_vec[i]*B_p[i];
     MPI_Comm_split(world,0,jkey,gcmc_world);
     
@@ -895,7 +843,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
         jcomm=0;
         jkey=0;
         jcolor=0;
-        for(int j=0;j<dim && jcolor!=MPI_UNDEFINED;j++)
+        for(int j=0;j<dimension && jcolor!=MPI_UNDEFINED;j++)
         {
             
             if(prll_dim[j])
@@ -944,7 +892,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
             MPI_Comm_split(world,jcolor,ip,&dummy);
         
         cntr[0]++;
-        for(int j=0;j<dim-1;j++)
+        for(int j=0;j<dimension-1;j++)
             if(cntr[j]==hi[j])
             {
                 cntr[j]=0;
@@ -1000,7 +948,7 @@ void PGCMC::create_comm_pattern()
     im_root=true;
     origin_p=0;
     int iprll=0;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
 
         op_vec[i]=static_cast<int>(N_p[i]*random->uniform());
@@ -1063,7 +1011,7 @@ void PGCMC::create_comm_pattern()
     }
     
     
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
         i_curr_comms[i]=0;
     
     int ic,iroot;
@@ -1071,7 +1019,7 @@ void PGCMC::create_comm_pattern()
     {
         ic=0;
         iroot=0;
-        for(int j=0;j<dim;j++)
+        for(int j=0;j<dimension;j++)
         {
             if(prll_dim[j])
                 ic+=comm_id[j][i_curr_comms[j]]*B_comm[j];
@@ -1083,7 +1031,7 @@ void PGCMC::create_comm_pattern()
         curr_comms[i]=&comms[ic];
         
         i_curr_comms[0]++;
-        for(int j=0;j<dim-1;j++)
+        for(int j=0;j<dimension-1;j++)
             if(i_curr_comms[j]==N_curr_comms[j])
             {
                 i_curr_comms[j]=0;
@@ -1102,7 +1050,7 @@ void PGCMC::create_comm_pattern()
         if(next!=-1)
         {
             next_p=0;
-            for(int i=dim-1;i>-1;i--)
+            for(int i=dimension-1;i>-1;i--)
             {
                 next_p+=((op_vec[i]+(next/B_prll[i])*(N_s[i]+1))%N_p[i])*B_p[i];
                 next%=B_prll[i];
@@ -1114,7 +1062,7 @@ void PGCMC::create_comm_pattern()
         if(prev!=n_prll)
         {
             prev_p=0;
-            for(int i=dim-1;i>-1;i--)
+            for(int i=dimension-1;i>-1;i--)
             {
                 prev_p+=((op_vec[i]+(prev/B_prll[i])*(N_s[i]+1))%N_p[i])*B_p[i];
                 prev%=B_prll[i];
@@ -1228,7 +1176,7 @@ void PGCMC::finalize()
 
     tot_ngas+=int_buff[0];
     atoms->tot_natms+=int_buff[0];
-    dof_diff+=int_buff[0]*dim;
+    dof_diff+=int_buff[0]*dimension;
 }
 
 

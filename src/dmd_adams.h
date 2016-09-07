@@ -39,7 +39,7 @@ namespace MAPP_NS
         void err_fac_calc();
         void start();
     public:
-        DMD_adams(MAPP *,int,char**);
+        DMD_adams(int,char**);
         ~DMD_adams();
     };
 }

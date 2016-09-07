@@ -6,25 +6,29 @@
 #include "memory.h"
 #include "timer.h"
 #include "min_styles.h"
+#include "neighbor_dmd.h"
+#include "gmres.h"
+#include "MAPP.h"
+#include "script_reader.h"
 #include <limits>
 //#define DMD_DEBUG
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-DMD::DMD(MAPP* mapp):InitPtrs(mapp),
+DMD::DMD():
 nrgy_strss(forcefield->nrgy_strss)
 {
     if(forcefield==NULL)
         error->abort("ff should be "
         "initiated before dmd");
     
-    if(mapp->mode!=DMD_mode)
+    if(mode!=DMD_mode)
         error->abort("dmd works only "
         "for md mode");
     
     char** args;
-    int nargs=mapp->parse_line(
+    int nargs=ScriptReader::parse_line(
     "Time FE S_xx S_yy S_zz S_yz S_zx S_xy",args);
     
     time_idx=0;
@@ -32,7 +36,7 @@ nrgy_strss(forcefield->nrgy_strss)
     fe_idx=1;
     stress_idx=2;
     
-    thermo=new ThermoDynamics(mapp,nargs,args);
+    thermo=new ThermoDynamics(nargs,args);
     for(int i=0;i<nargs;i++)
         delete [] args[i];
     if(nargs)
@@ -106,7 +110,7 @@ void DMD::dmd_min(int nargs,char** args)
     #define MinStyle(class_name,style_name)   \
     else if(strcmp(args[1],#style_name)==0)   \
     {if(min!=NULL)delete min;                 \
-    min= new class_name(mapp,nargs,args_);}
+    min= new class_name(nargs,args_);}
 
     if(0){}
     #include "min_styles.h"
@@ -337,9 +341,9 @@ type0 DMD::vac_msd()
 {
     
     type0* c=mapp->c->begin();
-    type0* x=mapp->x->begin();
-    int x_dim=mapp->x->dim;
-    int dim=atoms->dimension;
+    type0* x=atoms->x->begin();
+    int x_dim=atoms->x->dim;
+    int dim=dimension;
     type0* sum_lcl;
     type0* sum;
     CREATE1D(sum_lcl,dim+2);
@@ -399,7 +403,7 @@ void DMD::reset()
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-DMDImplicit::DMDImplicit(MAPP* mapp):DMD(mapp)
+DMDImplicit::DMDImplicit():DMD()
 {
     max_iter=20;
     
@@ -721,7 +725,7 @@ void DMDImplicit::print_stats()
  --------------------------------------------*/
 void DMDImplicit::init()
 {
-    gmres=new GMRES<type0,ForceFieldDMD>(mapp,max_iter,c_dim,*forcefield_dmd);
+    gmres=new GMRES<type0,ForceFieldDMD>(max_iter,c_dim,*forcefield_dmd);
     DMD::init();
     max_succ_q=1;
     max_succ_dt=0.0;
@@ -750,8 +754,7 @@ void DMDImplicit::fin()
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-DMDExplicit::DMDExplicit(MAPP* mapp):
-DMD(mapp)
+DMDExplicit::DMDExplicit():DMD()
 {
     
 }

@@ -1,18 +1,13 @@
-/*--------------------------------------------
- Created by Sina on 06/20/13.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifdef MD_Style
     MDStyle(MD_nh,nh)
 #else
 #ifndef __MAPP__md_nh__
 #define __MAPP__md_nh__
-#include "init.h"
 #include "md.h"
-#include "cmd.h"
-#include <iostream>
-namespace MAPP_NS {
-    class MD_nh : public MD{
+namespace MAPP_NS
+{
+    class MD_nh : public MD
+    {
     private:
         int x_d_n,f_n,type_n,id_n;
         bool dof_xst;
@@ -86,7 +81,7 @@ namespace MAPP_NS {
         class GCMC* gcmc;
     protected:
     public:
-        MD_nh(MAPP*,int,char**);
+        MD_nh(int,char**);
         ~MD_nh();
         void init();
         void fin();

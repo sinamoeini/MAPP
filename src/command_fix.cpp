@@ -1,14 +1,15 @@
 #include "command_fix.h"
+#include "atoms.h"
 #include "memory.h"
 #include "error.h"
 #include "group.h"
 #include "atom_types.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_fix::Command_fix(MAPP* mapp
-,int nargs,char** args):InitPtrs(mapp)
+Command_fix::Command_fix(int nargs,char** args)
 {
     if(strcmp(args[1],"release")==0)
     {
@@ -31,7 +32,7 @@ Command_fix::Command_fix(MAPP* mapp
     }
     
     int iarg;
-    int dim=atoms->dimension;
+    int dim=dimension;
     int no_types=atom_types->no_types;
     byte* x_dof;
     byte* alpha_dof;
@@ -63,7 +64,7 @@ Command_fix::Command_fix(MAPP* mapp
             x_dof[2]=false;
         else if(sscanf(args[iarg],"c[%d]",&c_comp)==1)
         {
-            if(mapp->mode!=DMD_mode)
+            if(mode!=DMD_mode)
                 error->abort("c[%d] can only be used in dmd mode",c_comp);
             if(c_comp>=no_types || c_comp<0)
                 error->abort("invalid c component %d",c_comp);
@@ -71,7 +72,7 @@ Command_fix::Command_fix(MAPP* mapp
         }
         else if(sscanf(args[iarg],"alpha[%d]",&alpha_comp)==1)
         {
-            if(mapp->mode!=DMD_mode)
+            if(mode!=DMD_mode)
                 error->abort("alpha[%d] can only be used in dmd mode",alpha_comp);
             if(alpha_comp>=no_types || alpha_comp<0)
                 error->abort("invalid alpha component %d",alpha_comp);
@@ -130,7 +131,7 @@ Command_fix::Command_fix(MAPP* mapp
     int natms=atoms->natms;
     if(x_xst || alpha_xst)
     {
-        x_dim=mapp->x->dim;
+        x_dim=atoms->x->dim;
         if(mapp->x_dof==NULL)
         {
             mapp->x_dof=new Vec<bool>(atoms,x_dim);

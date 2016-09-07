@@ -5,7 +5,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor of timer
  --------------------------------------------*/
-Timer::Timer(MAPP* mapp):InitPtrs(mapp)
+Timer::Timer()
 {
     nmodes=0;
     curr_level=-1;

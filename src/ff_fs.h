@@ -1,7 +1,3 @@
-/*--------------------------------------------
- Created by Sina on 01/29/14.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifdef FF_Style
     FFStyle(ForceField_fs,fs)
 #else
@@ -43,7 +39,7 @@ namespace MAPP_NS
         type0 xchng_energy(GCMC*);
         void post_xchng_energy(GCMC*);
     public:
-        ForceField_fs(MAPP *);
+        ForceField_fs();
         ~ForceField_fs();
         void init();
         void fin();

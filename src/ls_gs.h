@@ -12,13 +12,12 @@ namespace MAPP_NS
     {
     private:
         Func* func;
-        Error*& error;
         type0 tol;
         type0 max_iter;
         bool brack;
     protected:
     public:
-        LineSearch_goldensection(MAPP*,int,char**);
+        LineSearch_goldensection(int,char**);
         virtual void init(Func*);
         ~LineSearch_goldensection();
         int line_min(type0&,type0&,int);
@@ -31,16 +30,15 @@ namespace MAPP_NS
  --------------------------------------------*/
 template<class Func>
 LineSearch_goldensection<Func>::
-LineSearch_goldensection(MAPP* mapp,int nargs,char** args):
-LineSearch<Func>(mapp),
-error(mapp->error)
+LineSearch_goldensection(int nargs,char** args):
+LineSearch<Func>()
 {
     tol=sqrt(LineSearch<Func>::epsilon);
     max_iter=5;
     brack=true;
     
     
-    Pattern cmd(error);
+    Pattern cmd;
     char* ls_style=NULL;
     char* bracket=NULL;
     

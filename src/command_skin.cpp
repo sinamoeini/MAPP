@@ -6,8 +6,8 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_skin::Command_skin(MAPP* mapp,int nargs
-,char** args):InitPtrs(mapp)
+Command_skin::Command_skin(int nargs
+,char** args)
 {
     if(nargs!=2)
         error->abort("skin command needs only 1 argument");

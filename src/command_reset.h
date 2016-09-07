@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_reset__
 #define __MAPP__command_reset__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_reset:protected InitPtrs
+    class Command_reset
     {
     private:
     protected:
     public:
-        Command_reset(MAPP*,int,char**);
+        Command_reset(int,char**);
         ~Command_reset();
     };
 }

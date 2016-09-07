@@ -9,6 +9,8 @@
 #include "error.h"
 #include "memory.h"
 #include "cmd.h"
+#include "atoms.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
@@ -24,9 +26,9 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 ForceField_fsm::
-ForceField_fsm(MAPP* mapp):ForceFieldMD(mapp)
+ForceField_fsm():ForceFieldMD()
 {
-    if(mapp->mode!=MD_mode)
+    if(mode!=MD_mode)
         error->abort("ff fsm works only "
         "for md mode");
     no_types=0;
@@ -120,7 +122,7 @@ void ForceField_fsm::deallocate()
  --------------------------------------------*/
 void ForceField_fsm::read_file(char* file_name)
 {
-    FileReader fr(mapp);
+    FileReader fr;
     
     fr.add_1D("A",mat_A);
     
@@ -218,7 +220,7 @@ void ForceField_fsm::post_xchng_energy(GCMC*)
 void ForceField_fsm::
 force_calc(bool st_clc)
 {
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
     md_type* type=mapp->type->begin();
@@ -403,7 +405,7 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_fsm::energy_calc()
 {
-    type0* x=mapp->x->begin();
+    type0* x=atoms->x->begin();
     type0* rho=rho_ptr->begin();
     md_type* type=mapp->type->begin();
     

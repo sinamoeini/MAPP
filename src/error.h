@@ -4,14 +4,16 @@
  --------------------------------------------*/
 #ifndef __MAPP__error__
 #define __MAPP__error__
-#include "init.h"
-namespace MAPP_NS {
-    class Error : protected InitPtrs {
+#include <string.h>
+namespace MAPP_NS
+{
+    class Error
+    {
     private:
     protected:
         int my_no;
     public:
-        Error(MAPP *);
+        Error();
         ~Error();
         void abort(const char*,...);
         void abort_sing(const char*,...);

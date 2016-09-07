@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_step_tally__
 #define __MAPP__command_step_tally__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_step_tally:protected InitPtrs
+    class Command_step_tally
     {
     private:
     protected:
     public:
-        Command_step_tally(MAPP*,int,char**);
+        Command_step_tally(int,char**);
         ~Command_step_tally();
     };
 }

@@ -155,10 +155,9 @@ namespace MAPP_NS
         void start();
         void err_fac_calc();
     public:
-        DMD_bdf(MAPP*,int,char**);
+        DMD_bdf(int,char**);
         ~DMD_bdf();
     };
 }
-
 #endif 
 #endif

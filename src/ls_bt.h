@@ -12,17 +12,15 @@ namespace MAPP_NS
     {
     private:
         Func* func;
-        Error*& error;
     protected:
         type0 c,rho,min_alpha;
     public:
-        LineSearch_backtrack(MAPP*,int,char**);
+        LineSearch_backtrack(int,char**);
         virtual void init(Func*);
         ~LineSearch_backtrack();
         int line_min(type0&,type0&,int);
     };
 }
-
 #include <stdlib.h>
 #include "cmd.h"
 /*--------------------------------------------
@@ -30,15 +28,14 @@ namespace MAPP_NS
  --------------------------------------------*/
 template<class Func>
 LineSearch_backtrack<Func>::
-LineSearch_backtrack(MAPP* mapp,int nargs,char** args):
-LineSearch<Func>(mapp),
-error(mapp->error)
+LineSearch_backtrack(int nargs,char** args):
+LineSearch<Func>()
 {
     min_alpha=0.0;
     c=0.4;
     rho=0.5;
     
-    Pattern cmd(error);
+    Pattern cmd;
 
     char* ls_style=NULL;
     cmd.cmd("ls");

@@ -1,9 +1,8 @@
 #ifndef __MAPP__group__
 #define __MAPP__group__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Group:protected InitPtrs
+    class Group
     {
     private:
     protected:
@@ -12,18 +11,18 @@ namespace MAPP_NS
         int grp_sz;
         int grp_sz_tot;
     public:
-        Group(MAPP*,const char*);
-        ~Group();
+        Group(const char*);
+        virtual ~Group();
         void get_idx(int&,int*&);
         char* name;
     };
     
-    class GroupCollection:protected InitPtrs
+    class GroupCollection
     {
     private:
     protected:
     public:
-        GroupCollection(MAPP*);
+        GroupCollection();
         ~GroupCollection();
         Group** grps;
         int ngrps;
@@ -41,7 +40,7 @@ namespace MAPP_NS
     protected:
         void update();
     public:
-        Group_general(MAPP*,const char*,int,char**);
+        Group_general(const char*,int,char**);
         ~Group_general();
 
     };
@@ -54,7 +53,7 @@ namespace MAPP_NS
     protected:
         void update();
     public:
-        Group_type(MAPP*,const char*,int,char**);
+        Group_type(const char*,int,char**);
         ~Group_type();
     };
 }

@@ -8,19 +8,21 @@
 #include "xmath.h"
 #include "error.h"
 #include "memory.h"
-
+#include "atoms.h"
+#include "script_reader.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Read_cfg::Read_cfg(MAPP* mapp,int nargs,char** args)
-:Read(mapp)
+Read_cfg::Read_cfg(int nargs,char** args)
+:Read()
 {
     
     if(nargs!=3)
         error->abort("read cfg should only have 1 argument");
     file_name=args[2];
-    if(atoms->dimension!=3)
+    if(dimension!=3)
         error->abort("read cfg works only with 3 dimensional boxes");
     
     curr_id=0;
@@ -51,7 +53,7 @@ Read_cfg::Read_cfg(MAPP* mapp,int nargs,char** args)
     
     
     FILE* fp=NULL;
-    mapp->open_file(fp,file_name,"r");
+    ScriptReader::open_file(fp,file_name,"r");
     
     read_header(fp);
     set_box();
@@ -101,10 +103,10 @@ void Read_cfg::read_header(FILE* fp)
     if(atoms->my_p==0)
         fgetpos(fp,&pos);
     
-    while(!header_cmplt && mapp->read_line(fp,line)!=-1)
+    while(!header_cmplt && ScriptReader::read_line(fp,line)!=-1)
     {
         
-        nargs=mapp->hash_remover(line);
+        nargs=ScriptReader::hash_remover(line);
         if((nargs==8 && ext_cfg==0) || (nargs==1 && ext_cfg))
         {
             header_cmplt=1;
@@ -279,11 +281,11 @@ void Read_cfg::read_atom(FILE* fp)
     char* line;
     CREATE1D(line,MAXCHAR);
     
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
-        while(mapp->read_line(fp,line)!=-1)
+        while(ScriptReader::read_line(fp,line)!=-1)
         {
-            nargs=mapp->parse_line(line,args,args_cpcty);
+            nargs=ScriptReader::parse_line(line,args,args_cpcty);
             
             if(nargs==0)
                 continue;
@@ -335,11 +337,11 @@ void Read_cfg::read_atom(FILE* fp)
             }
         }
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
-        while(mapp->read_line(fp,line)!=-1)
+        while(ScriptReader::read_line(fp,line)!=-1)
         {
-            nargs=mapp->parse_line(line,args,args_cpcty);
+            nargs=ScriptReader::parse_line(line,args,args_cpcty);
             
             if(nargs==0)
                 continue;
@@ -417,12 +419,12 @@ void Read_cfg::add_atom_read_x(int t)
         }
     
     memcpy(ch_buff,tmp_buff,3*sizeof(type0));
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
         md_type tt=static_cast<md_type>(t);
         memcpy(&ch_buff[ch_type],&tt,sizeof(md_type));
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         dmd_type tt=static_cast<md_type>(t);
         memcpy(&ch_buff[ch_type],&tt,sizeof(dmd_type));
@@ -470,10 +472,10 @@ void Read_cfg::add_atom_read_x()
  --------------------------------------------*/
 void Read_cfg::set_vec_lst()
 {
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
-        mapp->x=new Vec<type0>(atoms,3);
-        mapp->id=new Vec<int>(atoms,1);
+        atoms->x=new Vec<type0>(atoms,3);
+        atoms->id=new Vec<int>(atoms,1);
         mapp->type=new Vec<md_type>(atoms,1);
 
 
@@ -483,58 +485,58 @@ void Read_cfg::set_vec_lst()
                 delete mapp->x_d;
             mapp->x_d=new Vec<type0>(atoms,3);
             
-            ch_id=mapp->x->byte_sz;
-            ch_type=ch_id+mapp->id->byte_sz;
+            ch_id=atoms->x->byte_sz;
+            ch_type=ch_id+atoms->id->byte_sz;
             ch_x_d=ch_type+mapp->type->byte_sz;
             tmp_buff_size=6;
             CREATE1D(tmp_buff,tmp_buff_size);
             
             nvecs=4;
             CREATE1D(vec_lst,nvecs);
-            vec_lst[0]=mapp->x;
-            vec_lst[1]=mapp->id;
+            vec_lst[0]=atoms->x;
+            vec_lst[1]=atoms->id;
             vec_lst[2]=mapp->type;
             vec_lst[3]=mapp->x_d;
         }
         else
         {
-            ch_id=mapp->x->byte_sz;
-            ch_type=ch_id+mapp->id->byte_sz;
+            ch_id=atoms->x->byte_sz;
+            ch_type=ch_id+atoms->id->byte_sz;
             tmp_buff_size=3;
             CREATE1D(tmp_buff,tmp_buff_size);
 
             nvecs=3;
             CREATE1D(vec_lst,nvecs);
-            vec_lst[0]=mapp->x;
-            vec_lst[1]=mapp->id;
+            vec_lst[0]=atoms->x;
+            vec_lst[1]=atoms->id;
             vec_lst[2]=mapp->type;
             
         }
 
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
         if((entry_count-3)%2!=0)
             error->abort("entry_count-3 in %s file should be divisible by 2",file_name);
         dmd_no_types=(entry_count-3)/2;
 
-        mapp->x=new Vec<type0>(atoms,3+dmd_no_types);
-        mapp->id=new Vec<int>(atoms,1);
+        atoms->x=new Vec<type0>(atoms,3+dmd_no_types);
+        atoms->id=new Vec<int>(atoms,1);
 
         if(mapp->c!=NULL)
             delete mapp->c;
         mapp->c=new Vec<type0>(atoms,dmd_no_types);
         
-        ch_id=mapp->x->byte_sz;
-        ch_c=ch_id+mapp->id->byte_sz;
+        ch_id=atoms->x->byte_sz;
+        ch_c=ch_id+atoms->id->byte_sz;
         
         tmp_buff_size=3+2*dmd_no_types;
         CREATE1D(tmp_buff,tmp_buff_size);
 
         nvecs=3;
         CREATE1D(vec_lst,nvecs);
-        vec_lst[0]=mapp->x;
-        vec_lst[1]=mapp->id;
+        vec_lst[0]=atoms->x;
+        vec_lst[1]=atoms->id;
         vec_lst[2]=mapp->c;
         
         if(ext_cfg==0)
@@ -552,7 +554,7 @@ void Read_cfg::set_vec_lst()
  --------------------------------------------*/
 void Read_cfg::set_vecs()
 {
-        if(mapp->mode==DMD_mode)
+        if(mode==DMD_mode)
     {
         if(atom_types->no_types!=dmd_no_types)
             error->abort("%s file should conatin properties of %d atom types",file_name,dmd_no_types);
@@ -569,7 +571,7 @@ void Read_cfg::set_vecs()
     
     atoms->s2x_lcl();
 
-    if(mapp->mode==DMD_mode)
+    if(mode==DMD_mode)
     {
         type0* c=mapp->c->begin();
         
@@ -590,7 +592,7 @@ void Read_cfg::set_vecs()
         mapp->ctype=new Vec<dmd_type>(atoms,dmd_no_types);
         
         dmd_type* ctype=mapp->ctype->begin();
-        type0* x=mapp->x->begin();
+        type0* x=atoms->x->begin();
         
         dmd_type icurs;
         
@@ -611,7 +613,7 @@ void Read_cfg::set_vecs()
         }
         
         mapp->ctype->change_dimension(cdim);
-        mapp->x->change_dimension(0.0,dmd_no_types,dmd_no_types-cdim);
+        atoms->x->change_dimension(0.0,dmd_no_types,dmd_no_types-cdim);
         mapp->c->change_dimension(-1.0,dmd_no_types,dmd_no_types-cdim);
         
         mapp->c->assign_print_format("%e ");

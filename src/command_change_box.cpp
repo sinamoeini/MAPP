@@ -8,11 +8,10 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_change_box::Command_change_box(MAPP* mapp
-,int nargs,char** args):InitPtrs(mapp)
+Command_change_box::Command_change_box(int nargs,char** args)
 {
     
-    int dim=atoms->dimension;
+    int dim=dimension;
     type0** A;
     CREATE_2D(A,dim,dim);
     

@@ -7,8 +7,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_group::Command_group(MAPP* mapp
-,int nargs,char** args):InitPtrs(mapp)
+Command_group::Command_group(int nargs,char** args)
 {
     if(nargs<3)
         error->abort("group command needs at least 2 arguments");

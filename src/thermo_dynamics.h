@@ -1,6 +1,6 @@
 #ifndef __MAPP__thermo_dynamics__
 #define __MAPP__thermo_dynamics__
-#include "init.h"
+#include "type_def.h"
 namespace MAPP_NS
 {
     
@@ -25,7 +25,7 @@ namespace MAPP_NS
     };
     
     
-    class ThermoDynamics : protected InitPtrs
+    class ThermoDynamics 
     {
     private:
     protected:
@@ -36,14 +36,13 @@ namespace MAPP_NS
         void tail_print();
         void val_print();
         
-        int precision;
         int mod_lngth;
         ThermoQuantity* quantities;
         int no_quantities;
         char* qform;
         char* sform;
     public:
-        ThermoDynamics(MAPP*,int,char**);
+        ThermoDynamics(int,char**);
         ~ThermoDynamics();
         int add(const char*);
         void update(int,type0);

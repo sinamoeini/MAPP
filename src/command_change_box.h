@@ -3,17 +3,16 @@
 #else
 #ifndef __MAPP__command_change_box__
 #define __MAPP__command_change_box__
-#include "init.h"
-namespace MAPP_NS {
-    class Command_change_box: protected InitPtrs
+namespace MAPP_NS
+{
+    class Command_change_box
     {
     private:
     protected:
     public:
-        Command_change_box(MAPP*,int,char**);
+        Command_change_box(int,char**);
         ~Command_change_box();
     };
 }
-
 #endif
 #endif

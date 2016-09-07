@@ -2,6 +2,7 @@
  Created by Sina on 06/05/13.
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
+#include <mpi.h>
 #include "gcmc.h"
 #include "memory.h"
 #include "random.h"
@@ -9,12 +10,13 @@
 #include "neighbor.h"
 #include "ff.h"
 #include "md.h"
+#include "MAPP.h"
+#include "atoms.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-GCMC::GCMC(MAPP* mapp,dmd_type gas_type_,type0 mu_,type0 T_,int seed):InitPtrs(mapp),
-dim(atoms->dimension),
+GCMC::GCMC(dmd_type gas_type_,type0 mu_,type0 T_,int seed):
 gas_type(gas_type_),
 mu(mu_),
 T(T_),
@@ -28,20 +30,11 @@ itype(gas_type)
     ff=dynamic_cast<ForceFieldMD*>(forcefield);
     if(!ff)
         error->abort("gcmc requires an md type forcefield");
-    if(mapp->x->dim!=dim)
-        error->abort("x dimension must be %d for gcmc",dim);
+    if(atoms->x->dim!=dimension)
+        error->abort("x dimension must be %d for gcmc",dimension);
     
-    random=new Random(mapp,seed);
-    s_buff=new type0[dim];
-    vel_buff=new type0[dim];
-    cut_s=new type0[dim];
-    s_lo_ph=new type0[dim];
-    s_hi_ph=new type0[dim];
-    
-    nimages_per_dim=new int*[dim];
-    *nimages_per_dim=new int[dim*2];
-    for(int i=1;i<dim;i++) nimages_per_dim[i]=nimages_per_dim[i-1]+2;
-    s_trials=new type0*[dim];
+    random=new Random(seed);
+    s_trials=new type0*[dimension];
     *s_trials=NULL;
     del_ids=NULL;
     del_ids_sz=del_ids_cpcty=0;
@@ -54,13 +47,6 @@ GCMC::~GCMC()
 {
     delete [] del_ids;
     delete [] s_trials;
-    delete [] *nimages_per_dim;
-    delete [] nimages_per_dim;
-    delete [] s_hi_ph;
-    delete [] s_lo_ph;
-    delete [] cut_s;
-    delete [] vel_buff;
-    delete [] s_buff;
     delete random;
 }
 /*--------------------------------------------
@@ -105,18 +91,18 @@ void GCMC::init()
         cut=MAX(cut,forcefield->cut[itype][i]);
     
     gas_mass=atom_types->mass[gas_type];
-    kbT=mapp->md->boltz*T;
+    kbT=md->boltz*T;
     beta=1.0/kbT;
-    lambda=mapp->md->hplanck/sqrt(2.0*M_PI*kbT*gas_mass);
+    lambda=md->hplanck/sqrt(2.0*M_PI*kbT*gas_mass);
     sigma=sqrt(kbT/gas_mass);
     z_fac=1.0;
-    for(int i=0;i<dim;i++) z_fac/=lambda;
+    for(int i=0;i<dimension;i++) z_fac/=lambda;
     z_fac*=exp(beta*mu);
     vol=1.0;
-    for(int i=0;i<dim;i++)vol*=atoms->H[i][i];
+    for(int i=0;i<dimension;i++)vol*=atoms->H[i][i];
     
     int max_id_=0;
-    int* id=mapp->id->begin();
+    int* id=atoms->id->begin();
     for(int i=0;i<natms;i++)
         max_id_=MAX(id[i],max_id_);
     MPI_Allreduce(&max_id_,&max_id,1,MPI_INT,MPI_MAX,world);
@@ -143,10 +129,10 @@ void GCMC::box_setup()
 {
     int sz=0;
     max_ntrial_atms=1;
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<dimension;i++)
     {
         type0 tmp=0.0;
-        for(int j=i;j<dim;j++)
+        for(int j=i;j<dimension;j++)
             tmp+=atoms->B[j][i]*atoms->B[j][i];
         cut_s[i]=sqrt(tmp)*cut;
         
@@ -162,7 +148,7 @@ void GCMC::box_setup()
     }
     
     *s_trials=new type0[sz];
-    for(int i=1;i<dim;i++)
+    for(int i=1;i<dimension;i++)
         s_trials[i]=s_trials[i-1]+1+nimages_per_dim[i-1][0]+nimages_per_dim[i-1][1];
 }
 /*--------------------------------------------

@@ -4,11 +4,12 @@
  --------------------------------------------*/
 #ifndef __MAPP__ff__
 #define __MAPP__ff__
-#include "init.h"
-#include "gcmc.h"
-
-namespace MAPP_NS {
-    class ForceField : protected InitPtrs{
+#include "type_def.h"
+namespace MAPP_NS
+{
+    template<typename T>
+    class Vec;
+    class ForceField {
     private:
         int cut_sz;
         int ns_alloc;
@@ -21,7 +22,7 @@ namespace MAPP_NS {
         virtual void force_calc(bool)=0;
         virtual type0 energy_calc()=0;
     public:
-        ForceField(MAPP *);
+        ForceField();
         virtual ~ForceField();
 
         
@@ -53,11 +54,11 @@ namespace MAPP_NS
     {
     private:
     protected:
-        virtual void pre_xchng_energy(GCMC*)=0;
-        virtual type0 xchng_energy(GCMC*)=0;
-        virtual void post_xchng_energy(GCMC*)=0;
+        virtual void pre_xchng_energy(class GCMC*)=0;
+        virtual type0 xchng_energy(class GCMC*)=0;
+        virtual void post_xchng_energy(class GCMC*)=0;
     public:
-        ForceFieldMD(MAPP* mapp):ForceField(mapp){}
+        ForceFieldMD():ForceField(){}
         virtual ~ForceFieldMD(){}
         virtual void init_xchng()=0;
         virtual void fin_xchng()=0;
@@ -80,7 +81,7 @@ namespace MAPP_NS
         virtual type0 ddc_norm()=0;
         virtual void ddc(type0*)=0;
     public:
-        ForceFieldDMD(MAPP* mapp):ForceField(mapp)
+        ForceFieldDMD():ForceField()
         {dynamic_flag=true;}
         virtual ~ForceFieldDMD(){}
         virtual void init()=0;

@@ -1,13 +1,10 @@
 #ifndef __MAPP__dmd__
 #define __MAPP__dmd__
-#include "init.h"
-#include "ff.h"
-#include "neighbor_dmd.h"
-#include "thermo_dynamics.h"
-#include "min.h"
-#include "gmres.h"
+#include "type_def.h"
 namespace MAPP_NS
 {
+    template<typename,class> class GMRES;
+    template<typename> class Vec;
     enum
     {
         NO_FLAG,
@@ -17,13 +14,13 @@ namespace MAPP_NS
         STEP_FLAG
     };
     
-    class DMD : protected InitPtrs
+    class DMD 
     {
     private:
     protected:
-        VecLst* vecs_comm;
-        ForceFieldDMD* forcefield_dmd;
-        Neighbor_dmd* neighbor_dmd;
+        class VecLst* vecs_comm;
+        class ForceFieldDMD* forcefield_dmd;
+        class Neighbor_dmd* neighbor_dmd;
 
         //int msd_idx;
         int fe_idx;
@@ -44,9 +41,9 @@ namespace MAPP_NS
         int max_step;
         type0 t_cur,a_tol,dt_min,t_fin;
         type0 inf;
-        ThermoDynamics* thermo;
+        class ThermoDynamics* thermo;
         
-        Min* min;
+        class Min* min;
         int nmin;
         type0 f_tol,delta_c;
         type0 f_norm0;
@@ -65,7 +62,7 @@ namespace MAPP_NS
         virtual void run()=0;
         type0 vac_msd();
     public:
-        DMD(MAPP *);
+        DMD();
         virtual ~DMD();
         void run(type0);
         virtual void init();
@@ -144,7 +141,7 @@ namespace MAPP_NS
         
         GMRES<type0,ForceFieldDMD>* gmres;
     public:
-        DMDImplicit(MAPP*);
+        DMDImplicit();
         virtual ~DMDImplicit();
         
         void init();
@@ -177,7 +174,7 @@ namespace MAPP_NS
         void fail_stp_adj(type0,type0&);
         void run();
     public:
-        DMDExplicit(MAPP*);
+        DMDExplicit();
         ~DMDExplicit();
         void init();
         void fin();

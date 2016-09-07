@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_planck__
 #define __MAPP__command_planck__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_planck:protected InitPtrs
+    class Command_planck
     {
     private:
     protected:
     public:
-        Command_planck(MAPP*,int,char**);
+        Command_planck(int,char**);
         ~Command_planck();
     };
 }

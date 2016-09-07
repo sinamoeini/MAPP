@@ -1,20 +1,10 @@
-/*--------------------------------------------
- Created by Sina on 2/1/14.
- Copyright (c) 2014 MIT. All rights reserved.
- --------------------------------------------*/
 #ifndef __MAPP__min__
 #define __MAPP__min__
-#include "init.h"
-#include "ls.h"
-#include "ff.h"
-#include "atoms.h"
-#include "ls.h"
+#include "type_def.h"
 #include "vec.h"
-#include "xmath.h"
-#include "thermo_dynamics.h"
 namespace MAPP_NS
 {
-    class Min : protected InitPtrs
+    class Min
     {
     private:
         ForceFieldDMD* forcefield_dmd;
@@ -36,7 +26,7 @@ namespace MAPP_NS
         type0 calc_ndofs();
         type0 ndofs;
         
-        ThermoDynamics* thermo;
+        class ThermoDynamics* thermo;
         
         int max_iter;
         bool affine;
@@ -54,7 +44,7 @@ namespace MAPP_NS
         VecTens<type0> f0;
         
     public:
-        Min(MAPP *);
+        Min();
         virtual ~Min();
         void print_error();
         virtual void run()=0;

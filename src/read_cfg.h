@@ -1,15 +1,15 @@
-/*--------------------------------------------
- Created by Sina on 07/23/13.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
 #ifdef Read_Style
     ReadStyle(Read_cfg,cfg)
 #else
 #ifndef __MAPP__read_cfg__
 #define __MAPP__read_cfg__
 #include "read.h"
-namespace MAPP_NS {
-    class Read_cfg : public Read{
+#include "type_def.h"
+#include <stdio.h>
+namespace MAPP_NS
+{
+    class Read_cfg : public Read
+    {
     private:
         
         type0** H0;
@@ -36,7 +36,7 @@ namespace MAPP_NS {
         int curr_id;
         byte* ch_buff;
         int ch_buff_sz;
-        vec** vec_lst;
+        class vec** vec_lst;
         int nvecs;
         type0* tmp_buff;
         int tmp_buff_size;
@@ -47,7 +47,7 @@ namespace MAPP_NS {
         
     protected:
     public:
-        Read_cfg(MAPP *,int,char**);
+        Read_cfg(int,char**);
         ~Read_cfg();
     };
 }

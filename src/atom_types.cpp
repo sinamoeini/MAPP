@@ -8,7 +8,7 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-AtomTypes::AtomTypes(MAPP* mapp):InitPtrs(mapp)
+AtomTypes::AtomTypes()
 {
     no_types=0;
 }

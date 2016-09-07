@@ -5,7 +5,6 @@
 #define __MAPP__ls_brent__
 
 #include "ls.h"
-#include "error.h"
 namespace MAPP_NS
 {
     template<class Func>
@@ -14,7 +13,6 @@ namespace MAPP_NS
     private:
         Func* func;
         type0 epsilon;
-        Error*& error;
         type0 tol,zeps;
         int max_iter;
         int ls_brack_timer_mode;
@@ -22,7 +20,7 @@ namespace MAPP_NS
         bool brack;
     protected:
     public:
-        LineSearch_brent(MAPP*,int,char**);
+        LineSearch_brent(int,char**);
         ~LineSearch_brent();
         void init(Func*);
         int line_min(type0&,type0&,int);
@@ -36,9 +34,8 @@ namespace MAPP_NS
  --------------------------------------------*/
 template<class Func>
 LineSearch_brent<Func>::
-LineSearch_brent(MAPP* mapp,int nargs,char** args)
-:LineSearch<Func>(mapp),
-error(mapp->error)
+LineSearch_brent(int nargs,char** args)
+:LineSearch<Func>()
 {
     epsilon=LineSearch<Func>::epsilon;
     
@@ -47,7 +44,7 @@ error(mapp->error)
     zeps=epsilon*1.0e-3;
     brack=true;
 
-    Pattern cmd(error);
+    Pattern cmd;
     
     char* ls_style=NULL;
     char* bracket=NULL;

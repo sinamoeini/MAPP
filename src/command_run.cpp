@@ -3,16 +3,17 @@
 #include "error.h"
 #include "md.h"
 #include "dmd.h"
+#include "init.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Command_run::Command_run(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+Command_run::Command_run(int nargs,char** args)
+
 {
-    if(mapp->mode==MD_mode)
+    if(mode==MD_mode)
     {
-        if(mapp->md==NULL)
+        if(md==NULL)
             error->abort("before run, ensemble should be initialized");
         
         if(nargs!=2)
@@ -23,20 +24,20 @@ Command_run::Command_run(MAPP* mapp,int nargs,char** args)
             error->abort("run should be "
                          "greater than 0");
         
-        mapp->md->init();
-        mapp->md->run(steps);
-        mapp->md->fin();
+        md->init();
+        md->run(steps);
+        md->fin();
     }
-    else if(mapp->mode==DMD_mode)
+    else if(mode==DMD_mode)
     {
-        if(mapp->dmd==NULL)
+        if(dmd==NULL)
             error->abort("before run, dmd should be initialized");
         if(nargs!=2)
             error->abort("run should have 1 argument");
         
-        mapp->dmd->init();
-        mapp->dmd->run(atof(args[1]));
-        mapp->dmd->fin();
+        dmd->init();
+        dmd->run(atof(args[1]));
+        dmd->fin();
     }
 
 }

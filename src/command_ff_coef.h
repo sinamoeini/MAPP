@@ -3,15 +3,14 @@
 #else
 #ifndef __MAPP__command_ff_coef__
 #define __MAPP__command_ff_coef__
-#include "init.h"
 namespace MAPP_NS
 {
-    class Command_ff_coef:protected InitPtrs
+    class Command_ff_coef
     {
     private:
     protected:
     public:
-        Command_ff_coef(MAPP*,int,char**);
+        Command_ff_coef(int,char**);
         ~Command_ff_coef();
     };
 }

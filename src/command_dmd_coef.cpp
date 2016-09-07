@@ -1,4 +1,5 @@
 #include "command_dmd_coef.h"
+#include "init.h"
 #include "error.h"
 #include "dmd.h"
 using namespace MAPP_NS;
@@ -6,13 +7,13 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Command_dmd_coef::Command_dmd_coef
-(MAPP* mapp,int nargs,char** args)
-:InitPtrs(mapp)
+(int nargs,char** args)
+
 {
-    if(mapp->dmd==NULL)
+    if(dmd==NULL)
         error->abort("cannot add the coefficients"
         " before the dmd is initiated");
-    mapp->dmd->coef(nargs,args);
+    dmd->coef(nargs,args);
 
 }
 /*--------------------------------------------
