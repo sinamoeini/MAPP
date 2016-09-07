@@ -1,9 +1,5 @@
-/*--------------------------------------------
- Created by Sina on 05/12/13.
- Copyright (c) 2013 MIT. All rights reserved.
- --------------------------------------------*/
-#ifndef MAPP_init_h
-#define MAPP_init_h
+#ifndef MAPP_global_h
+#define MAPP_global_h
 #include "type_def.h"
 #include <mpi.h>
 namespace MAPP_NS
