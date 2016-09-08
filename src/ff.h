@@ -7,8 +7,7 @@
 #include "type_def.h"
 namespace MAPP_NS
 {
-    template<typename T>
-    class Vec;
+    template<typename> class Vec;
     class ForceField {
     private:
         int cut_sz;

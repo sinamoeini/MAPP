@@ -9,7 +9,7 @@
 #include <stdio.h>
 namespace MAPP_NS
 {
-    template<typename T> class Vec;
+    template<typename> class Vec;
     class MAPP
     {
     private:

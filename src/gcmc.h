@@ -46,8 +46,7 @@ namespace MAPP_NS
      del_ids;
      
      --------------------------------------------*/
-    template<typename T>
-    class Vec;
+    template<typename> class Vec;
     class GCMC
     {
     private:
