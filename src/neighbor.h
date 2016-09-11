@@ -9,63 +9,7 @@ namespace MAPP_NS
     private:
     protected:
         
-        class Cell
-        {
-        private:
-            /*----------------------*/
-            const int m;
-            int& natms;
-            int& natms_ph;
-            
-            Vec<type0>*& x;
-            type0*& s_lo;
-            type0*& s_hi;
-            type0*& cut_s;
-            /*----------------------*/
-            
-            //size: dim
-            type0 cell_size[dimension];
-            int cell_denom[dimension];
-            int ncells_per_dim[dimension];
-            
-            //size: ncells
-            int ncells;
-            int* head_atm;
-            
-            int nneighs;
-            int* rel_neigh_lst;
-            
-            int* cell_vec;
-            int* next_vec;
-            
-            /*----------------------*/
-            
-            int curr_cell;
-            
-            int ineigh;
-            int icell,jcell;
-            
-            
-            void find_cell_no(type0*&,int&);
-            void box_setup();
-
-        protected:
-        public:
-            Cell(int,type0*&);
-            ~Cell();
-           
-            void create(bool);
-            void destroy();
-            
-            void nxt_i();
-            void nxt_j();
-            
-            int iatm,jatm;
-            type0* ix;
-            type0* jx;
-            type0 rsq;
-        };
-        
+        class Cell;
         int no_neigh_lists;
         Cell* cell;
         
@@ -91,6 +35,64 @@ namespace MAPP_NS
         
         void mark_redndnt_ph(byte*);
         void rename_atoms(int*);
+    };
+}
+
+namespace MAPP_NS
+{
+    class Neighbor::Cell
+    {
+    private:
+        /*----------------------*/
+        const int m;
+        int& natms;
+        int& natms_ph;
+        
+        Vec<type0>*& x;
+        type0*& s_lo;
+        type0*& s_hi;
+        type0*& cut_s;
+        /*----------------------*/
+        
+        //size: dim
+        type0 cell_size[dimension];
+        int cell_denom[dimension];
+        int ncells_per_dim[dimension];
+        
+        //size: ncells
+        int ncells;
+        int* head_atm;
+        
+        int nneighs;
+        int* rel_neigh_lst;
+        
+        int* cell_vec;
+        int* next_vec;
+
+        /*----------------------*/
+        
+        int ineigh;
+        int icell,jcell;
+        
+        
+        void find_cell_no(type0*&,int&);
+        void box_setup();
+        
+    protected:
+    public:
+        Cell(int,type0*&);
+        ~Cell();
+        
+        void create(bool);
+        void destroy();
+        
+        void nxt_i();
+        void nxt_j();
+        
+        int iatm,jatm;
+        type0* ix;
+        type0* jx;
+        type0 rsq;
     };
 }
 #endif

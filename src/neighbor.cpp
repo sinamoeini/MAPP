@@ -170,7 +170,31 @@ void Neighbor::Cell::box_setup()
  
  --------------------------------------------*/
 inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
-{    
+{
+    /*
+    cell_no=0;
+    auto icell_coord=
+    [&s,&cell_no,this](int i)->void
+    {
+        if(s[i]<s_lo[i])
+        {
+            //0<=y y<m
+            cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-(s_lo[i]-cut_s[i]))/cell_size[i]),m-1));
+        }
+        else if(s_hi[i]<=s[i])
+        {
+            //y<m+n+1
+            cell_no+=cell_denom[i]*(MIN(MAX(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1),ncells_per_dim[i]-1-m)+m);
+        }
+        else
+        {
+            //m<=y y<=m+n+1
+            cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)+m);
+        }
+    };
+    XMatrixVector::UnrolledLoop<dimension>::Do(icell_coord);
+     */
+    
     cell_no=0;
     for(int i=0;i<dimension;i++)
     {
@@ -190,6 +214,7 @@ inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
             cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)+m);
         }
     }
+     
 }
 /*--------------------------------------------
  construct the cell list

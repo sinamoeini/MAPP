@@ -379,15 +379,15 @@ namespace MAPP_NS
             static inline void Do(FuncType func)
             {
                 UnrolledLoop <i-1>::Do( func);
-                func(i);
+                func(i-1);
             }
         };
         template <>
-        class UnrolledLoop<0>
+        class UnrolledLoop<1>
         {
         public:
             template < typename FuncType >
-            static inline void Do(FuncType func){}
+            static inline void Do(FuncType func){func(0);}
         };
         
         template<const int dim,typename T>
