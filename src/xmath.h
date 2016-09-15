@@ -370,6 +370,40 @@ namespace MAPP_NS
             {}
         };
         
+        
+        template<const int dim,const int i,const int j>
+        class _Mlt_Mlt_
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* M0,T* M1,T* B)
+            {
+                *B=_V_V_str_<dim,i-j+1>::fun(M1-(i-j)*dim,M0);
+                _Mlt_Mlt_<dim,i,j+1>::fun(M0+1,M1+1,B+1);
+            }
+        };
+        
+        template<const int dim,const int i>
+        class _Mlt_Mlt_<dim,i,i>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T* M0,T* M1,T* B)
+            {
+                *B=(*M0)*(*M1);
+                _Mlt_Mlt_<dim,i+1,0>::fun(M0+dim-i,M1+dim-i,B+dim-i);
+            }
+        };
+        template<const int dim>
+        class _Mlt_Mlt_<dim,dim,0>
+        {
+        public:
+            template<typename T>
+            static inline void fun(T*,T*,T*)
+            {}
+        };
+        
+        
         /*-------------------------------------------------------------------*/
         template <const int i>
         class UnrolledLoop
@@ -436,6 +470,18 @@ namespace MAPP_NS
         {
             **Ainv=1.0/(**A);
             _Mlt_inv_<dim,1,1>::fun((T*)A+dim+1,(T*)Ainv+dim+1);
+        }
+        
+        template<const int dim,typename T>
+        inline void Mlt_Mlt(T** M0,T** M1,T** B)
+        {
+            _Mlt_Mlt_<dim,0,0>::fun(*M0,*M1,*B);
+        }
+        
+        template<const int dim,typename T>
+        inline void Mlt_Mlt(T (&M0)[dim][dim],T (&M1)[dim][dim],T (&B)[dim][dim])
+        {
+            _Mlt_Mlt_<dim,0,0>::fun((T*)M0,(T*)M1,(T*)B);
         }
     }
 }
