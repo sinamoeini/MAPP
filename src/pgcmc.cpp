@@ -986,7 +986,7 @@ void PGCMC::create_comm_pattern()
         else
             r=N_s[i]+1-l;
         
-        if(d%2==0)
+        if(d%2==0 || d==N_prll[i]-2)
         {
             //taking care of my left
             if(l<=N_c[i])
