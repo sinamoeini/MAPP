@@ -832,7 +832,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     }
     
     MPI_Comm dummy;
-    int jcomm,d,t,r,s,l,jkey,jcolor;
+    int jcomm,d,t,r,s,l,jkey,jcolor,jrank;
     jkey=0;
     for(int i=0;i<dimension;i++)
         jkey+=p_vec[i]*B_p[i];
@@ -887,7 +887,14 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
         }
 
         if(jcolor!=MPI_UNDEFINED)
+        {
             MPI_Comm_split(world,jcolor,jkey,&comms[jcomm]);
+            //Sanity check
+            MPI_Comm_rank(comms[jcomm],&jrank);
+            if(jrank!=jkey)
+                error->abort_sing("rank check sanity failed MPI_Comm_split has a bug");
+            
+        }
         else
             MPI_Comm_split(world,jcolor,ip,&dummy);
         
@@ -986,7 +993,7 @@ void PGCMC::create_comm_pattern()
         else
             r=N_s[i]+1-l;
         
-        if(d%2==0 || d==N_prll[i]-2)
+        if((d%2==0 && d!=N_prll[i]-1) || (d%2==1 && d==N_prll[i]-2))
         {
             //taking care of my left
             if(l<=N_c[i])
