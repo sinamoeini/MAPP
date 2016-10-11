@@ -23,7 +23,7 @@ nrgy_strss(forcefield->nrgy_strss)
     
     char** args;
     int nargs=ScriptReader::parse_line("KE Temp. "
-    "PE S[0][0] S[1][1] S[2][2] S[1][2] S[2][0] S[0][1]",args);
+    "PE S[0][0] S[1][1] S[2][2] S[2][1] S[2][0] S[1][0]",args);
     ke_idx=0;
     temp_idx=1;
     pe_idx=2;

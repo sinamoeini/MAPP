@@ -133,6 +133,8 @@ namespace MAPP_NS
         int new_id;
         void decide();
         void finalize();
+        void split_sing();
+        void split_mult();
         /*---------------------------------------------------------------------*/
 
     protected:

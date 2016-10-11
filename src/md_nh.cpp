@@ -31,7 +31,7 @@ MD_nh::MD_nh(int nargs,char** args):MD()
     seed=0;
     xchng_seed=0;
     drag=0.0;
-    nreset=10;
+    nreset=1;
     no_it_eta=1;
     no_ch_eta=3;
     no_it_peta=1;
@@ -1367,6 +1367,10 @@ void MD_nh::cmd(int nargs,char** args)
     nargs--;
     cmd.scan(args,nargs);
     
+    t_freq=1.0/t_freq;
+    tau_freq_ave=1.0/tau_freq_ave;
+    for(int i=0;i<6;i++) tau_freq[i]=1.0/tau_freq[i];
+    
     if(!strcmp(ensemble,"npt") && couple!=NULL)
     {
         
@@ -1385,7 +1389,7 @@ void MD_nh::cmd(int nargs,char** args)
                 stress_mode+=2;
                 H_dof[1]=true;
                 tau_tar[1]=tau_tar_ave;
-                tau_freq[1]=tau_freq_ave;
+                tau_freq[1]=1.0/tau_freq_ave;
             }
             else if(couple[i]=='z')
             {
@@ -1411,150 +1415,10 @@ void MD_nh::cmd(int nargs,char** args)
             stress_mode=NONE;
         
     }
+    
     if(seed)
         crt_vel=true;
     if(gcmc_type!=NULL)
         gas_type=atom_types->find_type(gcmc_type);
 }
-/*
-    type0 tau_tar_ave,tau_freq_ave;
-    char* ensemble=NULL;
-    char* couple=NULL;
-    
-    Pattern cmd;
-    
-    cmd.cmd("nh");
-    cmd.add_var(ensemble,"ensemble");
-    cmd.add_vdesc(0,"defines the ensemble of the md simulation");
-    cmd.add_vlog(0)=vlogic("eq","nvt")
-    +vlogic("eq","npt")+vlogic("eq","ntaut");
 
-    cmd.cmd("couple");
-    cmd.add_var(couple,"form");
-    cmd.add_vdesc(0,"defines coupling form of npt ensemble");
-    cmd.add_clog()=logic(ensemble,"!eq","npt")/vlogic("!set");
-    cmd.add_vlog(0)=
-    vlogic("eq","xyz")+vlogic("eq","xzy")
-    +vlogic("eq","yzx")+vlogic("eq","yxz")
-    +vlogic("eq","zxy")+vlogic("eq","zxy")
-    +vlogic("eq","xy")+vlogic("eq","yx")
-    +vlogic("eq","xz")+vlogic("eq","zx")
-    +vlogic("eq","yz")+vlogic("eq","zy")
-    +vlogic("eq","x")+vlogic("eq","y")
-    +vlogic("eq","z");
-
-    cmd.cmd("temp");
-    cmd.add_var(t_tar,"t_tar",t_freq,"t_per");
-    cmd.add_vdesc(0,"defines the target temperature");
-    cmd.add_vdesc(1,"defines the period of nose hoover bath");
-    cmd.add_clog()=vlogic("set");
-    cmd.add_vlog(0)=vlogic("gt",0.0);
-    cmd.add_vlog(1)=vlogic("gt",0.0);
-
-    cmd.cmd("stress");
-    cmd.add_var(tau_tar_ave,"tau_tar_ave",tau_freq_ave,"tau_per");
-    cmd.add_vdesc(0,"defines the target average stress");
-    cmd.add_vdesc(1,"defines the period of nose hoover bath for average stress");
-    cmd.add_clog()=logic(ensemble,"eq","npt")-vlogic("set");
-    cmd.add_vlog(1)=vlogic("gt",0.0);
-
-    cmd.cmd_voigt("tau",3);
-    cmd.add_var(tau_tar,"tau_tar",tau_freq,"tau_per");
-    cmd.add_vdesc(0,"defines the target stress");
-    cmd.add_vdesc(1,"defines the period of nose hoover bath for said stress");
-    cmd.add_clog()=logic(ensemble,"eq","ntaut")-vlogic("set");
-    cmd.add_vlog(1)=vlogic("gt",0.0);
-
-    
-    cmd.cmd("eta_iter");
-    cmd.add_var(no_it_eta,"eta_iters");
-    cmd.add_vdesc(0,"defines no. of iterations in nose hoover bath");
-    cmd.add_vlog(0)=vlogic("gt",0);
-
-    cmd.cmd("eta_chains");
-    cmd.add_var(no_ch_eta,"neta_chains");
-    cmd.add_vdesc(0,"defines no. of masses in nose hoover chains bath");
-    cmd.add_vlog(0)=vlogic("gt",0);
-
-    cmd.cmd("peta_iter");
-    cmd.add_var(no_it_peta,"eta_iters");
-    cmd.add_vdesc(0,"defines no. of iterations in nose hoover bath for stress/pressure");
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0);
-
-    cmd.cmd("peta_chains");
-    cmd.add_var(no_ch_peta,"neta_chains");
-    cmd.add_vdesc(0,"defines no. of masses in nose hoover chains bath for stress/pressure");
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0);
-
-    cmd.cmd("create_vel");
-    cmd.add_var(seed,"random_seed");
-    cmd.add_vdesc(0,"defines the random seed for gaussian distribution");
-    cmd.add_vlog(0)=vlogic("gt",0);
-
-    cmd.cmd("nreset");
-    cmd.add_var(nreset,"n");
-    cmd.add_vdesc(0,"defines the number of steps to restart");
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0);
-
-    cmd.cmd("drag");
-    cmd.add_var(drag,"fac");
-    cmd.add_vdesc(0,"defines the drag factor for damped md");
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0.0);
-
-    args++;
-    nargs--;
-    cmd.scan(args,nargs);
-    
-    if(!strcmp(ensemble,"npt") && couple!=NULL)
-    {
-        
-        stress_mode=0;
-        for(int i=0;i<strlen(couple);i++)
-        {
-            if(couple[i]=='x')
-            {
-                stress_mode+=1;
-                H_dof[0]=true;
-                tau_tar[0]=tau_tar_ave;
-                tau_freq[0]=tau_freq_ave;
-            }
-            else if(couple[i]=='y')
-            {
-                stress_mode+=2;
-                H_dof[1]=true;
-                tau_tar[1]=tau_tar_ave;
-                tau_freq[1]=tau_freq_ave;
-            }
-            else if(couple[i]=='z')
-            {
-                stress_mode+=4;
-                H_dof[2]=true;
-                tau_tar[2]=tau_tar_ave;
-                tau_freq[2]=tau_freq_ave;
-            }
-        }
-    }
-    else
-    {
-        if(!strcmp(ensemble,"ntaut"))
-            stress_mode=TAU;
-        else if(!strcmp(ensemble,"npt"))
-        {
-            stress_mode=XYZ;
-            H_dof[0]=H_dof[1]=H_dof[2]=true;
-            tau_tar[0]=tau_tar[1]=tau_tar[2]=tau_tar_ave;
-            tau_freq[0]=tau_freq[1]=tau_freq[2]=tau_freq_ave;
-        }
-        else
-            stress_mode=NONE;
-        
-    }
-    if(seed)
-        crt_vel=true;
-
- 
- */

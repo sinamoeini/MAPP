@@ -812,7 +812,80 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     roots=new int[n_comm];
     comms=new MPI_Comm[n_comm];
     gcmc_world=new MPI_Comm;
+    split_mult();
     
+}
+/*--------------------------------------------
+ split communications
+ --------------------------------------------*/
+void PGCMC::split_sing()
+{
+    int ip_vec[dimension];
+    for(int i=0;i<dimension;i++)
+        ip_vec[i]=0;
+    
+    MPI_Comm dummy;
+    int jcomm,d,jkey,jcolor,jrank,jsize;
+    jkey=0;
+    for(int i=0;i<dimension;i++)
+        jkey+=p_vec[i]*B_p[i];
+    MPI_Comm_split(world,0,jkey,gcmc_world);
+    for(int i=0;i<n_p;i++)
+    {
+        jcomm=0;
+        jkey=0;
+        jcolor=0;
+        for(int j=0;j<dimension && jcolor!=MPI_UNDEFINED;j++)
+        {
+            
+            if(prll_dim[j])
+            {
+                d=p_vec[j]-ip_vec[j];
+                if(d<0) d+=N_p[j];
+            
+                if(d<2*N_c[j]+1)
+                {
+                    jcolor+=ip_vec[j]*B_p[j];
+                    jcomm+=d*B_comm[j];
+                    d-=N_c[j];
+                    if(d<0) d+=2*N_c[i]+1;
+                    jkey+=d*B_pcomm[j];
+                    
+                }
+                else
+                    jcolor=MPI_UNDEFINED;
+            }
+            else
+                jkey+=p_vec[j]*B_pcomm[j];
+        }
+        
+        if(jcolor!=MPI_UNDEFINED)
+        {
+            MPI_Comm_split(world,jcolor,jkey,&comms[jcomm]);
+            //Sanity check
+            MPI_Comm_rank(comms[jcomm],&jrank);
+            MPI_Comm_size(comms[jcomm],&jsize);
+            
+            if(jrank!=jkey || n_pcomm!=jsize)
+                error->abort_sing("[%d,%d,%d] %d/%d!=%d/%d color=%d",p_vec[0],p_vec[1],p_vec[2],jkey,n_pcomm,jrank,jsize,jcolor);
+        }
+        else
+            MPI_Comm_split(world,jcolor,ip,&dummy);
+        
+        ip_vec[0]++;
+        for(int j=0;j<dimension-1;j++)
+            if(ip_vec[j]==N_p[j])
+            {
+                ip_vec[j]=0;
+                ip_vec[j+1]++;
+            }
+    }
+}
+/*--------------------------------------------
+ split communications
+ --------------------------------------------*/
+void PGCMC::split_mult()
+{
     int hi[dimension];
     int mid[dimension];
     int cntr[dimension];
@@ -832,7 +905,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     }
     
     MPI_Comm dummy;
-    int jcomm,d,t,r,s,l,jkey,jcolor,jrank;
+    int jcomm,d,t,r,s,l,jkey,jcolor,jrank,jsize;
     jkey=0;
     for(int i=0;i<dimension;i++)
         jkey+=p_vec[i]*B_p[i];
@@ -885,15 +958,16 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
             else
                 jkey+=p_vec[j]*B_pcomm[j];
         }
-
+        
         if(jcolor!=MPI_UNDEFINED)
         {
             MPI_Comm_split(world,jcolor,jkey,&comms[jcomm]);
             //Sanity check
             MPI_Comm_rank(comms[jcomm],&jrank);
-            if(jrank!=jkey)
-                error->abort_sing("rank check sanity failed MPI_Comm_split has a bug");
+            MPI_Comm_size(comms[jcomm],&jsize);
             
+            if(jrank!=jkey || n_pcomm!=jsize)
+                error->abort_sing("[%d,%d,%d] %d/%d!=%d/%d color=%d",p_vec[0],p_vec[1],p_vec[2],jkey,n_pcomm,jrank,jsize,jcolor);
         }
         else
             MPI_Comm_split(world,jcolor,ip,&dummy);
@@ -906,9 +980,6 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
                 cntr[j+1]++;
             }
     }
-    
-
-
 }
 /*--------------------------------------------
  dismantle communications
