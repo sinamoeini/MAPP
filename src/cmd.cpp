@@ -6,6 +6,158 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  
  --------------------------------------------*/
+bool FindReplace::is_same(char* src,char* key)
+{
+    while(1)
+    {
+        if(*key=='\0')
+            return true;
+        
+        if(*src!=*key)
+            return false;
+        src++;
+        key++;
+    }
+    
+    return false;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+int FindReplace::look_up(char* s)
+{
+    for(int i=0;i<n;i++)
+        if(is_same(s,srch[i]))
+            return i;
+    
+    return -1;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+FindReplace::FindReplace()
+{
+    srch=rplc=NULL;
+    srch_len=rplc_len=NULL;
+    n=0;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+FindReplace::~FindReplace()
+{
+    for(int i=0;i<n;i++)
+    {
+        delete [] srch[i];
+        delete [] rplc[i];
+    }
+    delete [] srch;
+    delete [] rplc;
+    delete [] srch_len;
+    delete [] rplc_len;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void FindReplace::reverse()
+{
+    std::swap(srch,rplc);
+    std::swap(srch_len,rplc_len);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void FindReplace::operator()(char*& buff)
+{
+    if(buff==NULL)
+        return;
+    
+    char* s=buff;
+    char* str=NULL;
+    size_t str_len=0;
+    
+    int ilook;
+    while(*s!='\0')
+    {
+        ilook=look_up(s);
+        if(ilook==-1)
+        {
+            attach(str,str_len,*s);
+            s++;
+            continue;
+        }
+        attach(str,str_len,ilook);
+        s+=srch_len[ilook];
+    }
+    
+    attach(str,str_len,'\0');
+    delete [] buff;
+    buff=str;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void FindReplace::operator()(const char* s,const char* r)
+{
+    char** srch_=new char*[n+1];
+    memcpy(srch_,srch,n*sizeof(char*));
+    delete [] srch;
+    srch=srch_;
+    
+    char** rplc_=new char*[n+1];
+    memcpy(rplc_,rplc,n*sizeof(char*));
+    delete [] rplc;
+    rplc=rplc_;
+    
+    size_t* srch_len_=new size_t[n+1];
+    memcpy(srch_len_,srch_len,n*sizeof(size_t));
+    delete [] srch_len;
+    srch_len=srch_len_;
+    
+    size_t* rplc_len_=new size_t[n+1];
+    memcpy(rplc_len_,rplc_len,n*sizeof(size_t));
+    delete [] rplc_len;
+    rplc_len=rplc_len_;
+    
+    srch_len[n]=strlen(s);
+    rplc_len[n]=strlen(r);
+    srch[n]=new char[srch_len[n]+1];
+    memcpy(srch[n],s,srch_len[n]+1);
+    rplc[n]=new char[rplc_len[n]+1];
+    memcpy(rplc[n],r,rplc_len[n]+1);
+    
+    n++;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void FindReplace::attach(char*& str,size_t& str_len,int i)
+{
+    
+    char* str_=new char[str_len+rplc_len[i]];
+    memcpy(str_,str,str_len);
+    memcpy(str_+str_len,rplc[i],rplc_len[i]);
+    delete [] str;
+    str=str_;
+    str_len+=rplc_len[i];
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void FindReplace::attach(char*& str,size_t& str_len,char c)
+{
+    
+    char* str_=new char[str_len+1];
+    memcpy(str_,str,str_len);
+    str_[str_len]=c;
+    delete [] str;
+    
+    str=str_;
+    str_len++;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 PrintStyle::PrintStyle()
 {
     var_brc[0]=NULL;

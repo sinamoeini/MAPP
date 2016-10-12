@@ -1,6 +1,7 @@
 #ifndef __MAPP__keyword__
 #define __MAPP__keyword__
 #include "var.h"
+#include "logics.h"
 namespace MAPP_NS
 {
     class KeyWord

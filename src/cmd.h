@@ -12,6 +12,25 @@
 namespace MAPP_NS
 {
     
+    class FindReplace
+    {
+        void attach(char*&,size_t&,int);
+        void attach(char*&,size_t&,char);
+        char** srch;
+        size_t* srch_len;
+        char** rplc;
+        size_t* rplc_len;
+        
+        int n;
+        bool is_same(char*,char*);
+        int look_up(char*);
+    public:
+        FindReplace();
+        ~FindReplace();
+        void reverse();
+        void operator()(char*&);
+        void operator()(const char*,const char*);
+    };
 
     class PrintStyle
     {
