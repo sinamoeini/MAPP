@@ -73,14 +73,14 @@ bool ScriptReader::get_line_proc0(char*& buff,int& buff_sz,int& buff_cpcty)
     if(srch!=NULL)
     {
         *srch='\0';
-        buff_sz=static_cast<int>(srch-buff)-beg;
+        buff_sz=static_cast<int>(srch-buff);
     }
     
     srch=strchr(buff+beg,'\\');
     if(srch!=NULL)
     {
         *srch='\0';
-        buff_sz=static_cast<int>(srch-buff)-beg;
+        buff_sz=static_cast<int>(srch-buff);
         return get_line_proc0(buff,buff_sz,buff_cpcty);
     }
 

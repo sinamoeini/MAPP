@@ -5,11 +5,14 @@
  --------------------------------------------*/
 #include "error.h"
 #include "global.h"
-#include "var.h"
+#include "keyword.h"
+
 #include <stdio.h>
 #include <string.h>
 namespace MAPP_NS
 {
+    
+
     class PrintStyle
     {
     private:
@@ -188,6 +191,7 @@ namespace MAPP_NS
 
     };
     
+
     
     class Pattern
     {
