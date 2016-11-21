@@ -52,11 +52,11 @@ namespace MAPP_NS
         int ngas_before;
         
         // size dim
-        type0 cell_size[dimension];
-        int N_cells[dimension];
-        int B_cells[dimension];
-        int icell_coord[dimension];
-        int jcell_coord[dimension];
+        type0 cell_size[__dim__];
+        int N_cells[__dim__];
+        int B_cells[__dim__];
+        int icell_coord[__dim__];
+        int jcell_coord[__dim__];
 
         int* rel_neigh_lst_coord;
         

@@ -25,7 +25,7 @@ Command_add_type::Command_add_type(int nargs,char** args)
     else
     {
         atom_types->add_type(mass,args[1]);
-        if(forcefield!=NULL)
+        if(forcefield)
             error->warning("ff && ff_coef commands should be redeclared");
     }
 }

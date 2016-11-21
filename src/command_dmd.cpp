@@ -14,7 +14,7 @@ Command_dmd::Command_dmd
         error->abort("wrong command: %s"
         ,args[0]);
     
-    if(dmd!=NULL)
+    if(dmd)
     {
         delete dmd;
         dmd=NULL;

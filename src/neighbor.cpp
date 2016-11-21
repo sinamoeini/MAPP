@@ -76,7 +76,7 @@ void Neighbor::rename_atoms(int* old_2_new)
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor::Cell::Cell(int m_,type0*& cut_s_):
+Neighbor::Cell::Cell(int m_,type0 (&cut_s_)[__dim__]):
 m(m_),
 natms(atoms->natms),
 natms_ph(atoms->natms_ph),
@@ -112,7 +112,7 @@ Neighbor::Cell::~Cell()
 void Neighbor::Cell::box_setup()
 {
     int ncells_=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         cell_size[i]=cut_s[i]/static_cast<type0>(m);
         ncells_per_dim[i]=static_cast<int>
@@ -121,11 +121,11 @@ void Neighbor::Cell::box_setup()
         ncells_*=ncells_per_dim[i];
     }
     
-    int countr[dimension];
-    for(int i=0;i<dimension;i++)
+    int countr[__dim__];
+    for(int i=0;i<__dim__;i++)
         countr[i]=-m;
     int max_no_neighs=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
         max_no_neighs*=2*m+1;
     
     delete [] rel_neigh_lst;
@@ -137,7 +137,7 @@ void Neighbor::Cell::box_setup()
     for(int i=0;i<max_no_neighs;i++)
     {
         sum=0;
-        for(int j=0;j<dimension;j++)
+        for(int j=0;j<__dim__;j++)
         {
             sum+=countr[j]*countr[j];
             if(countr[j]!=0)
@@ -147,14 +147,14 @@ void Neighbor::Cell::box_setup()
         if(sum<rc_sq)
         {
             tmp=0;
-            for(int j=0;j<dimension;j++)
+            for(int j=0;j<__dim__;j++)
                 tmp+=cell_denom[j]*countr[j];
             
             rel_neigh_lst[nneighs++]=tmp;
         }
         
         countr[0]++;
-        for(int j=0;j<dimension-1;j++)
+        for(int j=0;j<__dim__-1;j++)
             if(countr[j]==m+1)
             {
                 countr[j]=-m;
@@ -192,11 +192,11 @@ inline void Neighbor::Cell::find_cell_no(type0*& s,int& cell_no)
             cell_no+=cell_denom[i]*(MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),ncells_per_dim[i]-2*m-1)+m);
         }
     };
-    XMatrixVector::UnrolledLoop<dimension>::Do(icell_coord);
+    XMatrixVector::UnrolledLoop[__dim__]::Do(icell_coord);
      */
     
     cell_no=0;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         if(s[i]<s_lo[i])
         {
@@ -296,7 +296,7 @@ void Neighbor::Cell::nxt_i()
         return;
     }
     jx=x->begin()+jatm*x->dim;
-    rsq=XMatrixVector::rsq<dimension>(ix,jx);
+    rsq=XMatrixVector::rsq<__dim__>(ix,jx);
 }
 /*--------------------------------------------
  
@@ -318,7 +318,7 @@ void Neighbor::Cell::nxt_j()
         return;
     }
     jx=x->begin()+jatm*x->dim;
-    rsq=XMatrixVector::rsq<dimension>(ix,jx);
+    rsq=XMatrixVector::rsq<__dim__>(ix,jx);
 }
 
 

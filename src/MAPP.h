@@ -35,7 +35,7 @@ namespace MAPP_NS
         void init_debug();
         void fin_debug();
         void test0();
-    };    
+    };
 }
 
 

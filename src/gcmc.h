@@ -63,17 +63,17 @@ namespace MAPP_NS
         int& natms_ph;
         type0 cut;
         type0**& cut_sq;
-        type0*& s_lo;
-        type0*& s_hi;
+        type0 (&s_lo)[__dim__];
+        type0 (&s_hi)[__dim__];
         
         // size dim
-        type0 s_buff[dimension];
-        type0 vel_buff[dimension];
-        type0 cut_s[dimension];
-        type0 s_lo_ph[dimension];
-        type0 s_hi_ph[dimension];
+        type0 s_buff[__dim__];
+        type0 vel_buff[__dim__];
+        type0 cut_s[__dim__];
+        type0 s_lo_ph[__dim__];
+        type0 s_hi_ph[__dim__];
         
-        int nimages_per_dim[dimension][2];
+        int nimages_per_dim[__dim__][2];
         type0** s_trials;
 
         

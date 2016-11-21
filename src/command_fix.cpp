@@ -16,13 +16,13 @@ Command_fix::Command_fix(int nargs,char** args)
         if(nargs!=2)
             error->abort("incorrect fix command");
         
-        if(mapp->x_dof!=NULL)
+        if(mapp->x_dof)
         {
             delete mapp->x_dof;
             mapp->x_dof=NULL;
         }
         
-        if(mapp->c_dof!=NULL)
+        if(mapp->c_dof)
         {
             delete mapp->c_dof;
             mapp->c_dof=NULL;
@@ -32,7 +32,7 @@ Command_fix::Command_fix(int nargs,char** args)
     }
     
     int iarg;
-    int dim=dimension;
+    int dim=__dim__;
     int no_types=atom_types->no_types;
     byte* x_dof;
     byte* alpha_dof;

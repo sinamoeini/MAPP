@@ -80,13 +80,13 @@ void ForceField_fsm::allocate()
     deallocate();
     no_types=atom_types->no_types;
     
-    CREATE_2D(mat_t_1,no_types,no_types);
-    CREATE_2D(mat_t_2,no_types,no_types);
-    CREATE_2D(cut_sq_phi,no_types,no_types);
-    CREATE_2D(cut_sq_rho,no_types,no_types);
-    CREATE_2D(mat_k_1,no_types,no_types);
-    CREATE_2D(mat_k_2,no_types,no_types);
-    CREATE_2D(mat_k_3,no_types,no_types);
+    CREATE2D(mat_t_1,no_types,no_types);
+    CREATE2D(mat_t_2,no_types,no_types);
+    CREATE2D(cut_sq_phi,no_types,no_types);
+    CREATE2D(cut_sq_rho,no_types,no_types);
+    CREATE2D(mat_k_1,no_types,no_types);
+    CREATE2D(mat_k_2,no_types,no_types);
+    CREATE2D(mat_k_3,no_types,no_types);
     CREATE1D(mat_A,no_types);
 }
 /*--------------------------------------------
@@ -128,11 +128,11 @@ void ForceField_fsm::read_file(char* file_name)
     
     fr.add_2D("r_c_rho",cut_sq_rho);
     fr.symmetric();
-    fr.add_vlog()=vlogic("ge",0.0);
+    fr.add_vlog()=VLogics("ge",0.0);
     
     fr.add_2D("r_c_phi",cut_sq_phi);
     fr.symmetric();
-    fr.add_vlog()=vlogic("ge",0.0);
+    fr.add_vlog()=VLogics("ge",0.0);
     
     
     fr.add_2D("k1",mat_k_1);

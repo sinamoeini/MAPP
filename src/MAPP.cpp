@@ -15,7 +15,6 @@
 #include "write_styles.h"
 
 #include <iostream>
-//#include <fstream>
 #define MAPP_VERSION "Beta"
 namespace MAPP_NS
 {
@@ -27,7 +26,6 @@ namespace MAPP_NS
     Neighbor* neighbor(NULL);
     ForceField* forcefield(NULL);
     Error* error(NULL);
-    Memory* memory(NULL);
     Timer* timer(NULL);
     AtomTypes* atom_types(NULL);
     FILE* output(NULL);
@@ -37,7 +35,7 @@ namespace MAPP_NS
     DMD* dmd(NULL);
     GroupCollection* groups(NULL);
     LineSearch<Min>* ls(NULL);
-    Atoms<MAPP_NS::dimension>* atoms(NULL);
+    Atoms* atoms(NULL);
     MAPP* mapp(NULL);
     VarManager* g_vm(NULL);
 
@@ -52,8 +50,7 @@ MAPP(int nargs,char** args)
     
     delete mapp;
     mapp=this;
-    atoms=new Atoms<MAPP_NS::dimension>();
-    memory=new Memory();
+    atoms=new Atoms();
     error=new Error();
     timer=new Timer();
     atom_types = new AtomTypes();
@@ -140,7 +137,6 @@ MAPP::~MAPP()
     delete neighbor;
     delete atom_types;
     delete timer;
-    delete memory;
     delete error;
     delete atoms;
     fin_debug();
@@ -249,6 +245,40 @@ void MAPP::fin_debug()
  1
  0,0
  --------------------------------------------*/
+//#include "logics.h"
+//#define mul(A,B) A.print(NULL),B.print(NULL),(A*B).print(NULL)
 void MAPP::test0()
 {
+    /*
+    VarManager vm;
+    int l0,l1,r0,r1;
+    var<int>L0(l0,"L0");
+    var<int>L1(l1,"L1");
+    var<int>R0(r0,"R0");
+    var<int>R1(r1,"R1");
+    
+    const char* op1="eq";
+    const char* op0="!gt";
+    const char* form="case %s\n\t%s\n+\t%s\n=\t%s\n"
+    "--------------------------------------------------------------------------\n";
+    const char* c1="1: (!L , !O ,  R ) ->   x";
+    const char* c2="2: (!L ,  O , !R ) ->   x";
+    const char* c3="3: (!L ,  O ,  R ) -> ( L0+L1 , O        , R     )";
+    const char* c4="4: ( L , !O , !R ) -> ( L     , O0+R0+O1 , R1    )";
+    const char* c5="5: ( L , !O ,  R ) -> ( L     , O0+O1    , R     )";
+    const char* c6="6: ( L ,  O , !R ) -> ( L     , O        , R0+R1 )";
+
+    
+    printf(form,c4,mul(Logics(l0,op0,r0),Logics(l0,op1,r1)));
+    printf(form,c2,mul(Logics(l0,op0,r0),Logics(l1,op0,r1)));
+    printf(form,c1,mul(Logics(l0,op0,r0),Logics(l1,op1,r0)));
+    printf(form,c3,mul(Logics(l0,op0,r0),Logics(l1,op0,r0)));
+    printf(form,c5,mul(Logics(l0,op0,r0),Logics(l0,op1,r0)));
+    printf(form,c6,mul(Logics(l0,op0,r0),Logics(l0,op0,r1)));
+    
+    const char* op2="!eq";
+    printf(form,c2,mul(Logics(l0,op0,r0),Logics(l1,op2,r1)));
+    printf(form,c3,mul(Logics(l0,op0,r0),Logics(l1,op2,r0)));
+    printf(form,c6,mul(Logics(l0,op0,r0),Logics(l0,op2,r1)));
+    */
 }

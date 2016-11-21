@@ -16,7 +16,7 @@ Command_md::Command_md
     
     int nh_xist=0;
     type0 t_step = 0.0,boltz=0.0;
-    if(md!=NULL)
+    if(md)
     {
         nh_xist=1;
         t_step=md->dt;

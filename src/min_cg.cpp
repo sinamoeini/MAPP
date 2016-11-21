@@ -22,7 +22,7 @@ Min_cg::Min_cg(int nargs,char** args):Min()
     cmd.add_var(min_style,"style");
     cmd.add_vdesc(0,"defines the style of minimization");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("eq","cg");
+    cmd.add_vlog(0)=VLogics("eq","cg");
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -30,7 +30,7 @@ Min_cg::Min_cg(int nargs,char** args):Min()
     cmd.add_var(energy_tolerance,"tol");
     cmd.add_vdesc(0,"defines energy tolerance to stop the minimization");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("ge",0.0);
+    cmd.add_vlog(0)=VLogics("ge",0.0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -38,7 +38,7 @@ Min_cg::Min_cg(int nargs,char** args):Min()
     cmd.add_var(max_iter,"niter");
     cmd.add_vdesc(0,"defines maximum number of iterations");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("ge",0);
+    cmd.add_vlog(0)=VLogics("ge",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -47,7 +47,7 @@ Min_cg::Min_cg(int nargs,char** args):Min()
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
-    cmd.cmd_2d_lt(H_dof,"H",3);
+    cmd.cmd_2d_lt<__dim__>(H_dof,"H");
     cmd.add_cdesc("when used, this degree of the freedom of the box would be considered in addition");
     /*------------------------------------------------------------------------------------*/
     
@@ -71,7 +71,7 @@ void Min_cg::init()
     if(output_flag)
     {
         thermo->init();
-        if(write!=NULL)
+        if(write)
             write->init();
     }
 }
@@ -109,7 +109,7 @@ void Min_cg::run()
         if(output_flag)
         {
             thermo->thermo_print();
-            if(write!=NULL)
+            if(write)
                 write->write();
         }
         
@@ -157,7 +157,7 @@ void Min_cg::fin()
 {
     if(output_flag)
     {
-        if(write!=NULL)
+        if(write)
             write->fin();
         thermo->fin();
     }

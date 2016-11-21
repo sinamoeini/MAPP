@@ -620,24 +620,24 @@ void ForceField_eam::coef(int nargs,char** args)
     int nfiles;
     
     Pattern cmd;
-    add_var(atom_types->no_types,"no. of elements in simulation");
+    g_vm->adddd_var(atom_types->no_types,"no. of elements in simulation");
     
     /*----------------------------*/
     cmd.cmd("ff_coef");
     cmd.add_var(file_format,"file_format");
     cmd.add_vdesc(0,"defines the format of EAM files");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("eq","FS")
-    +vlogic("eq","SetFL")+vlogic("eq","FuncFL");
+    cmd.add_vlog(0)=VLogics("eq","FS")
+    +VLogics("eq","SetFL")+VLogics("eq","FuncFL");
     /*------------------------------------------------------------------------------------*/
 
     /*----------------------------*/
     cmd.cmd_dy("files",files,nfiles);
     cmd.add_vdesc(0,"defines the path to the potential file/s");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=logic(file_format,"eq","FuncFL")/logic(nfiles,"eq",atom_types->no_types);
-    cmd.add_clog().link()=(logic(file_format,"eq","FS")+logic(file_format,"eq","SetFL"))
-    /logic(nfiles,"eq",1);
+    cmd.add_clog()=Logics(file_format,"eq","FuncFL")/Logics(nfiles,"eq",atom_types->no_types);
+    cmd.add_clog().link()=(Logics(file_format,"eq","FS")+Logics(file_format,"eq","SetFL"))
+    /Logics(nfiles,"eq",1);
     /*------------------------------------------------------------------------------------*/
     
     cmd.scan(args,nargs);

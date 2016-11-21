@@ -13,14 +13,16 @@ namespace MAPP_NS
         // inverse square matrix
         void invert(type0**,type0**,int);
         // inverse lower triangle square matrix
+        template<const int d>
+        void invert_lower_triangle(type0 (&)[d][d],type0 (&)[d][d]);
         void invert_lower_triangle(type0**&,type0**&,int&);
         // return the list of all possible groups of integers that their products are equal to specific number
         void fac_list(int,int,int*&,int&);
         
-        void square2lo_tri(type0**,type0**);
+        void square2lo_tri(type0(&)[3][3],type0(&)[3][3]);
         void quadrature_lg(int,type0*,type0*);
         void quadrature_hg(int,type0*,type0*);
-        int M3sqroot(type0**,type0**);
+        int M3sqroot(type0(&)[3][3],type0(&)[3][3]);
         
         template<typename T0,class COMP,class SWAP>
         void quicksort(T0,T0,COMP,SWAP);
@@ -203,14 +205,35 @@ namespace MAPP_NS
 {
     namespace XMatrixVector
     {
+        template<const int dim>
+        class _zero_
+        {
+        public:
+            template<typename T>
+            static inline void func(T* v)
+            {
+                *v=0;
+                _zero_<dim-1>::func(v+1);
+            }
+        };
+        template<>
+        class _zero_<0>
+        {
+        public:
+            template<typename T>
+            static inline void func(T*)
+            {
+            }
+        };
+        
         template<const int i>
         class _rsq_
         {
         public:
             template<typename T>
-            static inline T fun(T* V0,T* V1)
+            static inline T func(T* V0,T* V1)
             {
-                return _rsq_<i-1>::fun(V0+1,V1+1)+(*V0-*V1)*(*V0-*V1);
+                return _rsq_<i-1>::func(V0+1,V1+1)+(*V0-*V1)*(*V0-*V1);
             }
         };
         
@@ -219,7 +242,7 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline T fun(T* V0,T* V1)
+            static inline T func(T* V0,T* V1)
             {
                 return (*V0-*V1)*(*V0-*V1);
             }
@@ -230,9 +253,9 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline T fun(T* V0,T* V1)
+            static inline T func(T* V0,T* V1)
             {
-                return _V_V_<i-1>::fun(V0+1,V1+1)+(*V0)*(*V1);
+                return _V_V_<i-1>::func(V0+1,V1+1)+(*V0)*(*V1);
             }
         };
         
@@ -241,9 +264,19 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline T fun(T* V0,T* V1)
+            static inline T func(T* V0,T* V1)
             {
                 return (*V0)*(*V1);
+            }
+        };
+        template<>
+        class _V_V_<0>
+        {
+        public:
+            template<typename T>
+            static inline T func(T* V0,T* V1)
+            {
+                return 0;
             }
         };
         
@@ -252,9 +285,9 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline T fun(T* V0,T* V1)
+            static inline T func(T* V0,T* V1)
             {
-                return _V_V_str_<stride,i-1>::fun(V0+stride,V1+1)+(*V0)*(*V1);
+                return _V_V_str_<stride,i-1>::func(V0+stride,V1+1)+(*V0)*(*V1);
             }
         };
         
@@ -263,7 +296,7 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline T fun(T* V0,T* V1)
+            static inline T func(T* V0,T* V1)
             {
                 return (*V0)*(*V1);
             }
@@ -275,10 +308,10 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* Mlt,T* V)
+            static inline void func(T* Mlt,T* V)
             {
-                *V=_V_V_str_<dim,i>::fun(Mlt,V);
-                _V_Mlt_<dim,i-1>::fun(Mlt+dim+1,V+1);
+                *V=_V_V_str_<dim,i>::func(Mlt,V);
+                _V_Mlt_<dim,i-1>::func(Mlt+dim+1,V+1);
             }
         };
         
@@ -287,7 +320,7 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* Mlt,T* V)
+            static inline void func(T* Mlt,T* V)
             {
                 *V*=*Mlt;
             }
@@ -299,14 +332,14 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* Mlt,T* V)
+            static inline void func(T* Mlt,T* V)
             {
-                *V=_V_V_str_<dim,i>::fun(Mlt,V);
+                *V=_V_V_str_<dim,i>::func(Mlt,V);
                 while(*V<0.0)
                     (*V)++;
                 while(*V>=1.0)
                     (*V)--;
-                _x2s_<dim,i-1>::fun(Mlt+dim+1,V+1);
+                _x2s_<dim,i-1>::func(Mlt+dim+1,V+1);
             }
         };
         
@@ -315,7 +348,7 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* Mlt,T* V)
+            static inline void func(T* Mlt,T* V)
             {
                 *V*=*Mlt;
                 while(*V<0.0)
@@ -331,10 +364,10 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* M,T* Minv)
+            static inline void func(T* M,T* Minv)
             {
-                *Minv=-_V_V_str_<dim,i-j>::fun(Minv-(i-j)*dim,M)*(*(Minv+i-j));
-                _Mlt_inv_<dim,i,j-1>::fun(Minv-1,M-1);
+                *Minv=-_V_V_str_<dim,i-j>::func(Minv-(i-j)*dim,M)*(*(Minv+i-j));
+                _Mlt_inv_<dim,i,j-1>::func(Minv-1,M-1);
             }
         };
         
@@ -343,10 +376,10 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* M,T* Minv)
+            static inline void func(T* M,T* Minv)
             {
                 *Minv=1.0/(*M);
-                _Mlt_inv_<dim,i,i-1>::fun(Minv-1,M-1);
+                _Mlt_inv_<dim,i,i-1>::func(Minv-1,M-1);
             }
         };
         template<const int dim,const int i>
@@ -354,10 +387,10 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* M,T* Minv)
+            static inline void func(T* M,T* Minv)
             {
-                *Minv=-_V_V_str_<dim,i>::fun(Minv-i*dim,M)*(*(Minv+i));
-                _Mlt_inv_<dim,i+1,i+1>::fun(Minv+dim+i+1,M+dim+i+1);
+                *Minv=-_V_V_str_<dim,i>::func(Minv-i*dim,M)*(*(Minv+i));
+                _Mlt_inv_<dim,i+1,i+1>::func(Minv+dim+i+1,M+dim+i+1);
             }
         };
         
@@ -366,20 +399,58 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* M,T* Minv)
+            static inline void func(T* M,T* Minv)
             {}
         };
         
+        template<const int dim,const int i,const int j>
+        class _M_2_Mlt_
+        {
+        public:
+            template<typename T>
+            static inline void func(T* M_old,T* M_new)
+            {
+                
+                M_new[i*dim+j]=(_V_V_<dim>::func(M_old+j*dim,M_old+i*dim)-
+                _V_V_<j>::func(M_new+j*dim,M_new+i*dim))/M_new[j*(dim+1)];
+
+                _M_2_Mlt_<dim,i,j+1>::func(M_old,M_new);
+            }
+        };
+        
+        template<const int dim,const int i>
+        class _M_2_Mlt_<dim,i,i>
+        {
+        public:
+            template<typename T>
+            static inline void func(T* M_old,T* M_new)
+            {
+                M_new[i*dim+i]=sqrt(_V_V_<dim>::func(M_old+i*dim,M_old+i*dim)-
+                    _V_V_<i>::func(M_new+i*dim,M_new+i*dim));
+                
+                _zero_<dim-i-1>::func(M_new+i*(dim+1)+1);
+                _M_2_Mlt_<dim,i+1,0>::func(M_old,M_new);
+            }
+        };
+        
+        template<const int dim>
+        class _M_2_Mlt_<dim,dim,0>
+        {
+        public:
+            template<typename T>
+            static inline void func(T*,T*)
+            {}
+        };
         
         template<const int dim,const int i,const int j>
         class _Mlt_Mlt_
         {
         public:
             template<typename T>
-            static inline void fun(T* M0,T* M1,T* B)
+            static inline void func(T* M0,T* M1,T* B)
             {
-                *B=_V_V_str_<dim,i-j+1>::fun(M1-(i-j)*dim,M0);
-                _Mlt_Mlt_<dim,i,j+1>::fun(M0+1,M1+1,B+1);
+                *B=_V_V_str_<dim,i-j+1>::func(M1-(i-j)*dim,M0);
+                _Mlt_Mlt_<dim,i,j+1>::func(M0+1,M1+1,B+1);
             }
         };
         
@@ -388,10 +459,10 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T* M0,T* M1,T* B)
+            static inline void func(T* M0,T* M1,T* B)
             {
                 *B=(*M0)*(*M1);
-                _Mlt_Mlt_<dim,i+1,0>::fun(M0+dim-i,M1+dim-i,B+dim-i);
+                _Mlt_Mlt_<dim,i+1,0>::func(M0+dim-i,M1+dim-i,B+dim-i);
             }
         };
         template<const int dim>
@@ -399,7 +470,7 @@ namespace MAPP_NS
         {
         public:
             template<typename T>
-            static inline void fun(T*,T*,T*)
+            static inline void func(T*,T*,T*)
             {}
         };
         
@@ -427,7 +498,7 @@ namespace MAPP_NS
         template<const int dim,typename T>
         inline T rsq(T* V0,T* V1)
         {
-            return _rsq_<dim>::fun(V0,V1);
+            return _rsq_<dim>::func(V0,V1);
         }
         
         template<const int dim,typename T>
@@ -439,49 +510,74 @@ namespace MAPP_NS
         template<const int dim,typename T>
         inline void V_Mlt(T* V,T** Mlt)
         {
-            _V_Mlt_<dim,dim>::fun(*Mlt,V);
+            _V_Mlt_<dim,dim>::func(*Mlt,V);
         }
         template<const int dim,typename T>
         static inline void V_Mlt(T* V,T (&Mlt)[dim][dim])
         {
-            _V_Mlt_<dim,dim>::fun((T*)Mlt,V);
+            _V_Mlt_<dim,dim>::func((T*)Mlt,V);
+        }
+        
+        template<const int dim,typename T>
+        inline void s2x(T* s,T (&H)[dim][dim])
+        {
+            _V_Mlt_<dim,dim>::func(&H[0][0],s);
         }
         
         template<const int dim,typename T>
         inline void s2x(T* s,T** H)
         {
-            _V_Mlt_<dim,dim>::fun(*H,s);
+            _V_Mlt_<dim,dim>::func(*H,s);
+        }
+        
+        template<const int dim,typename T>
+        inline void x2s(T* x,T (&B)[dim][dim])
+        {
+            _x2s_<dim,dim>::func(&B[0][0],x);
         }
         
         template<const int dim,typename T>
         inline void x2s(T* x,T** B)
         {
-            _x2s_<dim,dim>::fun(*B,x);
+            _x2s_<dim,dim>::func(*B,x);
         }
         
         template<const int dim,typename T>
         inline void Mlt_inv(T** A,T** Ainv)
         {
-            _Mlt_inv_<dim,0,0>(*A,*Ainv);
+            **Ainv=1.0/(**A);
+            _Mlt_inv_<dim,1,1>::func(*A+dim+1,*Ainv+dim+1);
         }
         
         template<const int dim,typename T>
         inline void Mlt_inv(T (&A)[dim][dim],T (&Ainv)[dim][dim])
         {
             **Ainv=1.0/(**A);
-            _Mlt_inv_<dim,1,1>::fun((T*)A+dim+1,(T*)Ainv+dim+1);
+            _Mlt_inv_<dim,1,1>::func((T*)A+dim+1,(T*)Ainv+dim+1);
         }
         
         template<const int dim,typename T>
         inline void Mlt_Mlt(T** M0,T** M1,T** B)
         {
-            _Mlt_Mlt_<dim,0,0>::fun(*M0,*M1,*B);
+            _Mlt_Mlt_<dim,0,0>::func(*M0,*M1,*B);
         }
         
         template<const int dim,typename T>
         inline void Mlt_Mlt(T (&M0)[dim][dim],T (&M1)[dim][dim],T (&B)[dim][dim])
         {
-            _Mlt_Mlt_<dim,0,0>::fun((T*)M0,(T*)M1,(T*)B);
+            _Mlt_Mlt_<dim,0,0>::func((T*)M0,(T*)M1,(T*)B);
+        }
+        
+        template<const int dim,typename T>
+        inline void M_2_Mlt(T** &M0,T** M1)
+        {
+            _M_2_Mlt_<dim,0,0>::func(*M0,*M1);
+        }
+        
+        template<const int dim,typename T>
+        inline void M_2_Mlt(T (&M0)[dim][dim],T (&M1)[dim][dim])
+        {
+            _M_2_Mlt_<dim,0,0>::func((T*)M0,(T*)M1);
         }
     }
 }
@@ -625,4 +721,120 @@ void XMath::srch_lst_lst(T0* ilst,int isize,C0* iact
         }
     }    
 }
-#endif 
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<const int dim>
+void XMath::invert_lower_triangle(type0 (&A)[dim][dim],type0 (&Ainv)[dim][dim])
+{
+    type0 ATA[dim][dim];
+    type0 c[dim];
+    type0 x[dim];
+    type0 g[dim];
+    type0 g0[dim];
+    type0 h[dim];
+    type0 a0,a1,alpha;
+    type0 g0g0,gg,gg0,ratio;
+    
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            Ainv[i][j]=ATA[i][j]=0.0;
+    
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<dim;j++)
+            for(int k=0;k<dim;k++)
+                ATA[i][j]+=A[k][i]*A[k][j];
+    
+    for(int itry=0;itry<dim;itry++)
+    {
+        for(int i=0;i<dim;i++)
+        {
+            c[i]=A[itry][i];
+            x[i]=c[i];
+        }
+        
+        
+        g0g0=0.0;
+        for(int i=0;i<dim;i++)
+        {
+            h[i]=2.0*c[i];
+            for(int j=0;j<dim;j++)
+                h[i]-=2.0*ATA[i][j]*x[j];
+            g[i]=h[i];
+            g0g0+=h[i]*h[i];
+        }
+        
+        int jtry=0;
+        double error=1.0;
+        while(jtry<dim+1 && error!=0.0)
+        {
+            
+            if(g0g0==0.0)
+            {
+                error=0.0;
+                continue;
+            }
+            
+            
+            a0=0.0;
+            a1=0.0;
+            for(int i=0;i<dim;i++)
+            {
+                a0+=h[i]*g[i];
+                for(int j=0;j<dim;j++)
+                    a1+=h[i]*ATA[i][j]*h[j];
+            }
+            if(a1==0.0)
+            {
+                error=0.0;
+                continue;
+            }
+            alpha=0.5*a0/a1;
+            
+            for(int i=0;i<dim;i++)
+                x[i]+=alpha*h[i];
+            
+            //cout << "chk 3" << endl;
+            
+            gg=0.0;
+            gg0=0.0;
+            for(int i=0;i<dim;i++)
+            {
+                g[i]=2.0*c[i];
+                for(int j=0;j<dim;j++)
+                    g[i]-=2.0*ATA[i][j]*x[j];
+                gg+=g[i]*g[i];
+                gg0+=g0[i]*g[i];
+            }
+            
+            //cout << "chk 4" << endl;
+            ratio=(gg-gg0)/g0g0;
+            g0g0=gg;
+            
+            
+            for(int i=0;i<dim;i++)
+            {
+                h[i]=ratio*h[i]+g[i];
+                g0[i]=g[i];
+            }
+            
+            
+            error=0.0;
+            for(int i=0;i<dim;i++)
+            {
+                for(int j=0;j<dim;j++)
+                    error+=x[i]*ATA[i][j]*x[i];
+                error-=2*c[i]*x[i];
+            }
+            error++;
+            
+            jtry++;
+        }
+        
+        for(int i=0;i<dim;i++)
+            Ainv[i][itry]=x[i];
+    }
+}
+
+
+#endif

@@ -12,7 +12,6 @@ namespace MAPP_NS
     protected:
         VecLst* vecs_comm;
         bool chng_box;
-        int dim;
         int err;
         type0 f_h;
         type0 curr_energy;

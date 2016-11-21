@@ -44,23 +44,23 @@ LineSearch<Func>()
     
     cmd.cmd("ls");
     cmd.add_var(ls_style);
-    cmd.add_vlog(0)=vlogic("eq","golden");
+    cmd.add_vlog(0)=VLogics("eq","golden");
     
     cmd.cmd("tol");
     cmd.add_var(tol);
-    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_vlog(0)=VLogics("gt",0.0);
     
     cmd.cmd("max_iter");
     cmd.add_var(max_iter);
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     
     cmd.cmd("bracket");
     cmd.add_var(bracket);
-    cmd.add_vlog(0)=vlogic("eq","yes")+vlogic("eq","no");
+    cmd.add_vlog(0)=VLogics("eq","yes")+VLogics("eq","no");
     
     cmd.scan(args,nargs);
     
-    if(bracket!=NULL && !strcmp(bracket,"no"))
+    if(bracket && !strcmp(bracket,"no"))
         brack=false;
 }
 /*--------------------------------------------

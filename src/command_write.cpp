@@ -13,7 +13,7 @@ Command_write::Command_write
     if(nargs<2)
         error->abort("wrong command: %s",args[0]);
     
-    if(write!=NULL)
+    if(write)
         delete write;
 
     #define Write_Style

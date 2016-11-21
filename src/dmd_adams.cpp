@@ -27,7 +27,7 @@ DMD_adams::DMD_adams(int nargs
     cmd.add_var(dmd_style,"style");
     cmd.add_vdesc(0,"defines the style of dmd");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("eq","adams");
+    cmd.add_vlog(0)=VLogics("eq","adams");
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -35,7 +35,7 @@ DMD_adams::DMD_adams(int nargs
     cmd.add_var(max_step,"nstep");
     cmd.add_vdesc(0,"defines maximum number of steps");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -43,7 +43,7 @@ DMD_adams::DMD_adams(int nargs
     cmd.add_var(max_iter,"niter");
     cmd.add_vdesc(0,"defines maximum number of iterations");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -51,7 +51,7 @@ DMD_adams::DMD_adams(int nargs
     cmd.add_var(q_max,"q");
     cmd.add_vdesc(0,"defines maximum order of bdf");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0)*vlogic("le",12);
+    cmd.add_vlog(0)=VLogics("gt",0)*VLogics("le",12);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -59,7 +59,7 @@ DMD_adams::DMD_adams(int nargs
     cmd.add_var(a_tol,"tol");
     cmd.add_vdesc(0,"defines absolute tolerance in local truncation error for performing integration");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_vlog(0)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -67,7 +67,7 @@ DMD_adams::DMD_adams(int nargs
     cmd.add_var(dt_min,"dt");
     cmd.add_vdesc(0,"defines minimum time step");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_vlog(0)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
 
     cmd.scan(args,nargs);

@@ -70,14 +70,14 @@ bool ScriptReader::get_line_proc0(char*& buff,int& buff_sz,int& buff_cpcty)
     }
     
     char* srch=strchr(buff+beg,'#');
-    if(srch!=NULL)
+    if(srch)
     {
         *srch='\0';
         buff_sz=static_cast<int>(srch-buff);
     }
     
     srch=strchr(buff+beg,'\\');
-    if(srch!=NULL)
+    if(srch)
     {
         *srch='\0';
         buff_sz=static_cast<int>(srch-buff);
@@ -488,7 +488,7 @@ int ScriptReader::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
                     continue;
                 }
                 
-                if(strchr(line+ipos,'\n')!=NULL)
+                if(strchr(line+ipos,'\n'))
                     line_cmplt=true;
                 else
                 {

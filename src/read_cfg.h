@@ -5,6 +5,7 @@
 #define __MAPP__read_cfg__
 #include "read.h"
 #include "type_def.h"
+#include "global.h"
 #include <stdio.h>
 namespace MAPP_NS
 {
@@ -12,11 +13,12 @@ namespace MAPP_NS
     {
     private:
         
-        type0** H0;
-        type0** eta;
-        type0** trns;
-        type0** H_x;
-        type0** H_x_d;
+        type0 H0[3][3];
+        type0 eta[3][3];
+        type0 trns[3][3];
+        type0 H_x[3][3];
+        type0 H_x_d[3][3];
+        
                 
         type0 basic_length;
         type0 R;

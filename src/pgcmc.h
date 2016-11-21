@@ -11,36 +11,36 @@ namespace MAPP_NS
         type0 tot_du_test;
 #endif
         
-        int N_c[dimension];
-        int N_s[dimension];
-        int N_curr_comms[dimension];
-        int i_curr_comms[dimension];
-        bool prll_dim[dimension];
+        int N_c[__dim__];
+        int N_s[__dim__];
+        int N_curr_comms[__dim__];
+        int i_curr_comms[__dim__];
+        bool prll_dim[__dim__];
         
         int max_n_cncrcy;
-        int max_N_cncrcy[dimension];
+        int max_N_cncrcy[__dim__];
         
         int comm_buff_size;
         byte* comm_buff;
         
         int ip;
         int n_p;
-        int op_vec[dimension];
-        int p_vec[dimension];
-        int N_p[dimension];
-        int B_p[dimension];
+        int op_vec[__dim__];
+        int p_vec[__dim__];
+        int N_p[__dim__];
+        int B_p[__dim__];
         
         int n_prll;
-        int N_prll[dimension];
-        int B_prll[dimension];
+        int N_prll[__dim__];
+        int B_prll[__dim__];
         
         int n_pcomm;
-        int N_pcomm[dimension];
-        int B_pcomm[dimension];
+        int N_pcomm[__dim__];
+        int B_pcomm[__dim__];
 
         int n_comm;
-        int N_comm[dimension];
-        int B_comm[dimension];
+        int N_comm[__dim__];
+        int B_comm[__dim__];
 
         
         const int m;
@@ -48,11 +48,11 @@ namespace MAPP_NS
         //static stuff
         //allocate in constructor
         //deallocate in destructor
-        int N_cells[dimension];
-        int B_cells[dimension];
-        int icell_coord[dimension];
-        int jcell_coord[dimension];
-        type0 cell_size[dimension];
+        int N_cells[__dim__];
+        int B_cells[__dim__];
+        int icell_coord[__dim__];
+        int jcell_coord[__dim__];
+        type0 cell_size[__dim__];
 
 
         //dynamic determined by m

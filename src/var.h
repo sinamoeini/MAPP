@@ -60,12 +60,10 @@ namespace MAPP_NS
         ~VarManager();
 
         template<typename T0>
-        Var* add_var(T0&,const char*);
+        Var* adddd_var(T0&,const char*);
 
-        template <typename T0>
-        Var* operator()(T0&&);
         template<typename T0>
-        Var* operator()(bool,T0&);
+        Var* opppp(bool,T0&);
     };
     
     template<typename T>
@@ -82,41 +80,67 @@ namespace MAPP_NS
         
         return true;
     }
-    
-    template<typename T>
-    bool dynamic_statc()
-    {
-        if(std::is_rvalue_reference<T>::value)
-            return false;
-        if(std::is_lvalue_reference<T>::value)
-        {
-            typedef typename std::remove_reference<T>::type TT;
-            if(std::is_const<TT>::value)
-                return false;
-        }
-        
-        return true;
-    }
-    
-    template<typename T>
-    Var* get_var(T&& v)
-    {
-        return MAPP_NS::g_vm->operator()(dynamic_static<T&&>(),v);
-    }
-    
-    
-    template<typename T>
-    void add_var(T&& v,const char* n)
-    {
-        MAPP_NS::g_vm->add_var(v,n);
-    }
-    
-    
+
     class Var
     {
     protected:
         char* loc;
     public:
+        static void** var_stack[2];
+        static size_t vars_stack_size;
+        static size_t vars_stack_capacity;
+        static size_t vars_stack_grow;
+        static void push(Var* var,void* val)
+        {
+            if(vars_stack_size+1>vars_stack_capacity)
+            {
+                for(int i=0;i<2;i++)
+                {
+                    void** stack=new void*[vars_stack_size+vars_stack_grow+1];
+                    memcpy(stack,var_stack[i],sizeof(void*)*vars_stack_size);
+                    delete [] var_stack[i];
+                    var_stack[i]=stack;
+                }
+                vars_stack_capacity=vars_stack_size+vars_stack_grow+1;
+            }
+            
+            var_stack[0][vars_stack_size]=var;
+            var_stack[1][vars_stack_size]=val;
+            
+            vars_stack_size++;
+        }
+        static void pope(Var* v)
+        {
+            size_t ivar=vars_stack_size-1;
+            for(;var_stack[0][ivar]!=v;ivar--);
+            
+            for(;ivar<vars_stack_size-1;ivar++)
+            {
+                var_stack[0][ivar]=var_stack[0][ivar+1];
+                var_stack[1][ivar]=var_stack[1][ivar+1];
+            }
+            vars_stack_size--;
+            
+            if(vars_stack_size+vars_stack_grow<vars_stack_capacity)
+            {
+                for(int i=0;i<2;i++)
+                {
+                    void** stack=new void*[vars_stack_size];
+                    memcpy(stack,var_stack[i],sizeof(void*)*vars_stack_size);
+                    delete [] var_stack[i];
+                    var_stack[i]=stack;
+                }
+                vars_stack_capacity=vars_stack_size;
+            }
+            
+        }
+        static void empty_stack(const int sz)
+        {
+            for(size_t i=vars_stack_size-1;i>sz-1;i--)
+                delete static_cast<Var*>(var_stack[i][0]);
+        }
+        
+        
         const void* addr;
         bool set;
         char* name;        
@@ -141,7 +165,7 @@ namespace MAPP_NS
         inline static void append(char*& buff,const char* format,T0... vals)
         {
             size_t len=snprintf(NULL,0,format,vals...)+1;
-            if(buff!=NULL)
+            if(buff)
             {
                 size_t old_len=strlen(buff);
                 char* buff_=new char[old_len+len];
@@ -160,7 +184,7 @@ namespace MAPP_NS
         static inline void append(char*& buff,const char* format)
         {
             size_t len=strlen(format)+1;
-            if(buff!=NULL)
+            if(buff)
             {
                 size_t old_len=strlen(buff);
                 char* buff_=new char[old_len+len];
@@ -331,7 +355,7 @@ template<typename T0>
 char* var<T0>::scan(char* inp)
 {
     char* err_msg=sub_scan(inp);
-    if(err_msg!=NULL)
+    if(err_msg)
         return err_msg;
     
     set=true;
@@ -477,7 +501,7 @@ template<typename T0>
 char* var<T0*>::scan(char* inp)
 {
     char* err_msg=sub_scan(inp);
-    if(err_msg!=NULL)
+    if(err_msg)
         return err_msg;
     
     set=true;
@@ -508,7 +532,7 @@ Var* var<T0*>::clone()
 |___/ /_/   |_| |_|  \_\ /_/        |_| /_/   |_| |_|  \_| /_/   |_| \_____/ |_____| |_|  \_\
  --------------------------------------------------------------------------------------------*/
 template<typename T0>
-Var* VarManager::add_var(T0& v,const char* var_name)
+Var* VarManager::adddd_var(T0& v,const char* var_name)
 {
     var<T0>* var_=new var<T0>(v,var_name);
     Var** vars_=new Var*[ndy_vars+1];
@@ -522,16 +546,8 @@ Var* VarManager::add_var(T0& v,const char* var_name)
 /*--------------------------------------------
  
  --------------------------------------------*/
-template <typename T0>
-Var* VarManager::operator()(T0&& v)
-{
-    return operator()(dynamic_statc<T0&&>(),v);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
 template<typename T0>
-Var* VarManager::operator()(bool ds,T0& v)
+Var* VarManager::opppp(bool ds,T0& v)
 {
     if(ds)
     {
@@ -551,7 +567,7 @@ Var* VarManager::operator()(bool ds,T0& v)
         for(int i=0;i<nst_vars;i++)
         {
             var<T1>* _var_=dynamic_cast<var<T1>*>(st_vars[i]);
-            if(_var_!=NULL && *_var_==*var_)
+            if(_var_ && *_var_==*var_)
             {
                 delete var_;
                 return st_vars[i];

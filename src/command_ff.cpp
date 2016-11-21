@@ -13,7 +13,7 @@ Command_ff::Command_ff
     if(nargs!=2)
         error->abort("wrong command: %s",args[0]);
     
-    if(forcefield!=NULL)
+    if(forcefield)
         delete forcefield;
     
     #define FF_Style

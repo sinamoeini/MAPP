@@ -363,8 +363,8 @@ force_calc(bool st_clc)
         }
     }
     
-    type0* alpha=atoms->x->begin()+dim;
-    type0* fvec_alpha=f->begin()+dim;
+    type0* alpha=atoms->x->begin()+__dim__;
+    type0* fvec_alpha=f->begin()+__dim__;
     c=mapp->c->begin();
     for(iatm=0;iatm<natms;iatm++)
     {
@@ -656,7 +656,6 @@ void ForceField_eam_dmd::coef(int nargs,char** args)
     no_types=atom_types->no_types;
     c_dim=mapp->c->dim;
     x_dim=atoms->x->dim;
-    dim=dimension;
     
     read_file(args[1]);
 }
@@ -704,30 +703,30 @@ void ForceField_eam_dmd::read_file(char* file_name)
     FileReader fr;
     
     fr.add_scl("degree",degree);
-    fr.add_vlog()=vlogic("gt",0);
+    fr.add_vlog()=VLogics("gt",0);
     
     fr.add_scl("T",T0);
-    fr.add_vlog()=vlogic("gt",0.0);
+    fr.add_vlog()=VLogics("gt",0.0);
     
     fr.add_scl("alpha_max",alpha_max);
-    fr.add_vlog()=vlogic("gt",0.0);
+    fr.add_vlog()=VLogics("gt",0.0);
         
     fr.add_1D("gamma",g_fac);
-    fr.add_vlog()=vlogic("gt",0.0)*vlogic("le",1.0);
+    fr.add_vlog()=VLogics("gt",0.0)*VLogics("le",1.0);
 
     fr.add_1D("r_crd",rsq_crd);
-    fr.add_vlog()=vlogic("gt",0.0);
+    fr.add_vlog()=VLogics("gt",0.0);
     
     fr.add_scl("file_format",file_format);
-    fr.add_vlog()=vlogic("eq","FS")
-    +vlogic("eq","SetFunc")+vlogic("eq","SetFL");
+    fr.add_vlog()=VLogics("eq","FS")
+    +VLogics("eq","SetFunc")+VLogics("eq","SetFL");
 
     
     fr.add_1D("files",files);
-    fr.add_clog()=logic(file_format,"eq","FuncFL")-vlogic("set");
+    fr.add_clog()=Logics(file_format,"eq","FuncFL")-VLogics("set");
     
     fr.add_scl("file",files[0]);
-    fr.add_clog()=(logic(file_format,"eq","SetFL")+logic(file_format,"eq","FS"))-vlogic("set");
+    fr.add_clog()=(Logics(file_format,"eq","SetFL")+Logics(file_format,"eq","FS"))-VLogics("set");
 
     fr.read_file(file_name);
     

@@ -57,7 +57,7 @@ addr(addr_)
 Var::Var():
 addr(NULL)
 {
-    set=true;    
+    set=true;
     name=NULL;
     loc=NULL;
 }

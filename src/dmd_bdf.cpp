@@ -28,7 +28,7 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(dmd_style,"style");
     cmd.add_vdesc(0,"defines the style of dmd");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("eq","bdf");
+    cmd.add_vlog(0)=VLogics("eq","bdf");
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -36,7 +36,7 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(max_step,"nstep");
     cmd.add_vdesc(0,"defines maximum number of steps");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -44,7 +44,7 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(max_iter,"niter");
     cmd.add_vdesc(0,"defines maximum number of iterations");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -52,7 +52,7 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(q_max,"q");
     cmd.add_vdesc(0,"defines maximum order of bdf");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0)*vlogic("le",5);
+    cmd.add_vlog(0)=VLogics("gt",0)*VLogics("le",5);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -60,7 +60,7 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(a_tol,"tol");
     cmd.add_vdesc(0,"defines absolute tolerance in local truncation error for performing integration");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_vlog(0)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -68,7 +68,7 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(dt_min,"dt");
     cmd.add_vdesc(0,"defines minimum time step");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_vlog(0)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -76,14 +76,14 @@ DMD_bdf::DMD_bdf(int nargs,char** args):DMDImplicit()
     cmd.add_var(bdf_mode);
     cmd.add_vdesc(0,"defines mode of bdf");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("eq","f_flc")
-    +vlogic("eq","y_flc")+vlogic("eq","f_vc")
-    +vlogic("eq","y_vc");
+    cmd.add_vlog(0)=VLogics("eq","f_flc")
+    +VLogics("eq","y_flc")+VLogics("eq","f_vc")
+    +VLogics("eq","y_vc");
     /*------------------------------------------------------------------------------------*/
     
     cmd.scan(args,nargs);
     
-    if(bdf_mode!=NULL)
+    if(bdf_mode)
     {
         if(strcmp(bdf_mode,"f_flc")==0)
             bdf_eng=new DMD_bdf_f_flc(this);

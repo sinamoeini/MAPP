@@ -197,12 +197,6 @@ namespace MAPP_NS
         template<typename T0>
         void add_2D(const char*,T0**&);
         
-        
-        template<typename T0>
-        Logics log_u(T0&,const char*);
-        template<typename T0>
-        Logics log_u(T0*&,const char*);
-        
 
         void symmetric();
         Logics&  add_vlog(){return tens[ntens-1]->add_vlog();}
@@ -220,12 +214,15 @@ namespace MAPP_NS
         static void change_form(char*&,const char*,const char*);
         static void revert_form(char*&);
         class SubPattern;
-        template<typename T0>
+        template<typename>
         class SubPattern_DY;
         class SubPattern_0D;
+        template<size_t>
         class SubPattern_1D;
         class SubPattern_2D;
+        template<size_t>
         class SubPattern_Voigt;
+        template<size_t>
         class SubPattern_2D_LT;
         
         SubPattern** sub_ptrns;
@@ -247,17 +244,24 @@ namespace MAPP_NS
         template<typename T0>
         void cmd_dy(const char*,T0*&,int&);
         
+        
         void cmd(const char*);
         void cmd(bool&,const char*);
         
-        void cmd_voigt(const char*,int);
-        void cmd_voigt(bool*&,const char*,int);
+        template<size_t>
+        void cmd_voigt(const char*);
+        template<size_t>
+        void cmd_voigt(bool*&,const char*);
         
-        void cmd_1d(const char*,const int);
-        void cmd_1d(bool*&,const char*,const int);
+        template<size_t>
+        void cmd_1d(const char*);
+        template<size_t>
+        void cmd_1d(bool*&,const char*);
         
-        void cmd_2d_lt(const char*,const int);
-        void cmd_2d_lt(bool**&,const char*,const int);
+        template<size_t>
+        void cmd_2d_lt(const char*);
+        template<size_t>
+        void cmd_2d_lt(bool**&,const char*);
         
         void cmd_2d(const char*,const int,const int);
         void cmd_2d(bool**&,const char*,const int,const int);
@@ -317,10 +321,12 @@ namespace MAPP_NS
         void add_var(T0&,const char*);
         template<typename T0>
         void add_var(T0*&,const char*);
-        template<typename T0>
-        void add_var(T0**&,const char*);
-        template<typename T0,int N>
-        void add_var(T0 (&x)[N],const char*);
+        template<typename T0,size_t N,size_t M>
+        void add_var(T0 (&)[N][M],const char*);
+        template<typename T0,size_t N>
+        void add_var(T0 (&)[N][N],const char*);
+        template<typename T0,size_t N>
+        void add_var(T0 (&)[N],const char*);
         
         virtual char* finalize();
         
@@ -336,6 +342,12 @@ namespace MAPP_NS
         virtual void print_cmd_prop(PrintStyle&,char*&);
         virtual void conv_name(PrintStyle&)=0;
         void deconv_name();
+        
+
+        static constexpr size_t det(size_t n0,size_t n1)
+        {
+            return n0*(n0+1) < 2*n1 ? det(n0+1,n1):n0;
+        }
     };
     
 
@@ -360,19 +372,19 @@ namespace MAPP_NS
         void conv_name(PrintStyle&);
     };
     
+    template<size_t dim>
     class Pattern::SubPattern_1D:public Pattern::SubPattern
     {
     private:
-        int icomp0;
-        Var& comp0;
-        KeyWord* kywrds;
+        int icomp;
+        var<int> comp;
+        KeyWord kywrds[dim];
         void init();
         void init_keywords();
         void init_keywords(bool*&);
     protected:
     public:
         char* format;
-        int dim;
         SubPattern_1D(VarManager&,const char*,int);
         SubPattern_1D(bool*&,VarManager&,const char*,int);
         ~SubPattern_1D();
@@ -384,13 +396,14 @@ namespace MAPP_NS
         void conv_name(PrintStyle&);
     };
     
+    template<size_t dim>
     class Pattern::SubPattern_Voigt:public Pattern::SubPattern
     {
     private:
         int icomp0,icomp1;
         Var& comp0;
         Var& comp1;
-        KeyWord* kywrds;
+        KeyWord kywrds[dim*(dim+1)/2];
         void cmpt2voigt(int&,const int,const int);
         void voigt2cmpt(const int,int&,int&);
         void init();
@@ -398,16 +411,15 @@ namespace MAPP_NS
         void init_keywords(bool*&);
     protected:
     public:
-        int dim;
         char* format;
-        SubPattern_Voigt(VarManager&,const char*,int);
-        SubPattern_Voigt(bool*&,VarManager&,const char*,int);
+        SubPattern_Voigt(VarManager&,const char*);
+        SubPattern_Voigt(bool*&,VarManager&,const char*);
         ~SubPattern_Voigt();
         bool scan(char*&,char**&,int&);
         
+        
         template<typename T0>
         void add_var(T0*&,const char*);
-        
         void conv_name(PrintStyle&);
     };
     
@@ -436,6 +448,7 @@ namespace MAPP_NS
         void conv_name(PrintStyle&);
     };
     
+    template<size_t dim>
     class Pattern::SubPattern_2D_LT:public Pattern::SubPattern
     {
     private:
@@ -449,14 +462,13 @@ namespace MAPP_NS
     protected:
     public:
         char* format;
-        int dim;
-        SubPattern_2D_LT(VarManager&,const char*,int);
-        SubPattern_2D_LT(bool**&,VarManager&,const char*,int);
+        SubPattern_2D_LT(VarManager&,const char*);
+        SubPattern_2D_LT(bool**&,VarManager&,const char*);
         ~SubPattern_2D_LT();
         bool scan(char*&,char**&,int&);
         
         template<typename T0>
-        void add_var(T0**&,const char*);
+        void add_var(T0(&)[dim][dim],const char*);
         
         void conv_name(PrintStyle&);
     };
@@ -501,11 +513,11 @@ ndy_vars(n)
     ndy_vars=0;
     char* _name=NULL;
     Var::append(_name,"no. of %s",name_);
-    var_mngr.add_var(n,_name);
+    var_mngr.adddd_var(n,_name);
     delete [] _name;
     
     var_adj();
-    vars[0]=var_mngr.add_var(s_val,name);
+    vars[0]=var_mngr.adddd_var(s_val,name);
     Var::append(var_types[0],vars[0]->get_type_name());
 }
 /*--------------------------------------------
@@ -531,7 +543,7 @@ bool Pattern::SubPattern_DY<T0>::scan(char*& err_msg,char**& args,int& nargs)
     
     char* v_name=NULL;
     Var::append(v_name,"%s_%d",name,ndy_vars);
-    Var* var_=var_mngr.add_var(dy_vars[ndy_vars],v_name);
+    Var* var_=var_mngr.adddd_var(dy_vars[ndy_vars],v_name);
     delete [] v_name;
     
     Var** v_dy_vars_=new Var*[ndy_vars+1];
@@ -542,7 +554,7 @@ bool Pattern::SubPattern_DY<T0>::scan(char*& err_msg,char**& args,int& nargs)
     ndy_vars++;
     
     err_msg=var_->scan(*args);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     args++;
     nargs--;
@@ -580,7 +592,7 @@ template<typename T0>
 void Pattern::SubPattern::add_var(T0& v,const char* n)
 {
     
-    if(dynamic_cast<SubPattern_0D*>(this)!=NULL)
+    if(dynamic_cast<SubPattern_0D*>(this))
         return dynamic_cast<SubPattern_0D*>(this)->add_var(v,n);
     
     printf("unsuccessful conversion at: %s",__PRETTY_FUNCTION__);
@@ -590,15 +602,16 @@ void Pattern::SubPattern::add_var(T0& v,const char* n)
 /*--------------------------------------------
  
  --------------------------------------------*/
-template<typename T0,int N>
+template<typename T0,size_t N>
 void Pattern::SubPattern::add_var(T0 (&v)[N],const char* n)
 {
     T0* vv=static_cast<T0*>(v);
     
-    if(dynamic_cast<SubPattern_1D*>(this)!=NULL)
-        return dynamic_cast<SubPattern_1D*>(this)->add_var(vv,n);
-    if(dynamic_cast<SubPattern_Voigt*>(this)!=NULL)
-        return dynamic_cast<SubPattern_Voigt*>(this)->add_var(vv,n);
+    if(dynamic_cast<SubPattern_1D<N>*>(this))
+        return dynamic_cast<SubPattern_1D<N>*>(this)->add_var(vv,n);
+    
+    if(dynamic_cast<SubPattern_Voigt<det(0,N)>*>(this))
+        return dynamic_cast<SubPattern_Voigt<det(0,N)>*>(this)->add_var(vv,n);
     
     printf("unsuccessful conversion at: %s",__PRETTY_FUNCTION__);
     MPI_Finalize();
@@ -610,12 +623,8 @@ void Pattern::SubPattern::add_var(T0 (&v)[N],const char* n)
 template<typename T0>
 void Pattern::SubPattern::add_var(T0*& v,const char* n)
 {
-    if(dynamic_cast<SubPattern_0D*>(this)!=NULL)
+    if(dynamic_cast<SubPattern_0D*>(this))
         return dynamic_cast<SubPattern_0D*>(this)->add_var(v,n);
-    if(dynamic_cast<SubPattern_1D*>(this)!=NULL)
-        return dynamic_cast<SubPattern_1D*>(this)->add_var(v,n);
-    if(dynamic_cast<SubPattern_Voigt*>(this)!=NULL)
-        return dynamic_cast<SubPattern_Voigt*>(this)->add_var(v,n);
     
     printf("unsuccessful conversion at: %s",__PRETTY_FUNCTION__);
     MPI_Finalize();
@@ -624,19 +633,26 @@ void Pattern::SubPattern::add_var(T0*& v,const char* n)
 /*--------------------------------------------
  
  --------------------------------------------*/
-template<typename T0>
-void Pattern::SubPattern::add_var(T0**& v,const char* n)
+template<typename T0,size_t N ,size_t M>
+void Pattern::SubPattern::add_var(T0 (&v)[N][M],const char* n)
 {
-    if(dynamic_cast<SubPattern_0D*>(this)!=NULL)
-        return dynamic_cast<SubPattern_0D*>(this)->add_var(v,n);
-    if(dynamic_cast<SubPattern_1D*>(this)!=NULL)
-        return dynamic_cast<SubPattern_1D*>(this)->add_var(v,n);
-    if(dynamic_cast<SubPattern_Voigt*>(this)!=NULL)
-        return dynamic_cast<SubPattern_Voigt*>(this)->add_var(v,n);
-    if(dynamic_cast<SubPattern_2D*>(this)!=NULL)
+    if(dynamic_cast<SubPattern_2D*>(this))
         return dynamic_cast<SubPattern_2D*>(this)->add_var(v,n);
-    if(dynamic_cast<SubPattern_2D_LT*>(this)!=NULL)
-        return dynamic_cast<SubPattern_2D_LT*>(this)->add_var(v,n);
+    
+    printf("unsuccessful conversion at: %s",__PRETTY_FUNCTION__);
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<typename T0,size_t N>
+void Pattern::SubPattern::add_var(T0 (&v)[N][N],const char* n)
+{
+    if(dynamic_cast<SubPattern_2D*>(this))
+        return dynamic_cast<SubPattern_2D*>(this)->add_var(v,n);
+    if(dynamic_cast<SubPattern_2D_LT<N>*>(this))
+        return dynamic_cast<SubPattern_2D_LT<N>*>(this)->add_var(v,n);
     
     printf("unsuccessful conversion at: %s",__PRETTY_FUNCTION__);
     MPI_Finalize();
@@ -666,8 +682,102 @@ void Pattern::SubPattern_0D::add_var(T0& v,const char* var_name_)
  ___| | | |_| | | |_| | | |      / /  | |   | |     | |   | |___  | | \ \  | | \  |        | | | |_| | 
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|        |_| |_____/
  ----------------------------------------------------------------------------------------------------*/
-template<typename T0>
-void Pattern::SubPattern_1D::add_var(T0*& v,const char* var_name_)
+template<size_t dim>
+Pattern::SubPattern_1D<dim>::SubPattern_1D(VarManager& var_mngr_,const char* name_,int dim_):
+SubPattern(var_mngr_,name_),
+comp(icomp,"i (1st compoent of ")
+{
+    Var::append(comp.name,"%s)",name);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+Pattern::SubPattern_1D<dim>::SubPattern_1D(bool*& set,VarManager& var_mngr_,const char* name_,int dim_):
+SubPattern_1D(var_mngr_,name_,dim_)
+{
+    //Var::append(comp.name,"%s)",name);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+Pattern::SubPattern_1D<dim>::~SubPattern_1D()
+{
+    delete [] format;
+    delete [] kywrds;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_1D<dim>::init()
+{
+    format=NULL;
+    Var::append(format,"%s[%%d]",name);
+    kywrds=new KeyWord[dim];
+    head_kywrd=kywrds;
+    nkywrds=dim;
+    rank=1;
+    
+    var_adj();
+    vars[0]=&comp;
+    const int dim_=dim;
+    var_logics[0]=VLogics("ge",0)*VLogics("lt",dim_);
+    
+    delete [] vars[0]->name;
+    vars[0]->name=NULL;
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_1D<dim>::init_keywords()
+{
+    for(int i=0;i<dim;i++)
+        kywrds[i].init(&cmd_logic,var_mngr,format,i);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_1D<dim>::init_keywords(bool*& set)
+{
+    for(int i=0;i<dim;i++)
+        kywrds[i].init(&cmd_logic,var_mngr,set[i],format,i);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+bool Pattern::SubPattern_1D<dim>::scan(char*& err_msg,char**& args,int& nargs)
+{
+    if(sscanf(*args,format,&icomp)!=1)
+        return false;
+    
+    err_msg=vlog_chek(kywrds[icomp],args,nargs);
+    return true;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_1D<dim>::conv_name(PrintStyle& ps)
+{
+    char* name_=NULL;
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
+    delete [] name;
+    name=name_;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>template<typename T0>
+void Pattern::SubPattern_1D<dim>::add_var(T0*& v,const char* var_name_)
 {
     for(int i=0;i<dim;i++)
         kywrds[i].add_var(v[i],var_name_);
@@ -683,8 +793,196 @@ void Pattern::SubPattern_1D::add_var(T0*& v,const char* var_name_)
  ___| | | |_| | | |_| | | |      / /  | |   | |     | |   | |___  | | \ \  | | \  |      | |/ /    | |_| | | | | |_| |   | |   
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|      |___/     \_____/ |_| \_____/   |_|
  ----------------------------------------------------------------------------------------------------------------------------*/
-template<typename T0>
-void Pattern::SubPattern_Voigt::add_var(T0*& v,const char* var_name_)
+template<size_t dim>
+Pattern::SubPattern_Voigt<dim>::SubPattern_Voigt(VarManager& var_mngr_,const char* name_):
+SubPattern(var_mngr_,name_),
+comp0(*var_mngr.adddd_var(icomp0,"")),
+comp1(*var_mngr.adddd_var(icomp1,"")),
+kywrds{[0 ... dim*(dim+1)/2-1] = var_mngr}
+{
+    init();
+    init_keywords();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+Pattern::SubPattern_Voigt<dim>::SubPattern_Voigt(bool*& set,VarManager& var_mngr_,const char* name_):
+SubPattern(var_mngr_,name_),
+comp0(*var_mngr.adddd_var(icomp0,"")),
+comp1(*var_mngr.adddd_var(icomp1,""))
+{
+    init();
+    init_keywords(set);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+Pattern::SubPattern_Voigt<dim>::~SubPattern_Voigt()
+{
+    delete [] format;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_Voigt<dim>::init()
+{
+    format=NULL;
+    Var::append(format,"%s[%%d][%%d]",name);
+    
+    head_kywrd=kywrds;
+    nkywrds=dim*(dim+1)/2;
+    rank=2;
+    
+    var_adj();
+    var_adj();
+    vars[0]=&comp0;
+    vars[1]=&comp1;
+    const int dim_=dim;
+    var_logics[0]=VLogics("ge",0)*VLogics("lt",dim_);
+    var_logics[1]=VLogics("ge",0)*VLogics("lt",dim_);
+    
+    delete [] vars[0]->name;
+    vars[0]->name=NULL;
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
+    Var::append(var_types[0],vars[0]->get_type_name());
+    
+    delete [] vars[1]->name;
+    vars[1]->name=NULL;
+    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
+    Var::append(var_types[1],vars[1]->get_type_name());
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_Voigt<dim>::init_keywords()
+{
+    for(int i=0;i<dim*(dim+1)/2;i++)
+    {
+        int icmp,jcmp;
+        voigt2cmpt(i,icmp,jcmp);
+        kywrds[i].init(&cmd_logic,var_mngr,format,icmp,jcmp);
+    }
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_Voigt<dim>::init_keywords(bool*& set)
+{
+    for(int i=0;i<dim*(dim+1)/2;i++)
+    {
+        int icmp,jcmp;
+        voigt2cmpt(i,icmp,jcmp);
+        kywrds[i].init(&cmd_logic,var_mngr,set[i],format,icmp,jcmp);
+    }
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_Voigt<dim>::cmpt2voigt(int& icmp,const int i_,const int j_)
+{
+    icmp=0;
+    int i,j;
+    if(i_>j_)
+    {
+        i=i_;
+        j=j_;
+    }
+    else
+    {
+        i=j_;
+        j=i_;
+    }
+    
+    for(int i0=0,j0=0;i0<dim;i0++,j0++,icmp++)
+        if(i0==i && j0==j)
+            return;
+    
+    for(int i0=dim-1;i0>-1;i0--)
+    {
+        if((dim-i0) %2==1)
+        {
+            for(int j0=i0-1;j0>-1;j0--,icmp++)
+                if(i0==i && j0==j)
+                    return;
+        }
+        else
+        {
+            for(int j0=0;j0<i0;j0++,icmp++)
+                if(i0==i && j0==j)
+                    return;
+        }
+    }
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_Voigt<dim>::voigt2cmpt(const int icmp_,int& i0,int& j0)
+{
+    int icmp=0;
+    i0=j0=0;
+    for(;i0<dim;i0++,j0++,icmp++)
+        if(icmp==icmp_)
+            return;
+    
+    for(i0=dim-1;i0>-1;i0--)
+    {
+        if((dim-i0) %2==1)
+        {
+            for(j0=i0-1;j0>-1;j0--,icmp++)
+                if(icmp==icmp_)
+                    return;
+        }
+        else
+        {
+            for(j0=0;j0<i0;j0++,icmp++)
+                if(icmp==icmp_)
+                    return;
+        }
+    }
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+bool Pattern::SubPattern_Voigt<dim>::scan(char*& err_msg,char**& args,int& nargs)
+{
+    if(sscanf(*args,format,&icomp0,&icomp1)!=2)
+        return false;
+    
+    int ii;
+    cmpt2voigt(ii,icomp0,icomp1);
+    err_msg=vlog_chek(kywrds[ii],args,nargs);
+    
+    return true;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_Voigt<dim>::conv_name(PrintStyle& ps)
+{
+    char* name_=NULL;
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp0.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp1.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
+    delete [] name;
+    name=name_;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim> template<typename T0>
+void Pattern::SubPattern_Voigt<dim>::add_var(T0*& v,const char* var_name_)
 {
     for(int i=0;i<dim*(dim+1)/2;i++)
         kywrds[i].add_var(v[i],var_name_);
@@ -719,8 +1017,125 @@ void Pattern::SubPattern_2D::add_var(T0**& v,const char* var_name_)
  ___| | | |_| | | |_| | | |      / /  | |   | |     | |   | |___  | | \ \  | | \  |      | |___  | |_| |      | |___    | |
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|      |_____| |_____/      |_____|   |_|
  ---------------------------------------------------------------------------------------------------------------------------*/
-template<typename T0>
-void Pattern::SubPattern_2D_LT::add_var(T0**& v,const char* var_name_)
+template<size_t dim>
+Pattern::SubPattern_2D_LT<dim>::SubPattern_2D_LT(VarManager& var_mngr_,const char* name_):
+SubPattern(var_mngr_,name_),
+comp0(*var_mngr.adddd_var(icomp0,"")),
+comp1(*var_mngr.adddd_var(icomp1,""))
+{
+    init();
+    init_keywords();
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+Pattern::SubPattern_2D_LT<dim>::SubPattern_2D_LT(bool**& set,VarManager& var_mngr_,const char* name_):
+SubPattern(var_mngr_,name_),
+comp0(*var_mngr.adddd_var(icomp0,"")),
+comp1(*var_mngr.adddd_var(icomp1,""))
+{
+    init();
+    init_keywords(set);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+Pattern::SubPattern_2D_LT<dim>::~SubPattern_2D_LT()
+{
+    delete [] format;
+    delete [] *kywrds;
+    delete [] kywrds;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_2D_LT<dim>::init()
+{
+    format=NULL;
+    Var::append(format,"%s[%%d][%%d]",name);
+    kywrds=new KeyWord*[dim];
+    *kywrds=new KeyWord[dim*(dim+1)/2];
+    for(int i=1;i<dim;i++)
+        kywrds[i]=kywrds[i-1]+i;
+    
+    rank=2;
+    head_kywrd=*kywrds;
+    nkywrds=dim*(dim+1)/2;
+    
+    var_adj();
+    var_adj();
+    vars[0]=&comp0;
+    vars[1]=&comp1;
+    const int dim_=dim;
+    var_logics[0]=VLogics("ge",0)*VLogics("lt",dim_);
+    var_logics[1]=VLogics("ge",0)*VLogics("le",icomp0);
+    
+    delete [] vars[0]->name;
+    vars[0]->name=NULL;
+    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
+    Var::append(var_types[0],vars[0]->get_type_name());
+    
+    delete [] vars[1]->name;
+    vars[1]->name=NULL;
+    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
+    Var::append(var_types[1],vars[1]->get_type_name());
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_2D_LT<dim>::init_keywords()
+{
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<i+1;j++)
+            kywrds[i][j].init(&cmd_logic,var_mngr,format,i,j);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_2D_LT<dim>::init_keywords(bool**& set)
+{
+    for(int i=0;i<dim;i++)
+        for(int j=0;j<i+1;j++)
+            kywrds[i][j].init(&cmd_logic,var_mngr,set[i][j],format,i,j);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+bool Pattern::SubPattern_2D_LT<dim>::scan(char*& err_msg,char**& args,int& nargs)
+{
+    if(sscanf(*args,format,&icomp0,&icomp1)!=2)
+        return false;
+    
+    err_msg=vlog_chek(kywrds[icomp0][icomp1],args,nargs);
+    return true;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::SubPattern_2D_LT<dim>::conv_name(PrintStyle& ps)
+{
+    char* name_=NULL;
+    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp0.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
+    Var::append(name_,"%s",comp1.name);
+    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
+    Var::append(name_,"%c%s",'\0',name);
+    delete [] name;
+    name=name_;
+}
+/*--------------------------------------------
+     
+ --------------------------------------------*/
+template<size_t dim>template<typename T0>
+void Pattern::SubPattern_2D_LT<dim>::add_var(T0(&v)[dim][dim],const char* var_name_)
 {
     for(int i=0;i<dim;i++)
         for(int j=0;j<i+1;j++)
@@ -774,13 +1189,61 @@ void Pattern::add_var(T0& v,const char* var_name_)
 template<typename T0>
 void Pattern::cmd_dy(const char* n,T0*& vs,int& nvs)
 {
-    if(dy_sp!=NULL)
+    if(dy_sp)
     {
         error->abort("only one dynamic command");
     }
     
     dy_sp=new SubPattern_DY<T0>(varmngr,n,vs,nvs);
     curr_sp=dy_sp;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::cmd_voigt(const char* n)
+{
+    add_sp(new SubPattern_Voigt<dim>(varmngr,n));
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::cmd_voigt(bool*& set,const char* n)
+{
+    add_sp(new SubPattern_Voigt<dim>(set,varmngr,n));
+}
+/*--------------------------------------------
+     
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::cmd_1d(const char* n)
+{
+    add_sp(new SubPattern_1D<dim>(varmngr,n));
+}
+/*--------------------------------------------
+     
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::cmd_1d(bool*& set,const char* n)
+{
+    add_sp(new SubPattern_1D<dim>(set,varmngr,n));
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::cmd_2d_lt(const char* n)
+{
+    add_sp(new SubPattern_2D_LT<dim>(varmngr,n));
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+template<size_t dim>
+void Pattern::cmd_2d_lt(bool**& set,const char* n)
+{
+    add_sp(new SubPattern_2D_LT<dim>(set,varmngr,n));
 }
 /*------------------------------------------------------------------------------------------------------------------------------------
  
@@ -827,7 +1290,7 @@ Ten(fr,name_)
     
     char* cmp_name=NULL;
     Var::append(cmp_name,"1st component of %s",name);
-    vi0=varmngr.add_var(i0,cmp_name);
+    vi0=varmngr.adddd_var(i0,cmp_name);
     delete [] cmp_name;
 }
 /*--------------------------------------------
@@ -850,9 +1313,9 @@ Ten(fr,name_)
     size_t len=snprintf(NULL,0,"%s ( %%d , %%d ) = %%s",name)+1;
     format=new char[len];
     sprintf(format,"%s ( %%d , %%d ) = %%s",name);
-    
     kywrds=new FileKeyWord*[dim0];
     *kywrds=new FileKeyWord[dim0*dim1];
+    
     for(int i=1;i<dim0;i++)
         kywrds[i]=kywrds[i-1]+dim0;
     
@@ -865,14 +1328,15 @@ Ten(fr,name_)
     
     char* cmp_name=NULL;
     Var::append(cmp_name,"1st component of %s",name);
-    vi0=varmngr.add_var(i0,cmp_name);
+    vi0=varmngr.adddd_var(i0,cmp_name);
     delete [] cmp_name;
 
     
     cmp_name=NULL;
     Var::append(cmp_name,"2nd component of %s",name);
-    vi1=varmngr.add_var(i1,cmp_name);
+    vi1=varmngr.adddd_var(i1,cmp_name);
     delete [] cmp_name;
+    
 }
 /*--------------------------------------------
  
@@ -896,9 +1360,7 @@ void FileReader::Ten_0D<T0>::set_max_cmp(int& max_cmp)
 template<typename T0>
 void FileReader::Ten_1D<T0>::set_max_cmp(int& max_cmp)
 {
-    Var* pmin_cmp=varmngr(0);
-    vli0=Logics(NULL,"ge",pmin_cmp)*Logics(NULL,"lt",varmngr(max_cmp));
-    vli0=vlogic("ge",0)*Logics(NULL,"lt",varmngr(max_cmp));
+    vli0=VLogics("ge",0)*VLogics("lt",max_cmp);
 }
 /*--------------------------------------------
  
@@ -906,9 +1368,8 @@ void FileReader::Ten_1D<T0>::set_max_cmp(int& max_cmp)
 template<typename T0>
 void FileReader::Ten_2D<T0>::set_max_cmp(int& max_cmp)
 {
-    Var* pmin_cmp=varmngr(0);
-    vli0=Logics(NULL,"ge",pmin_cmp)*Logics(NULL,"lt",varmngr(max_cmp));
-    vli1=Logics(NULL,"ge",pmin_cmp)*Logics(NULL,"lt",varmngr(max_cmp));
+    vli0=VLogics("ge",0)*VLogics("lt",max_cmp);
+    vli1=VLogics("ge",0)*VLogics("lt",max_cmp);
 }
 /*--------------------------------------------
  
@@ -944,11 +1405,11 @@ bool FileReader::Ten_1D<T0>::scan(char*& err_msg,char** args,int nargs)
     }
     
     err_msg=vi0->scan(args[2]);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     
     err_msg=vli0(vi0);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
 
     int icmp=fr->type_ref[i0];
@@ -974,29 +1435,29 @@ bool FileReader::Ten_2D<T0>::scan(char*& err_msg,char** args,int nargs)
     
 
     err_msg=vi0->scan(args[2]);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     
     err_msg=vli0(vi0);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     
     int icmp=fr->type_ref[i0];
     if(icmp==-1) return true;
     
     err_msg=vi1->scan(args[3]);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     
     err_msg=vli1(vi1);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     
     int jcmp=fr->type_ref[i1];
     if(jcmp==-1) return true;
     
     err_msg=kywrds[icmp][jcmp].scan(args,2);
-    if(err_msg!=NULL)
+    if(err_msg)
         return true;
     
     if(symmetric)
@@ -1046,22 +1507,7 @@ void FileReader::add_2D(const char* name,T0**& val)
     tens[ntens]=new Ten_2D<T0>(this,name,val,ntypes,ntypes);
     ntens++;
 }
-/*--------------------------------------------
- 
- --------------------------------------------*/
-template<typename T0>
-Logics FileReader::log_u(T0& x,const char* op)
-{
-    return Logics(varmngr(x),op);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-template<typename T0>
-Logics FileReader::log_u(T0*& x,const char* op)
-{
-    return Logics(varmngr(x),op);
-}
+
 
 #endif
 

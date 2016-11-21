@@ -40,19 +40,19 @@ LineSearch<Func>()
     char* ls_style=NULL;
     cmd.cmd("ls");
     cmd.add_var(ls_style);
-    cmd.add_vlog(0)=vlogic("eq","bt");
+    cmd.add_vlog(0)=VLogics("eq","bt");
     
     cmd.cmd("min_alpha");
     cmd.add_var(min_alpha);
-    cmd.add_vlog(0)+=vlogic("ge",0.0);
+    cmd.add_vlog(0)+=VLogics("ge",0.0);
     
     cmd.cmd("c");
     cmd.add_var(c);
-    cmd.add_vlog(0)+=vlogic("gt",0.0)*vlogic("lt",1.0);
+    cmd.add_vlog(0)+=VLogics("gt",0.0)*VLogics("lt",1.0);
     
     cmd.cmd("rho");
     cmd.add_var(rho);
-    cmd.add_vlog(0)+=vlogic("gt",0.0)*vlogic("lt",1.0);
+    cmd.add_vlog(0)+=VLogics("gt",0.0)*VLogics("lt",1.0);
     
     cmd.scan(args,nargs);
 }

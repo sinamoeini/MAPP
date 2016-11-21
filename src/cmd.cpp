@@ -342,48 +342,6 @@ void Pattern::cmd(bool& set,const char* n)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Pattern::cmd_voigt(const char* n,int d)
-{
-    add_sp(new SubPattern_Voigt(varmngr,n,d));
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::cmd_voigt(bool*& set,const char* n,int d)
-{
-    add_sp(new SubPattern_Voigt(set,varmngr,n,d));
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::cmd_1d(const char* n,const int d)
-{
-    add_sp(new SubPattern_1D(varmngr,n,d));
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::cmd_1d(bool*& set,const char* n,const int d)
-{
-    add_sp(new SubPattern_1D(set,varmngr,n,d));
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::cmd_2d_lt(const char* n,const int d)
-{
-    add_sp(new SubPattern_2D_LT(varmngr,n,d));
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::cmd_2d_lt(bool**& set,const char* n,const int d)
-{
-    add_sp(new SubPattern_2D_LT(set,varmngr,n,d));
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
 void Pattern::cmd_2d(const char* n,const int d0,const int d1)
 {
     add_sp(new SubPattern_2D(varmngr,n,d0,d1));
@@ -402,7 +360,7 @@ bool Pattern::scan(char**& args,int& nargs)
 {
     char* err_msg=NULL;
     bool ret=sub_ptrns[0]->scan(err_msg,args,nargs);
-    if(err_msg!=NULL)
+    if(err_msg)
         error->abort("%s",err_msg);
     if(ret==false)
         error->abort("");
@@ -412,7 +370,7 @@ bool Pattern::scan(char**& args,int& nargs)
         for(int i=1;i<nsub_ptrns && !ret;i++)
         {
             ret=sub_ptrns[i]->scan(err_msg,args,nargs);
-            if(err_msg!=NULL)
+            if(err_msg)
                 error->abort("in %s, %s",sub_ptrns[0]->name,err_msg);
         }
         
@@ -423,7 +381,7 @@ bool Pattern::scan(char**& args,int& nargs)
             else
             {
                 dy_sp->scan(err_msg,args,nargs);
-                if(err_msg!=NULL)
+                if(err_msg)
                     error->abort("%s",err_msg);
             }
         }
@@ -433,14 +391,14 @@ bool Pattern::scan(char**& args,int& nargs)
     for(int i=0;i<nsub_ptrns;i++)
     {
         char* msg=sub_ptrns[i]->finalize();
-        if(msg!=NULL)
+        if(msg)
             error->abort("in %s, %s",sub_ptrns[0]->name,msg);
     }
     
-    if(dy_sp!=NULL)
+    if(dy_sp)
     {
         char* msg=dy_sp->finalize();
-        if(msg!=NULL)
+        if(msg)
             error->abort("in %s, %s",sub_ptrns[0]->name,msg);
     }
         
@@ -507,7 +465,7 @@ void Pattern::print_info()
         for(int j=0;j<sub_ptrns[i]->nvars;j++)
             change_form(sub_ptrns[i]->var_types[j],ps.type_brc[0],ps.type_brc[1]);
     
-    if(dy_sp!=NULL)
+    if(dy_sp)
         change_form(dy_sp->var_types[0],ps.type_brc[0],ps.type_brc[1]);
     /*---------------------------------------------------------------------------*/
     
@@ -522,7 +480,7 @@ void Pattern::print_info()
         sp->print_vars_prop(ps,buff);
     }
     
-    if(dy_sp!=NULL)
+    if(dy_sp)
     {
         dy_sp->print_pattern(ps,buff);
         dy_sp->print_cmd_prop(ps,buff);
@@ -552,7 +510,7 @@ void Pattern::print_info()
         for(int j=0;j<sub_ptrns[i]->nvars;j++)
             revert_form(sub_ptrns[i]->var_types[j]);
     
-    if(dy_sp!=NULL)
+    if(dy_sp)
         revert_form(dy_sp->var_types[0]);
     /*---------------------------------------------------------------------------*/
     
@@ -684,18 +642,18 @@ char* Pattern::SubPattern::vlog_chek(KeyWord& k,char**& args,int& nargs)
     for(int i=0;i<rank;i++)
     {
         err_msg=var_logics[i](vars[i]);
-        if(err_msg!=NULL)
+        if(err_msg)
             return err_msg;
     }
     
     err_msg=k.scan(args,nargs);
-    if(err_msg!=NULL)
+    if(err_msg)
         return err_msg;
     
     for(int i=rank;i<nvars;i++)
     {
         err_msg=var_logics[i](&k[i-rank]);
-        if(err_msg!=NULL)
+        if(err_msg)
             return err_msg;
     }
     
@@ -710,7 +668,7 @@ char* Pattern::SubPattern::finalize()
     for(int i=0;i<nkywrds;i++)
     {
         char* msg=head_kywrd[i].finalize();
-        if(msg!=NULL)
+        if(msg)
             return msg;
     }
     
@@ -746,14 +704,14 @@ void Pattern::SubPattern::print_cmd_prop(PrintStyle& ps,char*& buff)
     if(cmd_desc==NULL && msg==NULL)
         return;
     
-    if(cmd_desc!=NULL)
+    if(cmd_desc)
     {
         Var::append(buff,cmd_desc);
     }
     
-    if(msg!=NULL)
+    if(msg)
     {
-        if(cmd_desc!=NULL)
+        if(cmd_desc)
             Var::append(buff," ");
         Var::append(buff,msg);
     }
@@ -788,13 +746,13 @@ void Pattern::SubPattern::print_vars_prop(PrintStyle& ps,char*& buff,int i)
     
     char* msg=var_logics[i].print(vars[i]);
     
-    if(var_descs[i]!=NULL)
+    if(var_descs[i])
     {
         Var::append(buff," ");
         Var::append(buff,var_descs[i]);
     }
     
-    if(msg!=NULL)
+    if(msg)
     {
         Var::append(buff," ");
         Var::append(buff,msg);
@@ -901,90 +859,6 @@ void Pattern::SubPattern_0D::conv_name(PrintStyle& ps)
  ___| | | |_| | | |_| | | |      / /  | |   | |     | |   | |___  | | \ \  | | \  |        | | | |_| | 
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|        |_| |_____/
  ----------------------------------------------------------------------------------------------------*/
-Pattern::SubPattern_1D::SubPattern_1D(VarManager& var_mngr_,const char* name_,int dim_):
-SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-dim(dim_)
-{
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-Pattern::SubPattern_1D::SubPattern_1D(bool*& set,VarManager& var_mngr_,const char* name_,int dim_):
-SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-dim(dim_)
-{
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-Pattern::SubPattern_1D::~SubPattern_1D()
-{
-    delete [] format;
-    delete [] kywrds;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_1D::init()
-{
-    format=NULL;
-    Var::append(format,"%s[%%d]",name);
-    kywrds=new KeyWord[dim];
-    head_kywrd=kywrds;
-    nkywrds=dim;
-    rank=1;
-    
-    var_adj();
-    vars[0]=&comp0;
-    const int dim_=dim;
-    var_logics[0]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"lt",var_mngr(dim_));
-    
-    delete [] vars[0]->name;
-    vars[0]->name=NULL;
-    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_1D::init_keywords()
-{
-    for(int i=0;i<dim;i++)
-        kywrds[i].init(&cmd_logic,var_mngr,format,i);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_1D::init_keywords(bool*& set)
-{
-    for(int i=0;i<dim;i++)
-        kywrds[i].init(&cmd_logic,var_mngr,set[i],format,i);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-bool Pattern::SubPattern_1D::scan(char*& err_msg,char**& args,int& nargs)
-{
-    if(sscanf(*args,format,&icomp0)!=1)
-        return false;
-    
-    err_msg=vlog_chek(kywrds[icomp0],args,nargs);
-    return true;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_1D::conv_name(PrintStyle& ps)
-{
-    char* name_=NULL;
-    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    Var::append(name_,"%s",comp0.name);
-    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    Var::append(name_,"%c%s",'\0',name);
-    delete [] name;
-    name=name_;
-}
 /*----------------------------------------------------------------------------------------------------------------------------
  _____   _   _   _____   _____       ___   _____   _____   _____   _____    __   _        _     _   _____   _   _____   _____
 /  ___/ | | | | |  _  \ |  _  \     /   | |_   _| |_   _| | ____| |  _  \  |  \ | |      | |   / / /  _  \ | | /  ___| |_   _| 
@@ -993,184 +867,7 @@ void Pattern::SubPattern_1D::conv_name(PrintStyle& ps)
  ___| | | |_| | | |_| | | |      / /  | |   | |     | |   | |___  | | \ \  | | \  |      | |/ /    | |_| | | | | |_| |   | |   
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|      |___/     \_____/ |_| \_____/   |_|
  ----------------------------------------------------------------------------------------------------------------------------*/
-Pattern::SubPattern_Voigt::SubPattern_Voigt(VarManager& var_mngr_,const char* name_,int dim_):
-SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-comp1(*var_mngr.add_var(icomp1,"")),
-dim(dim_)
-{
-    init();
-    init_keywords();
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-Pattern::SubPattern_Voigt::SubPattern_Voigt(bool*& set,VarManager& var_mngr_,const char* name_,int dim_):
-SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-comp1(*var_mngr.add_var(icomp1,"")),
-dim(dim_)
-{
-    init();
-    init_keywords(set);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-Pattern::SubPattern_Voigt::~SubPattern_Voigt()
-{
-    delete [] format;
-    delete [] kywrds;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_Voigt::init()
-{
-    format=NULL;
-    Var::append(format,"%s[%%d][%%d]",name);
-    kywrds=new KeyWord[dim*(dim+1)/2];
-    
-    head_kywrd=kywrds;
-    nkywrds=dim*(dim+1)/2;
-    rank=2;
-    
-    var_adj();
-    var_adj();
-    vars[0]=&comp0;
-    vars[1]=&comp1;
-    const int dim_=dim;
-    var_logics[0]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"lt",var_mngr(dim_));
-    var_logics[1]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"lt",var_mngr(dim_));
-    
-    delete [] vars[0]->name;
-    vars[0]->name=NULL;
-    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
-    Var::append(var_types[0],vars[0]->get_type_name());
-    
-    delete [] vars[1]->name;
-    vars[1]->name=NULL;
-    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
-    Var::append(var_types[1],vars[1]->get_type_name());
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_Voigt::init_keywords()
-{
-    for(int i=0;i<dim*(dim+1)/2;i++)
-    {
-        int icmp,jcmp;
-        voigt2cmpt(i,icmp,jcmp);
-        kywrds[i].init(&cmd_logic,var_mngr,format,icmp,jcmp);
-    }
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_Voigt::init_keywords(bool*& set)
-{
-    for(int i=0;i<dim*(dim+1)/2;i++)
-    {
-        int icmp,jcmp;
-        voigt2cmpt(i,icmp,jcmp);
-        kywrds[i].init(&cmd_logic,var_mngr,set[i],format,icmp,jcmp);
-    }
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_Voigt::cmpt2voigt(int& icmp,const int i_,const int j_)
-{
-    icmp=0;
-    int i,j;
-    if(i_>j_)
-    {
-        i=i_;
-        j=j_;
-    }
-    else
-    {
-        i=j_;
-        j=i_;
-    }
-    
-    for(int i0=0,j0=0;i0<dim;i0++,j0++,icmp++)
-        if(i0==i && j0==j)
-            return;
-    
-    for(int i0=dim-1;i0>-1;i0--)
-    {
-        if((dim-i0) %2==1)
-        {
-            for(int j0=i0-1;j0>-1;j0--,icmp++)
-                if(i0==i && j0==j)
-                    return;
-        }
-        else
-        {
-            for(int j0=0;j0<i0;j0++,icmp++)
-                if(i0==i && j0==j)
-                    return;
-        }
-    }
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_Voigt::voigt2cmpt(const int icmp_,int& i0,int& j0)
-{
-    int icmp=0;
-    i0=j0=0;
-    for(;i0<dim;i0++,j0++,icmp++)
-        if(icmp==icmp_)
-            return;
-    
-    for(i0=dim-1;i0>-1;i0--)
-    {
-        if((dim-i0) %2==1)
-        {
-            for(j0=i0-1;j0>-1;j0--,icmp++)
-                if(icmp==icmp_)
-                    return;
-        }
-        else
-        {
-            for(j0=0;j0<i0;j0++,icmp++)
-                if(icmp==icmp_)
-                    return;
-        }
-    }
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-bool Pattern::SubPattern_Voigt::scan(char*& err_msg,char**& args,int& nargs)
-{
-    if(sscanf(*args,format,&icomp0,&icomp1)!=2)
-        return false;
-    
-    int ii;
-    cmpt2voigt(ii,icomp0,icomp1);
-    err_msg=vlog_chek(kywrds[ii],args,nargs);
-    
-    return true;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_Voigt::conv_name(PrintStyle& ps)
-{
-    char* name_=NULL;
-    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    Var::append(name_,"%s",comp0.name);
-    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
-    Var::append(name_,"%s",comp1.name);
-    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    Var::append(name_,"%c%s",'\0',name);
-    delete [] name;
-    name=name_;
-}
+
 /*-----------------------------------------------------------------------------------------------------
  _____   _   _   _____   _____      ___   _____   _____   _____   _____    __   _        _____   _____
 /  ___/ | | | | |  _  \ |  _  \    /   | |_   _| |_   _| | ____| |  _  \  |  \ | |      /___  \ |  _  \
@@ -1181,8 +878,8 @@ void Pattern::SubPattern_Voigt::conv_name(PrintStyle& ps)
  -----------------------------------------------------------------------------------------------------*/
 Pattern::SubPattern_2D::SubPattern_2D(VarManager& var_mngr_,const char* name_,int dim_0,int dim_1):
 SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-comp1(*var_mngr.add_var(icomp1,"")),
+comp0(*var_mngr.adddd_var(icomp0,"")),
+comp1(*var_mngr.adddd_var(icomp1,"")),
 dim0(dim_0),
 dim1(dim_1)
 {
@@ -1194,8 +891,8 @@ dim1(dim_1)
  --------------------------------------------*/
 Pattern::SubPattern_2D::SubPattern_2D(bool**&set,VarManager& var_mngr_,const char* name_,int dim_0,int dim_1):
 SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-comp1(*var_mngr.add_var(icomp1,"")),
+comp0(*var_mngr.adddd_var(icomp0,"")),
+comp1(*var_mngr.adddd_var(icomp1,"")),
 dim0(dim_0),
 dim1(dim_1)
 {
@@ -1234,8 +931,8 @@ void Pattern::SubPattern_2D::init()
     vars[1]=&comp1;
     const int dim0_=dim0;
     const int dim1_=dim1;
-    var_logics[0]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"lt",var_mngr(dim0_));
-    var_logics[1]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"lt",var_mngr(dim1_));
+    var_logics[0]=VLogics("ge",0)*VLogics("lt",dim0_);
+    var_logics[1]=VLogics("ge",0)*VLogics("lt",dim1_);
     
     delete [] vars[0]->name;
     vars[0]->name=NULL;
@@ -1300,114 +997,6 @@ void Pattern::SubPattern_2D::conv_name(PrintStyle& ps)
  ___| | | |_| | | |_| | | |      / /  | |   | |     | |   | |___  | | \ \  | | \  |      | |___  | |_| |      | |___    | |
 /_____/ \_____/ |_____/ |_|     /_/   |_|   |_|     |_|   |_____| |_|  \_\ |_|  \_|      |_____| |_____/      |_____|   |_|
  ---------------------------------------------------------------------------------------------------------------------------*/
-Pattern::SubPattern_2D_LT::SubPattern_2D_LT(VarManager& var_mngr_,const char* name_,int dim_):
-SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-comp1(*var_mngr.add_var(icomp1,"")),
-dim(dim_)
-{
-    init();
-    init_keywords();
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-Pattern::SubPattern_2D_LT::SubPattern_2D_LT(bool**& set,VarManager& var_mngr_,const char* name_,int dim_):
-SubPattern(var_mngr_,name_),
-comp0(*var_mngr.add_var(icomp0,"")),
-comp1(*var_mngr.add_var(icomp1,"")),
-dim(dim_)
-{
-    init();
-    init_keywords(set);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-Pattern::SubPattern_2D_LT::~SubPattern_2D_LT()
-{
-    delete [] format;
-    delete [] *kywrds;
-    delete [] kywrds;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_2D_LT::init()
-{
-    format=NULL;
-    Var::append(format,"%s[%%d][%%d]",name);
-    kywrds=new KeyWord*[dim];
-    *kywrds=new KeyWord[dim*(dim+1)/2];
-    for(int i=1;i<dim;i++)
-        kywrds[i]=kywrds[i-1]+i;
-    
-    rank=2;
-    head_kywrd=*kywrds;
-    nkywrds=dim*(dim+1)/2;
-    
-    var_adj();
-    var_adj();
-    vars[0]=&comp0;
-    vars[1]=&comp1;
-    const int dim_=dim;
-    var_logics[0]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"lt",var_mngr(dim_));
-    var_logics[1]=Logics(NULL,"ge",var_mngr(0))*Logics(NULL,"le",vars[0]);
-    
-    delete [] vars[0]->name;
-    vars[0]->name=NULL;
-    Var::append(vars[0]->name,"i (1st compoent of %s)",name);
-    Var::append(var_types[0],vars[0]->get_type_name());
-    
-    delete [] vars[1]->name;
-    vars[1]->name=NULL;
-    Var::append(vars[1]->name,"j (2nd compoent of %s)",name);
-    Var::append(var_types[1],vars[1]->get_type_name());
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_2D_LT::init_keywords()
-{
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<i+1;j++)
-            kywrds[i][j].init(&cmd_logic,var_mngr,format,i,j);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_2D_LT::init_keywords(bool**& set)
-{
-    for(int i=0;i<dim;i++)
-        for(int j=0;j<i+1;j++)
-            kywrds[i][j].init(&cmd_logic,var_mngr,set[i][j],format,i,j);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-bool Pattern::SubPattern_2D_LT::scan(char*& err_msg,char**& args,int& nargs)
-{
-    if(sscanf(*args,format,&icomp0,&icomp1)!=2)
-        return false;
-    
-    err_msg=vlog_chek(kywrds[icomp0][icomp1],args,nargs);
-    return true;
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Pattern::SubPattern_2D_LT::conv_name(PrintStyle& ps)
-{
-    char* name_=NULL;
-    Var::append(name_,"%s%s%s%s",ps.cmd_brc[0],name,"[",ps.cmd_brc[1]);
-    Var::append(name_,"%s",comp0.name);
-    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"][",ps.cmd_brc[1]);
-    Var::append(name_,"%s",comp1.name);
-    Var::append(name_,"%s%s%s",ps.cmd_brc[0],"]",ps.cmd_brc[1]);
-    Var::append(name_,"%c%s",'\0',name);
-    delete [] name;
-    name=name_;
-}
 /*------------------------------------------------------------------------------
  _____   _   _       _____   _____    _____       ___   _____   _____   _____   
 |  ___| | | | |     | ____| |  _  \  | ____|     /   | |  _  \ | ____| |  _  \  
@@ -1512,7 +1101,7 @@ void FileReader::read_header()
             if(type_ref[i]!=-1 && type_ref[i]==type_ref[j])
                 error->abort("duplicate element %s in header",atom_types->atom_names[type_ref[i]]);
     
-    varmngr.add_var(ntype_ref,"no. of elements in header");
+    varmngr.adddd_var(ntype_ref,"no. of elements in header");
     for(int i=0;i<ntens;i++)
         tens[i]->set_max_cmp(ntype_ref);
 }
@@ -1531,7 +1120,7 @@ void FileReader::read_body()
     {
         memcpy(buff,line,MAXCHAR*sizeof(char));
         err_msg=qr(line,args,nargs);
-        if(err_msg!=NULL)
+        if(err_msg)
             error->abort("%s",err_msg);
         if(nargs==0)
             continue;
@@ -1541,7 +1130,7 @@ void FileReader::read_body()
         for(int i=0;i<ntens && !found;i++)
         {
             found=tens[i]->scan(err_msg,args,nargs);
-            if(err_msg!=NULL)
+            if(err_msg)
                 error->abort("%s, in file %s, line %s",err_msg,file_name,buff);
         }
             
@@ -1572,7 +1161,7 @@ void FileReader::read_file(const char* file_name_)
         for(int j=0;j<tens[i]->nkywrds;j++)
         {
             char* msg=tens[i]->head[j].finalize();
-            if(msg!=NULL) error->abort("%s",msg);
+            if(msg) error->abort("%s",msg);
             delete [] msg;
         }
 }
@@ -1700,7 +1289,7 @@ int FileReader::read_line(char*& line)
     MPI_Bcast(line,lenght,MPI_CHAR,0,world);
 
     char* p=strchr(line,'\n');
-    if(p!=NULL) *p='\0';
+    if(p) *p='\0';
     
     return lenght;
 }
@@ -1725,7 +1314,7 @@ varmngr(fr_->varmngr)
     symmetric=false;
     head=NULL;
     nkywrds=0;
-    cmd_logic=Logics(NULL,"set");
+    cmd_logic=VLogics("set");
 }
 /*--------------------------------------------
  
@@ -1811,9 +1400,9 @@ bool FileReader::QuantityReader::syntax(char* c)
     {
         if(c==first)
             return false;
-        if(lp!=NULL)
+        if(lp)
             return false;
-        if(eq!=NULL)
+        if(eq)
             return false;
         lp=c;
         return true;
@@ -1821,15 +1410,15 @@ bool FileReader::QuantityReader::syntax(char* c)
     else if(*c==')')
     {
         
-        if(rp!=NULL)
+        if(rp)
             return false;
         if(lp==NULL)
             return false;
-        if(eq!=NULL)
+        if(eq)
             return false;
         if(com==NULL && c==lp+1)
             return false;
-        if(com!=NULL && c==com+1)
+        if(com && c==com+1)
             return false;
         rp=c;
         return true;
@@ -1839,9 +1428,9 @@ bool FileReader::QuantityReader::syntax(char* c)
         
         if(lp==NULL)
             return false;
-        if(rp!=NULL)
+        if(rp)
             return false;
-        if(com!=NULL && c==com+1)
+        if(com && c==com+1)
             return false;
         if(com==NULL && c==lp+1)
             return false;
@@ -1852,7 +1441,7 @@ bool FileReader::QuantityReader::syntax(char* c)
     {
         if(c==first)
             return false;
-        if(lp!=NULL && rp==NULL)
+        if(lp && rp==NULL)
             return false;
         eq=c;
         return true;
@@ -1904,7 +1493,7 @@ int FileReader::read_line(char*& line,int& line_cpcty,int& chunk)
                     continue;
                 }
                 
-                if(strchr(line+ipos,'\n')!=NULL)
+                if(strchr(line+ipos,'\n'))
                     line_cmplt=true;
                 else
                 {

@@ -28,18 +28,14 @@ ForceField()
         error->abort("system configuration "
         "should be loaded before initiating ff");
 
-    if(dimension!=3)
+    if(__dim__!=3)
         error->abort("the dimension of the box for ff");
     
     cut_off_alloc();
-    int dim=dimension;
-    if(dim)
-    {
-        f=new Vec<type0>(atoms,atoms->x->dim);
-        CREATE1D(nrgy_strss,dim*(dim+1)/2+1);
-        CREATE1D(nrgy_strss_lcl,dim*(dim+1)/2+1);
-        ns_alloc=1;
-    }
+    f=new Vec<type0>(atoms,atoms->x->dim);
+    CREATE1D(nrgy_strss,__dim__*(__dim__+1)/2+1);
+    CREATE1D(nrgy_strss_lcl,__dim__*(__dim__+1)/2+1);
+    ns_alloc=1;
 }
 /*--------------------------------------------
  destructor
@@ -65,13 +61,13 @@ void ForceField::cut_off_alloc()
     cut_off_dealloc();
     cut_sz=cut_sz_;
     
-    CREATE_2D(cut,no_types,no_types);
+    CREATE2D(cut,no_types,no_types);
     
     
-    CREATE_2D(cut_sq,no_types,no_types);
+    CREATE2D(cut_sq,no_types,no_types);
     
     
-    CREATE_2D(cut_sk_sq,no_types,no_types);
+    CREATE2D(cut_sk_sq,no_types,no_types);
     
     CREATE1D(rsq_crd,no_types);
 }
@@ -118,7 +114,7 @@ void ForceField::force_calc_timer(bool flag)
     if(flag)
     {
         type0 vol=1.0;
-        for(int idim=0;idim<dimension;idim++)
+        for(int idim=0;idim<__dim__;idim++)
             vol*=atoms->H[idim][idim];
         for(int i=1;i<7;i++)
             nrgy_strss[i]/=vol;

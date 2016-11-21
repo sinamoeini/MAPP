@@ -40,7 +40,6 @@ namespace MAPP_NS
         
         /*--------------------------------------------*/
         int c_dim;
-        int dim;
         int x_dim;
         type0 cut_sq_mod_0;
         type0 kbT,beta;

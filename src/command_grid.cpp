@@ -10,17 +10,17 @@ using namespace MAPP_NS;
 Command_grid::Command_grid(int nargs
 ,char** args)
 {
-    if(nargs!=dimension+1)
+    if(nargs!=__dim__+1)
         error->abort("grid command needs "
-        "%d arguments",dimension);
+        "%d arguments",__dim__);
     
-    int* n;
-    CREATE1D(n,dimension);
-    for(int i=0;i<dimension;i++)
+    int n[__dim__];
+
+    for(int i=0;i<__dim__;i++)
         n[i]=atoi(args[i+1]);
     
     int tmp=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         n[i]=atoi(args[i+1]);
         if(n[i]<1)
@@ -37,9 +37,7 @@ Command_grid::Command_grid(int nargs
 
     atoms->man_grid(n);
 
-    
-    if(dimension)
-        delete [] n;
+
 }
 /*--------------------------------------------
  destructor

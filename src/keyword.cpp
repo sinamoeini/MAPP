@@ -20,6 +20,16 @@ KeyWord::KeyWord()
 /*--------------------------------------------
  
  --------------------------------------------*/
+KeyWord::KeyWord(VarManager& vm):
+var_mngr(&vm)
+{
+    nvars=0;
+    vars=NULL;
+    st_set=false;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
 KeyWord::~KeyWord()
 {
     delete [] vars;
@@ -36,7 +46,7 @@ void KeyWord::init(Logics* clog,VarManager& vm,const char* name_)
     delete [] vars;
     vars=vars_;
     
-    vars[nvars]=var_mngr->add_var(st_set,name_);
+    vars[nvars]=var_mngr->adddd_var(st_set,name_);
     
     nvars++;
     
@@ -54,7 +64,7 @@ void KeyWord::init(Logics* clog,VarManager& vm,bool& set, const char* name_)
     delete [] vars;
     vars=vars_;
     
-    vars[nvars]=var_mngr->add_var(set,name_);
+    vars[nvars]=var_mngr->adddd_var(set,name_);
     
     nvars++;
     
@@ -75,7 +85,7 @@ char* KeyWord::scan(char**& args,int& nargs)
     for(int i=0;i<nvars;i++)
     {
         char* err_msg=vars[i]->scan(*args);
-        if(err_msg!=NULL)
+        if(err_msg)
             return err_msg;
         args++;
         nargs--;
@@ -134,10 +144,10 @@ FileKeyWord::~FileKeyWord()
 char* FileKeyWord::scan(char** args,int nargs)
 {
     char* err_msg=keyw->scan(args[0]);
-    if(err_msg!=NULL)
+    if(err_msg)
         return err_msg;
     err_msg=var->scan(args[1]);
-    if(err_msg!=NULL)
+    if(err_msg)
         return err_msg;
     
     return NULL;

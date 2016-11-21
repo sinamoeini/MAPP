@@ -30,11 +30,11 @@ itype(gas_type)
     ff=dynamic_cast<ForceFieldMD*>(forcefield);
     if(!ff)
         error->abort("gcmc requires an md type forcefield");
-    if(atoms->x->dim!=dimension)
-        error->abort("x dimension must be %d for gcmc",dimension);
+    if(atoms->x->dim!=__dim__)
+        error->abort("x dimension must be %d for gcmc",__dim__);
     
     random=new Random(seed);
-    s_trials=new type0*[dimension];
+    s_trials=new type0*[__dim__];
     *s_trials=NULL;
     del_ids=NULL;
     del_ids_sz=del_ids_cpcty=0;
@@ -96,10 +96,10 @@ void GCMC::init()
     lambda=md->hplanck/sqrt(2.0*M_PI*kbT*gas_mass);
     sigma=sqrt(kbT/gas_mass);
     z_fac=1.0;
-    for(int i=0;i<dimension;i++) z_fac/=lambda;
+    for(int i=0;i<__dim__;i++) z_fac/=lambda;
     z_fac*=exp(beta*mu);
     vol=1.0;
-    for(int i=0;i<dimension;i++)vol*=atoms->H[i][i];
+    for(int i=0;i<__dim__;i++)vol*=atoms->H[i][i];
     
     int max_id_=0;
     int* id=atoms->id->begin();
@@ -129,10 +129,10 @@ void GCMC::box_setup()
 {
     int sz=0;
     max_ntrial_atms=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         type0 tmp=0.0;
-        for(int j=i;j<dimension;j++)
+        for(int j=i;j<__dim__;j++)
             tmp+=atoms->B[j][i]*atoms->B[j][i];
         cut_s[i]=sqrt(tmp)*cut;
         
@@ -148,7 +148,7 @@ void GCMC::box_setup()
     }
     
     *s_trials=new type0[sz];
-    for(int i=1;i<dimension;i++)
+    for(int i=1;i<__dim__;i++)
         s_trials[i]=s_trials[i-1]+1+nimages_per_dim[i-1][0]+nimages_per_dim[i-1][1];
 }
 /*--------------------------------------------

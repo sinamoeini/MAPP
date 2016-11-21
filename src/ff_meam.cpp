@@ -108,16 +108,16 @@ void ForceField_meam::allocate()
         for(int j=0;j<nr;j++)
             CREATE1D(phirar[i][j],7);
     
-    CREATE_2D(re_meam,no_types,no_types);
-    CREATE_2D(ebound_meam,no_types,no_types);
-    CREATE_2D(Ec_meam,no_types,no_types);
-    CREATE_2D(alpha_meam,no_types,no_types);
-    CREATE_2D(delta_meam,no_types,no_types);
-    CREATE_2D(attrac_meam,no_types,no_types);
-    CREATE_2D(repuls_meam,no_types,no_types);
-    CREATE_2D(lattice,no_types,no_types);
-    CREATE_2D(nn2_meam,no_types,no_types);
-    CREATE_2D(zbl_meam,no_types,no_types);
+    CREATE2D(re_meam,no_types,no_types);
+    CREATE2D(ebound_meam,no_types,no_types);
+    CREATE2D(Ec_meam,no_types,no_types);
+    CREATE2D(alpha_meam,no_types,no_types);
+    CREATE2D(delta_meam,no_types,no_types);
+    CREATE2D(attrac_meam,no_types,no_types);
+    CREATE2D(repuls_meam,no_types,no_types);
+    CREATE2D(lattice,no_types,no_types);
+    CREATE2D(nn2_meam,no_types,no_types);
+    CREATE2D(zbl_meam,no_types,no_types);
     
     
     CREATE1D(rho0_meam,no_types);
@@ -2239,7 +2239,7 @@ void ForceField_meam::read_global(char* file_name)
     new_buff_=new_buff;
     st=buff;
     pch=strchr(buff_,'#');
-    while (pch!=NULL)
+    while (pch)
     {
         memcpy(new_buff_,st,pch-st);
         new_buff_+=pch-st;
@@ -2256,7 +2256,7 @@ void ForceField_meam::read_global(char* file_name)
     st=buff;
     
     pch=strchr(buff_,'\\');
-    while (pch!=NULL)
+    while (pch)
     {
         memcpy(new_buff_,st,pch-st);
         new_buff_+=pch-st;
@@ -2279,7 +2279,7 @@ void ForceField_meam::read_global(char* file_name)
     char** args=NULL;
     int nargs=0;
     pch=strtok(buff,"' \n\t\r");
-    while (pch!=NULL)
+    while (pch)
     {
         GROW(args,nargs,nargs+1);
         args[nargs]=pch;

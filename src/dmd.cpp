@@ -109,7 +109,7 @@ void DMD::dmd_min(int nargs,char** args)
     #define Min_Style
     #define MinStyle(class_name,style_name)   \
     else if(strcmp(args[1],#style_name)==0)   \
-    {if(min!=NULL)delete min;                 \
+    {if(min)delete min;                 \
     min= new class_name(nargs,args_);}
 
     if(0){}
@@ -156,7 +156,7 @@ bool DMD::decide_min(int& istep,type0& del_t)
 {
     max_succ_dt=MAX(max_succ_dt,del_t);
     t_cur+=del_t;
-    if(write!=NULL)
+    if(write)
         write->write();
     thermo->thermo_print();
     
@@ -293,7 +293,7 @@ void DMD::init()
     thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
     thermo->init();
-    if(write!=NULL)
+    if(write)
         write->init();
 
 }
@@ -302,7 +302,7 @@ void DMD::init()
  --------------------------------------------*/
 void DMD::fin()
 {
-    if(write!=NULL)
+    if(write)
         write->fin();
     thermo->fin();
     
@@ -343,13 +343,12 @@ type0 DMD::vac_msd()
     type0* c=mapp->c->begin();
     type0* x=atoms->x->begin();
     int x_dim=atoms->x->dim;
-    int dim=dimension;
     type0* sum_lcl;
     type0* sum;
-    CREATE1D(sum_lcl,dim+2);
-    CREATE1D(sum,dim+2);
+    CREATE1D(sum_lcl,__dim__+2);
+    CREATE1D(sum,__dim__+2);
     
-    for(int i=0;i<dim+2;i++)
+    for(int i=0;i<__dim__+2;i++)
         sum_lcl[i]=sum[i]=0.0;
     
     type0 c_vac,rsq;
@@ -362,27 +361,27 @@ type0 DMD::vac_msd()
                 c_vac-=c[j];
         
         rsq=0.0;
-        for(int j=0;j<dim;j++)
+        for(int j=0;j<__dim__;j++)
         {
             sum_lcl[j]+=c_vac*x[j];
             rsq+=x[j]*x[j];
         }
         
-        sum_lcl[dim]+=c_vac*rsq;
-        sum_lcl[dim+1]+=c_vac;
+        sum_lcl[__dim__]+=c_vac*rsq;
+        sum_lcl[__dim__+1]+=c_vac;
         
         c+=c_dim;
         x+=x_dim;
     }
     
-    MPI_Allreduce(sum_lcl,sum,dim+2,MPI_TYPE0,MPI_SUM,world);
+    MPI_Allreduce(sum_lcl,sum,__dim__+2,MPI_TYPE0,MPI_SUM,world);
     type0 ans=0.0;
-    for(int i=0;i<dim+1;i++)
-        sum[i]/=sum[dim+1];
+    for(int i=0;i<__dim__+1;i++)
+        sum[i]/=sum[__dim__+1];
         
-    for(int i=0;i<dim;i++)
+    for(int i=0;i<__dim__;i++)
         ans-=sum[i]*sum[i];
-    ans+=sum[dim];
+    ans+=sum[__dim__];
     delete [] sum_lcl;
     delete [] sum;
     return ans;

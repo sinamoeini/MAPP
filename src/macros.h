@@ -11,23 +11,19 @@ typ+1)*ityp/2+jtyp)
 
 /* memory macros */
 #define GROW(A,oldsize,newsize\
-) memory->grow(A,oldsize,newsi\
+) Memory::grow(A,oldsize,newsi\
 ze,#A,__LINE__,__FILE__,__FUNC\
 TION__)
 
-#define CREATE1D(A,d0) memory-\
->create(A,d0,#A,__LINE__,__FIL\
+#define CREATE1D(A,d0) Memory:\
+:create(A,d0,#A,__LINE__,__FIL\
 E__,__FUNCTION__)
 
-#define CREATE2D(A,d0,d1) memo\
-ry->create(A,d0,d1,#A,__LINE__\
+#define CREATE2D(A,d0,d1) Memo\
+ry::create_2d(A,d0,d1,#A,__LINE__\
 ,__FILE__,__FUNCTION__)
 
-#define CREATE_2D(A,d0,d1) memo\
-ry->create_2d(A,d0,d1,#A,__LINE__\
-,__FILE__,__FUNCTION__)
-
-#define DEL_2D(A) memory->del_2d(A)
+#define DEL_2D(A) Memory::del_2d(A)
 
 /* 3 dimensional shorthand macros */
 #define V3ZERO(V) (V[0]=0,V[1]\

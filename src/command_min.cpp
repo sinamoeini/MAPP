@@ -16,7 +16,7 @@ Command_min::Command_min
     
     /*
     Min*& min=mapp->min;
-    if(min!=NULL)
+    if(min)
         delete min;
     */
     Min* min;

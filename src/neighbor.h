@@ -49,15 +49,15 @@ namespace MAPP_NS
         int& natms_ph;
         
         Vec<type0>*& x;
-        type0*& s_lo;
-        type0*& s_hi;
-        type0*& cut_s;
+        type0 (&s_lo)[__dim__];
+        type0 (&s_hi)[__dim__];
+        type0 (&cut_s)[__dim__];
         /*----------------------*/
         
         //size: dim
-        type0 cell_size[dimension];
-        int cell_denom[dimension];
-        int ncells_per_dim[dimension];
+        type0 cell_size[__dim__];
+        int cell_denom[__dim__];
+        int ncells_per_dim[__dim__];
         
         //size: ncells
         int ncells;
@@ -80,7 +80,7 @@ namespace MAPP_NS
         
     protected:
     public:
-        Cell(int,type0*&);
+        Cell(int,type0(&)[__dim__]);
         ~Cell();
         
         void create(bool);

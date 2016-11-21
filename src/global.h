@@ -6,31 +6,45 @@ namespace MAPP_NS
 {
     enum {MD_mode,DMD_mode};
 
-    template<const int> class Atoms;
+    class Atoms;
     template<typename> class Vec;
     template<class Func> class LineSearch;
     class Min;
 
-    constexpr int dimension=3;
-    extern int mode;
-    extern int precision;
-    extern class Neighbor* neighbor;
-    extern class ForceField* forcefield;
-    extern class Error* error;
-    extern class Timer* timer;
-    extern FILE* output;
-    extern MPI_Comm world;
-    extern class Write* write;
-    extern class MD* md;
-    extern class DMD* dmd;
-    extern class GroupCollection* groups;
-    extern class Memory* memory;
-    extern LineSearch<Min>* ls;
-    extern int step_no;
-    extern int step_tally;
-    extern class AtomTypes* atom_types;
-    extern class Atoms<MAPP_NS::dimension>* atoms;
+    constexpr int __dim__=3;
+    
+    
     extern class MAPP* mapp;
+        extern int mode;
+        extern int precision;
+        extern int step_no;
+        extern int step_tally;
+        extern MPI_Comm world;
+    
+        extern class Atoms* atoms;
+        extern class ForceField* forcefield;
+            extern class Neighbor* neighbor;
+    
+    
+        extern class Timer* timer;
+        extern class Error* error;
+    
+        extern FILE* output;
+        extern class Write* write;
+
+        extern class GroupCollection* groups;
+    
+        extern class AtomTypes* atom_types;
+    
+    
+        extern LineSearch<Min>* ls;
+        extern class MD* md;
+        extern class DMD* dmd;
+    
+    
+    
+    
+    
     extern class VarManager* g_vm;
 }
 #endif

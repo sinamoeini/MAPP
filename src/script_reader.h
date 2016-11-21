@@ -31,7 +31,7 @@ namespace MAPP_NS
         template<class C>
         static void create(C*& ptr,const char*line)
         {
-            if(ptr!=NULL)
+            if(ptr)
                 delete ptr;
             ptr=NULL;
             

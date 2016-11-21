@@ -17,6 +17,7 @@ namespace MAPP_NS
         bool st_set;
         
         KeyWord();
+        KeyWord(VarManager&);
         ~KeyWord();
 
         
@@ -98,7 +99,7 @@ void KeyWord::init(Logics* clog,VarManager& vm,const char* format,T0... vals)
     delete [] vars;
     vars=vars_;
     
-    vars[nvars]=var_mngr->add_var(st_set,name_);
+    vars[nvars]=var_mngr->adddd_var(st_set,name_);
     name=vars[0]->name;
     nvars++;
 }
@@ -119,7 +120,7 @@ void KeyWord::init(Logics* clog,VarManager& vm,bool& set,const char* format,T0..
     delete [] vars;
     vars=vars_;
     
-    vars[nvars]=var_mngr->add_var(set,name_);
+    vars[nvars]=var_mngr->adddd_var(set,name_);
     name=vars[0]->name;
     nvars++;
 }
@@ -140,7 +141,7 @@ void KeyWord::add_var(T0& v,const char* var_name)
     else
         Var::append(v_name,"%s (entry #%d after %s)",var_name,nvars+1,vars[0]->name);
     
-    vars[nvars]=var_mngr->add_var(v,v_name);
+    vars[nvars]=var_mngr->adddd_var(v,v_name);
     delete [] v_name;
     nvars++;
 }
@@ -165,9 +166,9 @@ void FileKeyWord::init(Logics* clog,VarManager& vm,T0& v,const char* format,T1..
     char* name_=new char[len];
     sprintf(name_,format,vals...);
     
-    keyw=var_mngr->add_var(st_set,name_);
+    keyw=var_mngr->adddd_var(st_set,name_);
     name=keyw->name;
-    var=var_mngr->add_var(v,name);
+    var=var_mngr->adddd_var(v,name);
 }
 
 /*--------------------------------------------
@@ -182,9 +183,9 @@ void FileKeyWord::init(Logics* clog,VarManager& vm,T0& v,bool& set,const char* f
     char* name_=new char[len];
     sprintf(name_,format,vals...);
     
-    keyw=var_mngr->add_var(set,name_);
+    keyw=var_mngr->adddd_var(set,name_);
     name=keyw->name;
-    var=var_mngr->add_var(v,name);
+    var=var_mngr->adddd_var(v,name);
 }
 
 /*--------------------------------------------
@@ -195,9 +196,9 @@ void FileKeyWord::init(Logics* clog,VarManager& vm,T0& v,const char* name_)
 {
     cmd_logic=clog;
     var_mngr=&vm;
-    keyw=var_mngr->add_var(st_set,name_);
+    keyw=var_mngr->adddd_var(st_set,name_);
     name=keyw->name;
-    var=var_mngr->add_var(v,name);
+    var=var_mngr->adddd_var(v,name);
 }
 
 /*--------------------------------------------
@@ -207,9 +208,9 @@ template <typename T0>
 void FileKeyWord::init(Logics* clog,VarManager& vm,T0& v,bool& set, const char* name_)
 {
     cmd_logic=clog;
-    keyw=var_mngr->add_var(set,name_);
+    keyw=var_mngr->adddd_var(set,name_);
     name=keyw->name;
-    var=var_mngr->add_var(v,name);
+    var=var_mngr->adddd_var(v,name);
 }
 
 

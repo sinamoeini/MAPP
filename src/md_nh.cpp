@@ -105,13 +105,13 @@ void MD_nh::init()
 
     if(mapp->x_d==NULL)
     {
-        mapp->x_d=new Vec<type0>(atoms,3);
+        mapp->x_d=new Vec<type0>(atoms,3,"x_d");
         memset(mapp->x_d->begin(),0,atoms->natms*3*sizeof(type0));
     }
 
 
     dof_xst=false;
-    if(mapp->x_dof!=NULL)
+    if(mapp->x_dof)
     {
         dof_xst=true;
         int ndofs_lcl[3];
@@ -162,7 +162,7 @@ void MD_nh::init()
     vecs_comm->add_updt(mapp->type);
     vecs_comm->add_xchng(mapp->x_d);
     
-    if(mapp->x_dof!=NULL)
+    if(mapp->x_dof)
         vecs_comm->add_xchng(mapp->x_dof);
     
     if(stress_mode)
@@ -208,7 +208,7 @@ void MD_nh::init()
     
     thermo->init();
     
-    if(write!=NULL)
+    if(write)
         write->init();
     
     for(int i=0;i<no_ch_eta;i++)
@@ -244,7 +244,7 @@ void MD_nh::fin()
 {
     if(gcmc)
         gcmc->fin();
-    if(write!=NULL)
+    if(write)
         write->fin();
     thermo->fin();
     atoms->fin();
@@ -286,7 +286,7 @@ void MD_nh::run(int no_stps)
             atoms->update(atoms->x);
             
             thermo->thermo_print();
-            if(write!=NULL) write->write();
+            if(write) write->write();
 
             memset(forcefield->f->begin(),0,atoms->natms*3*sizeof(type0));
             forcefield->force_calc_timer(true);
@@ -346,7 +346,7 @@ void MD_nh::run(int no_stps)
             memset(forcefield->f->begin(),0,atoms->natms*3*sizeof(type0));
             thermo->thermo_print();
             
-            if(write!=NULL)
+            if(write)
                 write->write();
             
             if(thermo->test_prev_step()|| i==no_stps-1)
@@ -1131,7 +1131,7 @@ void MD_nh::init_vel(type0 temperature)
  --------------------------------------------*/
 void MD_nh::calc_sigma(int istep)
 {
-    type0** H=atoms->H;
+    type0 (&H)[__dim__][__dim__]=atoms->H;
 
     if((nreset && istep%nreset==0) || istep==0)
     {
@@ -1192,13 +1192,17 @@ void MD_nh::modify_vrial()
     for(int i=0;i<atoms->natms;i++)
     {
         if(!dof[0])
+        {
             st_lcl[0]+=fvec[0]*xvec[0];
             st_lcl[4]+=fvec[0]*xvec[2];
             st_lcl[5]+=fvec[0]*xvec[1];
+        }
         
         if(!dof[1])
+        {
             st_lcl[1]+=fvec[1]*xvec[1];
             st_lcl[3]+=fvec[1]*xvec[2];
+        }
         
         if(!dof[2])
             st_lcl[2]+=fvec[2]*xvec[2];
@@ -1230,8 +1234,8 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(ensemble,"ensemble");
     cmd.add_vdesc(0,"defines the ensemble of the md simulation");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("eq","nvt")
-    +vlogic("eq","npt")+vlogic("eq","ntaut");
+    cmd.add_vlog(0)=VLogics("eq","nvt")
+    +VLogics("eq","npt")+VLogics("eq","ntaut");
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1239,16 +1243,16 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(couple,"form");
     cmd.add_vdesc(0,"defines coupling form of npt ensemble");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=logic(ensemble,"!eq","npt")/vlogic("!set");
+    cmd.add_clog()=Logics(ensemble,"!eq","npt")/VLogics("!set");
     cmd.add_vlog(0)=
-    vlogic("eq","xyz")+vlogic("eq","xzy")
-    +vlogic("eq","yzx")+vlogic("eq","yxz")
-    +vlogic("eq","zxy")+vlogic("eq","zxy")
-    +vlogic("eq","xy")+vlogic("eq","yx")
-    +vlogic("eq","xz")+vlogic("eq","zx")
-    +vlogic("eq","yz")+vlogic("eq","zy")
-    +vlogic("eq","x")+vlogic("eq","y")
-    +vlogic("eq","z");
+    VLogics("eq","xyz")+VLogics("eq","xzy")
+    +VLogics("eq","yzx")+VLogics("eq","yxz")
+    +VLogics("eq","zxy")+VLogics("eq","zxy")
+    +VLogics("eq","xy")+VLogics("eq","yx")
+    +VLogics("eq","xz")+VLogics("eq","zx")
+    +VLogics("eq","yz")+VLogics("eq","zy")
+    +VLogics("eq","x")+VLogics("eq","y")
+    +VLogics("eq","z");
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1257,9 +1261,9 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_vdesc(0,"defines the target temperature");
     cmd.add_vdesc(1,"defines the period of nose hoover bath");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=vlogic("set");
-    cmd.add_vlog(0)=vlogic("gt",0.0);
-    cmd.add_vlog(1)=vlogic("gt",0.0);
+    cmd.add_clog()=VLogics("set");
+    cmd.add_vlog(0)=VLogics("gt",0.0);
+    cmd.add_vlog(1)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1268,18 +1272,18 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_vdesc(0,"defines the target average stress");
     cmd.add_vdesc(1,"defines the period of nose hoover bath for average stress");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=logic(ensemble,"eq","npt")-vlogic("set");
-    cmd.add_vlog(1)=vlogic("gt",0.0);
+    cmd.add_clog()=Logics(ensemble,"eq","npt")-VLogics("set");
+    cmd.add_vlog(1)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
-    cmd.cmd_voigt("tau",3);
+    cmd.cmd_voigt<3>("tau");
     cmd.add_var(tau_tar,"tau_tar",tau_freq,"tau_per");
     cmd.add_vdesc(0,"defines the target stress");
     cmd.add_vdesc(1,"defines the period of nose hoover bath for said stress");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=logic(ensemble,"eq","ntaut")-vlogic("set");
-    cmd.add_vlog(1)=vlogic("gt",0.0);
+    cmd.add_clog()=Logics(ensemble,"eq","ntaut")-VLogics("set");
+    cmd.add_vlog(1)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     
@@ -1288,7 +1292,7 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(no_it_eta,"eta_iters");
     cmd.add_vdesc(0,"defines no. of iterations in nose hoover bath");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1296,7 +1300,7 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(no_ch_eta,"neta_chains");
     cmd.add_vdesc(0,"defines no. of masses in nose hoover chains bath");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1304,8 +1308,8 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(no_it_peta,"eta_iters");
     cmd.add_vdesc(0,"defines no. of iterations in nose hoover bath for stress/pressure");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_clog()=(Logics(ensemble,"!eq","npt")+Logics(ensemble,"!eq","ntaut"))/VLogics("!set");
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1313,8 +1317,8 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(no_ch_peta,"neta_chains");
     cmd.add_vdesc(0,"defines no. of masses in nose hoover chains bath for stress/pressure");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_clog()=(Logics(ensemble,"!eq","npt")+Logics(ensemble,"!eq","ntaut"))/VLogics("!set");
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1322,7 +1326,7 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(seed,"random_seed");
     cmd.add_vdesc(0,"defines the random seed for gaussian distribution");
     /*--------------------------------------------------------*/
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1330,8 +1334,8 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(nreset,"n");
     cmd.add_vdesc(0,"defines the number of steps to restart");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0);
+    cmd.add_clog()=(Logics(ensemble,"!eq","npt")+Logics(ensemble,"!eq","ntaut"))/VLogics("!set");
+    cmd.add_vlog(0)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     /*----------------------------*/
@@ -1339,8 +1343,8 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_var(drag,"fac");
     cmd.add_vdesc(0,"defines the drag factor for damped md");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=(logic(ensemble,"!eq","npt")+logic(ensemble,"!eq","ntaut"))/vlogic("!set");
-    cmd.add_vlog(0)=vlogic("gt",0.0);
+    cmd.add_clog()=(Logics(ensemble,"!eq","npt")+Logics(ensemble,"!eq","ntaut"))/VLogics("!set");
+    cmd.add_vlog(0)=VLogics("gt",0.0);
     /*------------------------------------------------------------------------------------*/
     
     
@@ -1352,14 +1356,14 @@ void MD_nh::cmd(int nargs,char** args)
     cmd.add_vdesc(0,"defines the chemical potential");
     cmd.add_vdesc(1,"defines element to be exchanged");
     cmd.add_vdesc(2,"defines the random seed for exchange");
-    cmd.add_vdesc(3,"defines every number steps to do exchange");
+    cmd.add_vdesc(3,"defines every number of steps to perform exchange");
     cmd.add_vdesc(4,"defines number of exchange attempts");
     /*--------------------------------------------------------*/
-    cmd.add_clog()=logic(ensemble,"!eq","nvt")/vlogic("!set");
-    //cmd.add_vlog(1)=vlogic("eq",atom_types->atom_names[0]);
-    //for(int i=1;i<atom_types->no_types;i++) cmd.add_vlog(1)+=vlogic("eq",atom_types->atom_names[i]);
-    cmd.add_vlog(2)=vlogic("gt",0);
-    cmd.add_vlog(3)=vlogic("gt",0);
+    cmd.add_clog()=Logics(ensemble,"!eq","nvt")/VLogics("!set");
+    //cmd.add_vlog(1)=VLogics("eq",atom_types->atom_names[0]);
+    //for(int i=1;i<atom_types->no_types;i++) cmd.add_vlog(1)+=VLogics("eq",atom_types->atom_names[i]);
+    cmd.add_vlog(2)=VLogics("gt",0);
+    cmd.add_vlog(3)=VLogics("gt",0);
     /*------------------------------------------------------------------------------------*/
     
     
@@ -1371,7 +1375,7 @@ void MD_nh::cmd(int nargs,char** args)
     tau_freq_ave=1.0/tau_freq_ave;
     for(int i=0;i<6;i++) tau_freq[i]=1.0/tau_freq[i];
     
-    if(!strcmp(ensemble,"npt") && couple!=NULL)
+    if(!strcmp(ensemble,"npt") && couple)
     {
         
         stress_mode=0;
@@ -1403,7 +1407,10 @@ void MD_nh::cmd(int nargs,char** args)
     else
     {
         if(!strcmp(ensemble,"ntaut"))
+        {
             stress_mode=TAU;
+            for(int i=0;i<6;i++) H_dof[i]=true;
+        }
         else if(!strcmp(ensemble,"npt"))
         {
             stress_mode=XYZ;
@@ -1418,7 +1425,7 @@ void MD_nh::cmd(int nargs,char** args)
     
     if(seed)
         crt_vel=true;
-    if(gcmc_type!=NULL)
+    if(gcmc_type)
         gas_type=atom_types->find_type(gcmc_type);
 }
 

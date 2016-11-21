@@ -10,10 +10,9 @@ namespace MAPP_NS
     protected:
     public:
         Vec<T>* vec;
-        T** A;
+        T (*A)[__dim__];
         int* pnatms;
         int x_dim;
-        int dim;
         int alloc_flag;
         MPI_Datatype MPI_T;
         bool box_chng;
@@ -26,14 +25,12 @@ namespace MAPP_NS
             {
                 delete vec;
                 if(!box_chng) return;
-                delete [] *A;
                 delete [] A;
                 A=NULL;
             }
             else if(alloc_flag==2)
             {
                 if(!box_chng) return;
-                delete [] *A;
                 delete [] A;
                 A=NULL;
             }
@@ -49,47 +46,38 @@ namespace MAPP_NS
                 MPI_T=MPI_TYPE0;
         }
         
-        void init(Atoms<MAPP_NS::dimension>* atoms,bool bc)
+        void init(Atoms* atoms,bool bc)
         {
             pnatms=&atoms->natms;
             x_dim=atoms->x->dim;
-            dim=dimension;
             box_chng=bc;
             assign_mpi_type();
             alloc_flag=3;
             vec=new Vec<T>(atoms,x_dim);
             if(!box_chng) return;
-            A=new T*[dim];
-            *A=new T[dim*dim];
-            for(int idim=1;idim<dim;idim++)
-                A[idim]=A[idim-1]+dim;
-            for(int idim=0;idim<dim;idim++)
-                for(int jdim=0;jdim<dim;jdim++)
+            A=new T[__dim__][__dim__];
+            for(int idim=0;idim<__dim__;idim++)
+                for(int jdim=0;jdim<__dim__;jdim++)
                     A[idim][jdim]=0.0;
         }
-        void init(Atoms<MAPP_NS::dimension>* atoms,Vec<T>*& v,bool bc)
+        void init(Atoms* atoms,Vec<T>*& v,bool bc)
         {
             pnatms=&atoms->natms;
             x_dim=atoms->x->dim;
-            dim=dimension;
             box_chng=bc;
             assign_mpi_type();
             alloc_flag=2;
             vec=v;
             if(!box_chng) return;
-            A=new T*[dim];
-            *A=new T[dim*dim];
-            for(int idim=1;idim<dim;idim++)
-                A[idim]=A[idim-1]+dim;
-            for(int idim=0;idim<dim;idim++)
-                for(int jdim=0;jdim<dim;jdim++)
+            A=new T[__dim__][__dim__];
+            for(int idim=0;idim<__dim__;idim++)
+                for(int jdim=0;jdim<__dim__;jdim++)
                     A[idim][jdim]=0.0;
         }
-        void init(Atoms<MAPP_NS::dimension>* atoms,Vec<T>*& v,T**& A_,bool bc)
+        void init(Atoms* atoms,Vec<T>*& v,T (&A_)[__dim__][__dim__],bool bc)
         {
             pnatms=&atoms->natms;
             x_dim=atoms->x->dim;
-            dim=dimension;
             box_chng=bc;
             assign_mpi_type();
             
@@ -106,7 +94,6 @@ namespace MAPP_NS
                 delete vec;
                 alloc_flag=0;
                 if(!box_chng) return;
-                delete [] *A;
                 delete [] A;
                 A=NULL;
             }
@@ -114,7 +101,6 @@ namespace MAPP_NS
             {
                 alloc_flag=0;
                 if(!box_chng) return;
-                delete [] *A;
                 delete [] A;
                 A=NULL;
             }
@@ -137,7 +123,7 @@ namespace MAPP_NS
             if(!box_chng) return ans;
             vec0=*this->A;
             vec1=*rhs.A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 ans+=vec0[i]*vec1[i];
             return ans;
         }
@@ -153,7 +139,7 @@ namespace MAPP_NS
             
             vec0=*this->A;
             vec1=*other.A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 vec0[i]+=a*vec1[i];
         }
 
@@ -172,7 +158,7 @@ namespace MAPP_NS
             if(!box_chng) return *this;
             
             vec0=*this->A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 vec0[i]*=a;
             return *this;
         }
@@ -191,14 +177,14 @@ namespace MAPP_NS
         {
             memcpy(vec->begin(),other.vec->begin(),*pnatms*x_dim*sizeof(T));
             if(!box_chng) return;
-            memcpy(*A,*other.A,dim*dim*sizeof(T));
+            memcpy(*A,*other.A,__dim__*__dim__*sizeof(T));
         }
         
         VecTens& operator=(const VecTens& other)
         {
             memcpy(this->vec->begin(),other.vec->begin(),*pnatms*x_dim*sizeof(T));
             if(!box_chng) return *this;
-            memcpy(*this->A,*other.A,dim*dim*sizeof(T));
+            memcpy(*this->A,*other.A,__dim__*__dim__*sizeof(T));
             return *this;
         }
         
@@ -232,7 +218,7 @@ namespace MAPP_NS
             vec1=*rhs.A;
             my_vec=*A;
             vec1=*rhs.A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 my_vec[i]=vec0[i]-vec1[i];
             return *this;
         }
@@ -251,7 +237,7 @@ namespace MAPP_NS
             vec1=*rhs.A;
             my_vec=*A;
             vec1=*rhs.A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 my_vec[i]=vec0[i]-vec1[i];
 
         }
@@ -270,7 +256,7 @@ namespace MAPP_NS
             vec1=*rhs.A;
             my_vec=*A;
             vec1=*rhs.A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 my_vec[i]=vec0[i]+vec1[i];
             return *this;
         }
@@ -289,7 +275,7 @@ namespace MAPP_NS
             vec1=*rhs.A;
             my_vec=*A;
             vec1=*rhs.A;
-            for(int i=0;i<dim*dim;i++)
+            for(int i=0;i<__dim__*__dim__;i++)
                 my_vec[i]=vec0[i]+vec1[i];
         }
     };

@@ -842,12 +842,12 @@ void EAMFileReader::allocate()
 {
     CREATE1D(cut,no_types*(no_types+1)/2);
     CREATE1D(cut_sq,no_types*(no_types+1)/2);
-    CREATE_2D(type2phi,no_types,no_types);
-    CREATE_2D(type2rho,no_types,no_types);
-    CREATE_2D(type2rho_pair_ij,no_types,no_types);
-    CREATE_2D(type2rho_pair_ji,no_types,no_types);
-    CREATE_2D(type2phi_pair_ij,no_types,no_types);
-    CREATE_2D(type2phi_pair_ji,no_types,no_types);
+    CREATE2D(type2phi,no_types,no_types);
+    CREATE2D(type2rho,no_types,no_types);
+    CREATE2D(type2rho_pair_ij,no_types,no_types);
+    CREATE2D(type2rho_pair_ji,no_types,no_types);
+    CREATE2D(type2phi_pair_ij,no_types,no_types);
+    CREATE2D(type2phi_pair_ji,no_types,no_types);
     
     for(int ityp=0;ityp<no_types;ityp++)
         for(int jtyp=0;jtyp<no_types;jtyp++)

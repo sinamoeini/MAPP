@@ -300,20 +300,21 @@ type0 ForceField_lj::energy_calc()
  --------------------------------------------*/
 void ForceField_lj::read_file(char* file_name)
 {
+    
     FileReader fr;
     
     fr.add_2D("sigma",sigma);
     fr.symmetric();
-    fr.add_vlog()=vlogic("gt",0.0);
+    fr.add_vlog()=VLogics("gt",0.0);
     
     
     fr.add_2D("epsilon",epsilon);
     fr.symmetric();
-    fr.add_vlog()=vlogic("gt",0.0);
+    fr.add_vlog()=VLogics("gt",0.0);
     
     fr.add_2D("r_c",cut);
     fr.symmetric();
-    fr.add_vlog()=vlogic("gt",0.0);
+    fr.add_vlog()=VLogics("gt",0.0);
     
 
     

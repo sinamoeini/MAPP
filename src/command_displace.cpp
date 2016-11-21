@@ -12,7 +12,7 @@ enum {disp_x,disp_s};
 Command_displace::Command_displace(int nargs,char** args)
 {
     int mode=-1;
-    int dim=dimension;
+    int dim=__dim__;
     if(nargs<3+dim)
         error->abort("incorrect displace command");
     if(strcmp(args[1],"x")==0)

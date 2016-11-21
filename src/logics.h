@@ -21,20 +21,26 @@ namespace MAPP_NS
         private:
         protected:
         public:
+            static const char* verb_aux;
+            static const char* negate;
+            static const char* verb;
+            static const char* s_verb;
+            static const char* p_verb;
+            static const char* s_n_verb;
+            static const char* p_n_verb;
             char* op_name;
             const bool _is_;
             Log(const char*,const bool);
             virtual ~Log();
-            void finish_sntnc(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
-            void start_sntnc(char*&,char*&,char*&,char*&,int,char*,char*);
-            void process_sntnc(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,char*,char*);
+            void finish_sntnc(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
+            void start_sntnc(char*&,char*&,char*&,int,const char*,const char*);
+            void process_sntnc(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,const char*,const char*);
             virtual bool operator() ()=0;
             virtual bool operator() (Var*)=0;
-            virtual void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&)=0;
-            virtual void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*)=0;
+            virtual void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&)=0;
+            virtual void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*)=0;
             int eq(const char*,const char*);
             virtual Log* clone()=0;
-            virtual void replace(Var*,Var*)=0;
         };
         
         class LogUnary:public Log
@@ -43,10 +49,9 @@ namespace MAPP_NS
             Var* left;
             LogUnary(Var*,const char*,const bool);
             
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
             virtual Log* clone()=0;
-            void replace(Var*,Var*);
             virtual bool operator() ()=0;
             virtual bool operator() (Var*)=0;
         };
@@ -58,10 +63,9 @@ namespace MAPP_NS
             Var* right;
             LogBinary(Var*,Var*,const char*,const bool);
             
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
             virtual Log* clone()=0;
-            void replace(Var*,Var*);
             virtual bool operator() ()=0;
             virtual bool operator() (Var*)=0;
         };
@@ -74,10 +78,9 @@ namespace MAPP_NS
             LogBinaryOp(Log*,Log*,const char*,const bool);
             ~LogBinaryOp();
             
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
             virtual Log* clone()=0;
-            void replace(Var*,Var*);
             virtual bool operator() ()=0;
             virtual bool operator() (Var*)=0;
         };
@@ -90,10 +93,9 @@ namespace MAPP_NS
             LogCond(Log*,Log*,const char*,const bool);
             ~LogCond();
             
-            virtual void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&)=0;
-            virtual void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*)=0;
+            virtual void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&)=0;
+            virtual void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*)=0;
             virtual Log* clone()=0;
-            void replace(Var*,Var*);
             virtual bool operator() ()=0;
             virtual bool operator() (Var*)=0;
         };
@@ -177,8 +179,8 @@ namespace MAPP_NS
             LogIf(Log*,Log*);
             bool operator() ();
             bool operator() (Var*);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
             Log* clone();
         };
         
@@ -188,20 +190,38 @@ namespace MAPP_NS
             LogIff(Log*,Log*);
             bool operator() ();
             bool operator() (Var*);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
-            void print(char*&,char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&);
+            void print(char*&,char*&,char*&,char*&,bool&,char*&,int,bool&,Var*);
             Log* clone();
         };
         
         void creat_op(Var*,const char*,Var*);
         void creat_op(Var*,const char*);
+        void assign(Var*,const char*,Var*);
+        void assign(Var*,const char*);
     public:
         Logics();
-        Logics(Var*,const char*,Var*);
-        Logics(Var*,const char*);
+        
+        template<typename T0,typename T1>
+        Logics(T0&& x0,const char* s,T1&& x1)
+        {
+            assign(
+                   MAPP_NS::g_vm->opppp(dynamic_static<T0&&>(),x0),
+                   s,
+                   MAPP_NS::g_vm->opppp(dynamic_static<T1&&>(),x1));
+        }
+        
+        template<typename T0>
+        Logics(T0&& x0,const char* s)
+        {
+            assign(MAPP_NS::g_vm->opppp(dynamic_static<T0&&>(),x0),s);
+        }
+        
         Logics(Logics&);
         Logics(Logics&&);
         ~Logics();
+        
+        
         
         
         Logics& operator = (Logics&);
@@ -223,33 +243,27 @@ namespace MAPP_NS
         char* print(Var*);
         char* operator()(Var*);
         char* operator()();
-
-        
     };
-    
-    template<typename T0,typename T1>
-    Logics logic(T0&& x0,const char* s,T1&& x1)
+
+    class VLogics: public Logics
     {
-        return Logics(MAPP_NS::g_vm->operator()(dynamic_static<T0&&>(),x0)
-        ,s,MAPP_NS::g_vm->operator()(dynamic_static<T1&&>(),x1));
-    }
-    
-    template<typename T0>
-    Logics logic(T0&& x0,const char* s)
-    {
-        return Logics(MAPP_NS::g_vm->operator()(dynamic_static<T0&&>(),x0),s);
-    }
-    
-    template<typename T0>
-    Logics vlogic(const char* s,T0&& x1)
-    {
-        return Logics(NULL,s,MAPP_NS::g_vm->operator()(dynamic_static<T0&&>(),x1));
-    }
-    
-    inline Logics vlogic(const char* s)
-    {
-        return Logics(NULL,s);
-    }
+    private:
+    protected:
+    public:
+        template<typename T0>
+        VLogics(const char* s,T0&& x1):
+        Logics()
+        {
+            assign(NULL,s,MAPP_NS::g_vm->opppp(dynamic_static<T0&&>(),x1));
+        }
+        
+        VLogics(const char* s):
+        Logics()
+        {
+            assign(NULL,s);
+        }
+    };
+   
     
    
 }

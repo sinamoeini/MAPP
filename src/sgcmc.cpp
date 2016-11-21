@@ -36,21 +36,21 @@ m(m_)
      rel_neigh_lst requires knowledge of the box and 
      domain, it will be differed to create()
      --------------------------------------------------*/
-    int countr[dimension];
-    for(int i=0;i<dimension;i++)
+    int countr[__dim__];
+    for(int i=0;i<__dim__;i++)
         countr[i]=-m;
     int max_no_neighs=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
         max_no_neighs*=2*m+1;
     nneighs=0;
-    rel_neigh_lst_coord=new int[max_no_neighs*dimension];
+    rel_neigh_lst_coord=new int[max_no_neighs*__dim__];
     int* rel_neigh_lst_coord_=rel_neigh_lst_coord;
     int sum;
     int rc_sq=m*m;
     for(int i=0;i<max_no_neighs;i++)
     {
         sum=0;
-        for(int j=0;j<dimension;j++)
+        for(int j=0;j<__dim__;j++)
         {
             sum+=countr[j]*countr[j];
             if(countr[j]!=0)
@@ -59,22 +59,22 @@ m(m_)
         
         if(sum<rc_sq)
         {
-            for(int j=0;j<dimension;j++)
+            for(int j=0;j<__dim__;j++)
                 rel_neigh_lst_coord_[j]=countr[j];
-            rel_neigh_lst_coord_+=dimension;
+            rel_neigh_lst_coord_+=__dim__;
             nneighs++;
         }
         
         countr[0]++;
-        for(int j=0;j<dimension-1;j++)
+        for(int j=0;j<__dim__-1;j++)
             if(countr[j]==m+1)
             {
                 countr[j]=-m;
                 countr[j+1]++;
             }
     }
-    rel_neigh_lst_coord_=new int[nneighs*dimension];
-    memcpy(rel_neigh_lst_coord_,rel_neigh_lst_coord,nneighs*dimension*sizeof(int));
+    rel_neigh_lst_coord_=new int[nneighs*__dim__];
+    memcpy(rel_neigh_lst_coord_,rel_neigh_lst_coord,nneighs*__dim__*sizeof(int));
     delete [] rel_neigh_lst_coord;
     rel_neigh_lst_coord=rel_neigh_lst_coord_;
     
@@ -118,7 +118,7 @@ void SGCMC::box_setup()
     GCMC::box_setup();
     
     n_cells=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         cell_size[i]=cut_s[i]/static_cast<type0>(m);
         N_cells[i]=static_cast<int>((s_hi[i]-s_lo[i])/cell_size[i])+1;
@@ -128,8 +128,8 @@ void SGCMC::box_setup()
     }
     
     head_atm=new int[n_cells];
-    cell_coord_buff=new int[max_ntrial_atms*dimension];
-    s_x_buff=new type0[dimension*max_ntrial_atms];
+    cell_coord_buff=new int[max_ntrial_atms*__dim__];
+    s_x_buff=new type0[__dim__*max_ntrial_atms];
 }
 /*--------------------------------------------
  
@@ -165,8 +165,8 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
     else tag_vec_p=NULL;
     cell_vec_p=new Vec<int>(atoms,1);
     next_vec_p=new Vec<int>(atoms,1);
-    s_vec_p=new Vec<type0>(atoms,dimension);
-    memcpy(s_vec_p->begin(),atoms->x->begin(),sizeof(type0)*natms*dimension);
+    s_vec_p=new Vec<type0>(atoms,__dim__);
+    memcpy(s_vec_p->begin(),atoms->x->begin(),sizeof(type0)*natms*__dim__);
     
     /*--------------------------------------------------
      here we reset head_atm
@@ -180,8 +180,8 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
      --------------------------------------------------*/
     int* next_vec=next_vec_p->begin();
     int* cell_vec=cell_vec_p->begin();
-    type0* s=atoms->x->begin()+(natms-1)*dimension;
-    for(int i=natms-1;i>-1;i--,s-=dimension)
+    type0* s=atoms->x->begin()+(natms-1)*__dim__;
+    for(int i=natms-1;i>-1;i--,s-=__dim__)
     {
         find_cell_no(s,cell_vec[i]);
         next_vec[i]=head_atm[cell_vec[i]];
@@ -210,7 +210,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
 
     
     ff->fin_xchng();
-    memcpy(atoms->x->begin(),s_vec_p->begin(),sizeof(type0)*natms*dimension);
+    memcpy(atoms->x->begin(),s_vec_p->begin(),sizeof(type0)*natms*__dim__);
     
     delete tag_vec_p;
     delete s_vec_p;
@@ -226,7 +226,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
 inline void SGCMC::find_cell_no(type0*& s,int& cell_no)
 {
     cell_no=0;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
         cell_no+=B_cells[i]*MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1);
 }
 /*--------------------------------------------
@@ -234,7 +234,7 @@ inline void SGCMC::find_cell_no(type0*& s,int& cell_no)
  --------------------------------------------*/
 inline void SGCMC::find_cell_coord(type0*& s,int*& cell_coord)
 {
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         if(s[i]<s_lo[i])
             cell_coord[i]=-static_cast<int>((s_lo[i]-s[i])/cell_size[i])-1;
@@ -254,7 +254,7 @@ void SGCMC::attmpt()
         xchng_mode=INS_MODE;
         im_root=true;
         int iproc=-1;
-        for(int i=0;i<dimension;i++)
+        for(int i=0;i<__dim__;i++)
         {
             s_buff[i]=random->uniform();
             if(s_buff[i]<s_lo[i] || s_buff[i]>=s_hi[i])
@@ -285,10 +285,10 @@ void SGCMC::attmpt()
                 if(type[del_idx]==gas_type) icount++;
             del_idx--;
             gas_id=atoms->id->begin()[del_idx];
-            memcpy(s_buff,s_vec_p->begin()+del_idx*dimension,dimension*sizeof(type0));
+            memcpy(s_buff,s_vec_p->begin()+del_idx*__dim__,__dim__*sizeof(type0));
         }
         MPI_Allreduce(&iproc,&curr_root,1,MPI_INT,MPI_MAX,world);
-        MPI_Bcast(s_buff,dimension,MPI_TYPE0,curr_root,world);
+        MPI_Bcast(s_buff,__dim__,MPI_TYPE0,curr_root,world);
         MPI_Bcast(&gas_id,1,MPI_INT,curr_root,world);
     }
     
@@ -330,27 +330,27 @@ void SGCMC::ins_succ()
 {
 
     int new_id=get_new_id();
-    for(int i=0;i<dimension;i++) vel_buff[i]=random->gaussian()*sigma;
+    for(int i=0;i<__dim__;i++) vel_buff[i]=random->gaussian()*sigma;
     if(im_root)
     {
         atoms->add();
         
-        memcpy(atoms->x->begin()+(natms-1)*dimension,s_x_buff,dimension*sizeof(type0));
-        memcpy(mapp->x_d->begin()+(natms-1)*dimension,vel_buff,dimension*sizeof(type0));
+        memcpy(atoms->x->begin()+(natms-1)*__dim__,s_x_buff,__dim__*sizeof(type0));
+        memcpy(mapp->x_d->begin()+(natms-1)*__dim__,vel_buff,__dim__*sizeof(type0));
         mapp->type->begin()[natms-1]=gas_type;
         atoms->id->begin()[natms-1]=new_id;
         if(tag_vec_p) tag_vec_p->begin()[natms-1]=-1;
         if(mapp->x_dof)
         {
-            bool* dof=mapp->x_dof->begin()+(natms-1)*dimension;
-            for(int i=0;i<dimension;i++) dof[i]=true;
+            bool* dof=mapp->x_dof->begin()+(natms-1)*__dim__;
+            for(int i=0;i<__dim__;i++) dof[i]=true;
         }
         
         
-        memcpy(s_vec_p->begin()+(natms-1)*dimension,s_buff,dimension*sizeof(type0));
+        memcpy(s_vec_p->begin()+(natms-1)*__dim__,s_buff,__dim__*sizeof(type0));
         
         int cell_=0;
-        for(int i=0;i<dimension;i++) cell_+=B_cells[i]*cell_coord_buff[i];
+        for(int i=0;i<__dim__;i++) cell_+=B_cells[i]*cell_coord_buff[i];
         cell_vec_p->begin()[natms-1]=cell_;
         
         
@@ -367,7 +367,7 @@ void SGCMC::ins_succ()
             ngas_before++;
     }
     
-    dof_diff+=dimension;
+    dof_diff+=__dim__;
     tot_ngas++;
     atoms->tot_natms++;    
 }
@@ -433,7 +433,7 @@ void SGCMC::del_succ()
         if(igas<ngas_before)
             ngas_before--;
     }
-    dof_diff-=dimension;
+    dof_diff-=__dim__;
     tot_ngas--;
     atoms->tot_natms--;
 }
@@ -444,16 +444,16 @@ void SGCMC::prep_s_x_buff()
 {
     
     im_root=true;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
         if(s_buff[i]<s_lo[i] || s_buff[i]>=s_hi[i])
             im_root=false;
     
     
-    int n_per_dim[dimension];
+    int n_per_dim[__dim__];
     type0 s;
     int no;
     ntrial_atms=1;
-    for(int i=0;i<dimension;i++)
+    for(int i=0;i<__dim__;i++)
     {
         no=0;
         s=s_buff[i];
@@ -471,27 +471,27 @@ void SGCMC::prep_s_x_buff()
     }
     
     
-    int count[dimension];
+    int count[__dim__];
     type0* buff=s_x_buff;
     int* cell_coord=cell_coord_buff;
-    type0** H=atoms->H;
-    for(int i=0;i<dimension;i++) count[i]=0;
+    type0 (&H)[__dim__][__dim__]=atoms->H;
+    for(int i=0;i<__dim__;i++) count[i]=0;
     for(int i=0;i<ntrial_atms;i++)
     {
-        for(int j=0;j<dimension;j++)
+        for(int j=0;j<__dim__;j++)
             buff[j]=s_trials[j][count[j]];
         find_cell_coord(buff,cell_coord);
-        XMatrixVector::s2x<dimension>(buff,H);
+        XMatrixVector::s2x<__dim__>(buff,H);
         
         count[0]++;
-        for(int j=0;j<dimension-1;j++)
+        for(int j=0;j<__dim__-1;j++)
             if(count[j]==n_per_dim[j])
             {
                 count[j]=0;
                 count[j+1]++;
             }
-        cell_coord+=dimension;
-        buff+=dimension;
+        cell_coord+=__dim__;
+        buff+=__dim__;
     }
 }
 /*--------------------------------------------
@@ -536,13 +536,13 @@ void SGCMC::next_iatm()
      assign the cell number and the already calculated
      cell coordinates
      --------------------------------------------------*/
-    for(int i=0;i<dimension;i++)
-        icell_coord[i]=cell_coord_buff[dimension*itrial_atm+i];
+    for(int i=0;i<__dim__;i++)
+        icell_coord[i]=cell_coord_buff[__dim__*itrial_atm+i];
     
     /*--------------------------------------------------
      assign the position of iatm
      --------------------------------------------------*/
-    ix=s_x_buff+itrial_atm*dimension;
+    ix=s_x_buff+itrial_atm*__dim__;
     
 }
 /*--------------------------------------------
@@ -567,9 +567,9 @@ inline void SGCMC::next_jatm_reg()
         {
             bool lcl=true;
             jcell=0;
-            for(int i=0;i<dimension && lcl;i++)
+            for(int i=0;i<__dim__ && lcl;i++)
             {
-                jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*dimension+i];
+                jcell_coord[i]=icell_coord[i]+rel_neigh_lst_coord[ineigh*__dim__+i];
                 jcell+=B_cells[i]*jcell_coord[i];
 
                 if(jcell_coord[i]<0 || jcell_coord[i]>N_cells[i]-1)
@@ -598,10 +598,10 @@ inline void SGCMC::next_jatm_reg()
         
         if(jatm==iatm) continue;
         
-        jx=atoms->x->begin()+dimension*jatm;
+        jx=atoms->x->begin()+__dim__*jatm;
         jtype=mapp->type->begin()[jatm];
         
-        rsq=XMatrixVector::rsq<dimension>(ix,jx);
+        rsq=XMatrixVector::rsq<__dim__>(ix,jx);
         if(rsq>=cut_sq[itype][jtype]) continue;
         
         if(tag_vec_p) tag_vec_p->begin()[jatm]=icomm;
@@ -625,9 +625,9 @@ inline void SGCMC::next_jatm_self()
         }
         
         jatm=natms+iself;
-        jx=s_x_buff+iself*dimension;
+        jx=s_x_buff+iself*__dim__;
         jtype=gas_type;
-        rsq=XMatrixVector::rsq<dimension>(ix,jx);
+        rsq=XMatrixVector::rsq<__dim__>(ix,jx);
         if(rsq>=cut_sq[itype][jtype]) continue;
         
         return;

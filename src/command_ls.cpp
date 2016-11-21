@@ -13,7 +13,7 @@ Command_ls::Command_ls
     if(nargs<2)
         error->abort("wrong command: %s",args[0]);
     
-    if(ls!=NULL)
+    if(ls)
         delete ls;
     
     #define LS_Style

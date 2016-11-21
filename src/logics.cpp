@@ -1,11 +1,19 @@
 #include "logics.h"
 
 using namespace MAPP_NS;
-const char* verb_aux ="should";
-const char* negate="not";
-const char* verb="be";
-const char* s_verb="is";
-const char* p_verb="are";
+const char* Logics::Log::verb_aux ="should";
+const char* Logics::Log::negate="not";
+const char* Logics::Log::verb="be";
+/*
+const char* Logics::Log::s_verb="should be";
+const char* Logics::Log::p_verb="should be";
+const char* Logics::Log::s_n_verb="should not be";
+const char* Logics::Log::p_n_verb="should not be";
+ */
+const char* Logics::Log::s_verb="is";
+const char* Logics::Log::p_verb="are";
+const char* Logics::Log::s_n_verb="are not";
+const char* Logics::Log::p_n_verb="should not be";
 /*----------------------------------------------------------------------
  _       _____   _____   _   _____   _____        _       _____   _____
 | |     /  _  \ /  ___| | | /  ___| /  ___/      | |     /  _  \ /  ___|
@@ -48,23 +56,43 @@ int Logics::Log::eq(const char* st0,const char* st1)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::Log::finish_sntnc(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
+void Logics::Log::finish_sntnc(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
 {
     if(L==NULL)
         return;
-    if(R!=NULL)
-        Var::append(err_msg,"%s %s %s %s",L,_verb_,op,R);
+    Var::append(err_msg,"%s ",L);
+    
+    if(v_flag==VERB)
+    {
+        if(__is__ && p_flag)
+            Var::append(err_msg,"%s ",p_verb);
+        else if(__is__ && !p_flag)
+            Var::append(err_msg,"%s ",s_verb);
+    
+        else if(!__is__ && p_flag)
+            Var::append(err_msg,"%s ",p_n_verb);
+        else
+            Var::append(err_msg,"%s ",s_n_verb);
+    }
     else
-        Var::append(err_msg,"%s %s %s",L,_verb_,op);
+    {
+        if(__is__)
+            Var::append(err_msg,"%s %s ",verb_aux,verb);
+        else
+            Var::append(err_msg,"%s %s %s ",verb_aux,negate,verb);
+    }
+    Var::append(err_msg,"%s ",op);
+    
+    if(R)
+        Var::append(err_msg,"%s",R);
+
     
     
     delete [] L;
-    delete [] _verb_;
     delete [] op;
     delete [] R;
     
     L=NULL;
-    _verb_=NULL;
     op=NULL;
     R=NULL;
     p_flag=false;
@@ -72,102 +100,136 @@ void Logics::Log::finish_sntnc(char*& err_msg,char*& L,char*& _verb_,char*& op,c
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::Log::start_sntnc(char*& L,char*& _verb_,char*& op,char*& R,int v_flag,char* l_name,char* r_name)
+void Logics::Log::start_sntnc(char*& L,char*& op,char*& R,int v_flag,const char* l_name,const char* r_name)
 {
-    
-    
     delete [] L;
-    delete [] _verb_;
-    delete [] op;
-    delete [] R;
-    
     L=NULL;
-    _verb_=NULL;
-    op=NULL;
-    R=NULL;
-    
     Var::append(L,"%s",l_name);
     
-    if(v_flag==AUX_VERB && _is_)
-        Var::append(_verb_,"%s %s",verb_aux,verb);
-    else if(v_flag==AUX_VERB && !_is_)
-        Var::append(_verb_,"%s %s %s",verb_aux,negate,verb);
-    else if(v_flag==VERB && _is_)
-        Var::append(_verb_,"%s",s_verb);
-    else if(v_flag==VERB && !_is_)
-        Var::append(_verb_,"%s %s",s_verb,negate);
-    
+    delete [] op;
+    op=NULL;
     Var::append(op,"%s",op_name);
-    if(r_name!=NULL)
+    delete [] R;
+    R=NULL;
+    if(r_name)
         Var::append(R,"%s",r_name);
-    else
-        r_name=NULL;
-    
 }
 /*--------------------------------------------
+ 3: (!L ,  O ,  R ) -> ( L0+L1 , O        , R     )
+ 4: ( L , !O , !R ) -> ( L     , O0+R0+O1 , R1    )
+ 5: ( L , !O ,  R ) -> ( L     , O0+O1    , R     )
+ 6: ( L ,  O , !R ) -> ( L     , O        , R0+R1 )
  
+ 2: (!L ,  O , !R ) ->   x
+ 1: (!L , !O ,  R ) ->   x
+ 0: (!L , !O , !R ) ->   x
  --------------------------------------------*/
-void Logics::Log::process_sntnc(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,char* l_name,char* r_name)
+void Logics::Log::process_sntnc(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,const char* l_name,const char* r_name)
 {
-    if(L==NULL)
+    if(!L)
     {
-        start_sntnc(L,_verb_,op,R,v_flag,l_name,r_name);
+        start_sntnc(L,op,R,v_flag,l_name,r_name);
         __is__=_is_;
         p_flag=false;
-        
         return;
     }
     
-    int case_no=eq(R,r_name)+2*eq(op,op_name)+4*eq(L,l_name);
-    if(_is_!=__is__ || case_no<3 || case_no==7)
+    int case_no=4*eq(L,l_name)+eq(R,r_name);
+    if(__is__==_is_) case_no+=2*eq(op,op_name);
+    
+    if(case_no<3 || case_no==7)
     {
-        finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+        finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
         Var::append(err_msg,", %s ",del);
-        print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+        print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
         return;
     }
-    
+ 
+    /*--------------------------------------------------
+     3: (!L ,  O ,  R ) -> ( L0+L1 , O        , R     )
+     --------------------------------------------------*/
     if(case_no==3)
     {
-        if(!p_flag)
-        {
-            if(v_flag==VERB && _is_)
-            {
-                delete [] _verb_;
-                _verb_=NULL;
-                Var::append(_verb_,"%s",p_verb);
-            }
-            else if(v_flag==VERB && !_is_)
-            {
-                delete [] _verb_;
-                _verb_=NULL;
-                Var::append(_verb_,"%s %s",p_verb,negate);
-            }
-        }
         p_flag=true;
         Var::append(L," %s %s",del,l_name);
-        
     }
+    /*--------------------------------------------------
+     4: ( L , !O , !R ) -> ( L     , O0+R0+O1 , R1    )
+     4: ( L , !O , !R ) -> ( L     , O1+R1+O0 , R0    )
+     --------------------------------------------------*/
     else if(case_no==4)
     {
-        if(R!=NULL)
-            Var::append(op," %s %s %s",R,del,op_name);
+        if(_is_!=__is__)
+        {
+            if(!__is__)
+            {
+                char* op_=NULL;
+                if(R)
+                    Var::append(op_,"%s %s %s %s %s",op_name,r_name,del,negate,op);
+                else
+                    Var::append(op_,"%s %s %s %s",op_name,del,negate,op);
+                delete [] op;
+                op=op_;
+                __is__=true;
+                
+            }
+            else
+            {
+                
+                if(R)
+                    Var::append(op," %s %s %s %s",R,del,negate,op_name);
+                else
+                    Var::append(op," %s %s %s",del,negate,op_name);
+                
+                delete [] R;
+                R=NULL;
+                if(r_name)
+                    Var::append(R,"%s",r_name);
+            }
+            
+            
+        }
         else
-            Var::append(op," %s %s",del,op_name);
-        delete [] R;
-        R=NULL;
-        if(r_name!=NULL)
-            Var::append(R,"%s",r_name);
-        else
+        {
+            if(R)
+                Var::append(op," %s %s %s",R,del,op_name);
+            else
+                Var::append(op," %s %s",del,op_name);
+            delete [] R;
             R=NULL;
+            if(r_name)
+                Var::append(R,"%s",r_name);
+        }
     }
+    /*--------------------------------------------------
+     5: ( L , !O ,  R ) -> ( L     , O0+O1    , R     )
+     5: ( L , !O ,  R ) -> ( L     , O1+O0    , R     )
+     --------------------------------------------------*/
     else if(case_no==5)
     {
-        Var::append(op," %s %s",del,op_name);
+        
+        if(_is_!=__is__)
+        {
+            if(!__is__)
+            {
+                char* op_=NULL;
+                Var::append(op_,"%s %s %s %s",op_name,del,negate,op);
+                delete [] op;
+                op=op_;
+                __is__=true;
+            }
+            else
+                Var::append(op," %s %s %s",del,negate,op_name);
+        }
+        else
+            Var::append(op," %s %s",del,op_name);
     }
+    /*--------------------------------------------------
+     6: ( L ,  O , !R ) -> ( L     , O        , R0+R1 )
+     --------------------------------------------------*/
     else if(case_no==6)
     {
-        if(r_name!=NULL)
+        if(r_name)
             Var::append(R," %s %s",del,r_name);
     }
 }
@@ -186,14 +248,6 @@ Log(op_name,_is_),left(l),right(r)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogBinaryOp::replace(Var* ref,Var* subs)
-{
-    left->replace(ref,subs);
-    right->replace(ref,subs);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
 Logics::LogBinaryOp::~LogBinaryOp()
 {
     delete left;
@@ -202,20 +256,20 @@ Logics::LogBinaryOp::~LogBinaryOp()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogBinaryOp::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
+void Logics::LogBinaryOp::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
 {
-    left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    left->print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     del=op_name;
-    right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    right->print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogBinaryOp::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
+void Logics::LogBinaryOp::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
 {
-    left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
+    left->print(err_msg,L,op,R,__is__,del,v_flag,p_flag,v);
     del=op_name;
-    right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
+    right->print(err_msg,L,op,R,__is__,del,v_flag,p_flag,v);
 }
 /*--------------------------------------------------------------------------------------------------------------
  _       _____   _____   _   _____   _____        _       _____   _____        _____   _____   __   _   _____  
@@ -228,14 +282,6 @@ void Logics::LogBinaryOp::print(char*& err_msg,char*& L,char*& _verb_,char*& op,
 Logics::LogCond::LogCond(Log* l,Log* r,const char* op_name,const bool _is_):
 Log(op_name,_is_),left(l),right(r)
 {
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Logics::LogCond::replace(Var* ref,Var* subs)
-{
-    left->replace(ref,subs);
-    right->replace(ref,subs);
 }
 /*--------------------------------------------
  
@@ -259,21 +305,14 @@ Log(op_name,_is_),left(l),right(r)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogBinary::replace(Var* ref,Var* subs)
+void Logics::LogBinary::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
 {
-
+    process_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag,left->name,right->name);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogBinary::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
-{
-    process_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,left->name,right->name);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Logics::LogBinary::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
+void Logics::LogBinary::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
 {
     int i=0;
     if(left==NULL)
@@ -286,7 +325,7 @@ void Logics::LogBinary::print(char*& err_msg,char*& L,char*& _verb_,char*& op,ch
         right=v;
         i+=2;
     }
-    process_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,left->name,right->name);
+    process_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag,left->name,right->name);
     
     if(i>1)
     {
@@ -311,21 +350,14 @@ Log(op_name,_is_),left(l)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogUnary::replace(Var* ref,Var* subs)
+void Logics::LogUnary::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
 {
-
+    process_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag,left->name,NULL);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void Logics::LogUnary::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
-{
-    process_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,left->name,NULL);
-}
-/*--------------------------------------------
- 
- --------------------------------------------*/
-void Logics::LogUnary::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
+void Logics::LogUnary::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
 {
     int i=0;
     if(left==NULL)
@@ -333,7 +365,7 @@ void Logics::LogUnary::print(char*& err_msg,char*& L,char*& _verb_,char*& op,cha
         left=v;
         i++;
     }
-    process_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,left->name,NULL);
+    process_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag,left->name,NULL);
     
     if(i)
         left=NULL;
@@ -699,41 +731,41 @@ Logics::Log* Logics::LogIf::clone()
     Log* r=right->clone();
     return new LogIf(l,r);
 }
-void Logics::LogIf::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
+void Logics::LogIf::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
 {
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
-    if(err_msg !=NULL)
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
+    if(err_msg)
         Var::append(err_msg,". ");
     
     v_flag=AUX_VERB;
-    right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    right->print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     
     Var::append(err_msg,", %s ","when");
     
     v_flag=VERB;
-    left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    left->print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
 }
-void Logics::LogIf::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
+void Logics::LogIf::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
 {
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
-    if(err_msg !=NULL)
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
+    if(err_msg)
         Var::append(err_msg,". ");
     
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
-    if(err_msg !=NULL)
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
+    if(err_msg)
         Var::append(err_msg,". ");
     
     v_flag=AUX_VERB;
-    right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
+    right->print(err_msg,L,op,R,__is__,del,v_flag,p_flag,v);
     
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     
     Var::append(err_msg,", %s ","when");
     
     v_flag=VERB;
-    left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
+    left->print(err_msg,L,op,R,__is__,del,v_flag,p_flag,v);
 }
 /*-----------------------------------------
  _       _____   _____   _   _____   _____  
@@ -777,37 +809,37 @@ Logics::Log* Logics::LogIff::clone()
     Log* r=right->clone();
     return new LogIff(l,r);
 }
-void Logics::LogIff::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
+void Logics::LogIff::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag)
 {
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
-    if(err_msg !=NULL)
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
+    if(err_msg)
         Var::append(err_msg,". ");
 
     v_flag=AUX_VERB;
-    right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    right->print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     
     Var::append(err_msg,", %s ","if and only if");
 
     v_flag=VERB;
-    left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    left->print(err_msg,L,op,R,__is__,del,v_flag,p_flag);
 }
-void Logics::LogIff::print(char*& err_msg,char*& L,char*& _verb_,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
+void Logics::LogIff::print(char*& err_msg,char*& L,char*& op,char*& R,bool& __is__,char*& del,int v_flag,bool& p_flag,Var* v)
 {
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
-    if(err_msg !=NULL)
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
+    if(err_msg)
         Var::append(err_msg,". ");
     
     v_flag=AUX_VERB;
-    right->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
+    right->print(err_msg,L,op,R,__is__,del,v_flag,p_flag,v);
     
-    finish_sntnc(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag);
+    finish_sntnc(err_msg,L,op,R,__is__,del,v_flag,p_flag);
     
     Var::append(err_msg,", %s ","if and only if");
     
     v_flag=VERB;
-    left->print(err_msg,L,_verb_,op,R,__is__,del,v_flag,p_flag,v);
+    left->print(err_msg,L,op,R,__is__,del,v_flag,p_flag,v);
 }
 /*-----------------------------------------
  _       _____   _____   _   _____   _____  
@@ -865,14 +897,14 @@ Logics::Logics()
 /*--------------------------------------------
  
  --------------------------------------------*/
-Logics::Logics(Var* l,const char* op_name,Var* r)
+void Logics::assign(Var* l,const char* op_name,Var* r)
 {
     creat_op(l,op_name,r);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-Logics::Logics(Var* l,const char* op_name)
+void Logics::assign(Var* l,const char* op_name)
 {
     creat_op(l,op_name);
 }
@@ -889,12 +921,12 @@ Logics::~Logics()
  --------------------------------------------*/
 Logics::Logics(Logics& other)
 {
-    if(other.op!=NULL)
+    if(other.op)
         this->op=other.op->clone();
     else
         this->op=NULL;
     
-    if(other.next!=NULL)
+    if(other.next)
     {
         this->next=new Logics(*(other.next));
     }
@@ -916,12 +948,12 @@ Logics::Logics(Logics&& other)
 Logics& Logics::operator = (Logics& other)
 {
     delete this->op;
-    if(other.op!=NULL)
+    if(other.op)
         this->op=other.op->clone();
     else
         this->op=NULL;
     
-    if(other.next!=NULL)
+    if(other.next)
     {
         delete this->next;
         this->next=new Logics(*(other.next));
@@ -1107,8 +1139,8 @@ char* Logics::print(Var* v)
     bool p_flag;
     bool __is__;
     
-    op->print(err_msg,l,_verb_,oper,r,__is__,del,v_flag,p_flag,v);
-    op->finish_sntnc(err_msg,l,_verb_,oper,r,__is__,del,v_flag,p_flag);
+    op->print(err_msg,l,oper,r,__is__,del,v_flag,p_flag,v);
+    op->finish_sntnc(err_msg,l,oper,r,__is__,del,v_flag,p_flag);
     Var::append(err_msg,".");
     
     delete [] l;
@@ -1116,10 +1148,10 @@ char* Logics::print(Var* v)
     delete [] r;
     delete [] _verb_;
     
-    if(next!=NULL)
+    if(next)
     {
         char* next_msg=next->print(v);
-        if(next_msg!=NULL)
+        if(next_msg)
         {
             char* err_msg_=err_msg;
             err_msg=NULL;
@@ -1144,7 +1176,7 @@ char* Logics::operator()(Var* v)
         return print(v);
     }
     
-    if(next!=NULL)
+    if(next)
         return next->operator()(v);
     
     return NULL;

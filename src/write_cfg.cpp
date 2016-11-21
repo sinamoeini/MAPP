@@ -513,7 +513,7 @@ void Write_cfg::x2s(int no)
     
     type0* x=atoms->x->begin_dump();
     int x_dim=atoms->x->orig_dim;
-    type0** B=atoms->B;
+    type0 (&B)[__dim__][__dim__]=atoms->B;
     
     int icomp=0;
     for(int i=0;i<no;i++)

@@ -9,26 +9,24 @@ namespace MAPP_NS
     private:
     protected:
     public:
-        Memory();
-        ~Memory();
         
         template <typename TYPE>
-        TYPE* create(TYPE*&,long,const char*
+        static TYPE* create(TYPE*&,long,const char*
         ,int,const char*,const char*);
 
         template <typename TYPE>
-        TYPE** create(TYPE**&,long,long,const char*
+        static TYPE** create(TYPE**&,long,long,const char*
         ,int,const char*,const char*);
         
         template <typename TYPE>
-        TYPE** create_2d(TYPE**&,long,long,const char*
+        static TYPE** create_2d(TYPE**&,long,long,const char*
         ,int,const char*,const char*);
         
         template <typename TYPE>
-        void del_2d(TYPE**&);
+        static void del_2d(TYPE**&);
         
         template <typename TYPE>
-        TYPE* grow(TYPE*&,long,long,const char*
+        static TYPE* grow(TYPE*&,long,long,const char*
         ,int,const char*,const char*);
 
     };

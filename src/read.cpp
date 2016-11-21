@@ -15,7 +15,7 @@ using namespace MAPP_NS;
 Read::Read()
 {
     
-    if(forcefield!=NULL)
+    if(forcefield)
     {
         delete forcefield;
         forcefield=NULL;

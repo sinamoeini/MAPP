@@ -54,8 +54,7 @@ int*& tmp_list,int*& list,int& list_sz)
 /*--------------------------------------------
  autogrid the domain
  --------------------------------------------*/
-void XMath::square2lo_tri(type0** H_old
-,type0** H_new)
+void XMath::square2lo_tri(type0(&H_old)[3][3],type0(&H_new)[3][3])
 {
     type0** Q=new type0*[3];
     for(int idim=0;idim<3;idim++)
@@ -243,9 +242,9 @@ void XMath::invert(type0** A,type0** Ainv,int dim)
     type0** A;
     type0** A_inv;
     type0** I;
-    CREATE_2D(A,dim,dim);
-    CREATE_2D(A_inv,dim,dim);
-    CREATE_2D(I,dim,dim);
+    CREATE2D(A,dim,dim);
+    CREATE2D(A_inv,dim,dim);
+    CREATE2D(I,dim,dim);
     
     for(int i=0;i<dim;i++)
         for(int j=0;j<dim;j++)
@@ -603,7 +602,7 @@ void XMath::quadrature_hg(int n,type0* x,type0* w)
  Computers Math. Applic. Vol. 18, No. 5,
  pp. 459-466, 1989
  --------------------------------------------*/
-int XMath::M3sqroot(type0** A,type0** Asq)
+int XMath::M3sqroot(type0(&A)[3][3],type0(&Asq)[3][3])
 {
     type0 IA=0;
     for(int i=0;i<3;i++)

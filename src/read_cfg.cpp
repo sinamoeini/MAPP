@@ -22,7 +22,7 @@ Read_cfg::Read_cfg(int nargs,char** args)
     if(nargs!=3)
         error->abort("read cfg should only have 1 argument");
     file_name=args[2];
-    if(dimension!=3)
+    if(__dim__!=3)
         error->abort("read cfg works only with 3 dimensional boxes");
     
     curr_id=0;
@@ -35,11 +35,7 @@ Read_cfg::Read_cfg(int nargs,char** args)
     ext_cfg=0;
     vel_chk=1;
 
-    CREATE_2D(H_x,3,3);
-    CREATE_2D(H_x_d,3,3);
-    CREATE_2D(H0,3,3);
-    CREATE_2D(eta,3,3);
-    CREATE_2D(trns,3,3);
+    
     
     M3ZERO(H_x);
     M3ZERO(H_x_d);
@@ -71,13 +67,6 @@ Read_cfg::Read_cfg(int nargs,char** args)
  --------------------------------------------*/
 Read_cfg::~Read_cfg()
 {
-    
-    DEL_2D(eta);
-    DEL_2D(H0);
-    DEL_2D(H_x);
-    DEL_2D(H_x_d);
-    DEL_2D(trns);
-    
     if(ch_buff_sz)
         delete [] ch_buff;
     
@@ -230,9 +219,8 @@ void Read_cfg::set_box()
         for(int i=0;i<3;i++)
             eta[i][i]++;
 
-        type0** eta_sq;
+        type0 eta_sq[3][3];
         
-        CREATE_2D(eta_sq,3,3);
         if(XMath::M3sqroot(eta,eta_sq)==0)
             error->abort("eta in %s should be positive definite",file_name);
 
@@ -243,7 +231,6 @@ void Read_cfg::set_box()
                 for(int k=0;k<3;k++)
                     H_x[i][j]+=H0[i][k]*eta_sq[k][j];
         
-        DEL_2D(eta_sq);
         
     }
     
@@ -481,7 +468,7 @@ void Read_cfg::set_vec_lst()
 
         if(vel_chk)
         {
-            if(mapp->x_d!=NULL)
+            if(mapp->x_d)
                 delete mapp->x_d;
             mapp->x_d=new Vec<type0>(atoms,3);
             
@@ -523,7 +510,7 @@ void Read_cfg::set_vec_lst()
         atoms->x=new Vec<type0>(atoms,3+dmd_no_types);
         atoms->id=new Vec<int>(atoms,1);
 
-        if(mapp->c!=NULL)
+        if(mapp->c)
             delete mapp->c;
         mapp->c=new Vec<type0>(atoms,dmd_no_types);
         
@@ -587,7 +574,7 @@ void Read_cfg::set_vecs()
         }
         MPI_Allreduce(&cdim_lcl,&cdim,1,MPI_INT,MPI_MAX,world);
         
-        if(mapp->ctype!=NULL)
+        if(mapp->ctype)
             delete mapp->ctype;
         mapp->ctype=new Vec<dmd_type>(atoms,dmd_no_types);
         
