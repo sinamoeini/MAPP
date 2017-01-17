@@ -12,7 +12,6 @@ using namespace MAPP_NS;
  --------------------------------------------*/
 Error::Error()
 {
-    MPI_Comm_rank(world,&my_no);
 }
 /*--------------------------------------------
  destructor of the error handler:
@@ -31,7 +30,7 @@ void Error::abort(const char* msg,...)
     va_start (args, msg);
     vsprintf (err_msg,msg, args);
     
-    if(my_no==0)
+    if(my_p==0)
         fprintf(output,"ABORTED! %s \n",err_msg);
     va_end (args);
 
@@ -51,7 +50,7 @@ void Error::abort_sing(const char* msg,...)
 
     fprintf(output,"ABORTED (%d)! %s \n",atoms->my_p,err_msg);
     va_end (args);
-    MPI_Abort(world,911);
+    MPI_Abort(__world__,911);
     MPI_Finalize();
     exit(EXIT_FAILURE);
 }
@@ -66,7 +65,7 @@ void Error::print(const char* msg,...)
     va_start (args, msg);
     vsprintf (err_msg,msg, args);
     
-    if(my_no==0)
+    if(my_p==0)
         fprintf(output,"%s",err_msg);
     va_end (args);
 }
@@ -89,7 +88,7 @@ void Error::warning(const char *msg,...)
     va_start (args, msg);
     vsprintf (war_msg,msg, args);
     
-    if(my_no==0)
+    if(my_p==0)
         fprintf(output,"WARNING: %s \n"
                ,war_msg);
     va_end (args);

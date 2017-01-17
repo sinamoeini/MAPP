@@ -2,6 +2,8 @@
 #include "atom_types.h"
 #include "atoms.h"
 #include "script_reader.h"
+#include "comm.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  
@@ -361,9 +363,9 @@ bool Pattern::scan(char**& args,int& nargs)
     char* err_msg=NULL;
     bool ret=sub_ptrns[0]->scan(err_msg,args,nargs);
     if(err_msg)
-        error->abort("%s",err_msg);
+        Error::abort("%s",err_msg);
     if(ret==false)
-        error->abort("");
+        Error::abort("");
     while(nargs)
     {
         ret=false;
@@ -371,18 +373,18 @@ bool Pattern::scan(char**& args,int& nargs)
         {
             ret=sub_ptrns[i]->scan(err_msg,args,nargs);
             if(err_msg)
-                error->abort("in %s, %s",sub_ptrns[0]->name,err_msg);
+                Error::abort("in %s, %s",sub_ptrns[0]->name,err_msg);
         }
         
         if(!ret)
         {
             if(dy_sp==NULL)
-                error->abort("in %s, unknown keyword/value %s",sub_ptrns[0]->name,*args);
+                Error::abort("in %s, unknown keyword/value %s",sub_ptrns[0]->name,*args);
             else
             {
                 dy_sp->scan(err_msg,args,nargs);
                 if(err_msg)
-                    error->abort("%s",err_msg);
+                    Error::abort("%s",err_msg);
             }
         }
     }
@@ -392,14 +394,14 @@ bool Pattern::scan(char**& args,int& nargs)
     {
         char* msg=sub_ptrns[i]->finalize();
         if(msg)
-            error->abort("in %s, %s",sub_ptrns[0]->name,msg);
+            Error::abort("in %s, %s",sub_ptrns[0]->name,msg);
     }
     
     if(dy_sp)
     {
         char* msg=dy_sp->finalize();
         if(msg)
-            error->abort("in %s, %s",sub_ptrns[0]->name,msg);
+            Error::abort("in %s, %s",sub_ptrns[0]->name,msg);
     }
         
     return true;
@@ -592,7 +594,7 @@ void Pattern::SubPattern::add_vdesc(int i,const char* desc)
 {
     i+=rank;
     if(i>=nvars)
-        error->abort("%s",__PRETTY_FUNCTION__);
+        Error::abort("%s",__PRETTY_FUNCTION__);
 
     delete [] var_descs[i];
     var_descs[i]=NULL;
@@ -622,7 +624,7 @@ Logics& Pattern::SubPattern::add_vlog(int i)
 {
     i+=rank;
     if(i>=nvars)
-        error->abort("%s",__PRETTY_FUNCTION__);
+        Error::abort("%s",__PRETTY_FUNCTION__);
     return var_logics[i];
 }
 /*--------------------------------------------
@@ -1007,7 +1009,9 @@ void Pattern::SubPattern_2D::conv_name(PrintStyle& ps)
  ------------------------------------------------------------------------------*/
 FileReader::FileReader():
 varmngr(),
-ntypes(atom_types->no_types)
+atom_types(mapp->atom_types),
+ntypes(mapp->atom_types->no_types),
+world(comm->world)
 {
     file_name=NULL;
     type_ref=NULL;
@@ -1041,7 +1045,7 @@ void FileReader::open_file()
     }
     MPI_Bcast(&chk,1,MPI_INT,0,world);
     if(!chk)
-        error->abort("file %s not found",file_name);
+        Error::abort("file %s not found",file_name);
 }
 /*--------------------------------------------
  
@@ -1066,10 +1070,10 @@ void FileReader::read_header()
         nargs=ScriptReader::parse_line(line,args,args_cpcty);
     
     if(nargs==0)
-        error->abort("%s file ended immaturely",file_name);
+        Error::abort("%s file ended immaturely",file_name);
     
     if(nargs<ntypes)
-        error->abort("the number of atoms in %s file"
+        Error::abort("the number of atoms in %s file"
         " is less than the number of atom types present in the system",file_name);
     
     ntype_ref=nargs;
@@ -1094,12 +1098,12 @@ void FileReader::read_header()
     
     for(int i=0;i<atom_types->no_types;i++)
         if(!tmp_type[i])
-            error->abort("element %s was not found",atom_types->atom_names[i]);
+            Error::abort("element %s was not found",atom_types->atom_names[i]);
     
     for(int i=0;i<ntype_ref;i++)
         for(int j=i+1;j<ntype_ref;j++)
             if(type_ref[i]!=-1 && type_ref[i]==type_ref[j])
-                error->abort("duplicate element %s in header",atom_types->atom_names[type_ref[i]]);
+                Error::abort("duplicate element %s in header",atom_types->atom_names[type_ref[i]]);
     
     varmngr.adddd_var(ntype_ref,"no. of elements in header");
     for(int i=0;i<ntens;i++)
@@ -1121,7 +1125,7 @@ void FileReader::read_body()
         memcpy(buff,line,MAXCHAR*sizeof(char));
         err_msg=qr(line,args,nargs);
         if(err_msg)
-            error->abort("%s",err_msg);
+            Error::abort("%s",err_msg);
         if(nargs==0)
             continue;
         
@@ -1131,11 +1135,11 @@ void FileReader::read_body()
         {
             found=tens[i]->scan(err_msg,args,nargs);
             if(err_msg)
-                error->abort("%s, in file %s, line %s",err_msg,file_name,buff);
+                Error::abort("%s, in file %s, line %s",err_msg,file_name,buff);
         }
             
         if(!found)
-            error->abort("candidate keyword in file %s for %s was not found",file_name,line);
+            Error::abort("candidate keyword in file %s for %s was not found",file_name,line);
     }
     
     delete [] line;
@@ -1161,7 +1165,7 @@ void FileReader::read_file(const char* file_name_)
         for(int j=0;j<tens[i]->nkywrds;j++)
         {
             char* msg=tens[i]->head[j].finalize();
-            if(msg) error->abort("%s",msg);
+            if(msg) Error::abort("%s",msg);
             delete [] msg;
         }
 }
@@ -1527,7 +1531,7 @@ int FileReader::read_line(char*& line,int& line_cpcty,int& chunk)
     MPI_Bcast(&ipos,1,MPI_INT,0,world);
     
     if(file_cmplt && ipos)
-        error->abort("file ended unexpectedly");
+        Error::abort("file ended unexpectedly");
     
     if(file_cmplt)
         return -1;

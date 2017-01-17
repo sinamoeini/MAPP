@@ -12,15 +12,15 @@ Command_temp::Command_temp(int nargs,char** args)
 {
     
     if(mode!=DMD_mode)
-        error->abort("temp works only in dmd mode");
+        Error::abort("temp works only in dmd mode");
             
     if(nargs!=2)
-        error->abort("temp should have 1 argument");
+        Error::abort("temp should have 1 argument");
     
     type0 T=atof(args[1]);
     
     if(T<=0.0)
-        error->abort("temperature must be greater than 0.0");
+        Error::abort("temperature must be greater than 0.0");
     
     ForceFieldDMD* forcefield_dmd=static_cast<ForceFieldDMD*>(forcefield);
     

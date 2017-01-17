@@ -25,3 +25,4 @@
 #include "command_temp.h"
 #include "command_time_step.h"
 #include "command_write.h"
+#include "command_polarity.h"

@@ -4,13 +4,14 @@
  --------------------------------------------*/
 #include <stdlib.h>
 #include "ff_fsm.h"
-#include "neighbor.h"
+#include "neighbor_md.h"
 #include "atom_types.h"
 #include "error.h"
 #include "memory.h"
 #include "cmd.h"
 #include "atoms.h"
 #include "MAPP.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
@@ -29,7 +30,7 @@ ForceField_fsm::
 ForceField_fsm():ForceFieldMD()
 {
     if(mode!=MD_mode)
-        error->abort("ff fsm works only "
+        Error::abort("ff fsm works only "
         "for md mode");
     no_types=0;
     
@@ -55,7 +56,7 @@ ForceField_fsm::~ForceField_fsm()
 void ForceField_fsm::coef(int nargs,char** args)
 {
     if(nargs!=2)
-        error->abort("wrong coeff command "
+        Error::abort("wrong coeff command "
         "for Finnis-Sinclair Force Field");
     
     cut_off_alloc();
@@ -166,9 +167,7 @@ void ForceField_fsm::read_file(char* file_name)
  initiate before a run
  --------------------------------------------*/
 void ForceField_fsm::init()
-{
-    neighbor->pair_wise=true;
-    
+{    
     rho_ptr=new Vec<type0>(atoms,1);
 }
 /*--------------------------------------------
@@ -183,28 +182,28 @@ void ForceField_fsm::fin()
  --------------------------------------------*/
 void ForceField_fsm::init_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  fin xchng
  --------------------------------------------*/
 void ForceField_fsm::fin_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  pre xchng energy
  --------------------------------------------*/
 void ForceField_fsm::pre_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  xchng energy
  --------------------------------------------*/
 type0 ForceField_fsm::xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
     return 0.0;
 }
 /*--------------------------------------------
@@ -212,7 +211,7 @@ type0 ForceField_fsm::xchng_energy(GCMC*)
  --------------------------------------------*/
 void ForceField_fsm::post_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  force and energy calculation
@@ -220,10 +219,10 @@ void ForceField_fsm::post_xchng_energy(GCMC*)
 void ForceField_fsm::
 force_calc(bool st_clc)
 {
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     int iatm,jatm;
     
@@ -239,25 +238,22 @@ force_calc(bool st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
-    
-    int natms=atoms->natms;
-    
     for(int i=0;i<natms;i++)
         rho[i]=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             if(rsq < cut_sq_rho[itype][jtype])
@@ -275,11 +271,11 @@ force_calc(bool st_clc)
         }
     }
     
-    atoms->update(rho_ptr);
+    dynamic->update(rho_ptr);
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         
         if(rho[iatm]>0.0)
@@ -288,12 +284,12 @@ force_calc(bool st_clc)
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             csq=cut_sq[itype][jtype];
@@ -405,11 +401,10 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_fsm::energy_calc()
 {
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* rho=rho_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
-    int natms=atoms->natms;
     int iatm,jatm;
     
     int itype,jtype,icomp,jcomp;
@@ -427,17 +422,17 @@ type0 ForceField_fsm::energy_calc()
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             csq=cut_sq[itype][jtype];
             

@@ -11,7 +11,7 @@ Command_md::Command_md
 
 {
     if(nargs<2)
-        error->abort("wrong command: %s"
+        Error::abort("wrong command: %s"
         ,args[0]);
     
     int nh_xist=0;
@@ -31,7 +31,7 @@ Command_md::Command_md
     if(0){}
     #include "md_styles.h"
     else
-        error->abort("wrong style of md: %s"
+        Error::abort("wrong style of md: %s"
         ,args[1]);
     #undef MDStyle    
     #undef MD_Style

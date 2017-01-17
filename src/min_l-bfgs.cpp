@@ -21,6 +21,7 @@
 #include "thermo_dynamics.h"
 #include "cmd.h"
 #include "ls.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -102,19 +103,19 @@ void Min_lbfgs::init()
     CREATE1D(alpha,m_it);
     
     for(int i=0;i<m_it;i++)
-        vecs_comm->add_xchng(s[i]());
+        dynamic->add_xchng(s[i]());
     for(int i=0;i<m_it;i++)
-        vecs_comm->add_xchng(y[i]());
+        dynamic->add_xchng(y[i]());
     
-    atoms->init(vecs_comm,chng_box);
+    dynamic->init(chng_box);
     force_calc();
     curr_energy=nrgy_strss[0];
 
     if(output_flag)
     {
         thermo->init();
-        if(write)
-            write->init();
+        if(__write__)
+            __write__->init();
     }
 }
 /*--------------------------------------------
@@ -157,8 +158,8 @@ void Min_lbfgs::run()
         if(output_flag)
         {
             thermo->thermo_print();
-            if(write)
-                write->write();
+            if(__write__)
+                __write__->write();
         }
         
         
@@ -242,11 +243,11 @@ void Min_lbfgs::fin()
         
     if(output_flag)
     {
-        if(write)
-            write->fin();
+        if(__write__)
+            __write__->fin();
         thermo->fin();
     }
-    atoms->fin();
+    dynamic->fin();
     Min::fin();
 }
 

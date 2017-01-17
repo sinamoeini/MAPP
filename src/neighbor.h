@@ -1,5 +1,5 @@
-#ifndef __MAPP__neighbor__
-#define __MAPP__neighbor__
+#ifndef __MAPPneighbor
+#define __MAPPneighbor
 #include "global.h"
 namespace MAPP_NS
 {
@@ -12,7 +12,7 @@ namespace MAPP_NS
         class Cell;
         int no_neigh_lists;
         Cell* cell;
-        
+        class Atoms*& atoms;
     public:
         bool pair_wise;
         int** neighbor_list;
@@ -24,7 +24,7 @@ namespace MAPP_NS
         int* neighbor_list_size_2nd;
         int neighbor_list_size_size_2nd;
         
-        Neighbor();
+        Neighbor(class Atoms*&);
         virtual ~Neighbor();
         
         virtual void create_list(bool)=0;
@@ -48,6 +48,8 @@ namespace MAPP_NS
         int& natms;
         int& natms_ph;
         
+        class Atoms*& atoms;
+        
         Vec<type0>*& x;
         type0 (&s_lo)[__dim__];
         type0 (&s_hi)[__dim__];
@@ -68,7 +70,7 @@ namespace MAPP_NS
         
         int* cell_vec;
         int* next_vec;
-
+        
         /*----------------------*/
         
         int ineigh;
@@ -80,7 +82,7 @@ namespace MAPP_NS
         
     protected:
     public:
-        Cell(int,type0(&)[__dim__]);
+        Cell(int,class Atoms*&);
         ~Cell();
         
         void create(bool);

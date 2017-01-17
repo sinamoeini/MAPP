@@ -10,7 +10,7 @@ Command_del_write::Command_del_write(int nargs,char** args)
 
 {
     if(nargs!=1)
-        error->abort("del_write needs 0 argument");
+        Error::abort("del_write needs 0 argument");
     
     if(write)
         delete write;

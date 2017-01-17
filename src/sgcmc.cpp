@@ -12,12 +12,13 @@
 #include "xmath.h"
 #include "atoms.h"
 #include "MAPP.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-SGCMC::SGCMC(int m_,dmd_type gas_type_,type0 mu_,type0 T_,int seed):
-GCMC(gas_type_,mu_,T_,seed),
+SGCMC::SGCMC(Dynamic*& dynamic_,int m_,atom_type gas_type_,type0 mu_,type0 T_,int seed):
+GCMC(dynamic_,gas_type_,mu_,T_,seed),
 m(m_)
 {
     s_x_buff=NULL;
@@ -154,7 +155,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
     curr_root=0;
         
     
-    atoms->init_xchng();
+    dynamic->init_xchng();
     if(box_chng)
         box_setup();
     
@@ -188,14 +189,14 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
         head_atm[cell_vec[i]]=i;
     }
     
-    neighbor->create_list(box_chng);
+    forcefield->neighbor->create_list(box_chng);
 
     ff->init_xchng();
     for(int i=0;i<atoms->nvecs;i++)
         atoms->vecs[i]->resize(natms);
         
     ngas=0;
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     for(int i=0;i<natms;i++)
         if(type[i]==gas_type) ngas++;
     MPI_Scan(&ngas,&ngas_before,1,MPI_INT,MPI_SUM,world);
@@ -216,7 +217,7 @@ void SGCMC::xchng(bool box_chng,int nattmpts)
     delete s_vec_p;
     delete next_vec_p;
     delete cell_vec_p;
-    atoms->fin_xchng();
+    dynamic->fin_xchng();
 
 
 }
@@ -278,7 +279,7 @@ void SGCMC::attmpt()
             iproc=atoms->my_p;
             int n=igas-ngas_before;
             int icount=-1;
-            md_type* type=mapp->type->begin();
+            atom_type* type=mapp->type->begin();
             
             del_idx=0;
             for(;icount!=n;del_idx++)

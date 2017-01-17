@@ -11,7 +11,7 @@ Command_min::Command_min
 
 {
     if(nargs<2)
-        error->abort("wrong command: %s"
+        Error::abort("wrong command: %s"
         ,args[0]);
     
     /*
@@ -29,7 +29,7 @@ Command_min::Command_min
     if(0){}
     #include "min_styles.h"
     else
-        error->abort("wrong style of minimization"
+        Error::abort("wrong style of minimization"
         ": %s",args[1]);
     
     #undef Min_Style

@@ -11,7 +11,7 @@ Command_write::Command_write
 
 {
     if(nargs<2)
-        error->abort("wrong command: %s",args[0]);
+        Error::abort("wrong command: %s",args[0]);
     
     if(write)
         delete write;
@@ -24,7 +24,7 @@ Command_write::Command_write
     if(0){}
     #include "write_styles.h"
     else
-        error->abort("wrong style of write:"
+        Error::abort("wrong style of write:"
             " %s",args[1]);
     #undef Write_Style
     #undef WriteStyle

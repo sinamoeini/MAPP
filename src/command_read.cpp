@@ -11,7 +11,7 @@ Command_read::Command_read
 
 {
     if(nargs<2)
-        error->abort("wrong command: %s",args[0]);
+        Error::abort("wrong command: %s",args[0]);
     
     Read* read;
     #define Read_Style
@@ -22,7 +22,7 @@ Command_read::Command_read
     if(0){}
     #include "read_styles.h"
     else
-        error->abort("wrong style of read: %s",args[1]);
+        Error::abort("wrong style of read: %s",args[1]);
     #undef ReadStyle
     #undef Read_Style
     delete read;

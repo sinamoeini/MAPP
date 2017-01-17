@@ -1,6 +1,7 @@
 #ifndef __MAPP__md__
 #define __MAPP__md__
 #include "type_def.h"
+#include <mpi.h>
 namespace MAPP_NS
 {
     class MD 
@@ -12,8 +13,9 @@ namespace MAPP_NS
         int temp_idx;
         int stress_idx;
         type0*& nrgy_strss;
-        class VecLst* vecs_comm;
         class ThermoDynamics* thermo;
+        class AtomTypes*& atom_types;
+        MPI_Comm& world;
     public:
         
         MD();

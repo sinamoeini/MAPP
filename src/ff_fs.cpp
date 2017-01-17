@@ -4,13 +4,14 @@
  --------------------------------------------*/
 #include <stdlib.h>
 #include "ff_fs.h"
-#include "neighbor.h"
+#include "neighbor_md.h"
 #include "atom_types.h"
 #include "error.h"
 #include "memory.h"
 #include "cmd.h"
 #include "atoms.h"
 #include "MAPP.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  Finnis-Sinclair (FS) potential
@@ -29,7 +30,7 @@ ForceField_fs::
 ForceField_fs():ForceFieldMD()
 {
     if(mode!=MD_mode)
-        error->abort("ff fs works only "
+        Error::abort("ff fs works only "
         "for md mode");
     max_pairs=0;
     no_types=0;
@@ -56,7 +57,7 @@ ForceField_fs::~ForceField_fs()
 void ForceField_fs::coef(int nargs,char** args)
 {
     if(nargs!=2)
-        error->abort("wrong coeff command "
+        Error::abort("wrong coeff command "
         "for Finnis-Sinclair Force Field");
     
     cut_off_alloc();
@@ -158,9 +159,7 @@ void ForceField_fs::read_file(char* file_name)
  initiate before a run
  --------------------------------------------*/
 void ForceField_fs::init()
-{
-    neighbor->pair_wise=true;
-    
+{    
     rho_ptr=new Vec<type0>(atoms,1);
 }
 /*--------------------------------------------
@@ -182,28 +181,28 @@ void ForceField_fs::fin()
  --------------------------------------------*/
 void ForceField_fs::init_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  fin xchng
  --------------------------------------------*/
 void ForceField_fs::fin_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  pre xchng energy
  --------------------------------------------*/
 void ForceField_fs::pre_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  xchng energy
  --------------------------------------------*/
 type0 ForceField_fs::xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
     return 0.0;
 }
 /*--------------------------------------------
@@ -211,7 +210,7 @@ type0 ForceField_fs::xchng_energy(GCMC*)
  --------------------------------------------*/
 void ForceField_fs::post_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  force and energy calculation
@@ -235,10 +234,10 @@ force_calc(bool st_clc)
     }
 
     
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     
     int iatm,jatm;
@@ -256,27 +255,26 @@ force_calc(bool st_clc)
             nrgy_strss_lcl[i]=0.0;
     
     int istart;
-    int natms=atoms->natms;
     
     for(iatm=0;iatm<natms;iatm++) rho[iatm]=0.0;
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             drhoi_dr[istart]=drhoj_dr[istart]=0.0;
             
                 
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             if(rsq<cut_sq[itype][jtype])
@@ -360,12 +358,12 @@ force_calc(bool st_clc)
         }
     }
     
-    atoms->update(rho_ptr);
+    dynamic->update(rho_ptr);
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         
         for(int j=0;j<neighbor_list_size[iatm];j++)
@@ -375,9 +373,9 @@ force_calc(bool st_clc)
             {
                 jatm=neighbor_list[iatm][j];
                 jcomp=3*jatm;
-                dx0=x[icomp]-x[jcomp];
-                dx1=x[icomp+1]-x[jcomp+1];
-                dx2=x[icomp+2]-x[jcomp+2];
+                dx0=xvec[icomp]-xvec[jcomp];
+                dx1=xvec[icomp+1]-xvec[jcomp+1];
+                dx2=xvec[icomp+2]-xvec[jcomp+2];
                 
                 rho_coef=drhoi_dr[istart]*rho[iatm]
                 +drhoj_dr[istart]*rho[jatm];
@@ -432,11 +430,10 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_fs::energy_calc()
 {
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* rho=rho_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
-    int natms=atoms->natms;
     int iatm,jatm;
     
     int itype,jtype,icomp,jcomp;
@@ -453,17 +450,17 @@ type0 ForceField_fs::energy_calc()
     type0 en_tot=0.0;
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
 
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
 
             

@@ -4,7 +4,7 @@
  --------------------------------------------*/
 #include <stdlib.h>
 #include "ff_lj.h"
-#include "neighbor.h"
+#include "neighbor_md.h"
 #include "atom_types.h"
 #include "memory.h"
 #include "error.h"
@@ -20,7 +20,7 @@ ForceField_lj::
 ForceField_lj():ForceFieldMD()
 {
     if(mode!=MD_mode)
-        error->abort("ff lj works only "
+        Error::abort("ff lj works only "
         "for md mode");
     
     shift=0;
@@ -40,7 +40,7 @@ void ForceField_lj::coef(int nargs,char** args)
 {
     
     if(nargs!=2)
-        error->abort("wrong coeff command "
+        Error::abort("wrong coeff command "
         "for lj Force Field");
     
     cut_off_alloc();
@@ -93,7 +93,6 @@ void ForceField_lj::deallocate()
  --------------------------------------------*/
 void ForceField_lj::init()
 {
-    neighbor->pair_wise=true;
 }
 /*--------------------------------------------
  after a run
@@ -106,28 +105,28 @@ void ForceField_lj::fin()
  --------------------------------------------*/
 void ForceField_lj::init_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  fin xchng
  --------------------------------------------*/
 void ForceField_lj::fin_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  pre xchng energy
  --------------------------------------------*/
 void ForceField_lj::pre_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  xchng energy
  --------------------------------------------*/
 type0 ForceField_lj::xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
     return 0.0;
 }
 /*--------------------------------------------
@@ -135,7 +134,7 @@ type0 ForceField_lj::xchng_energy(GCMC*)
  --------------------------------------------*/
 void ForceField_lj::post_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  force and energy calculation
@@ -145,11 +144,10 @@ force_calc(bool st_clc)
 {
 
 
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* fvec=f->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
-    int natms=atoms->natms;
     int iatm,jatm;
     int itype,jtype,icomp,jcomp;
     type0 dx0,dx1,dx2,rsq,sig,eps;
@@ -165,16 +163,16 @@ force_calc(bool st_clc)
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             icomp=3*iatm;
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
@@ -242,10 +240,9 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_lj::energy_calc()
 {
-    type0* x=atoms->x->begin();
-    md_type* type=mapp->type->begin();
+    type0* xvec=x->begin();
+    atom_type* typevec=type->begin();
     
-    int natms=atoms->natms;
     int iatm,jatm;
     
     int itype,jtype,icomp,jcomp;
@@ -260,16 +257,16 @@ type0 ForceField_lj::energy_calc()
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             icomp=3*iatm;
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             

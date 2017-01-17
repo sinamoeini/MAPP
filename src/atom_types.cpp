@@ -75,7 +75,7 @@ int AtomTypes::find_type(const char* name)
         return (type-1);
     else
     {
-        error->abort("atom type %s not found",name);
+        Error::abort("atom type %s not found",name);
         return -1;
     }
 }
@@ -94,7 +94,7 @@ int AtomTypes::find_type_exist(char* name)
 /*--------------------------------------------
  find a type without error
  --------------------------------------------*/
-dmd_type AtomTypes::get_dmd_type(int dim,dmd_type* type,type0* c)
+atom_type AtomTypes::get_atom_type(int dim,atom_type* type,type0* c)
 {
     type0 conc=-1.0;
     int ans=-1;
@@ -106,7 +106,7 @@ dmd_type AtomTypes::get_dmd_type(int dim,dmd_type* type,type0* c)
         }
     
     if(ans==-1)
-        error->abort("this site has no type associated with it");
+        Error::abort("this site has no type associated with it");
     
     return ans;
 }

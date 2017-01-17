@@ -12,27 +12,34 @@ using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor_dmd::Neighbor_dmd():Neighbor()
+NeighborDMD::NeighborDMD(Atoms*& atoms_,
+Vec<atom_type>*& ctype_vec_,Vec<type0>*& c_vec_,
+type0**& cut_sk_sq_,type0*& rsq_crd_):
+ctype_vec(ctype_vec_),
+c_vec(c_vec_),
+cut_sk_sq(cut_sk_sq_),
+rsq_crd(rsq_crd_),
+Neighbor(atoms_)
 {
     neighbor_list_size_size_2nd=0;
 }
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-Neighbor_dmd::~Neighbor_dmd()
+NeighborDMD::~NeighborDMD()
 {
 }
 /*--------------------------------------------
  initiation before DMD
  --------------------------------------------*/
-void Neighbor_dmd::init()
+void NeighborDMD::init()
 {
     Neighbor::init();
 }
 /*--------------------------------------------
  finalize DMD
  --------------------------------------------*/
-void Neighbor_dmd::fin()
+void NeighborDMD::fin()
 {
     if(neighbor_list_size_size)
     {
@@ -44,7 +51,7 @@ void Neighbor_dmd::fin()
         delete [] neighbor_list_size;
     }
     neighbor_list_size_size=0;
-
+    
     if(neighbor_list_size_size_2nd)
     {
         for(int i=0;i<neighbor_list_size_size_2nd;i++)
@@ -62,41 +69,40 @@ void Neighbor_dmd::fin()
  create the neighbopr list
  s_or_x: 0 for x, 1 for s
  --------------------------------------------*/
-void Neighbor_dmd::create_list(bool box_change)
+void NeighborDMD::create_list(bool box_change)
 {
-    timer->start(NEIGH_TIME_mode);
-        
-    cell->create(box_change);
-    atoms->s2x_all();
     
+    mapp->timer->start(NEIGH_TIME_mode);
+    cell->create(box_change);
+
     if(neighbor_list_size_size)
     {
         for(int i=0;i<neighbor_list_size_size;i++)
             if(neighbor_list_size[i])
                 delete [] neighbor_list[i];
-
+        
         delete [] neighbor_list_size;
         delete [] neighbor_list;
     }
     
     neighbor_list_size_size=atoms->natms;
-   
+    
     neighbor_list=CREATE1D(neighbor_list,neighbor_list_size_size);
     CREATE1D(neighbor_list_size,neighbor_list_size_size);
     for(int i=0;i<neighbor_list_size_size;i++)
         neighbor_list_size[i]=0;
     
-    type0* c=mapp->c->begin();
-    dmd_type* ctype=mapp->ctype->begin();
+    type0* c=c_vec->begin();
+    int c_dim=c_vec->dim;
+    atom_type* ctype=ctype_vec->begin();
     
-    int c_dim=mapp->c->dim;
     
-
+    
+    
     type0& rsq=cell->rsq;
     int &iatm=cell->iatm;
     int& jatm=cell->jatm;
     bool rsq_chk;
-    type0** cut_sk_sq=forcefield->cut_sk_sq;
     
     int* tmp_neigh_list;
     int tmp_neigh_list_size=1024;
@@ -118,7 +124,7 @@ void Neighbor_dmd::create_list(bool box_change)
                     {
                         if(c[iatm*c_dim+ic]<0.0) continue;
                         if(c[jatm*c_dim+jc]<0.0) continue;
-                        if(rsq>=cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]]) continue;
+                        if(rsq<cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]]) rsq_chk=true;
                     }
                 
                 if(!rsq_chk) continue;
@@ -138,6 +144,7 @@ void Neighbor_dmd::create_list(bool box_change)
                 memcpy(neighbor_list[iatm],tmp_neigh_list,neighbor_list_size[iatm]*sizeof(int));
                 no_pairs+=neighbor_list_size[iatm];
             }
+            
         }
     }
     else
@@ -154,7 +161,7 @@ void Neighbor_dmd::create_list(bool box_change)
                     {
                         if(c[iatm*c_dim+ic]<0.0) continue;
                         if(c[jatm*c_dim+jc]<0.0) continue;
-                        if(rsq>=cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]]) continue;
+                        if(rsq>=cut_sk_sq[ctype[iatm*c_dim+ic]][ctype[jatm*c_dim+jc]]) rsq_chk=true;
                     }
                 
                 if(!rsq_chk) continue;
@@ -178,29 +185,29 @@ void Neighbor_dmd::create_list(bool box_change)
     
     delete [] tmp_neigh_list;
     
-    no_neigh_lists++;    
-    timer->stop(NEIGH_TIME_mode);
+    no_neigh_lists++;
+
+    mapp->timer->stop(NEIGH_TIME_mode);
+    
 }
 /*--------------------------------------------
  create the neighbopr list
  s_or_x: 0 for x, 1 for s
  --------------------------------------------*/
-void Neighbor_dmd::create_2nd_list()
+void NeighborDMD::create_2nd_list()
 {
-    timer->start(NEIGH_TIME_mode);
-
-    type0* rsq_crd=forcefield->rsq_crd;
+    mapp->timer->start(NEIGH_TIME_mode);
     
     type0 dx0,dx1,dx2,rsq;
     int iatm,jatm,icomp,jcomp,iicomp,jjcomp;
     int natms=atoms->natms;
-
+    
     
     type0* x=atoms->x->begin();
-    type0* c=mapp->c->begin();
-    int c_dim=mapp->c->dim;
-    dmd_type* type=mapp->ctype->begin();
-
+    type0* c=c_vec->begin();
+    int c_dim=c_vec->dim;
+    atom_type* type=ctype_vec->begin();
+    
     
     
     int** tmp_neigh_list;
@@ -212,7 +219,7 @@ void Neighbor_dmd::create_2nd_list()
         CREATE1D(tmp_neigh_list[itype],1024);
         tmp_neigh_list_size[itype]=1024;
     }
-
+    
     
     neighbor_list_size_size_2nd=natms*c_dim;
     CREATE1D(neighbor_list_2nd,neighbor_list_size_size_2nd);
@@ -273,5 +280,6 @@ void Neighbor_dmd::create_2nd_list()
     }
     
     no_neigh_lists++;
-    timer->stop(NEIGH_TIME_mode);
+    mapp->timer->stop(NEIGH_TIME_mode);
 }
+

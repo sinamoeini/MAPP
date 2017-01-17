@@ -1,5 +1,6 @@
 #ifndef __MAPP__group__
 #define __MAPP__group__
+#include <mpi.h>
 namespace MAPP_NS
 {
     class Group
@@ -10,6 +11,8 @@ namespace MAPP_NS
         int* grp_idx;
         int grp_sz;
         int grp_sz_tot;
+        class AtomTypes*& atom_types;
+        MPI_Comm& world;
     public:
         Group(const char*);
         virtual ~Group();

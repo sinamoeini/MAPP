@@ -7,19 +7,22 @@
 #include "atom_types.h"
 #include "error.h"
 #include "atoms.h"
+#include "comm.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Read::Read()
+Read::Read():atom_types(mapp->atom_types),
+world(comm->world)
 {
     
     if(forcefield)
     {
         delete forcefield;
         forcefield=NULL;
-        error->warning("removing the old ff while "
+        Error::warning("removing the old ff while "
         "loading new configuration, you should "
         "reinitiate ff & ff_coef");
     }

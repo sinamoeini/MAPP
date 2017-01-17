@@ -9,7 +9,7 @@ Command_reset::Command_reset(int nargs,char** args)
 
 {
     if(nargs!=1)
-        error->abort("reset needs 0 argument");
+        Error::abort("reset needs 0 argument");
     step_no=0;
 }
 /*--------------------------------------------

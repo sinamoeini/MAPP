@@ -14,30 +14,26 @@ namespace MAPP_NS
     constexpr int __dim__=3;
     
     
+    extern class Communication* comm;
     extern class MAPP* mapp;
         extern int mode;
         extern int precision;
         extern int step_no;
         extern int step_tally;
-        extern MPI_Comm world;
+        extern MPI_Comm __world__;
     
         extern class Atoms* atoms;
         extern class ForceField* forcefield;
-            extern class Neighbor* neighbor;
-    
-    
-        extern class Timer* timer;
-        extern class Error* error;
+            extern class Dynamic* dynamic;
+
     
         extern FILE* output;
         extern class Write* write;
 
-        extern class GroupCollection* groups;
-    
-        extern class AtomTypes* atom_types;
+        
     
     
-        extern LineSearch<Min>* ls;
+        //extern LineSearch<Min>* ls;
         extern class MD* md;
         extern class DMD* dmd;
     

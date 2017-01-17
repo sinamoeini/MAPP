@@ -11,6 +11,7 @@
 #include "atoms.h"
 #include "script_reader.h"
 #include "MAPP.h"
+#include "comm.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -20,10 +21,10 @@ Read_cfg::Read_cfg(int nargs,char** args)
 {
     
     if(nargs!=3)
-        error->abort("read cfg should only have 1 argument");
+        Error::abort("read cfg should only have 1 argument");
     file_name=args[2];
     if(__dim__!=3)
-        error->abort("read cfg works only with 3 dimensional boxes");
+        Error::abort("read cfg works only with 3 dimensional boxes");
     
     curr_id=0;
     
@@ -53,7 +54,7 @@ Read_cfg::Read_cfg(int nargs,char** args)
     
     read_header(fp);
     set_box();
-    atoms->auto_grid();
+    comm->auto_grid();
     set_vec_lst();
     read_atom(fp);
     
@@ -113,17 +114,17 @@ void Read_cfg::read_header(FILE* fp)
         if(sscanf(line,"Number of particles = %d",&tmpno)==1)
         {
             if(tmpno<=0)
-                error->abort("Number of particles in %s file should be greater than 0",file_name);
+                Error::abort("Number of particles in %s file should be greater than 0",file_name);
             
             atoms->tot_natms=tmpno;
         }
         else if(sscanf(line,"A = %lf Angstrom (basic length-scale)",&tmp)==1)
         {
             if(tmp<=0.0)
-                error->abort("A in %s file should be greater than 0.0",file_name);
+                Error::abort("A in %s file should be greater than 0.0",file_name);
             if(tmp!=1.0)
             {
-                error->warning("A (basic length-scale) is not equal to 1, mapp will set it to 1");
+                Error::warning("A (basic length-scale) is not equal to 1, mapp will set it to 1");
                 tmp=1.0;
             }
 
@@ -141,7 +142,7 @@ void Read_cfg::read_header(FILE* fp)
             ext_cfg=1;
             int mincomp=3+(3*vel_chk);
             if(entry_count < mincomp)
-                error->abort("entry_count in %s should at least be equal to %d",file_name,mincomp);
+                Error::abort("entry_count in %s should at least be equal to %d",file_name,mincomp);
         }
         else if(sscanf(line,"R = %lf %*s",&tmp)==1)
         {
@@ -151,16 +152,16 @@ void Read_cfg::read_header(FILE* fp)
         {
             int mincomp=3+(3*vel_chk);
             if(icmp+mincomp+1>entry_count)
-                error->abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
+                Error::abort("wrong component in %s file for auxiliary[%d], %d+%d+1 > entry_count",file_name,icmp,mincomp,icmp);
         }
         else if(sscanf(line,"Transform(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
         {
             icmp--;
             jcmp--;
             if(icmp>2 || icmp<0)
-                error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp>2 || jcmp<0)
-                error->abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for Transform(%d,%d)",file_name,icmp+1,jcmp+1);
             trns[icmp][jcmp]=tmp;
         }
         else if(sscanf(line,"eta(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
@@ -168,9 +169,9 @@ void Read_cfg::read_header(FILE* fp)
             icmp--;
             jcmp--;
             if(icmp>2 || icmp<0)
-                error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp>2 || jcmp<0)
-                error->abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for eta(%d,%d)",file_name,icmp+1,jcmp+1);
             eta[icmp][jcmp]=tmp;
         }
         else if(sscanf(line,"H0(%d,%d) = %lf A",&icmp,&jcmp,&tmp)==3)
@@ -178,20 +179,20 @@ void Read_cfg::read_header(FILE* fp)
             icmp--;
             jcmp--;
             if(icmp>2 || icmp<0)
-                error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp>2 || jcmp<0)
-                error->abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for H(%d,%d)",file_name,icmp+1,jcmp+1);
             H0[icmp][jcmp]=tmp;
         }
         else
         {
-            error->abort("invalid line in %s file: %s|",file_name,line);
+            Error::abort("invalid line in %s file: %s|",file_name,line);
         }
     }
     delete [] line;
     
     if(!header_cmplt)
-        error->abort("file %s ended unexpectedly",file_name);
+        Error::abort("file %s ended unexpectedly",file_name);
 }
 /*--------------------------------------------
  calculates H from H0, Transform, and eta;
@@ -222,7 +223,7 @@ void Read_cfg::set_box()
         type0 eta_sq[3][3];
         
         if(XMath::M3sqroot(eta,eta_sq)==0)
-            error->abort("eta in %s should be positive definite",file_name);
+            Error::abort("eta in %s should be positive definite",file_name);
 
         M3EQV(H_x,H0);
         M3ZERO(H_x);
@@ -243,7 +244,7 @@ void Read_cfg::set_box()
     M3EQV(H_x,H_x_d);
     
     if(M3DET(H_x)==0.0)
-        error->abort("determinant of H in %s file is 0.0",file_name);
+        Error::abort("determinant of H in %s file is 0.0",file_name);
     
 
     XMath::square2lo_tri(H_x,atoms->H);
@@ -262,7 +263,7 @@ void Read_cfg::read_atom(FILE* fp)
     int args_cpcty=0;
     type0 mass=0.0;
     int mass_flag=1;
-    md_type atm_type=0;
+    atom_type atm_type=0;
     int type_defined=0;
     
     char* line;
@@ -280,7 +281,7 @@ void Read_cfg::read_atom(FILE* fp)
             if(ext_cfg)
             {
                 if(nargs!=1 && nargs!=entry_count)
-                    error->abort("invalid line in %s file: %s",file_name,line);
+                    Error::abort("invalid line in %s file: %s",file_name,line);
                 if(nargs==1)
                 {
                     if(mass_flag)
@@ -292,7 +293,7 @@ void Read_cfg::read_atom(FILE* fp)
                     {
                         atm_type=atom_types->add_type(mass,args[0]);
                         if(mass<=0.0)
-                            error->abort("mass of %s %s file (%lf) should be greater than 0.0",args[0],file_name,line,mass);
+                            Error::abort("mass of %s %s file (%lf) should be greater than 0.0",args[0],file_name,line,mass);
                         mass_flag=1;
                         type_defined=1;
                     }
@@ -300,7 +301,7 @@ void Read_cfg::read_atom(FILE* fp)
                 else
                 {
                     if(type_defined==0)
-                        error->abort("line %s in file %s comes before any element was defined",line,file_name);
+                        Error::abort("line %s in file %s comes before any element was defined",line,file_name);
                     
                     for(int i=0;i<3*(1+vel_chk);i++)
                         tmp_buff[i]=static_cast<type0>(atof(args[i]));
@@ -312,7 +313,7 @@ void Read_cfg::read_atom(FILE* fp)
             else
             {
                 if(nargs!=8)
-                    error->abort("invalid line in %s file: %s",file_name,line);
+                    Error::abort("invalid line in %s file: %s",file_name,line);
                 mass=static_cast<type0>(atof(args[0]));
                 atm_type=atom_types->add_type(mass,args[1]);
                 
@@ -334,7 +335,7 @@ void Read_cfg::read_atom(FILE* fp)
                 continue;
 
             if(nargs!=1 && nargs!=entry_count)
-                error->abort("invalid line in %s file: %s",file_name,line);
+                Error::abort("invalid line in %s file: %s",file_name,line);
             if(nargs==1)
             {
                 if(mass_flag)
@@ -346,7 +347,7 @@ void Read_cfg::read_atom(FILE* fp)
                 {
                     atm_type=atom_types->add_type(mass,args[0]);
                     if(mass<=0.0)
-                        error->abort("mass of %s %s file (%lf) should be greater than 0.0",args[0],file_name,line,mass);
+                        Error::abort("mass of %s %s file (%lf) should be greater than 0.0",args[0],file_name,line,mass);
                     mass_flag=1;
                 }
             }
@@ -356,10 +357,10 @@ void Read_cfg::read_atom(FILE* fp)
                     tmp_buff[i]=static_cast<type0>(atof(args[i]));
                 for(int i=3;i<3+dmd_no_types;i++)
                     if(tmp_buff[i]<0.0)
-                        error->abort("values of alpha vector in %s file should be greater than 0.0",file_name);
+                        Error::abort("values of alpha vector in %s file should be greater than 0.0",file_name);
                 for(int i=3+dmd_no_types;i<3+2*dmd_no_types;i++)
                     if(tmp_buff[i]<-1.0 || tmp_buff[i]>1.0)
-                        error->abort("values of c vector in %s file should be between 0.0 & 1.0",file_name);
+                        Error::abort("values of c vector in %s file should be between 0.0 & 1.0",file_name);
                 add_atom_read_x();
             }
         }
@@ -398,8 +399,8 @@ void Read_cfg::add_atom_read_x(int t)
     
     
     for(int i=0;i<3;i++)
-        if(!(atoms->s_lo[i]<=tmp_buff[i]
-             && tmp_buff[i]<atoms->s_hi[i]))
+        if(!(comm->s_lo[i]<=tmp_buff[i]
+             && tmp_buff[i]<comm->s_hi[i]))
         {
             curr_id++;
             return;
@@ -408,13 +409,13 @@ void Read_cfg::add_atom_read_x(int t)
     memcpy(ch_buff,tmp_buff,3*sizeof(type0));
     if(mode==MD_mode)
     {
-        md_type tt=static_cast<md_type>(t);
-        memcpy(&ch_buff[ch_type],&tt,sizeof(md_type));
+        atom_type tt=static_cast<atom_type>(t);
+        memcpy(&ch_buff[ch_type],&tt,sizeof(atom_type));
     }
     else if(mode==DMD_mode)
     {
-        dmd_type tt=static_cast<md_type>(t);
-        memcpy(&ch_buff[ch_type],&tt,sizeof(dmd_type));
+        atom_type tt=static_cast<atom_type>(t);
+        memcpy(&ch_buff[ch_type],&tt,sizeof(atom_type));
     }
     
     memcpy(&ch_buff[ch_id],&curr_id,sizeof(int));
@@ -439,8 +440,8 @@ void Read_cfg::add_atom_read_x()
     }
     
     for(int i=0;i<3;i++)
-        if(!(atoms->s_lo[i]<=tmp_buff[i]
-        && tmp_buff[i]<atoms->s_hi[i]))
+        if(!(comm->s_lo[i]<=tmp_buff[i]
+        && tmp_buff[i]<comm->s_hi[i]))
         {
             curr_id++;
             return;
@@ -463,7 +464,7 @@ void Read_cfg::set_vec_lst()
     {
         atoms->x=new Vec<type0>(atoms,3);
         atoms->id=new Vec<int>(atoms,1);
-        mapp->type=new Vec<md_type>(atoms,1);
+        mapp->type=new Vec<atom_type>(atoms,1);
 
 
         if(vel_chk)
@@ -504,7 +505,7 @@ void Read_cfg::set_vec_lst()
     else if(mode==DMD_mode)
     {
         if((entry_count-3)%2!=0)
-            error->abort("entry_count-3 in %s file should be divisible by 2",file_name);
+            Error::abort("entry_count-3 in %s file should be divisible by 2",file_name);
         dmd_no_types=(entry_count-3)/2;
 
         atoms->x=new Vec<type0>(atoms,3+dmd_no_types);
@@ -527,7 +528,7 @@ void Read_cfg::set_vec_lst()
         vec_lst[2]=mapp->c;
         
         if(ext_cfg==0)
-            error->abort("read cfg supports only extended format for DMD mode");
+            Error::abort("read cfg supports only extended format for DMD mode");
     }
     
     ch_buff_sz=0;
@@ -544,7 +545,7 @@ void Read_cfg::set_vecs()
         if(mode==DMD_mode)
     {
         if(atom_types->no_types!=dmd_no_types)
-            error->abort("%s file should conatin properties of %d atom types",file_name,dmd_no_types);
+            Error::abort("%s file should conatin properties of %d atom types",file_name,dmd_no_types);
     }
     
     int loc_no=atoms->natms;
@@ -552,7 +553,7 @@ void Read_cfg::set_vecs()
     MPI_Allreduce(&loc_no,&tot_no,1,MPI_INT,MPI_SUM,world);
     
     if(tot_no!=atoms->tot_natms)
-        error->abort("the number of atoms dont match"
+        Error::abort("the number of atoms dont match"
         " recheck your cfg file: %d %d",
         atoms->tot_natms,tot_no);
     
@@ -576,12 +577,12 @@ void Read_cfg::set_vecs()
         
         if(mapp->ctype)
             delete mapp->ctype;
-        mapp->ctype=new Vec<dmd_type>(atoms,dmd_no_types);
+        mapp->ctype=new Vec<atom_type>(atoms,dmd_no_types);
         
-        dmd_type* ctype=mapp->ctype->begin();
+        atom_type* ctype=mapp->ctype->begin();
         type0* x=atoms->x->begin();
         
-        dmd_type icurs;
+        atom_type icurs;
         
         for(int iatm=0;iatm<atoms->natms;iatm++)
         {

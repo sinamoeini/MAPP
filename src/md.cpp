@@ -4,21 +4,24 @@
 #include "memory.h"
 #include "script_reader.h"
 #include "thermo_dynamics.h"
+#include "comm.h"
+#include "MAPP.h"
 using namespace MAPP_NS;
 
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-MD::MD():
-nrgy_strss(forcefield->nrgy_strss)
+MD::MD():nrgy_strss(forcefield->nrgy_strss),
+atom_types(mapp->atom_types),
+world(comm->world)
 {
     boltz=dt=hplanck=0.0;
     if(forcefield==NULL)
-        error->abort("ff should be "
+        Error::abort("ff should be "
         "initiated before md");
     
     if(mode!=MD_mode)
-        error->abort("md works only "
+        Error::abort("md works only "
         "for md mode");
     
     char** args;
@@ -38,10 +41,9 @@ nrgy_strss(forcefield->nrgy_strss)
 
 }
 /*--------------------------------------------
- constructor
+ 
  --------------------------------------------*/
 MD::~MD()
 {
     delete thermo;
 }
-

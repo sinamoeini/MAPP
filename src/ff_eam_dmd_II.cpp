@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "ff_eam_dmd_II.h"
 #include "eam_file_reader.h"
-#include "neighbor.h"
+#include "neighbor_dmd.h"
 #include "error.h"
 #include "memory.h"
 #include "atom_types.h"
@@ -9,6 +9,7 @@
 #include "xmath.h"
 #include "cmd.h"
 #include "MAPP.h"
+#include "dynamic.h"
 #include <limits>
 #define PI_IN_SQ 0.564189583547756286948079451561
 #define GAMMA_FAC 0.25
@@ -21,7 +22,7 @@ ForceField_eam_dmd_II::
 ForceField_eam_dmd_II(): ForceFieldDMD()
 {
     if(mode!=DMD_mode)
-        error->abort("ff eam_dmd works only "
+        Error::abort("ff eam_dmd works only "
         "for dmd mode");
 
     eam_reader=NULL;
@@ -58,13 +59,13 @@ force_calc(bool st_clc)
     if(!dynamic_flag)
         return force_calc_static(st_clc);
     
-    type0* x=atoms->x->begin();
-    dmd_type* type=mapp->ctype->begin();
+    type0* xvec=x->begin();
+    atom_type* typevec=type->begin();
     type0* fvec=f->begin();
     type0* E=E_ptr->begin();
     type0* dE=dE_ptr->begin();
     type0* mu=mu_ptr->begin();;
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     
     int iatm,jatm;
     
@@ -83,7 +84,6 @@ force_calc(bool st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
-    int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++) E[i]=0.0;
     
     int** neighbor_list=neighbor->neighbor_list;
@@ -116,26 +116,26 @@ force_calc(bool st_clc)
         {
             jatm=neighbor_list[iatm][j];
             jcomp=(3+c_dim)*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             if(rsq<cut_sq_mod_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
                 
-                for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+                for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
                 {
-                    itype=type[ic_dim];
-                    for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                    itype=typevec[ic_dim];
+                    for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && cvec[jc_dim]>=0.0;jc_dim++)
                     {
-                        jtype=type[jc_dim];
+                        jtype=typevec[jc_dim];
                         
                         if(rsq>cut_sq[itype][jtype])
                             continue;
                         
-                        type0 alpha_ij=sqrt(x[3*iatm+ic_dim+3]*x[3*iatm+ic_dim+3]+x[3*jatm+jc_dim+3]*x[3*jatm+jc_dim+3]);
+                        type0 alpha_ij=sqrt(xvec[3*iatm+ic_dim+3]*xvec[3*iatm+ic_dim+3]+xvec[3*jatm+jc_dim+3]*xvec[3*jatm+jc_dim+3]);
                         
                         if(alpha_ij>=alpha_max)
                             continue;
@@ -238,15 +238,15 @@ force_calc(bool st_clc)
                         drho_phi_dalpha[phi_ij]*=-tmp0/alpha_ij;
                         
                         
-                        E[ic_dim]+=c[jc_dim]*rho_phi[rho_ji];
+                        E[ic_dim]+=cvec[jc_dim]*rho_phi[rho_ji];
                         
                         if(jatm<natms)
                         {
-                            E[jc_dim]+=c[ic_dim]*rho_phi[rho_ij];
-                            nrgy_strss_lcl[0]+=c[ic_dim]*c[jc_dim]*rho_phi[phi_ij];
+                            E[jc_dim]+=cvec[ic_dim]*rho_phi[rho_ij];
+                            nrgy_strss_lcl[0]+=cvec[ic_dim]*cvec[jc_dim]*rho_phi[phi_ij];
                         }
                         else
-                            nrgy_strss_lcl[0]+=0.5*c[ic_dim]*c[jc_dim]*rho_phi[phi_ij];
+                            nrgy_strss_lcl[0]+=0.5*cvec[ic_dim]*cvec[jc_dim]*rho_phi[phi_ij];
                     }
                 }
             }
@@ -256,11 +256,11 @@ force_calc(bool st_clc)
         }
         
         c_iv=1.0;
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
         {
             
-            itype=type[ic_dim];
-            c_iv-=c[ic_dim];
+            itype=typevec[ic_dim];
+            c_iv-=cvec[ic_dim];
             p=E[ic_dim]*drho_inv;
             
             m=static_cast<int>(p);
@@ -282,18 +282,18 @@ force_calc(bool st_clc)
             dE[ic_dim]=tmp1;
             
             mu[ic_dim]=tmp0;
-            if(c[ic_dim]!=0.0)
+            if(cvec[ic_dim]!=0.0)
             {
-                nrgy_strss_lcl[0]+=c[ic_dim]*(tmp0+c_0[itype]-3.0*kbT*log(x[3*iatm+ic_dim+3]));
+                nrgy_strss_lcl[0]+=cvec[ic_dim]*(tmp0+c_0[itype]-3.0*kbT*log(xvec[3*iatm+ic_dim+3]));
             }
             
             
-            nrgy_strss_lcl[0]+=kbT*calc_ent(c[ic_dim]);
+            nrgy_strss_lcl[0]+=kbT*calc_ent(cvec[ic_dim]);
         }
         nrgy_strss_lcl[0]+=kbT*calc_ent(c_iv);
     }
     
-    atoms->update(dE_ptr);
+    dynamic->update(dE_ptr);
 
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
@@ -304,31 +304,31 @@ force_calc(bool st_clc)
             jatm=neighbor_list[iatm][j];
             jcomp=(3+c_dim)*jatm;
             
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             r_inv=1.0/sqrt(dx0*dx0+dx1*dx1+dx2*dx2);
             
-            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+            for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
             {
-                itype=type[ic_dim];
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                itype=typevec[ic_dim];
+                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && cvec[jc_dim]>=0.0;jc_dim++)
                 {
-                    jtype=type[jc_dim];
+                    jtype=typevec[jc_dim];
                     
                     fpair=-(drho_phi_dr[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
                     +drho_phi_dr[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                    +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*c[ic_dim]*c[jc_dim];
+                    +drho_phi_dr[istart+type2phi_pair_ij[itype][jtype]])*cvec[ic_dim]*cvec[jc_dim];
                     
                     apair=-(drho_phi_dalpha[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]
                     +drho_phi_dalpha[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]
-                    +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*c[ic_dim]*c[jc_dim];
+                    +drho_phi_dalpha[istart+type2phi_pair_ij[itype][jtype]])*cvec[ic_dim]*cvec[jc_dim];
                     
-                    mu[ic_dim]+=c[jc_dim]*(rho_phi[istart+type2phi_pair_ij[itype][jtype]]+
+                    mu[ic_dim]+=cvec[jc_dim]*(rho_phi[istart+type2phi_pair_ij[itype][jtype]]+
                     rho_phi[istart+type2rho_pair_ij[itype][jtype]]*dE[jc_dim]);
                     
                     if(jatm<natms)
-                        mu[jc_dim]+=c[ic_dim]*(rho_phi[istart+type2phi_pair_ji[jtype][itype]]+
+                        mu[jc_dim]+=cvec[ic_dim]*(rho_phi[istart+type2phi_pair_ji[jtype][itype]]+
                         rho_phi[istart+type2rho_pair_ji[jtype][itype]]*dE[ic_dim]);
                     
                     if(apair==0.0 && fpair==0.0)
@@ -338,13 +338,13 @@ force_calc(bool st_clc)
                     fvec[icomp]+=dx0*fpair;
                     fvec[icomp+1]+=dx1*fpair;
                     fvec[icomp+2]+=dx2*fpair;
-                    fvec[3*iatm+ic_dim+3]+=apair*x[3*iatm+ic_dim+3];
+                    fvec[3*iatm+ic_dim+3]+=apair*xvec[3*iatm+ic_dim+3];
                     if(jatm<natms)
                     {
                         fvec[jcomp]-=dx0*fpair;
                         fvec[jcomp+1]-=dx1*fpair;
                         fvec[jcomp+2]-=dx2*fpair;
-                        fvec[3*jatm+jc_dim+3]+=apair*x[3*jatm+jc_dim+3];
+                        fvec[3*jatm+jc_dim+3]+=apair*xvec[3*jatm+jc_dim+3];
                     }
                     
                     if(jatm>=natms)
@@ -365,17 +365,17 @@ force_calc(bool st_clc)
         }
     }
     
-    type0* alpha=x+__dim__;
+    type0* alpha=xvec+__dim__;
     type0* fvec_alpha=fvec+__dim__;
     for(iatm=0;iatm<natms;iatm++)
     {
         for(int i=0;i<c_dim;i++)
-            if(c[i]>0.0)
-                fvec_alpha[i]+=3.0*kbT*c[i]/alpha[i];
+            if(cvec[i]>0.0)
+                fvec_alpha[i]+=3.0*kbT*cvec[i]/alpha[i];
         
         fvec_alpha+=x_dim;
         alpha+=x_dim;
-        c+=c_dim;
+        cvec+=c_dim;
     }
     
     if(st_clc)
@@ -396,10 +396,10 @@ force_calc(bool st_clc)
 type0 ForceField_eam_dmd_II::energy_calc()
 {
     type0 en=0.0,en_tot;
-    type0* x=atoms->x->begin();
-    dmd_type* type=mapp->ctype->begin();
+    type0* xvec=x->begin();
+    atom_type* typevec=type->begin();
     type0* E=E_ptr->begin();
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     
     int iatm,jatm;
     
@@ -421,7 +421,6 @@ type0 ForceField_eam_dmd_II::energy_calc()
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
-    int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++) E[i]=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
@@ -431,26 +430,26 @@ type0 ForceField_eam_dmd_II::energy_calc()
         {
             jatm=neighbor_list[iatm][j];
             jcomp=(3+c_dim)*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             if(rsq<cut_sq_mod_0)
             {
                 r=sqrt(rsq);
                 r_inv=1.0/r;
                 
-                for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+                for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
                 {
-                    itype=type[ic_dim];
-                    for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                    itype=typevec[ic_dim];
+                    for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && cvec[jc_dim]>=0.0;jc_dim++)
                     {
-                        jtype=type[jc_dim];
+                        jtype=typevec[jc_dim];
                         
                         if(rsq>cut_sq[itype][jtype])
                             continue;
                         
-                        alpha=sqrt(x[3*iatm+ic_dim+3]*x[3*iatm+ic_dim+3]+x[3*jatm+jc_dim+3]*x[3*jatm+jc_dim+3]);
+                        alpha=sqrt(xvec[3*iatm+ic_dim+3]*xvec[3*iatm+ic_dim+3]+xvec[3*jatm+jc_dim+3]*xvec[3*jatm+jc_dim+3]);
                         
                         if(alpha>=alpha_max)
                             continue;
@@ -505,25 +504,25 @@ type0 ForceField_eam_dmd_II::energy_calc()
                         rho_jt_it_0*=a0;
                         phi_it_jt_0*=a0;
                         
-                        E[ic_dim]+=c[jc_dim]*rho_jt_it_0;
+                        E[ic_dim]+=cvec[jc_dim]*rho_jt_it_0;
                         
                         if(jatm<natms)
                         {
-                            E[jc_dim]+=c[ic_dim]*rho_it_jt_0;
-                            en+=c[ic_dim]*c[jc_dim]*phi_it_jt_0;
+                            E[jc_dim]+=cvec[ic_dim]*rho_it_jt_0;
+                            en+=cvec[ic_dim]*cvec[jc_dim]*phi_it_jt_0;
                         }
                         else
-                            en+=0.5*c[ic_dim]*c[jc_dim]*phi_it_jt_0;
+                            en+=0.5*cvec[ic_dim]*cvec[jc_dim]*phi_it_jt_0;
                     }
                 }
             }
         }
         
         c_iv=1.0;
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
         {
-            itype=type[ic_dim];
-            c_iv-=c[ic_dim];
+            itype=typevec[ic_dim];
+            c_iv-=cvec[ic_dim];
             p=E[ic_dim]*drho_inv;
 
             m=static_cast<int>(p);
@@ -541,10 +540,10 @@ type0 ForceField_eam_dmd_II::energy_calc()
             
             E[ic_dim]=tmp0;
 
-            if(c[ic_dim]!=0.0)
-                en+=c[ic_dim]*(tmp0+c_0[itype])-3.0*kbT*c[ic_dim]*log(x[3*iatm+ic_dim+3]);
+            if(cvec[ic_dim]!=0.0)
+                en+=cvec[ic_dim]*(tmp0+c_0[itype])-3.0*kbT*cvec[ic_dim]*log(xvec[3*iatm+ic_dim+3]);
             
-            en+=kbT*calc_ent(c[ic_dim]);
+            en+=kbT*calc_ent(cvec[ic_dim]);
         }
         en+=kbT*calc_ent(c_iv);
     }
@@ -556,11 +555,9 @@ type0 ForceField_eam_dmd_II::energy_calc()
  init
  --------------------------------------------*/
 void ForceField_eam_dmd_II::init()
-{
-    neighbor->pair_wise=true;
-    
+{    
     if(kbT==-1.0)
-        error->abort("temperature for the siumulation has not been set");
+        Error::abort("temperature for the siumulation has not been set");
     
     
     cv_ptr=new Vec<type0>(atoms,1);
@@ -577,7 +574,7 @@ void ForceField_eam_dmd_II::init()
     t_ptr=new Vec<type0>(atoms,c_dim);
     
     type0* mu=mu_ptr->begin();
-    for(int i=0;i<c_dim*atoms->natms;i++)
+    for(int i=0;i<c_dim*natms;i++)
         mu[i]=0.0;
 
 }
@@ -634,14 +631,14 @@ void ForceField_eam_dmd_II::fin()
  --------------------------------------------*/
 void ForceField_eam_dmd_II::init_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  fin xchng
  --------------------------------------------*/
 void ForceField_eam_dmd_II::fin_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  ff_coef
@@ -649,15 +646,15 @@ void ForceField_eam_dmd_II::fin_xchng()
 void ForceField_eam_dmd_II::coef(int nargs,char** args)
 {
     if(nargs!=2)
-        error->abort("wrong coeff command "
+        Error::abort("wrong coeff command "
         "for ff dmd");
     
     cut_off_alloc();
     allocate();
 
     no_types=atom_types->no_types;
-    c_dim=mapp->c->dim;
-    x_dim=atoms->x->dim;
+    c_dim=c->dim;
+    x_dim=x->dim;
     
     read_file(args[1]);
 }
@@ -764,17 +761,17 @@ void ForceField_eam_dmd_II::read_file(char* file_name)
         Q_nrm[i]/=f_t[i]*sqrt(f_t[i]);
 
     
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     int* id=atoms->id->begin();
-    dmd_type* type=mapp->ctype->begin();
+    atom_type* typevec=type->begin();
     type0 alpha_bound=alpha_max/sqrt(2.0);
-    for(int iatm=0;iatm<atoms->natms;iatm++)
+    for(int iatm=0;iatm<natms;iatm++)
     {
         for(int ic_dim=iatm*c_dim;ic_dim<(iatm+1)*c_dim;ic_dim++)
-            if(x[3*iatm+ic_dim+3]>=alpha_bound)
-                error->abort("alpha_%s of atom %d is greater than "
+            if(xvec[3*iatm+ic_dim+3]>=alpha_bound)
+                Error::abort("alpha_%s of atom %d is greater than "
                 "the maximum allowed %lf (alpha_max/sqrt(2.0)) set "
-                "by %s file",atom_types->atom_names[type[ic_dim]]
+                "by %s file",atom_types->atom_names[typevec[ic_dim]]
                 ,id[iatm],alpha_bound,file_name);
     }
     
@@ -814,7 +811,7 @@ void ForceField_eam_dmd_II::read_file(char* file_name)
     
     for(int itype=0;itype<no_types;itype++)
         if(rsq_crd[itype]>cut_sq[itype][itype])
-            error->abort("r_crd(%s) set by file %s should be less than %lf"
+            Error::abort("r_crd(%s) set by file %s should be less than %lf"
             ,file_name,atom_types->atom_names[itype],sqrt(cut_sq[itype][itype]));
 }
 /*--------------------------------------------
@@ -846,7 +843,7 @@ void ForceField_eam_dmd_II::set_temp(type0 T)
 type0 ForceField_eam_dmd_II::set_weight_abs(int n)
 {
     if(n<1)
-        error->abort("number of gaussian "
+        Error::abort("number of gaussian "
         "points for ff eam_dmd should be "
         "greater than 1");
     
@@ -902,16 +899,15 @@ void ForceField_eam_dmd_II::dc()
 {
     calc_mu();
 
-    type0* x=atoms->x->begin();
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
-    dmd_type* type=mapp->ctype->begin();
+    type0* xvec=x->begin();
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
+    atom_type* typevec=type->begin();
     type0* cv=cv_ptr->begin();
     type0* mu=mu_ptr->begin();
     
-    int natms=atoms->natms;
     for(int i=0;i<natms*c_dim;i++)
-        c_d[i]=0.0;
+        c_dvec[i]=0.0;
     
     type0 x_ij_sq;
     type0* xi;
@@ -926,10 +922,10 @@ void ForceField_eam_dmd_II::dc()
     
     for(int ic_dim=0,itype;ic_dim<natms*c_dim;ic_dim++)
     {
-        itype=type[ic_dim];
+        itype=typevec[ic_dim];
         icmp=ic_dim%c_dim;
         iatm=ic_dim/c_dim;
-        xi=x+x_dim*iatm;
+        xi=xvec+x_dim*iatm;
         alpha_i=xi[3+icmp];
         
         for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
@@ -938,7 +934,7 @@ void ForceField_eam_dmd_II::dc()
             jc_dim=neighbor_list_2nd[ic_dim][j];
             jcmp=jc_dim%c_dim;
             jatm=jc_dim/c_dim;
-            xj=x+x_dim*jatm;
+            xj=xvec+x_dim*jatm;
             alpha_j=xj[3+icmp];
             mu_ji=beta*(mu[jc_dim]-mu[ic_dim]);
             
@@ -947,15 +943,15 @@ void ForceField_eam_dmd_II::dc()
             +(xi[2]-xj[2])*(xi[2]-xj[2]);
             
             
-            calc_Q_all(c[ic_dim],cv[iatm],alpha_i,
-                       c[jc_dim],cv[jatm],alpha_j,
+            calc_Q_all(cvec[ic_dim],cv[iatm],alpha_i,
+                       cvec[jc_dim],cv[jatm],alpha_j,
                        itype,x_ij_sq,mu_ji,dc_ij);
             
 
-            c_d[ic_dim]+=dc_ij;
+            c_dvec[ic_dim]+=dc_ij;
             if(jc_dim<natms*c_dim)
             {
-                c_d[jc_dim]-=dc_ij;
+                c_dvec[jc_dim]-=dc_ij;
             }
         }
     }
@@ -965,7 +961,7 @@ void ForceField_eam_dmd_II::dc()
  --------------------------------------------*/
 type0 ForceField_eam_dmd_II::ddc_norm()
 {
-    int n=atoms->natms*c_dim;
+    int n=natms*c_dim;
     type0* tmp=NULL;
     CREATE1D(tmp,n);
     for(int i=0;i<n;i++)
@@ -974,17 +970,16 @@ type0 ForceField_eam_dmd_II::ddc_norm()
     delete [] tmp;
     
     
-    type0* c_d=mapp->c_d->begin();
+    type0* c_dvec=c_d->begin();
     type0* s=s_ptr->begin();
-    memcpy(s,c_d,sizeof(type0)*n);
-    atoms->update(s_ptr);
+    memcpy(s,c_dvec,sizeof(type0)*n);
     operator()(s_ptr,t_ptr);
     type0* t=t_ptr->begin();
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     type0 ans_lcl=0.0,ans,tmp0;
     
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
-        if(c[ic_dim]>=0.0)
+        if(cvec[ic_dim]>=0.0)
         {
             tmp0=t[ic_dim]+s[ic_dim];
             ans_lcl+=tmp0*tmp0;
@@ -1002,17 +997,16 @@ void ForceField_eam_dmd_II::ddc(type0* ddc_)
     
     
     
-    error->abort("not done");
+    Error::abort("not done");
 }
 /*--------------------------------------------
  calculate mu crd dE ddE and local energy
  --------------------------------------------*/
 void ForceField_eam_dmd_II::calc_mu()
 {
-    int natms=atoms->natms;
-    type0* c=mapp->c->begin();
-    dmd_type* type=mapp->ctype->begin();
-    type0* x=atoms->x->begin();
+    type0* cvec=c->begin();
+    atom_type* typevec=type->begin();
+    type0* xvec=x->begin();
     type0* E=E_ptr->begin();
     type0* mu=mu_ptr->begin();
     type0* dE=dE_ptr->begin();
@@ -1027,12 +1021,12 @@ void ForceField_eam_dmd_II::calc_mu()
     
     nrgy_strss_lcl[0]=0.0;
     
-    for(int i=0;i<natms+atoms->natms_ph;i++)
+    for(int i=0;i<natms+natms_ph;i++)
     {
         cv[i]=1.0;
         for(int j=0;j<c_dim;j++)
-            if(c[i*c_dim+j]>=0.0)
-                cv[i]-=c[i*c_dim+j];
+            if(cvec[i*c_dim+j]>=0.0)
+                cv[i]-=cvec[i*c_dim+j];
     }
     
     int istart=0;
@@ -1041,24 +1035,24 @@ void ForceField_eam_dmd_II::calc_mu()
         for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
         {
             jc_dim=phi_psi_cmp[istart];
-            E[ic_dim]+=c[jc_dim]*psi_JI[istart];
-            mu[ic_dim]+=c[jc_dim]*phi_IJ[istart];
+            E[ic_dim]+=cvec[jc_dim]*psi_JI[istart];
+            mu[ic_dim]+=cvec[jc_dim]*phi_IJ[istart];
             
             
             if(jc_dim<phi_psi_sz_sz)
             {
-                E[jc_dim]+=c[ic_dim]*psi_IJ[istart];
-                mu[jc_dim]+=c[ic_dim]*phi_IJ[istart];
-                nrgy_strss_lcl[0]+=c[ic_dim]*c[jc_dim]*phi_IJ[istart];
+                E[jc_dim]+=cvec[ic_dim]*psi_IJ[istart];
+                mu[jc_dim]+=cvec[ic_dim]*phi_IJ[istart];
+                nrgy_strss_lcl[0]+=cvec[ic_dim]*cvec[jc_dim]*phi_IJ[istart];
             }
             else
-                nrgy_strss_lcl[0]+=0.5*c[ic_dim]*c[jc_dim]*phi_IJ[istart];
+                nrgy_strss_lcl[0]+=0.5*cvec[ic_dim]*cvec[jc_dim]*phi_IJ[istart];
                 
             istart++;
         }
-        if(c[ic_dim]>=0.0)
+        if(cvec[ic_dim]>=0.0)
         {
-            itype=type[ic_dim];
+            itype=typevec[ic_dim];
             p=E[ic_dim]*drho_inv;
             m=static_cast<int>(p);
             m=MIN(m,nrho-2);
@@ -1078,15 +1072,15 @@ void ForceField_eam_dmd_II::calc_mu()
             ddE[ic_dim]=tmp2;
             mu[ic_dim]+=tmp0;
             tmp2=tmp0+c_0[itype];
-            if(c[ic_dim]!=0.0)
-                tmp2-=3.0*kbT*log(x[3*(ic_dim/c_dim +1)+ic_dim]);
-            nrgy_strss_lcl[0]+=c[ic_dim]*tmp2+kbT*calc_ent(c[ic_dim]);
+            if(cvec[ic_dim]!=0.0)
+                tmp2-=3.0*kbT*log(xvec[3*(ic_dim/c_dim +1)+ic_dim]);
+            nrgy_strss_lcl[0]+=cvec[ic_dim]*tmp2+kbT*calc_ent(cvec[ic_dim]);
         }
         if(ic_dim%c_dim==c_dim-1)
             nrgy_strss_lcl[0]+=kbT*calc_ent(cv[ic_dim/c_dim]);
     }
     
-    atoms->update(dE_ptr);
+    dynamic->update(dE_ptr);
     
     istart=0;
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
@@ -1094,17 +1088,17 @@ void ForceField_eam_dmd_II::calc_mu()
         for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
         {
             jc_dim=phi_psi_cmp[istart];
-            mu[ic_dim]+=psi_IJ[istart]*c[jc_dim]*dE[jc_dim];
+            mu[ic_dim]+=psi_IJ[istart]*cvec[jc_dim]*dE[jc_dim];
             
             if(jc_dim<phi_psi_sz_sz)
             {
-                mu[jc_dim]+=psi_JI[istart]*c[ic_dim]*dE[ic_dim];
+                mu[jc_dim]+=psi_JI[istart]*cvec[ic_dim]*dE[ic_dim];
             }
             istart++;
         }
     }
     
-    atoms->update(mu_ptr);
+    dynamic->update(mu_ptr);
 }
 /*--------------------------------------------
  create the sparse matrices
@@ -1136,7 +1130,6 @@ void ForceField_eam_dmd_II::init_static()
     
     
     int no_pairs=neighbor->no_pairs;
-    int natms=atoms->natms;
     phi_psi_sz_sz=natms*c_dim;
     
     CREATE1D(phi_psi_sz,phi_psi_sz_sz);
@@ -1155,8 +1148,8 @@ void ForceField_eam_dmd_II::init_static()
         phi_psi_sz[i]=0;
     
     
-    type0* c=mapp->c->begin();
-    dmd_type* type=mapp->ctype->begin();
+    type0* cvec=c->begin();
+    atom_type* typevec=type->begin();
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
     
@@ -1169,18 +1162,18 @@ void ForceField_eam_dmd_II::init_static()
     for(int iatm=0;iatm<natms;iatm++)
     {
         
-        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && c[ic_dim]>=0.0;ic_dim++)
+        for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
         {
-            itype=type[ic_dim];
+            itype=typevec[ic_dim];
             
             iistart=istart;
             for(int j=0,jatm;j<neighbor_list_size[iatm];j++)
             {
                 jatm=neighbor_list[iatm][j];
 
-                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && c[jc_dim]>=0.0;jc_dim++)
+                for(int jc_dim=jatm*c_dim,jtype;jc_dim<(jatm+1)*c_dim && cvec[jc_dim]>=0.0;jc_dim++)
                 {
-                    jtype=type[jc_dim];
+                    jtype=typevec[jc_dim];
                     
                     psi_ij=rho_phi[iistart+type2rho_pair_ij[itype][jtype]];
                     psi_ji=rho_phi[iistart+type2rho_pair_ji[jtype][itype]];
@@ -1258,10 +1251,10 @@ void ForceField_eam_dmd_II::init_static()
 void ForceField_eam_dmd_II::
 force_calc_static(bool st_clc)
 {
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* fvec=f->begin();
     type0* dE=dE_ptr->begin();
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     
     int i_comp,I_comp;
     int j_comp,J_comp;
@@ -1282,27 +1275,27 @@ force_calc_static(bool st_clc)
         for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
         {
             jc_dim=phi_psi_cmp[istart];
-            fpair=-(psi_r_JI[istart]*dE[ic_dim]+psi_r_IJ[istart]*dE[jc_dim]+phi_r_IJ[istart])*c[ic_dim]*c[jc_dim];
-            apair=-(psi_alpha_JI[istart]*dE[ic_dim]+psi_alpha_IJ[istart]*dE[jc_dim]+phi_alpha_IJ[istart])*c[ic_dim]*c[jc_dim];
+            fpair=-(psi_r_JI[istart]*dE[ic_dim]+psi_r_IJ[istart]*dE[jc_dim]+phi_r_IJ[istart])*cvec[ic_dim]*cvec[jc_dim];
+            apair=-(psi_alpha_JI[istart]*dE[ic_dim]+psi_alpha_IJ[istart]*dE[jc_dim]+phi_alpha_IJ[istart])*cvec[ic_dim]*cvec[jc_dim];
             
             j_comp=(3+c_dim)*(jc_dim/c_dim);
             J_comp=3*(jc_dim/c_dim)+jc_dim;
             
-            dx0=x[i_comp]-x[j_comp];
-            dx1=x[i_comp+1]-x[j_comp+1];
-            dx2=x[i_comp+2]-x[j_comp+2];
+            dx0=xvec[i_comp]-xvec[j_comp];
+            dx1=xvec[i_comp+1]-xvec[j_comp+1];
+            dx2=xvec[i_comp+2]-xvec[j_comp+2];
             
             fvec[i_comp]+=dx0*fpair;
             fvec[i_comp+1]+=dx1*fpair;
             fvec[i_comp+2]+=dx2*fpair;
-            fvec[I_comp]+=apair*x[I_comp];
+            fvec[I_comp]+=apair*xvec[I_comp];
             
             if(jc_dim<phi_psi_sz_sz)
             {
                 fvec[j_comp]-=dx0*fpair;
                 fvec[j_comp+1]-=dx1*fpair;
                 fvec[j_comp+2]-=dx2*fpair;
-                fvec[J_comp]+=apair*x[J_comp];
+                fvec[J_comp]+=apair*xvec[J_comp];
             }
             
             if(jc_dim>=phi_psi_sz_sz)
@@ -1321,8 +1314,8 @@ force_calc_static(bool st_clc)
             istart++;
         }
         
-        if(c[ic_dim]>0.0)
-            fvec[I_comp]+=3.0*kbT*c[ic_dim]/x[I_comp];
+        if(cvec[ic_dim]>0.0)
+            fvec[I_comp]+=3.0*kbT*cvec[ic_dim]/xvec[I_comp];
     }
     
     if(st_clc)
@@ -1342,27 +1335,27 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
 {
     calc_mu();
     
-    type0* c=mapp->c->begin();
-    type0* x=atoms->x->begin();
-    dmd_type* type=mapp->ctype->begin();
+    type0* cvec=c->begin();
+    type0* xvec=x->begin();
+    atom_type* typevec=type->begin();
     type0* mu=mu_ptr->begin();
     type0* cv=cv_ptr->begin();
     
     int istart;
     
     
-    type0* c_d=mapp->c_d->begin();
+    type0* c_dvec=c_d->begin();
     for(int i=0;i<phi_psi_sz_sz;i++)
     {
-        c_d[i]=0.0;
-        if(c[i]>=0.0)
-            g[i]=c[i]+a[i];
+        c_dvec[i]=0.0;
+        if(cvec[i]>=0.0)
+            g[i]=cvec[i]+a[i];
         else
             g[i]=0.0;
     }
     
     if(alpha<0.0)
-        error->abort("alpha less than 0.0");
+        Error::abort("alpha less than 0.0");
     
     type0 iota=log(alpha);
     alpha_tmp=alpha;
@@ -1378,10 +1371,10 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
     istart=0;
     for(int ic_dim=0,itype;ic_dim<phi_psi_sz_sz;ic_dim++)
     {
-        itype=type[ic_dim];
+        itype=typevec[ic_dim];
         icmp=ic_dim%c_dim;
         iatm=ic_dim/c_dim;
-        xi=x+x_dim*iatm;
+        xi=xvec+x_dim*iatm;
         alpha_i=xi[3+icmp];
         
         for(int j=0,jc_dim;j<neighbor_list_size_2nd[ic_dim];j++)
@@ -1389,7 +1382,7 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
             jc_dim=neighbor_list_2nd[ic_dim][j];
             jcmp=jc_dim%c_dim;
             jatm=jc_dim/c_dim;
-            xj=x+x_dim*jatm;
+            xj=xvec+x_dim*jatm;
             alpha_j=xj[3+icmp];
             mu_ji=beta*(mu[jc_dim]-mu[ic_dim]);
             
@@ -1400,8 +1393,8 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
             
             
             calc_Q_all(
-            c[ic_dim],cv[iatm],alpha_i,
-            c[jc_dim],cv[jatm],alpha_j,
+            cvec[ic_dim],cv[iatm],alpha_i,
+            cvec[jc_dim],cv[jatm],alpha_j,
             itype,x_ij_sq,mu_ji,
             iota,
             dc_ij,dg_ij,zeta,theta);
@@ -1410,17 +1403,17 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
             M_IJ[istart]=theta;
 
             g[ic_dim]-=dg_ij;
-            c_d[ic_dim]+=dc_ij;
+            c_dvec[ic_dim]+=dc_ij;
             
             if(jc_dim<phi_psi_sz_sz)
             {
                 g[jc_dim]+=dg_ij;
-                c_d[jc_dim]-=dc_ij;
+                c_dvec[jc_dim]-=dc_ij;
             }
             
             istart++;
         }
-        if(c[ic_dim]>=0.0)
+        if(cvec[ic_dim]>=0.0)
         {
             ans_lcl+=g[ic_dim]*g[ic_dim];
         }
@@ -1435,8 +1428,9 @@ type0 ForceField_eam_dmd_II::update_J(type0 alpha,type0* a,type0* g)
  --------------------------------------------*/
 void ForceField_eam_dmd_II::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
 {
+    dynamic->update(x_ptr);
     type0 tmp0;
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     type0* ddE=E_ptr->begin();
     type0* dE=dE_ptr->begin();
     type0* x=x_ptr->begin();
@@ -1452,13 +1446,13 @@ void ForceField_eam_dmd_II::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
         for(int j=0,jc_dim;j<phi_psi_sz[ic_dim];j++)
         {
             jc_dim=phi_psi_cmp[istart];
-            Ax[ic_dim]+=c[ic_dim]*ddE[ic_dim]*psi_JI[istart]*x[jc_dim];
+            Ax[ic_dim]+=cvec[ic_dim]*ddE[ic_dim]*psi_JI[istart]*x[jc_dim];
             if(jc_dim<phi_psi_sz_sz)
-                Ax[jc_dim]+=c[jc_dim]*ddE[jc_dim]*psi_IJ[istart]*x[ic_dim];
+                Ax[jc_dim]+=cvec[jc_dim]*ddE[jc_dim]*psi_IJ[istart]*x[ic_dim];
             istart++;
         }
     
-    atoms->update(Ax_ptr);
+    dynamic->update(Ax_ptr);
     
     istart=0;
     for(int ic_dim=0;ic_dim<phi_psi_sz_sz;ic_dim++)
@@ -1474,15 +1468,15 @@ void ForceField_eam_dmd_II::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
             istart++;
         }
     
-    atoms->update(crd_ptr);
+    dynamic->update(crd_ptr);
     
     type0* x_tmp=x_tmp_ptr->begin();
     type0* cv=cv_ptr->begin();
-    for(int i=0;i<atoms->natms+atoms->natms_ph;i++)
+    for(int i=0;i<natms+natms_ph;i++)
     {
         x_tmp[i]=0.0;
         for(int j=0;j<c_dim;j++)
-            if(c[i*c_dim+j]>=0.0)
+            if(cvec[i*c_dim+j]>=0.0)
                 x_tmp[i]+=x[i*c_dim+j];
     }
 
@@ -1500,12 +1494,12 @@ void ForceField_eam_dmd_II::operator()(Vec<type0>* x_ptr,Vec<type0>* Ax_ptr)
             jc_dim=neighbor_list_2nd[ic_dim][j];
             
             
-            tmp0=N_IJ[istart]*(c[jc_dim]*x[ic_dim]-c[ic_dim]*x[jc_dim]);
+            tmp0=N_IJ[istart]*(cvec[jc_dim]*x[ic_dim]-cvec[ic_dim]*x[jc_dim]);
             if(M_IJ[istart])
             {
                 tmp0+=(b0[jc_dim]-b0[ic_dim])*beta;
-                tmp0+=(x[jc_dim]/c[jc_dim]+x_tmp[jc_dim/c_dim]/cv[jc_dim/c_dim]);
-                tmp0-=(x[ic_dim]/c[ic_dim]+x_tmp[ic_dim/c_dim]/cv[ic_dim/c_dim]);
+                tmp0+=(x[jc_dim]/cvec[jc_dim]+x_tmp[jc_dim/c_dim]/cv[jc_dim/c_dim]);
+                tmp0-=(x[ic_dim]/cvec[ic_dim]+x_tmp[ic_dim/c_dim]/cv[ic_dim/c_dim]);
                 tmp0*=M_IJ[istart];
             }
 
@@ -1587,7 +1581,7 @@ type0& dc_ij,type0& dg_ij,type0& zeta,type0& theta)
     dz0=30.0*z0*(1.0-z0)/d;
     if(z0<0.0 || z0>1.0)
     {
-        error->abort("could not find z0");
+        Error::abort("could not find z0");
     }
     
     
@@ -1670,7 +1664,7 @@ calc_Q_all(
     z0=-4.0*gamma_i/((xi-a)-d);
     if(z0<0.0 || z0>1.0)
     {
-        error->abort("could not find z0");
+        Error::abort("could not find z0");
     }
     
     

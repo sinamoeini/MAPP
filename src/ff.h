@@ -5,6 +5,7 @@
 #ifndef __MAPP__ff__
 #define __MAPP__ff__
 #include "type_def.h"
+#include <mpi.h>
 namespace MAPP_NS
 {
     template<typename> class Vec;
@@ -20,6 +21,12 @@ namespace MAPP_NS
         void cut_off_dealloc();
         virtual void force_calc(bool)=0;
         virtual type0 energy_calc()=0;
+        
+        class AtomTypes*& atom_types;
+        Vec<type0>*& x;
+        MPI_Comm& world;
+        int& natms;
+        int& natms_ph;
     public:
         ForceField();
         virtual ~ForceField();
@@ -28,6 +35,7 @@ namespace MAPP_NS
         virtual void init()=0;
         virtual void fin()=0;
         virtual void coef(int,char**)=0;
+        class Neighbor* neighbor;
         type0* rsq_crd;
         type0** cut;
         type0** cut_sq;
@@ -56,9 +64,11 @@ namespace MAPP_NS
         virtual void pre_xchng_energy(class GCMC*)=0;
         virtual type0 xchng_energy(class GCMC*)=0;
         virtual void post_xchng_energy(class GCMC*)=0;
+        
+        Vec<atom_type>*& type;
     public:
-        ForceFieldMD():ForceField(){}
-        virtual ~ForceFieldMD(){}
+        ForceFieldMD();
+        virtual ~ForceFieldMD();
         virtual void init_xchng()=0;
         virtual void fin_xchng()=0;
         
@@ -79,10 +89,13 @@ namespace MAPP_NS
         virtual void dc()=0;
         virtual type0 ddc_norm()=0;
         virtual void ddc(type0*)=0;
+        
+        Vec<atom_type>*& type;
+        Vec<type0>*& c;
+        Vec<type0>*& c_d;
     public:
-        ForceFieldDMD():ForceField()
-        {dynamic_flag=true;}
-        virtual ~ForceFieldDMD(){}
+        ForceFieldDMD();
+        virtual ~ForceFieldDMD();
         virtual void init()=0;
         virtual void fin()=0;
         virtual void coef(int,char**)=0;

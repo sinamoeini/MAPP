@@ -4,9 +4,9 @@
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
-#include "write.h"
 #include "thermo_dynamics.h"
 #include "MAPP.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -17,7 +17,7 @@ DMD_fe::DMD_fe(int nargs
     if(nargs>2)
     {
         if(nargs%2!=0)
-            error->abort("every keyword in dmd adams should be followed by it's value");
+            Error::abort("every keyword in dmd adams should be followed by it's value");
         int iarg=2;
         while(iarg<nargs)
         {
@@ -40,17 +40,17 @@ DMD_fe::DMD_fe(int nargs
                 iarg++;
             }
             else
-                error->abort("unknown keyword in dmd fe: %s",args[iarg]);
+                Error::abort("unknown keyword in dmd fe: %s",args[iarg]);
         }
     }
         
 
     if(max_step<0)
-        error->abort("max_step in dmd fe should be greater than 0");
+        Error::abort("max_step in dmd fe should be greater than 0");
     if(a_tol<=0.0)
-        error->abort("a_tol in dmd fe should be greater than 0.0");
+        Error::abort("a_tol in dmd fe should be greater than 0.0");
     if(dt_min<=0.0)
-        error->abort("dt_min in dmd fe should be greater than 0.0");
+        Error::abort("dt_min in dmd fe should be greater than 0.0");
 
 }
 /*--------------------------------------------
@@ -108,24 +108,24 @@ void DMD_fe::restart(type0& del_t,int& q)
         }
     }
     
-    memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
-    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+    memcpy(y,c->begin(),ncs*sizeof(type0));
+    memcpy(dy,c_d->begin(),ncs*sizeof(type0));
 }
 /*--------------------------------------------
  store the vectors
  --------------------------------------------*/
 void DMD_fe::store_vecs(type0 del_t)
 {
-    memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
-    memcpy(dy,mapp->c_d->begin(),ncs*sizeof(type0));
+    memcpy(y,c->begin(),ncs*sizeof(type0));
+    memcpy(dy,c_d->begin(),ncs*sizeof(type0));
 }
 /*--------------------------------------------
  run
  --------------------------------------------*/
 void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
 {
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
     
     int idof;
     int err_chk=1;
@@ -138,25 +138,25 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         {
             if(y[idof]>=0.0)
             {
-                c[idof]=y[idof]+0.5*del_t*dy[idof];
+                cvec[idof]=y[idof]+0.5*del_t*dy[idof];
                 
-                if(c[idof]<0.0 || c[idof]>1.0)
+                if(cvec[idof]<0.0 || cvec[idof]>1.0)
                 {
-                    while (c[idof]<0.0)
+                    while (cvec[idof]<0.0)
                     {
                         r_lcl=-y[idof]/(0.5*(r_lcl*del_t));
-                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*dy[idof];
+                        cvec[idof]=y[idof]+0.5*(r_lcl*del_t)*dy[idof];
                     }
                     
-                    while (c[idof]>1.0)
+                    while (cvec[idof]>1.0)
                     {
                         r_lcl=(1.0-y[idof])/(0.5*(r_lcl*del_t));
-                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*dy[idof];
+                        cvec[idof]=y[idof]+0.5*(r_lcl*del_t)*dy[idof];
                     }
                 }
             }
             else
-                c[idof]=y[idof];
+                cvec[idof]=y[idof];
             
             idof++;
         }
@@ -165,13 +165,13 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         {
             if(t_fin-t_cur<=2.0*dt_min)
             {
-                error->abort("reached minimum del_t (%e)",del_t);
+                Error::abort("reached minimum del_t (%e)",del_t);
             }
             else
             {
                 if(del_t==dt_min)
                 {
-                    error->abort("reached minimum del_t (%e)",del_t);
+                    Error::abort("reached minimum del_t (%e)",del_t);
                 }
                 else
                 {
@@ -187,14 +187,14 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
             continue;
         }
         
-        atoms->update(mapp->c);
+        dynamic->update(c);
         forcefield_dmd->dc_timer();
         
         err_lcl=0.0;
         for(int i=0;i<ncs;i++)
         {
-            if(c[i]>=0.0)
-                err_lcl+=(c_d[i]-dy[i])*(c_d[i]-dy[i]);
+            if(cvec[i]>=0.0)
+                err_lcl+=(c_dvec[i]-dy[i])*(c_dvec[i]-dy[i]);
         }
         
         err=0.0;
@@ -212,25 +212,25 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         {
             if(y[idof]>=0.0)
             {
-                c[idof]=y[idof]+0.5*del_t*(dy[idof]+c_d[idof]);
+                cvec[idof]=y[idof]+0.5*del_t*(dy[idof]+c_dvec[idof]);
                 
-                if(c[idof]<0.0 ||c[idof]>1.0)
+                if(cvec[idof]<0.0 ||cvec[idof]>1.0)
                 {
-                    while (c[idof]<0.0)
+                    while (cvec[idof]<0.0)
                     {
                         r_lcl=-y[idof]/(0.5*(del_t*r_lcl));
-                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*(dy[idof]+c_d[idof]);
+                        cvec[idof]=y[idof]+0.5*(r_lcl*del_t)*(dy[idof]+c_dvec[idof]);
                     }
                     
-                    while (c[idof]>1.0)
+                    while (cvec[idof]>1.0)
                     {
                         r_lcl=(1.0-y[idof])/(0.5*(del_t*r_lcl));
-                        c[idof]=y[idof]+0.5*(r_lcl*del_t)*(dy[idof]+c_d[idof]);
+                        cvec[idof]=y[idof]+0.5*(r_lcl*del_t)*(dy[idof]+c_dvec[idof]);
                     }
                 }
             }
             else
-                c[idof]=y[idof];
+                cvec[idof]=y[idof];
             
             idof++;
         }
@@ -239,13 +239,13 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         {
             if(t_fin-t_cur<=2.0*dt_min)
             {
-                error->abort("reached minimum del_t (%e)",del_t);
+                Error::abort("reached minimum del_t (%e)",del_t);
             }
             else
             {
                 if(del_t==dt_min)
                 {
-                    error->abort("reached minimum del_t (%e)",del_t);
+                    Error::abort("reached minimum del_t (%e)",del_t);
                 }
                 else
                 {
@@ -262,7 +262,7 @@ void DMD_fe::interpolate_n_err(type0& err,type0& del_t)
         else
         {
             err_chk=0;
-            atoms->update(mapp->c);
+            dynamic->update(c);
             forcefield_dmd->dc_timer();
             
         }

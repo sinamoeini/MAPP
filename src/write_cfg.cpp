@@ -63,20 +63,20 @@ Write_cfg::Write_cfg(int nargs,char** args):Write()
         {
             iarg++;
             if(iarg==nargs)
-                error->abort("thresh in write cfg should be followed by it's value");
+                Error::abort("thresh in write cfg should be followed by it's value");
             thresh=atof(args[iarg]);
             if(thresh<0.0 || thresh>1.0)
-                error->abort("thresh in write cfg should be between 0.0 & 1.0");
+                Error::abort("thresh in write cfg should be between 0.0 & 1.0");
             iarg++;
         }
         else if(strcmp(args[iarg],"stretch")==0)
         {
             iarg++;
             if(iarg==nargs)
-                error->abort("stretch in write cfg should be followed by it's value");
+                Error::abort("stretch in write cfg should be followed by it's value");
             strech=atof(args[iarg]);
             if(strech<0.0)
-                error->abort("stretch in write cfg should be greater than 0.0");
+                Error::abort("stretch in write cfg should be greater than 0.0");
             iarg++;
         }
         else
@@ -203,8 +203,8 @@ void Write_cfg::write_file_md(int stp)
                 sort[i]=-1;
             for(int i=0;i<tot_natms;i++)
                 sort[id[i]]=i;
-            md_type* type=mapp->type->begin_dump();
-            md_type itype=-1;
+            atom_type* type=mapp->type->begin_dump();
+            atom_type itype=-1;
             int iatm;
             for(int i=0;i<max_id;i++)
             {
@@ -252,8 +252,8 @@ void Write_cfg::write_file_md(int stp)
             }
             int tot_natms=atoms->tot_natms;
             
-            md_type* type=mapp->type->begin_dump();
-            md_type itype=-1;
+            atom_type* type=mapp->type->begin_dump();
+            atom_type itype=-1;
             for(int iatm=0;iatm<tot_natms;iatm++)
             {
                 if(type[iatm]!=itype)
@@ -305,7 +305,7 @@ void Write_cfg::open_write(int stp,FILE*& fp,FILE*& fp_usr)
     }
     MPI_Bcast(&chk,1,MPI_INT,0,world);
     if(!chk)
-        error->abort("Cannot create file %s for write cfg",filename);
+        Error::abort("Cannot create file %s for write cfg",filename);
     
 
     if(usr_nabled)
@@ -320,7 +320,7 @@ void Write_cfg::open_write(int stp,FILE*& fp,FILE*& fp_usr)
         }
         MPI_Bcast(&chk,1,MPI_INT,0,world);
         if(!chk)
-            error->abort("Cannot create file %s for write cfg",filename);
+            Error::abort("Cannot create file %s for write cfg",filename);
     }
     
     

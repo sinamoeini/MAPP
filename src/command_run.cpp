@@ -14,14 +14,14 @@ Command_run::Command_run(int nargs,char** args)
     if(mode==MD_mode)
     {
         if(md==NULL)
-            error->abort("before run, ensemble should be initialized");
+            Error::abort("before run, ensemble should be initialized");
         
         if(nargs!=2)
-            error->abort("run should have 1 argument");
+            Error::abort("run should have 1 argument");
         
         int steps=atoi(args[1]);
         if(steps<0)
-            error->abort("run should be "
+            Error::abort("run should be "
                          "greater than 0");
         
         md->init();
@@ -31,9 +31,9 @@ Command_run::Command_run(int nargs,char** args)
     else if(mode==DMD_mode)
     {
         if(dmd==NULL)
-            error->abort("before run, dmd should be initialized");
+            Error::abort("before run, dmd should be initialized");
         if(nargs!=2)
-            error->abort("run should have 1 argument");
+            Error::abort("run should have 1 argument");
         
         dmd->init();
         dmd->run(atof(args[1]));

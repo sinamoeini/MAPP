@@ -14,7 +14,7 @@ Command_fix::Command_fix(int nargs,char** args)
     if(strcmp(args[1],"release")==0)
     {
         if(nargs!=2)
-            error->abort("incorrect fix command");
+            Error::abort("incorrect fix command");
         
         if(mapp->x_dof)
         {
@@ -33,7 +33,7 @@ Command_fix::Command_fix(int nargs,char** args)
     
     int iarg;
     int dim=__dim__;
-    int no_types=atom_types->no_types;
+    int no_types=mapp->atom_types->no_types;
     byte* x_dof;
     byte* alpha_dof;
     byte* c_dof;
@@ -65,17 +65,17 @@ Command_fix::Command_fix(int nargs,char** args)
         else if(sscanf(args[iarg],"c[%d]",&c_comp)==1)
         {
             if(mode!=DMD_mode)
-                error->abort("c[%d] can only be used in dmd mode",c_comp);
+                Error::abort("c[%d] can only be used in dmd mode",c_comp);
             if(c_comp>=no_types || c_comp<0)
-                error->abort("invalid c component %d",c_comp);
+                Error::abort("invalid c component %d",c_comp);
             c_dof[c_comp]=false;
         }
         else if(sscanf(args[iarg],"alpha[%d]",&alpha_comp)==1)
         {
             if(mode!=DMD_mode)
-                error->abort("alpha[%d] can only be used in dmd mode",alpha_comp);
+                Error::abort("alpha[%d] can only be used in dmd mode",alpha_comp);
             if(alpha_comp>=no_types || alpha_comp<0)
-                error->abort("invalid alpha component %d",alpha_comp);
+                Error::abort("invalid alpha component %d",alpha_comp);
             alpha_dof[alpha_comp]=false;
         }
         else
@@ -87,14 +87,14 @@ Command_fix::Command_fix(int nargs,char** args)
     }
     
     if(iarg>=nargs)
-        error->abort("at least 2 file have to be provided for fix command");
+        Error::abort("at least 2 file have to be provided for fix command");
     
     if(strcmp(args[iarg],"group")==0)
     {
         
     }
     else
-        error->abort("unknown keyword %s",args[iarg]);
+        Error::abort("unknown keyword %s",args[iarg]);
     iarg++;
     
     int ngrps=nargs-iarg;
@@ -103,7 +103,7 @@ Command_fix::Command_fix(int nargs,char** args)
     
     for(int i=0;i<ngrps;i++)
     {
-        Group* grp=groups->find_grp(args[iarg]);
+        Group* grp=mapp->groups->find_grp(args[iarg]);
         grp->get_idx(grp_sz[i],grp_idx[i]);
         iarg++;
     }
@@ -176,7 +176,7 @@ Command_fix::Command_fix(int nargs,char** args)
     
     if(alpha_xst)
     {
-        dmd_type* type=mapp->ctype->begin();
+        atom_type* type=mapp->ctype->begin();
         bool* dof=mapp->x_dof->begin();
         int icurs;
         int jcurs;
@@ -198,7 +198,7 @@ Command_fix::Command_fix(int nargs,char** args)
     
     if(c_xst)
     {
-        dmd_type* type=mapp->ctype->begin();
+        atom_type* type=mapp->ctype->begin();
         bool* cdof=mapp->c_dof->begin();
         int icurs;
         

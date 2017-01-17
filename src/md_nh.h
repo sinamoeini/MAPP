@@ -70,10 +70,11 @@ namespace MAPP_NS
         
         void cmd(int,char**);
         void modify_vrial();
+        void modify_stress();
         
         // gcmc related values
         type0 mu;
-        md_type gas_type;
+        atom_type gas_type;
         int xchng_every;
         int nxchng_attmpts;
         int xchng_seed;
@@ -88,5 +89,28 @@ namespace MAPP_NS
         void run(int);
     };
 }
+
+namespace MAPP_NS
+{
+    class ThermostatNHC
+    {
+    private:
+        const type0& T;
+        const type0 ddt;
+        const type0 ddt2;
+        const type0 ddt4;
+        const type0 freq_sq;
+        const int nchain;
+        const int niter;
+        type0* __restrict eta_d;
+        type0* __restrict eta_dd;
+    protected:
+    public:
+        ThermostatNHC(const type0&,const type0,const type0,const int,const int);
+        ~ThermostatNHC();
+        type0 operator()(type0,int);
+    };
+}
+
 #endif
 #endif

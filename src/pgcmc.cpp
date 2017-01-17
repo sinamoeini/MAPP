@@ -12,12 +12,14 @@
 #include "md.h"
 #include "xmath.h"
 #include "MAPP.h"
+#include "comm.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-PGCMC::PGCMC(int m_,dmd_type gas_type_,type0 mu_,type0 T_,int seed):
-GCMC(gas_type_,mu_,T_,seed),
+PGCMC::PGCMC(Dynamic*& dynamic_,int m_,atom_type gas_type_,type0 mu_,type0 T_,int seed):
+GCMC(dynamic_,gas_type_,mu_,T_,seed),
 m(m_)
 {
     n_comm=0;
@@ -210,7 +212,7 @@ void PGCMC::box_dismantle()
  --------------------------------------------*/
 void PGCMC::xchng(bool box_chng,int nattmpts)
 {
-    atoms->init_xchng();
+    dynamic->init_xchng();
     if(box_chng)
         box_setup();
     
@@ -244,7 +246,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
         head_atm[cell_vec[i]]=i;
     }
     
-    neighbor->create_list(box_chng);
+    forcefield->neighbor->create_list(box_chng);
 #ifdef MPP_DEBUG
     type0 en_before=ff->energy_calc_timer();
     tot_du_test=0.0;
@@ -255,7 +257,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
         atoms->vecs[i]->resize(natms);
     
     ngas=0;
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     for(int i=0;i<natms;i++)
         if(type[i]==gas_type) ngas++;
     MPI_Allreduce(&ngas,&tot_ngas,1,MPI_INT,MPI_SUM,world);
@@ -278,7 +280,7 @@ void PGCMC::xchng(bool box_chng,int nattmpts)
     delete next_vec_p;
     delete cell_vec_p;
     delete tag_vec_p;
-    atoms->fin_xchng();
+    dynamic->fin_xchng();
     
 #ifdef MPP_DEBUG
     type0 tot_en=0;
@@ -592,7 +594,7 @@ void PGCMC::attmpt()
             
             int n=igas;
             int icount=-1;
-            md_type* type=mapp->type->begin();
+            atom_type* type=mapp->type->begin();
             del_idx=0;
             for(;icount!=n;del_idx++)
                 if(type[del_idx]==gas_type) icount++;
@@ -737,7 +739,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     ip=atoms->my_p;
     n_p=atoms->tot_p;
  
-    memcpy(p_vec,atoms->comm->my_loc,sizeof(int)*__dim__);
+    memcpy(p_vec,comm->my_loc,sizeof(int)*__dim__);
     
     
     /*-----------------------------------------------------------------------------------------
@@ -755,7 +757,7 @@ void PGCMC::comms_setup(int n_vars_,int n_s_)
     int comm_id_sz=0;
     for(int i=0;i<__dim__;i++)
     {
-        N_p[i]=atoms->comm->tot_p_grid[i];
+        N_p[i]=comm->tot_p_grid[i];
         N_c[i]=static_cast<int>(ceil(static_cast<type0>(N_p[i])*cut_s[i]));
         N_s[i]=static_cast<int>(ceil(static_cast<type0>(n_s*N_p[i])*cut_s[i]));
         N_prll[i]=MAX(N_p[i]/(N_s[i]+1),1);
@@ -867,7 +869,7 @@ void PGCMC::split_sing()
             MPI_Comm_size(comms[jcomm],&jsize);
             
             if(jrank!=jkey || n_pcomm!=jsize)
-                error->abort_sing("[%d,%d,%d] %d/%d!=%d/%d color=%d",p_vec[0],p_vec[1],p_vec[2],jkey,n_pcomm,jrank,jsize,jcolor);
+                Error::abort_sing("[%d,%d,%d] %d/%d!=%d/%d color=%d",p_vec[0],p_vec[1],p_vec[2],jkey,n_pcomm,jrank,jsize,jcolor);
         }
         else
             MPI_Comm_split(world,jcolor,ip,&dummy);
@@ -967,7 +969,7 @@ void PGCMC::split_mult()
             MPI_Comm_size(comms[jcomm],&jsize);
             
             if(jrank!=jkey || n_pcomm!=jsize)
-                error->abort_sing("[%d,%d,%d] %d/%d!=%d/%d color=%d",p_vec[0],p_vec[1],p_vec[2],jkey,n_pcomm,jrank,jsize,jcolor);
+                Error::abort_sing("[%d,%d,%d] %d/%d!=%d/%d color=%d",p_vec[0],p_vec[1],p_vec[2],jkey,n_pcomm,jrank,jsize,jcolor);
         }
         else
             MPI_Comm_split(world,jcolor,ip,&dummy);

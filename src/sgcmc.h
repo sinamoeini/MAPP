@@ -103,7 +103,7 @@ namespace MAPP_NS
         void box_dismantle();
 
     public:
-        SGCMC(int,dmd_type,type0,type0,int);
+        SGCMC(class Dynamic*&,int,atom_type,type0,type0,int);
         ~SGCMC();
         
         void init();

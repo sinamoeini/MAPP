@@ -18,8 +18,8 @@ namespace MAPP_NS
         MAPP(int,char**);
         ~MAPP();
         int no_commands;
-        Vec<md_type>* type;
-        Vec<dmd_type>* ctype;
+        Vec<atom_type>* type;
+        Vec<atom_type>* ctype;
         Vec<type0>* x_d;
         Vec<type0>* c;
         Vec<type0>* c_d;
@@ -28,6 +28,11 @@ namespace MAPP_NS
         
         FILE* input_file;
         FILE* my_debug;
+        
+        class Timer* timer;
+        class GroupCollection* groups;
+        class AtomTypes* atom_types;
+        
         
         void read_file();
         void command_style(int,char**);

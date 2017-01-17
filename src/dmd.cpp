@@ -10,6 +10,9 @@
 #include "gmres.h"
 #include "MAPP.h"
 #include "script_reader.h"
+#include "ff.h"
+#include "comm.h"
+#include "dynamic.h"
 #include <limits>
 //#define DMD_DEBUG
 using namespace MAPP_NS;
@@ -17,14 +20,18 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 DMD::DMD():
-nrgy_strss(forcefield->nrgy_strss)
+nrgy_strss(forcefield->nrgy_strss),
+c(mapp->c),
+c_d(mapp->c_d),
+__write__(write),
+world(comm->world)
 {
     if(forcefield==NULL)
-        error->abort("ff should be "
+        Error::abort("ff should be "
         "initiated before dmd");
     
     if(mode!=DMD_mode)
-        error->abort("dmd works only "
+        Error::abort("dmd works only "
         "for md mode");
     
     char** args;
@@ -44,9 +51,9 @@ nrgy_strss(forcefield->nrgy_strss)
 
     
     
-    c_dim=mapp->c->dim;
+    c_dim=c->dim;
     forcefield_dmd=dynamic_cast<ForceFieldDMD*>(forcefield);
-    neighbor_dmd=dynamic_cast<Neighbor_dmd*>(neighbor);
+    neighbor_dmd=dynamic_cast<NeighborDMD*>(forcefield->neighbor);
     
     a_tol=sqrt(2.0*std::numeric_limits<type0>::epsilon());
     dt_min=std::numeric_limits<type0>::epsilon();
@@ -88,7 +95,7 @@ void DMD::coef(int nargs,char** args)
         min_flag=STEP_FLAG;
     }
     else
-        error->abort("unknown keyword");
+        Error::abort("unknown keyword");
 }
 /*--------------------------------------------
  destructor
@@ -115,7 +122,7 @@ void DMD::dmd_min(int nargs,char** args)
     if(0){}
     #include "min_styles.h"
     else
-        error->abort("wrong style of minimization"
+        Error::abort("wrong style of minimization"
         ": %s",args[1]);
     #undef Min_Style
     #undef MinStyle
@@ -131,9 +138,9 @@ void DMD::dmd_min(int nargs,char** args)
 void DMD::run(type0 t)
 {
     if(t<=0.0)
-        error->abort("t_fin in dmd should be greater than 0.0");
+        Error::abort("t_fin in dmd should be greater than 0.0");
     if(dt_min>t)
-        error->abort("t_fin in dmd should be greater than dt_min");
+        Error::abort("t_fin in dmd should be greater than dt_min");
     t_fin=t;
     run();
 }
@@ -156,8 +163,8 @@ bool DMD::decide_min(int& istep,type0& del_t)
 {
     max_succ_dt=MAX(max_succ_dt,del_t);
     t_cur+=del_t;
-    if(write)
-        write->write();
+    if(__write__)
+        __write__->write();
     thermo->thermo_print();
     
     bool thermo_flag=(thermo->test_prev_step()
@@ -213,7 +220,7 @@ bool DMD::decide_min(int& istep,type0& del_t)
  --------------------------------------------*/
 void DMD::rectify(type0* f)
 {
-    if(mapp->c_dof==NULL)
+    if(!mapp->c_dof)
         return;
     
     bool* cdof=mapp->c_dof->begin();
@@ -225,19 +232,19 @@ void DMD::rectify(type0* f)
  --------------------------------------------*/
 type0 DMD::calc_nc_dofs()
 {
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     type0 ndofs_lcl=0.0;
     if(mapp->c_dof==NULL)
     {
         for(int idof=0;idof<atoms->natms*c_dim;idof++)
-            if(c[idof]>=0.0)
+            if(cvec[idof]>=0.0)
                 ndofs_lcl++;
     }
     else
     {
         bool* c_dof=mapp->c_dof->begin();
         for(int idof=0;idof<atoms->natms*c_dim;idof++)
-            if(c[idof]>=0.0 && c_dof[idof])
+            if(cvec[idof]>=0.0 && c_dof[idof])
                 ndofs_lcl++;
     }
     
@@ -257,28 +264,27 @@ void DMD::init()
     t_cur=0.0;
     nc_dofs=calc_nc_dofs();
     if(nc_dofs==0.0)
-        error->abort("cannot start a dmd with no degrees of freedom");
+        Error::abort("cannot start a dmd with no degrees of freedom");
 
-    if(mapp->c_d==NULL)
+    if(!c_d)
     {
-        mapp->c_d=new Vec<type0>(atoms,mapp->c->orig_dim,"c_d");
-        memset(mapp->c_d->begin(),0,atoms->natms*mapp->c->orig_dim*sizeof(type0));
-        if(c_dim!=mapp->c->orig_dim)
-            mapp->c_d->change_dimension(0.0,mapp->c->orig_dim,mapp->c->orig_dim-c_dim);
+        c_d=new Vec<type0>(atoms,c->orig_dim,"c_d");
+        memset(c_d->begin(),0,atoms->natms*c->orig_dim*sizeof(type0));
+        if(c_dim!=c->orig_dim)
+            c_d->change_dimension(0.0,c->orig_dim,c->orig_dim-c_dim);
         
-        delete [] mapp->c_d->print_format;
-        mapp->c_d->print_format=new char[strlen("%e ")+1];
-        memcpy(mapp->c_d->print_format,"%e ",strlen("%e ")+1);
+        delete [] c_d->print_format;
+        c_d->print_format=new char[strlen("%e ")+1];
+        memcpy(c_d->print_format,"%e ",strlen("%e ")+1);
     }
     
     if(min==NULL)
     {
-        old_skin=atoms->get_skin();
-        atoms->set_skin(0.001);
-        vecs_comm=new VecLst(atoms);
-        vecs_comm->add_updt(mapp->c);
-        vecs_comm->add_updt(mapp->ctype);
-        atoms->init(vecs_comm,false);
+        old_skin=comm->skin;
+        comm->skin=0.001;
+        
+        dynamic=new Dynamic(atoms,comm,{c,mapp->ctype},{});
+        dynamic->init(false);
     }
     else
     {
@@ -293,8 +299,8 @@ void DMD::init()
     thermo->update(stress_idx,6,&nrgy_strss[1]);
     thermo->update(time_idx,0.0);
     thermo->init();
-    if(write)
-        write->init();
+    if(__write__)
+        __write__->init();
 
 }
 /*--------------------------------------------
@@ -302,15 +308,16 @@ void DMD::init()
  --------------------------------------------*/
 void DMD::fin()
 {
-    if(write)
-        write->fin();
+    if(__write__)
+        __write__->fin();
     thermo->fin();
     
     if(min==NULL)
     {
-        atoms->fin();
-        delete vecs_comm;
-        atoms->set_skin(old_skin);
+        dynamic->fin();
+        delete dynamic;
+        dynamic=NULL;
+        comm->skin=old_skin;
     }
     else
     {
@@ -318,8 +325,8 @@ void DMD::fin()
     }
     
     print_stats();
-    timer->print_stats();
-    neighbor->print_stats();
+    mapp->timer->print_stats();
+    forcefield->neighbor->print_stats();
     forcefield_dmd->dynamic_flag=true;
 }
 /*--------------------------------------------
@@ -330,7 +337,7 @@ void DMD::print_stats()
     if(atoms->my_p==0)
     {
         fprintf(output,"dmd stats:\n");
-        fprintf(output,"efficiancy fac: %e\n",t_cur/timer->tot_time);
+        fprintf(output,"efficiancy fac: %e\n",t_cur/mapp->timer->tot_time);
         fprintf(output,"no. minimizations performed: %d\n",nmin);
     }
 }
@@ -340,7 +347,7 @@ void DMD::print_stats()
 type0 DMD::vac_msd()
 {
     
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     type0* x=atoms->x->begin();
     int x_dim=atoms->x->dim;
     type0* sum_lcl;
@@ -357,8 +364,8 @@ type0 DMD::vac_msd()
     {
         c_vac=1.0;
         for(int j=0;j<c_dim;j++)
-            if(c[j]>=0.0)
-                c_vac-=c[j];
+            if(cvec[j]>=0.0)
+                c_vac-=cvec[j];
         
         rsq=0.0;
         for(int j=0;j<__dim__;j++)
@@ -370,7 +377,7 @@ type0 DMD::vac_msd()
         sum_lcl[__dim__]+=c_vac*rsq;
         sum_lcl[__dim__+1]+=c_vac;
         
-        c+=c_dim;
+        cvec+=c_dim;
         x+=x_dim;
     }
     
@@ -396,7 +403,7 @@ void DMD::reset()
     neighbor_dmd->create_2nd_list();
     forcefield_dmd->init_static();
     forcefield_dmd->dc_timer();
-    rectify(mapp->c_d->begin());
+    rectify(c_d->begin());
     c_d_norm=1.0;
 }
 /*--------------------------------------------
@@ -423,17 +430,17 @@ bool DMDImplicit::solve_non_lin()
     type0 denom=1.0*a_tol*sqrt(nc_dofs)/err_fac;
     type0 r,r_lcl,norm=1.0,del=0.0,delp=0.0;
     int iter=0,solver_iter;
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     
 
     
     if(max_c_d*dt>0.0)
     {
-        memcpy(c,y_0,ncs*sizeof(type0));
-        atoms->update(mapp->c);
+        memcpy(cvec,y_0,ncs*sizeof(type0));
+        dynamic->update(c);
     }
     
-    type0* c_d=mapp->c_d->begin();
+    type0* c_dvec=c_d->begin();
     cost=cost_p=forcefield_dmd->update_J(beta,a,F)/res_tol;
     
     //printf("dt %e cost %e max_c_d %e\n",dt,cost,max_c_d);
@@ -450,20 +457,20 @@ bool DMDImplicit::solve_non_lin()
         r_lcl=1.0;
         for(int i=0;i<ncs;i++)
         {
-            if(c[i]>=0.0)
+            if(cvec[i]>=0.0)
             {
                 --++del_c[i];
-                tmp=c[i]+r_lcl*del_c[i];
+                tmp=cvec[i]+r_lcl*del_c[i];
                 if(tmp>1.0)
                 {
-                    r_lcl=(1.0-c[i])/del_c[i];
-                    while(c[i]+r_lcl*del_c[i]>1.0)
+                    r_lcl=(1.0-cvec[i])/del_c[i];
+                    while(cvec[i]+r_lcl*del_c[i]>1.0)
                         r_lcl=nextafter(r_lcl,0.0);
                 }
                 if(tmp<0.0)
                 {
-                    r_lcl=-c[i]/del_c[i];
-                    while(c[i]+r_lcl*del_c[i]<0.0)
+                    r_lcl=-cvec[i]/del_c[i];
+                    while(cvec[i]+r_lcl*del_c[i]<0.0)
                         r_lcl=nextafter(r_lcl,0.0);
                 }
             }
@@ -476,13 +483,13 @@ bool DMDImplicit::solve_non_lin()
         
         for(int i=0;i<ncs;i++)
         {
-                c[i]+=r*del_c[i];
-                --++c[i];
+                cvec[i]+=r*del_c[i];
+                --++cvec[i];
         }
         
         del=fabs(r*norm/denom);
 
-        atoms->update(mapp->c);
+        dynamic->update(c);
         cost_p=forcefield_dmd->update_J(beta,a,F)/res_tol;
         cost=MIN(cost_p,del*err_fac*10.0);
         //printf("iter %d max_c_d %e cost_p %e cost %e norm %e r %e| %e\n",iter,max_c_d,cost_p,cost,norm,r,dt);
@@ -491,7 +498,7 @@ bool DMDImplicit::solve_non_lin()
     }
     
     
-    rectify(c_d);
+    rectify(c_dvec);
 
     if(cost<1.0)
     {
@@ -514,7 +521,7 @@ void DMDImplicit::intg_fail()
         if(q>1)
             q--;
         else
-            error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
+            Error::abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
     }
     else
     {
@@ -523,7 +530,7 @@ void DMDImplicit::intg_fail()
             if(q>1)
                 q--;
             else
-                error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
+                Error::abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
         }
         else
         {
@@ -549,7 +556,7 @@ void DMDImplicit::nonl_fail()
         if(q>1)
             q--;
         else
-            error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
+            Error::abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
     }
     else
     {
@@ -558,7 +565,7 @@ void DMDImplicit::nonl_fail()
             if(q>1)
                 q--;
             else
-                error->abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
+                Error::abort("reached minimum order & del_t (%e) at line %d",dt,__LINE__);
         }
         else
         {
@@ -810,14 +817,14 @@ inline void DMDExplicit::fail_stp_adj(type0 err,type0& del_t)
 {
     if(t_fin-t_cur<=2.0*dt_min)
     {
-        error->abort("reached minimum order & del_t (%e) at line %d",del_t,__LINE__);
+        Error::abort("reached minimum order & del_t (%e) at line %d",del_t,__LINE__);
     }
     else
     {
         if(del_t==dt_min)
         {
             
-            error->abort("reached minimum order & del_t (%e) at line %d",del_t,__LINE__);
+            Error::abort("reached minimum order & del_t (%e) at line %d",del_t,__LINE__);
         }
         else
         {

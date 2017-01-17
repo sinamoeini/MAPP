@@ -11,7 +11,7 @@ Command_dmd::Command_dmd
 
 {
     if(nargs<2)
-        error->abort("wrong command: %s"
+        Error::abort("wrong command: %s"
         ,args[0]);
     
     if(dmd)
@@ -29,7 +29,7 @@ Command_dmd::Command_dmd
     if(0){}
     #include "dmd_styles.h"
     else
-        error->abort("wrong style of dmd"
+        Error::abort("wrong style of dmd"
                      ": %s",args[1]);
     #undef DMDStyle    
     #undef DMD_Style

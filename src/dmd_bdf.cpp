@@ -5,7 +5,6 @@
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
-#include "write.h"
 #include "thermo_dynamics.h"
 #include "cmd.h"
 #include "MAPP.h"
@@ -168,16 +167,16 @@ inline void DMD_bdf::start()
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
     dt=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(t_fin-t_cur));
     
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
+    rectify(c_dvec);
     type0* z_=z;
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            z_[0]=c[i];
-            z_[1]=c_d[i];
+            z_[0]=cvec[i];
+            z_[1]=c_dvec[i];
         }
         else
         {
@@ -214,10 +213,10 @@ inline void DMD_bdf::start()
     type0 max_c_d_lcl=0.0;
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            c_d_norm_lcl+=c_d[i]*c_d[i];
-            max_c_d_lcl=MAX(max_c_d_lcl,fabs(c_d[i]));
+            c_d_norm_lcl+=c_dvec[i]*c_dvec[i];
+            max_c_d_lcl=MAX(max_c_d_lcl,fabs(c_dvec[i]));
         }
     }
     MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
@@ -229,12 +228,12 @@ inline void DMD_bdf::start()
  --------------------------------------------*/
 inline void DMD_bdf::update_for_next()
 {
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            dy[i]=c[i]-y_0[i];
+            dy[i]=cvec[i]-y_0[i];
         }
         else
             dy[i]=0.0;
@@ -248,15 +247,15 @@ inline void DMD_bdf::update_for_next()
     dt=dt_new;
     q+=dq;
     
-    type0* c_d=mapp->c_d->begin();
+    type0* c_dvec=c_d->begin();
     type0 c_d_norm_lcl=0.0;
     type0 max_c_d_lcl=0.0;
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            c_d_norm_lcl+=c_d[i]*c_d[i];
-            max_c_d_lcl=MAX(max_c_d_lcl,fabs(c_d[i]));
+            c_d_norm_lcl+=c_dvec[i]*c_dvec[i];
+            max_c_d_lcl=MAX(max_c_d_lcl,fabs(c_dvec[i]));
         }
     }
     MPI_Allreduce(&c_d_norm_lcl,&c_d_norm,1,MPI_TYPE0,MPI_SUM,world);
@@ -288,11 +287,11 @@ void DMD_bdf::interpolate_fail()
     type0 dt_max_lcl=inf,dt_max,y0,dy0;
     type0 dt_max_lcl_;
     type0* z_=z;
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
             if(z_[1]>0.0)
             {
@@ -353,7 +352,7 @@ void DMD_bdf::interpolate_fail()
     z_=z;
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
             y0=0.0;
             for(int j=0;j<q+1;j++)
@@ -389,7 +388,7 @@ void DMD_bdf::interpolate_fail()
              */
         }
         else
-            y_0[i]=c[i];
+            y_0[i]=cvec[i];
         z_+=q_max+1;
     }
 }
@@ -404,11 +403,11 @@ inline bool DMD_bdf::interpolate()
     type0* z_=z;
     type0 y0;
     bool xcd_dom=false;
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
 
     for(int i=0;i<ncs && !xcd_dom;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
             y0=0.0;
             for(int j=0;j<q+1;j++)
@@ -433,7 +432,7 @@ inline bool DMD_bdf::interpolate()
              */
         }
         else
-            y_0[i]=c[i];
+            y_0[i]=cvec[i];
         z_+=q_max+1;
     }
     
@@ -483,14 +482,14 @@ inline void DMD_bdf::ord_dt(type0& r)
 void DMD_bdf::err_calc()
 {
     type0 tmp0,err_lcl=0.0,max_dy_lcl=0.0,max_dy;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            tmp0=(y_0[i]-c[i]);
-            max_dy_lcl=MAX(max_dy_lcl,fabs(c_d[i]));
+            tmp0=(y_0[i]-cvec[i]);
+            max_dy_lcl=MAX(max_dy_lcl,fabs(c_dvec[i]));
             err_lcl+=tmp0*tmp0;
         }
     }
@@ -504,7 +503,7 @@ void DMD_bdf::err_calc()
  --------------------------------------------*/
 void DMD_bdf::eta_calc()
 {
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     type0 norm_lcl=0.0;
     type0 tmp,norm,iq=static_cast<type0>(q);
     eta[1]=pow(0.5/err,1.0/(iq+1.0));
@@ -518,9 +517,9 @@ void DMD_bdf::eta_calc()
         
         for(int i=0;i<ncs;i++)
         {
-            if(c[i]>=0.0)
+            if(cvec[i]>=0.0)
             {
-                tmp=c[i]-y_0[i]+hi_err_fac[1]*dy[i];
+                tmp=cvec[i]-y_0[i]+hi_err_fac[1]*dy[i];
                 norm_lcl+=tmp*tmp;
             }
         }
@@ -535,9 +534,9 @@ void DMD_bdf::eta_calc()
         type0* z_=z;
         for(int i=0;i<ncs;i++)
         {
-            if(c[i]>=0.0)
+            if(cvec[i]>=0.0)
             {
-                tmp=c[i]-y_0[i]+lo_err_fac[1]*z_[q];
+                tmp=cvec[i]-y_0[i]+lo_err_fac[1]*z_[q];
                 norm_lcl+=tmp*tmp;
             }
             
@@ -608,14 +607,14 @@ void DMD_bdf::update_z()
     }
     
     z_=z;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            z_[0]=c[i];
-            z_[1]=c_d[i];
+            z_[0]=cvec[i];
+            z_[1]=c_dvec[i];
             
             /*
             if(z_[1]*c_d[i]<=0.0)

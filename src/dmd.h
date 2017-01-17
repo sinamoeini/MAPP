@@ -1,6 +1,7 @@
 #ifndef __MAPP__dmd__
 #define __MAPP__dmd__
 #include "type_def.h"
+#include <mpi.h>
 namespace MAPP_NS
 {
     template<typename,class> class GMRES;
@@ -18,9 +19,8 @@ namespace MAPP_NS
     {
     private:
     protected:
-        class VecLst* vecs_comm;
         class ForceFieldDMD* forcefield_dmd;
-        class Neighbor_dmd* neighbor_dmd;
+        class NeighborDMD* neighbor_dmd;
 
         //int msd_idx;
         int fe_idx;
@@ -61,6 +61,11 @@ namespace MAPP_NS
         type0 max_succ_dt;
         virtual void run()=0;
         type0 vac_msd();
+        
+        Vec<type0>*& c;
+        Vec<type0>*& c_d;
+        class Write*& __write__;
+        MPI_Comm& world;
     public:
         DMD();
         virtual ~DMD();

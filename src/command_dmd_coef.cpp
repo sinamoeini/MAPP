@@ -11,7 +11,7 @@ Command_dmd_coef::Command_dmd_coef
 
 {
     if(dmd==NULL)
-        error->abort("cannot add the coefficients"
+        Error::abort("cannot add the coefficients"
         " before the dmd is initiated");
     dmd->coef(nargs,args);
 

@@ -19,4 +19,3 @@ namespace MAPP_NS
     };
 }
 #endif 
-

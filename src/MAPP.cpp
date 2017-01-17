@@ -8,7 +8,8 @@
 #include "neighbor.h"
 #include "neighbor_md.h"
 #include "group.h"
-
+#include "comm.h"
+#include "ff.h"
 
 #include "command_styles.h"
 #include "md_styles.h"
@@ -22,21 +23,20 @@ namespace MAPP_NS
     int step_tally=1000;
     int mode=MD_mode;
     int precision=6;
-    MPI_Comm world(MPI_COMM_WORLD);
-    Neighbor* neighbor(NULL);
+    MPI_Comm __world__(MPI_COMM_WORLD);
     ForceField* forcefield(NULL);
     Error* error(NULL);
-    Timer* timer(NULL);
-    AtomTypes* atom_types(NULL);
+    int Error::my_p;
     FILE* output(NULL);
     
     Write* write(NULL);
     MD* md(NULL);
     DMD* dmd(NULL);
-    GroupCollection* groups(NULL);
+    Dynamic* dynamic(NULL);
     LineSearch<Min>* ls(NULL);
     Atoms* atoms(NULL);
     MAPP* mapp(NULL);
+    Communication* comm(NULL);
     VarManager* g_vm(NULL);
 
 }
@@ -50,11 +50,11 @@ MAPP(int nargs,char** args)
     
     delete mapp;
     mapp=this;
-    atoms=new Atoms();
-    error=new Error();
+    comm=new Communication(__world__);
+    atoms=new Atoms(comm);
+    Error::my_p=comm->my_p;
     timer=new Timer();
     atom_types = new AtomTypes();
-    neighbor=new Neighbor_md();
     groups=new GroupCollection();
     
 
@@ -77,8 +77,7 @@ MAPP(int nargs,char** args)
         fprintf(output,"MAPP Version: %s\n",
         (char*) MAPP_VERSION);
     
-    
-    
+
     
     no_commands=0;
     
@@ -90,7 +89,7 @@ MAPP(int nargs,char** args)
         {
             iarg++;
             if(iarg==nargs)
-                error->abort("no input file");
+                Error::abort("no input file");
             ScriptReader::open_file(input_file,args[iarg],"r");
             iarg++;
         }
@@ -98,16 +97,16 @@ MAPP(int nargs,char** args)
         {
             iarg++;
             if(iarg==nargs)
-                error->abort("no output file");
+                Error::abort("no output file");
             ScriptReader::open_file(output,args[iarg],"w");
             iarg++;
         }
         else
-            error->abort("unknown postfix: %s",args[iarg]);
+            Error::abort("unknown postfix: %s",args[iarg]);
     }
     
-    if(input_file==NULL)
-        error->abort("input file not found");
+    if(!input_file)
+        Error::abort("input file not found");
     
     read_file();
 
@@ -134,7 +133,6 @@ MAPP::~MAPP()
     delete md;
     
     delete groups;
-    delete neighbor;
     delete atom_types;
     delete timer;
     delete error;
@@ -160,7 +158,7 @@ void MAPP::read_file()
     }
     delete [] args;
     if(nargs==-2)
-        error->abort("file ended unexpectedly");
+        Error::abort("file ended unexpectedly");
 }
 /*--------------------------------------------
  differnt command styles
@@ -182,12 +180,12 @@ void MAPP::command_style(int nargs,char** args)
         int shell_cmd_chk=0;
         if(atoms->my_p==0)
             shell_cmd_chk=system(cmd_line);
-        MPI_Bcast(&shell_cmd_chk,1,MPI_INT,0,world);
+        MPI_Bcast(&shell_cmd_chk,1,MPI_INT,0,comm->world);
         if(lngth) delete [] cmd_line;
     }
     #include "command_styles.h"
     else
-        error->abort("unknown command:"
+        Error::abort("unknown command:"
                      " %s",args[0]);
     #undef CommandStyle
     #undef Command_Style
@@ -247,6 +245,8 @@ void MAPP::fin_debug()
  --------------------------------------------*/
 //#include "logics.h"
 //#define mul(A,B) A.print(NULL),B.print(NULL),(A*B).print(NULL)
+#include <iomanip>
+using namespace std;
 void MAPP::test0()
 {
     /*

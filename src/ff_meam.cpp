@@ -1,4 +1,4 @@
-#include "neighbor.h"
+#include "neighbor_md.h"
 #include "ff_meam.h"
 #include "atom_types.h"
 #include "memory.h"
@@ -8,6 +8,7 @@
 #include "atoms.h"
 #include "MAPP.h"
 #include "script_reader.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 enum{FCC,BCC,HCP,DIM,DIAMOND,B1,C11,L12,B2};
 /*--------------------------------------------
@@ -16,6 +17,8 @@ enum{FCC,BCC,HCP,DIM,DIAMOND,B1,C11,L12,B2};
 ForceField_meam::
 ForceField_meam():ForceFieldMD()
 {
+    neighbor->pair_wise=false;
+    
     max_pairs=0;
     no_types=0;
     rho_dim=38;
@@ -250,7 +253,7 @@ void ForceField_meam::G_gam(type0 Gamma,int ibar
         }
     }
     else
-        error->abort("ibar error in MEAM");
+        Error::abort("ibar error in MEAM");
 }
 /*--------------------------------------------
  dG_gam
@@ -299,7 +302,7 @@ void ForceField_meam::dG_gam(type0 Gamma,int ibar
         }
     }
     else
-        error->abort("ibar error in MEAM");
+        Error::abort("ibar error in MEAM");
 }
 /*--------------------------------------------
  fcut
@@ -498,7 +501,7 @@ type0& S,int latt,type0 cmin,type0 cmax)
         a=2.0/sqrt(3.0);
         num=4;
     }
-    else error->abort("wrong type");
+    else Error::abort("wrong type");
     
     type0 C=4.0/(a*a)-1.0;
     type0 x=(C-cmin)/(cmax-cmin);
@@ -561,7 +564,6 @@ int form)
  --------------------------------------------*/
 void ForceField_meam::init()
 {
-    neighbor->pair_wise=false;
     rho_vec_ptr=new Vec<type0>(atoms,1);
     rho_ptr=new Vec<type0>(atoms,rho_dim);
 }
@@ -586,28 +588,28 @@ void ForceField_meam::fin()
  --------------------------------------------*/
 void ForceField_meam::init_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  fin xchng
  --------------------------------------------*/
 void ForceField_meam::fin_xchng()
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  pre xchng energy
  --------------------------------------------*/
 void ForceField_meam::pre_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  xchng energy
  --------------------------------------------*/
 type0 ForceField_meam::xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
     return 0.0;
 }
 /*--------------------------------------------
@@ -615,7 +617,7 @@ type0 ForceField_meam::xchng_energy(GCMC*)
  --------------------------------------------*/
 void ForceField_meam::post_xchng_energy(GCMC*)
 {
-    error->abort("exchange has not been set for this forcefield");
+    Error::abort("exchange has not been set for this forcefield");
 }
 /*--------------------------------------------
  run
@@ -677,11 +679,11 @@ void ForceField_meam::force_calc
     type0 fi[3],fj[3];
     type0 v[6];
     
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
     type0* rho_vec=rho_vec_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     int kn,kk,curs;
     type0 pp;
@@ -692,26 +694,26 @@ void ForceField_meam::force_calc
     
     type0 a4,rij4,b;
     
-    for(int iatm=0;iatm<atoms->natms;iatm++)
+    for(int iatm=0;iatm<natms;iatm++)
     {
         my_list_size=neighbor->neighbor_list_size[iatm];
         my_list=neighbor->neighbor_list[iatm];
         icomp=iatm*3;
         icomp_rho=iatm*rho_dim;
-        itype=type[iatm];
+        itype=typevec[iatm];
         for(int jn=0;jn<my_list_size;jn++)
         {
             jatm=my_list[jn];
             if(jatm>iatm)
             {
                 fcpair[istart]=scrfcn[istart]=dscrfcn[istart]=0.0;
-                jtype=type[jatm];
+                jtype=typevec[jatm];
                 jcomp=jatm*3;
                 jcomp_rho=jatm*rho_dim;
                 
-                xij=x[icomp]-x[jcomp];
-                yij=x[icomp+1]-x[jcomp+1];
-                zij=x[icomp+2]-x[jcomp+2];
+                xij=xvec[icomp]-xvec[jcomp];
+                yij=xvec[icomp+1]-xvec[jcomp+1];
+                zij=xvec[icomp+2]-xvec[jcomp+2];
                 delij[0]=-xij;
                 delij[1]=-yij;
                 delij[2]=-zij;
@@ -734,19 +736,19 @@ void ForceField_meam::force_calc
                         
                         if(katm!=jatm)
                         {
-                            ktype=type[katm];
+                            ktype=typevec[katm];
                             kcomp=3*katm;
                             
-                            xjk=x[jcomp]-x[kcomp];
-                            yjk=x[jcomp+1]-x[kcomp+1];
-                            zjk=x[jcomp+2]-x[kcomp+2];
+                            xjk=xvec[jcomp]-xvec[kcomp];
+                            yjk=xvec[jcomp+1]-xvec[kcomp+1];
+                            zjk=xvec[jcomp+2]-xvec[kcomp+2];
                             rjk2=xjk*xjk+yjk*yjk+zjk*zjk;
                             
                             if(rjk2<rbound)
                             {
-                                xki=x[kcomp]-x[icomp];
-                                yki=x[kcomp+1]-x[icomp+1];
-                                zki=x[kcomp+2]-x[icomp+2];
+                                xki=xvec[kcomp]-xvec[icomp];
+                                yki=xvec[kcomp+1]-xvec[icomp+1];
+                                zki=xvec[kcomp+2]-xvec[icomp+2];
                                 rki2=xki*xki+yki*yki+zki*zki;
                                 
                                 if(rki2<rbound)
@@ -858,7 +860,7 @@ void ForceField_meam::force_calc
                     }
                     
                     rho[icomp_rho]+=rhoa0j;
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                         rho[jcomp_rho]+=rhoa0i;
                     
                     
@@ -868,7 +870,7 @@ void ForceField_meam::force_calc
                         rho[icomp_rho+27]+=t1_meam[jtype]*rhoa0j;
                         rho[icomp_rho+28]+=t2_meam[jtype]*rhoa0j;
                         rho[icomp_rho+29]+=t3_meam[jtype]*rhoa0j;
-                        if(jatm<atoms->natms)
+                        if(jatm<natms)
                         {
                             rho[jcomp_rho+27]+=t1_meam[itype]*rhoa0i;
                             rho[jcomp_rho+28]+=t2_meam[itype]*rhoa0i;
@@ -882,7 +884,7 @@ void ForceField_meam::force_calc
                         rho[icomp_rho+30]+=t1_meam[jtype]*t1_meam[jtype]*rhoa0j;
                         rho[icomp_rho+31]+=t2_meam[jtype]*t2_meam[jtype]*rhoa0j;
                         rho[icomp_rho+32]+=t3_meam[jtype]*t3_meam[jtype]*rhoa0j;
-                        if(jatm<atoms->natms)
+                        if(jatm<natms)
                         {
                             rho[jcomp_rho+30]+=t1_meam[itype]*t1_meam[itype]*rhoa0i;
                             rho[jcomp_rho+31]+=t2_meam[itype]*t2_meam[itype]*rhoa0i;
@@ -891,7 +893,7 @@ void ForceField_meam::force_calc
                     }
                     
                     rho[icomp_rho+13]+=rhoa2j;
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                         rho[jcomp_rho+13]+=rhoa2i;
                     
                     
@@ -923,7 +925,7 @@ void ForceField_meam::force_calc
                             }
                         }
                     }
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                     {
                         
                         A1i=rhoa1i/rij;
@@ -1090,19 +1092,19 @@ void ForceField_meam::force_calc
     /*----------------------------------------------------------------------------*/
     
     
-    atoms->update(rho_ptr);
+    dynamic->update(rho_ptr);
     
     
     /*----------------------------------------------------------------------------*/
     
     istart=0;
-    for(int iatm=0;iatm<atoms->natms;iatm++)
+    for(int iatm=0;iatm<natms;iatm++)
     {
         my_list=neighbor->neighbor_list[iatm];
         my_list_size=neighbor->neighbor_list_size[iatm];
         icomp=iatm*3;
         icomp_rho=iatm*rho_dim;
-        itype=type[iatm];
+        itype=typevec[iatm];
         
         for(int jn=0;jn<my_list_size;jn++)
         {
@@ -1111,13 +1113,13 @@ void ForceField_meam::force_calc
             {
                 if(scrfcn[istart]!=0.0)
                 {
-                    jtype=type[jatm];
+                    jtype=typevec[jatm];
                     jcomp=jatm*3;
                     jcomp_rho=jatm*rho_dim;
                     
-                    xij=x[icomp]-x[jcomp];
-                    yij=x[icomp+1]-x[jcomp+1];
-                    zij=x[icomp+2]-x[jcomp+2];
+                    xij=xvec[icomp]-xvec[jcomp];
+                    yij=xvec[icomp+1]-xvec[jcomp+1];
+                    zij=xvec[icomp+2]-xvec[jcomp+2];
                     delij[0]=-xij;
                     delij[1]=-yij;
                     delij[2]=-zij;
@@ -1136,7 +1138,7 @@ void ForceField_meam::force_calc
                         phi=((coef[3]*pp+coef[2])*pp+coef[1])*pp+coef[0];
                         phip=(coef[6]*pp+coef[5])*pp+coef[4];
                         
-                        if(jatm<atoms->natms)
+                        if(jatm<natms)
                         {
                             nrgy_strss_lcl[0]+=phi*sij;
                         }
@@ -1522,7 +1524,7 @@ void ForceField_meam::force_calc
                         {
                             forcem=delij[i]*force+dUdrijm[i];
                             fvec[icomp+i]+=forcem;
-                            if(jatm<atoms->natms)
+                            if(jatm<natms)
                                 fvec[jcomp+i]-=forcem;
                         }
                         
@@ -1537,7 +1539,7 @@ void ForceField_meam::force_calc
                             fi[1]=delij[1]*force+dUdrijm[1];
                             fi[2]=delij[2]*force+dUdrijm[2];
                             
-                            if(jatm<atoms->natms)
+                            if(jatm<natms)
                             {
                                 nrgy_strss_lcl[1]+=delij[0]*fi[0];
                                 nrgy_strss_lcl[2]+=delij[1]*fi[1];
@@ -1568,19 +1570,19 @@ void ForceField_meam::force_calc
                                 if(katm!=jatm)
                                 {
                                     dsij1=dsij2=0.0;
-                                    ktype=type[katm];
+                                    ktype=typevec[katm];
                                     kcomp=3*katm;
                                     
-                                    xjk=x[jcomp]-x[kcomp];
-                                    yjk=x[jcomp+1]-x[kcomp+1];
-                                    zjk=x[jcomp+2]-x[kcomp+2];
+                                    xjk=xvec[jcomp]-xvec[kcomp];
+                                    yjk=xvec[jcomp+1]-xvec[kcomp+1];
+                                    zjk=xvec[jcomp+2]-xvec[kcomp+2];
                                     rjk2=xjk*xjk+yjk*yjk+zjk*zjk;
                                     
                                     if(rjk2<rbound)
                                     {
-                                        xki=x[kcomp]-x[icomp];
-                                        yki=x[kcomp+1]-x[icomp+1];
-                                        zki=x[kcomp+2]-x[icomp+2];
+                                        xki=xvec[kcomp]-xvec[icomp];
+                                        yki=xvec[kcomp+1]-xvec[icomp+1];
+                                        zki=xvec[kcomp+2]-xvec[icomp+2];
                                         rki2=xki*xki+yki*yki+zki*zki;
                                         
                                         if(rki2<rbound)
@@ -1617,11 +1619,11 @@ void ForceField_meam::force_calc
                                             deljk[2]=-zjk;
                                             for(int i=0;i<3;i++)
                                                 fvec[icomp+i]+=force1*delik[i];
-                                            if(jatm<atoms->natms)
+                                            if(jatm<natms)
                                                 for(int i=0;i<3;i++)
                                                     fvec[jcomp+i]+=force2*deljk[i];
                                             
-                                            if(katm<atoms->natms)
+                                            if(katm<natms)
                                                 for(int i=0;i<3;i++)
                                                     fvec[kcomp+i]-=force1*delik[i]+force2*deljk[i];
                                             
@@ -1650,10 +1652,10 @@ void ForceField_meam::force_calc
                                                 
                                                 for(int i=0;i<6;i++)
                                                     nrgy_strss_lcl[i+1]-=v[i];
-                                                if(jatm<atoms->natms)
+                                                if(jatm<natms)
                                                     for(int i=0;i<6;i++)
                                                         nrgy_strss_lcl[i+1]-=v[i];
-                                                if(katm<atoms->natms)
+                                                if(katm<natms)
                                                     for(int i=0;i<6;i++)
                                                         nrgy_strss_lcl[i+1]-=v[i];
                                                 
@@ -1722,15 +1724,15 @@ type0 ForceField_meam::energy_calc()
     type0 A1i,A2i,A3i,A1j,A2j,A3j,B1i,B1j;
     
     
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* rho=rho_ptr->begin();
     type0* rho_vec=rho_vec_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     
-    for(int i=0;i<atoms->natms;i++)
+    for(int i=0;i<natms;i++)
         rho_vec[i]=0.0;
-    for(int i=0;i<(atoms->natms+atoms->natms_ph)*rho_dim;i++)
+    for(int i=0;i<(natms+natms_ph)*rho_dim;i++)
         rho[i]=0.0;
     
     type0 phi;
@@ -1738,26 +1740,26 @@ type0 ForceField_meam::energy_calc()
     type0 pp;
     type0* coef;
     
-    for(int iatm=0;iatm<atoms->natms;iatm++)
+    for(int iatm=0;iatm<natms;iatm++)
     {
         my_list_size=neighbor->neighbor_list_size[iatm];
         my_list=neighbor->neighbor_list[iatm];
         icomp=iatm*3;
         icomp_rho=iatm*rho_dim;
-        itype=type[iatm];
+        itype=typevec[iatm];
         for(int jn=0;jn<my_list_size;jn++)
         {
             jatm=my_list[jn];
             if(jatm>iatm)
             {
                 fcij=sij=dsij=0.0;
-                jtype=type[jatm];
+                jtype=typevec[jatm];
                 jcomp=jatm*3;
                 jcomp_rho=jatm*rho_dim;
                 
-                xij=x[icomp]-x[jcomp];
-                yij=x[icomp+1]-x[jcomp+1];
-                zij=x[icomp+2]-x[jcomp+2];
+                xij=xvec[icomp]-xvec[jcomp];
+                yij=xvec[icomp+1]-xvec[jcomp+1];
+                zij=xvec[icomp+2]-xvec[jcomp+2];
                 delij[0]=-xij;
                 delij[1]=-yij;
                 delij[2]=-zij;
@@ -1780,19 +1782,19 @@ type0 ForceField_meam::energy_calc()
                         
                         if(katm!=jatm)
                         {
-                            ktype=type[katm];
+                            ktype=typevec[katm];
                             kcomp=3*katm;
                             
-                            xjk=x[jcomp]-x[kcomp];
-                            yjk=x[jcomp+1]-x[kcomp+1];
-                            zjk=x[jcomp+2]-x[kcomp+2];
+                            xjk=xvec[jcomp]-xvec[kcomp];
+                            yjk=xvec[jcomp+1]-xvec[kcomp+1];
+                            zjk=xvec[jcomp+2]-xvec[kcomp+2];
                             rjk2=xjk*xjk+yjk*yjk+zjk*zjk;
                             
                             if(rjk2<rbound)
                             {
-                                xki=x[kcomp]-x[icomp];
-                                yki=x[kcomp+1]-x[icomp+1];
-                                zki=x[kcomp+2]-x[icomp+2];
+                                xki=xvec[kcomp]-xvec[icomp];
+                                yki=xvec[kcomp+1]-xvec[icomp+1];
+                                zki=xvec[kcomp+2]-xvec[icomp+2];
                                 rki2=xki*xki+yki*yki+zki*zki;
                                 
                                 if(rki2<rbound)
@@ -1858,7 +1860,7 @@ type0 ForceField_meam::energy_calc()
                     phi=((coef[3]*pp+coef[2])*pp+coef[1])*pp+coef[0];
                     
                     
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                         en+=phi*sij;
                     else
                         en+=0.5*phi*sij;
@@ -1891,7 +1893,7 @@ type0 ForceField_meam::energy_calc()
                     }
                     
                     rho[icomp_rho]+=rhoa0j;
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                         rho[jcomp_rho]+=rhoa0i;
                     
                     
@@ -1901,7 +1903,7 @@ type0 ForceField_meam::energy_calc()
                         rho[icomp_rho+27]+=t1_meam[jtype]*rhoa0j;
                         rho[icomp_rho+28]+=t2_meam[jtype]*rhoa0j;
                         rho[icomp_rho+29]+=t3_meam[jtype]*rhoa0j;
-                        if(jatm<atoms->natms)
+                        if(jatm<natms)
                         {
                             rho[jcomp_rho+27]+=t1_meam[itype]*rhoa0i;
                             rho[jcomp_rho+28]+=t2_meam[itype]*rhoa0i;
@@ -1915,7 +1917,7 @@ type0 ForceField_meam::energy_calc()
                         rho[icomp_rho+30]+=t1_meam[jtype]*t1_meam[jtype]*rhoa0j;
                         rho[icomp_rho+31]+=t2_meam[jtype]*t2_meam[jtype]*rhoa0j;
                         rho[icomp_rho+32]+=t3_meam[jtype]*t3_meam[jtype]*rhoa0j;
-                        if(jatm<atoms->natms)
+                        if(jatm<natms)
                         {
                             rho[jcomp_rho+30]+=t1_meam[itype]*t1_meam[itype]*rhoa0i;
                             rho[jcomp_rho+31]+=t2_meam[itype]*t2_meam[itype]*rhoa0i;
@@ -1924,7 +1926,7 @@ type0 ForceField_meam::energy_calc()
                     }
                     
                     rho[icomp_rho+13]+=rhoa2j;
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                         rho[jcomp_rho+13]+=rhoa2i;
                     
                     
@@ -1958,7 +1960,7 @@ type0 ForceField_meam::energy_calc()
                     }
                     
                     
-                    if(jatm<atoms->natms)
+                    if(jatm<natms)
                     {
                         
                         A1i=rhoa1i/rij;
@@ -2132,7 +2134,7 @@ type0 ForceField_meam::energy_calc()
 void ForceField_meam::coef(int narg,char** args)
 {
     if(narg!=3)
-        error->abort("wrong coeff command for MEAM FF");
+        Error::abort("wrong coeff command for MEAM FF");
     cut_off_alloc();
     allocate();
     read_global(args[1]);
@@ -2167,9 +2169,9 @@ void ForceField_meam::reset()
     type0* rho=rho_ptr->begin();
     type0* rho_vec=rho_vec_ptr->begin();
     
-    for(int i=0;i<atoms->natms;i++)
+    for(int i=0;i<natms;i++)
         rho_vec[i]=0.0;
-    for(int i=0;i<(atoms->natms+atoms->natms_ph)*rho_dim;i++)
+    for(int i=0;i<(natms+natms_ph)*rho_dim;i++)
         rho[i]=0.0;
     
     int no_pairs=neighbor->no_pairs;
@@ -2288,7 +2290,7 @@ void ForceField_meam::read_global(char* file_name)
     }
     
     if(nargs%19!=0)
-        error->abort("number of enteries in file %s must be a multiple of 19",file_name);
+        Error::abort("number of enteries in file %s must be a multiple of 19",file_name);
     int nelem=nargs/19;
     
     for(int i=0;i<no_types;i++)
@@ -2316,7 +2318,7 @@ void ForceField_meam::read_global(char* file_name)
             else if(strcmp(args_[1],"hcp")==0) lattice[itype][itype]=HCP;
             else if(strcmp(args_[1],"dim")==0) lattice[itype][itype]=DIM;
             else if(strcmp(args_[1],"dia")==0) lattice[itype][itype]=DIAMOND;
-            else error->abort("unknown lattice");
+            else Error::abort("unknown lattice");
             
             Z_meam[itype]=atof(args_[2]);
             ielt_meam[itype]=atoi(args_[3]);
@@ -2357,7 +2359,7 @@ void ForceField_meam::read_global(char* file_name)
     
     for(int itype=0;itype<no_types;itype++)
         if(type_ref[itype]==-1)
-            error->abort("properties of "
+            Error::abort("properties of "
             "element %s was not found in "
             "%s file",atom_types->atom_names[itype],file_name);
 
@@ -2458,7 +2460,7 @@ void ForceField_meam::read_local(char* file_name)
         {
             icmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for rho0(%d)",file_name,icmp+1);
+                Error::abort("wrong component in %s file for rho0(%d)",file_name,icmp+1);
 
             rho0_meam[type_ref[icmp]]=tmp;
         }
@@ -2467,9 +2469,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for Ec(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for Ec(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for Ec(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for Ec(%d,%d)",file_name,icmp+1,jcmp+1);
             Ec_meam[type_ref[icmp]][type_ref[jcmp]]
             =Ec_meam[type_ref[jcmp]][type_ref[icmp]]=tmp;
         }
@@ -2478,9 +2480,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for alpha(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for alpha(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for alpha(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for alpha(%d,%d)",file_name,icmp+1,jcmp+1);
             alpha_meam[type_ref[icmp]][type_ref[jcmp]]
             =alpha_meam[type_ref[jcmp]][type_ref[icmp]]=tmp;
         }
@@ -2489,9 +2491,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for re(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for re(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for re(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for re(%d,%d)",file_name,icmp+1,jcmp+1);
             re_meam[type_ref[icmp]][type_ref[jcmp]]
             =re_meam[type_ref[jcmp]][type_ref[icmp]]=tmp;
         }
@@ -2500,9 +2502,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for delta(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for delta(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for delta(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for delta(%d,%d)",file_name,icmp+1,jcmp+1);
             delta_meam[type_ref[icmp]][type_ref[jcmp]]=tmp;
         }
         else if(sscanf(line,"attrac(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
@@ -2510,9 +2512,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for attrac(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for attrac(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for attrac(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for attrac(%d,%d)",file_name,icmp+1,jcmp+1);
             attrac_meam[type_ref[icmp]][type_ref[jcmp]]=tmp;
         }
         else if(sscanf(line,"repuls(%d,%d) = %lf",&icmp,&jcmp,&tmp)==3)
@@ -2520,9 +2522,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for repuls(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for repuls(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for repuls(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for repuls(%d,%d)",file_name,icmp+1,jcmp+1);
             repuls_meam[type_ref[icmp]][type_ref[jcmp]]=tmp;
         }
         else if(sscanf(line,"zbl(%d,%d) = %d",&icmp,&jcmp,&tmp_)==3)
@@ -2534,9 +2536,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp=kcmp;
             
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for zbl(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for zbl(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for zbl(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for zbl(%d,%d)",file_name,icmp+1,jcmp+1);
             zbl_meam[type_ref[icmp]][type_ref[jcmp]]=tmp_;
         }
         else if(sscanf(line,"nn2(%d,%d) = %d",&icmp,&jcmp,&tmp_)==3)
@@ -2544,9 +2546,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for nn2(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for nn2(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for nn2(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for nn2(%d,%d)",file_name,icmp+1,jcmp+1);
             nn2_meam[type_ref[icmp]][type_ref[jcmp]]=nn2_meam[type_ref[jcmp]][type_ref[icmp]]=tmp_;
         }
         else if(sscanf(line,"lattce(%d,%d) = %s",&icmp,&jcmp,tmp_str)==3)
@@ -2554,9 +2556,9 @@ void ForceField_meam::read_local(char* file_name)
             icmp--;
             jcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for lattice(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for lattice(%d,%d)",file_name,icmp+1,jcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for lattice(%d,%d)",file_name,icmp+1,jcmp+1);
+                Error::abort("wrong component in %s file for lattice(%d,%d)",file_name,icmp+1,jcmp+1);
             
             if(!strcmp(tmp_str,"'fcc'")) lattice[type_ref[icmp]][type_ref[jcmp]]=FCC;
             else if(!strcmp(tmp_str,"'bcc'")) lattice[type_ref[icmp]][type_ref[jcmp]]=BCC;
@@ -2567,7 +2569,7 @@ void ForceField_meam::read_local(char* file_name)
             else if(!strcmp(tmp_str,"'c11'")) lattice[type_ref[icmp]][type_ref[jcmp]]=C11;
             else if(!strcmp(tmp_str,"'l12'")) lattice[type_ref[icmp]][type_ref[jcmp]]=L12;
             else if(!strcmp(tmp_str,"'b2'")) lattice[type_ref[icmp]][type_ref[jcmp]]=B2;
-            else error->abort("wrong component in %s file for lattce(%i,%i) = %s",file_name,icmp+1,jcmp+1,tmp_str);
+            else Error::abort("wrong component in %s file for lattce(%i,%i) = %s",file_name,icmp+1,jcmp+1,tmp_str);
             
         }
         else if(sscanf(line,"Cmin(%d,%d,%d) = %lf",&icmp,&jcmp,&kcmp,&tmp)==4)
@@ -2576,11 +2578,11 @@ void ForceField_meam::read_local(char* file_name)
             jcmp--;
             kcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for Cmin(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
+                Error::abort("wrong component in %s file for Cmin(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for Cmin(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
+                Error::abort("wrong component in %s file for Cmin(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
             if(kcmp<0 || kcmp>no_types-1)
-                error->abort("wrong component in %s file for Cmin(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
+                Error::abort("wrong component in %s file for Cmin(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
             c_min[type_ref[icmp]][type_ref[jcmp]][type_ref[kcmp]]
             =c_min[type_ref[jcmp]][type_ref[icmp]][type_ref[kcmp]]=tmp;
         }
@@ -2590,16 +2592,16 @@ void ForceField_meam::read_local(char* file_name)
             jcmp--;
             kcmp--;
             if(icmp<0 || icmp>no_types-1)
-                error->abort("wrong component in %s file for Cmax(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
+                Error::abort("wrong component in %s file for Cmax(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
             if(jcmp<0 || jcmp>no_types-1)
-                error->abort("wrong component in %s file for Cmax(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
+                Error::abort("wrong component in %s file for Cmax(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
             if(kcmp<0 || kcmp>no_types-1)
-                error->abort("wrong component in %s file for Cmax(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
+                Error::abort("wrong component in %s file for Cmax(%d,%d,%d)",file_name,icmp+1,jcmp+1,kcmp+1);
             c_max[type_ref[icmp]][type_ref[jcmp]][type_ref[kcmp]]
             =c_max[type_ref[jcmp]][type_ref[icmp]][type_ref[kcmp]]=tmp;
         }
         else
-            error->abort("invalid line in %s file: %s",file_name,line);
+            Error::abort("invalid line in %s file: %s",file_name,line);
     }
     
     if(atoms->my_p==0)
@@ -2608,32 +2610,32 @@ void ForceField_meam::read_local(char* file_name)
     delete [] line;
     
     if(emb_lin_neg<0 || emb_lin_neg>1)
-        error->abort("emb_lin_neg in %s file can only be 0 or 1",file_name);
+        Error::abort("emb_lin_neg in %s file can only be 0 or 1",file_name);
     if(bkgd_dyn<0 || bkgd_dyn>1)
-        error->abort("bkgd_dyn in %s file can only be 0 or 1",file_name);
+        Error::abort("bkgd_dyn in %s file can only be 0 or 1",file_name);
     if(ialloy<0 || ialloy>2)
-        error->abort("ialloy in %s file can only be 0 or 1 or 2",file_name);
+        Error::abort("ialloy in %s file can only be 0 or 1 or 2",file_name);
     if(mix_ref_t<0 || mix_ref_t>1)
-        error->abort("mixture_ref_t in %s file can only be 0 or 1",file_name);
+        Error::abort("mixture_ref_t in %s file can only be 0 or 1",file_name);
     if(erose_form<0 || erose_form>2)
-        error->abort("erose_form in %s file can only be 0 or 1 or 2",file_name);
+        Error::abort("erose_form in %s file can only be 0 or 1 or 2",file_name);
     if(augt1<0 || augt1>1)
-        error->abort("augt1 in %s file can only be 0 or 1",file_name);
+        Error::abort("augt1 in %s file can only be 0 or 1",file_name);
     if(rc_meam<=0.0)
-        error->abort("rc in %s file should be greater than 0.0",file_name);
+        Error::abort("rc in %s file should be greater than 0.0",file_name);
     if(delr_meam<=0.0)
-        error->abort("delr in %s file should be greater than 0.0",file_name);
+        Error::abort("delr in %s file should be greater than 0.0",file_name);
     if(gsmooth_factor<0.5 || gsmooth_factor>99.0)
-        error->abort("gsmooth_factor in %s file should be between 0.5 & 99.0",file_name);
+        Error::abort("gsmooth_factor in %s file should be between 0.5 & 99.0",file_name);
     for(int itype=0;itype<no_types;itype++)
         for(int jtype=0;jtype<no_types;jtype++)
         {
             char* iname=atom_types->atom_names[itype];
             char* jname=atom_types->atom_names[jtype];
             if(nn2_meam[itype][jtype]<0 || nn2_meam[itype][jtype]>1)
-                error->abort("nn2(%s,%s) in %s file should be 0 or 1",iname,jname,file_name);
+                Error::abort("nn2(%s,%s) in %s file should be 0 or 1",iname,jname,file_name);
             if(re_meam[itype][jtype]<=0.0)
-                error->abort("re(%s,%s) in %s file should be greater than 0.0",iname,jname,file_name);
+                Error::abort("re(%s,%s) in %s file should be greater than 0.0",iname,jname,file_name);
         }
 }
 /*--------------------------------------------
@@ -2977,7 +2979,7 @@ type0& rho12,type0& rho22,type0& rho32)
     }
     else
     {
-        error->abort("unknown lattice %d",lat);
+        Error::abort("unknown lattice %d",lat);
     }
     
     
@@ -3065,7 +3067,7 @@ type0 t31,type0 t12,type0 t22,type0 t32,type0 r
                 t32av=t31;
             }
             else
-                error->abort("unknown lattice type");
+                Error::abort("unknown lattice type");
         }
     }
 }

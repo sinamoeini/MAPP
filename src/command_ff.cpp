@@ -11,7 +11,7 @@ Command_ff::Command_ff
 
 {
     if(nargs!=2)
-        error->abort("wrong command: %s",args[0]);
+        Error::abort("wrong command: %s",args[0]);
     
     if(forcefield)
         delete forcefield;
@@ -25,7 +25,7 @@ Command_ff::Command_ff
     if(0){}
     #include "ff_styles.h"
     else
-        error->abort("unknown forcefield: %s"
+        Error::abort("unknown forcefield: %s"
                      ,args[1]);
     #undef FFStyle
     #undef FF_Style

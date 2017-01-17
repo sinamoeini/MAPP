@@ -10,7 +10,7 @@ Command_ff_coef::Command_ff_coef(int nargs,char** args)
 
 {
     if(forcefield==NULL)
-        error->abort("cannot add the coefficients"
+        Error::abort("cannot add the coefficients"
         " before the forcefield is initiated");
     forcefield->coef(nargs,args);
 }

@@ -11,10 +11,10 @@ Command_dmd_min::Command_dmd_min
 
 {
     if(nargs<2)
-        error->abort("wrong command: %s"
+        Error::abort("wrong command: %s"
         ,args[0]);
     if(dmd==NULL)
-        error->abort("cannot add the min"
+        Error::abort("cannot add the min"
         " before the dmd is initiated");
     dmd->dmd_min(nargs,args);
 }

@@ -18,7 +18,7 @@ using namespace MAPP_NS;
 Random::Random(int num)
 {
     if(num<=0)
-        error->abort("random seed cannot be"
+        Error::abort("random seed cannot be"
         " equal or less than zero");
     seed=num;
     gauss_chk=0;

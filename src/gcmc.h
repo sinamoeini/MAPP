@@ -5,6 +5,7 @@
 #ifndef __MAPP__gcmc__
 #define __MAPP__gcmc__
 #include "global.h"
+#include <mpi.h>
 namespace MAPP_NS
 {
     enum{NOEX_MODE,INS_MODE,DEL_MODE};
@@ -54,7 +55,7 @@ namespace MAPP_NS
         class ForceFieldMD* ff;
                 
         int igas,gas_id,ngas;
-        md_type gas_type;
+        atom_type gas_type;
         type0 vol;
         //constants
         type0 gas_mass,beta,kbT,T,mu,lambda,sigma,z_fac;
@@ -99,8 +100,10 @@ namespace MAPP_NS
         void add_del_id(int*,int);
         int get_new_id();
 
+        class Dynamic*& dynamic;
+        MPI_Comm& world;
     public:
-        GCMC(dmd_type,type0,type0,int);
+        GCMC(class Dynamic*&,atom_type,type0,type0,int);
         virtual ~GCMC();
         
         virtual void init();
@@ -116,11 +119,11 @@ namespace MAPP_NS
         
         int iatm;
         int niatms;
-        md_type& itype;
+        atom_type& itype;
         type0* ix;
         type0* jx;
         int jatm;
-        md_type jtype;
+        atom_type jtype;
         type0 rsq;
         int xchng_mode;
         int dof_diff;

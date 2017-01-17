@@ -504,7 +504,7 @@ namespace MAPP_NS
         template<const int dim,typename T>
         inline T V_V(T* V0,T* V1)
         {
-            return _V_V_<dim>(V0,V1);
+            return _V_V_<dim>::func(V0,V1);
         }
         
         template<const int dim,typename T>

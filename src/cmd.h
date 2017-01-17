@@ -161,7 +161,7 @@ namespace MAPP_NS
             void set_max_cmp(int&);
         };
         
-        
+        class AtomTypes*& atom_types;
         int& ntypes;
         Ten** tens;
         int ntens;
@@ -182,6 +182,7 @@ namespace MAPP_NS
         
         Var* curr_var;
         QuantityReader qr;
+        MPI_Comm& world;
     protected:
     public:
         VarManager varmngr;
@@ -797,8 +798,7 @@ template<size_t dim>
 Pattern::SubPattern_Voigt<dim>::SubPattern_Voigt(VarManager& var_mngr_,const char* name_):
 SubPattern(var_mngr_,name_),
 comp0(*var_mngr.adddd_var(icomp0,"")),
-comp1(*var_mngr.adddd_var(icomp1,"")),
-kywrds{[0 ... dim*(dim+1)/2-1] = var_mngr}
+comp1(*var_mngr.adddd_var(icomp1,""))
 {
     init();
     init_keywords();
@@ -1191,7 +1191,7 @@ void Pattern::cmd_dy(const char* n,T0*& vs,int& nvs)
 {
     if(dy_sp)
     {
-        error->abort("only one dynamic command");
+        Error::abort("only one dynamic command");
     }
     
     dy_sp=new SubPattern_DY<T0>(varmngr,n,vs,nvs);

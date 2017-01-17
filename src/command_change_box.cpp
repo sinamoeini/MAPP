@@ -34,7 +34,7 @@ Command_change_box::Command_change_box(int nargs,char** args)
                 A[i][j]=atoms->H[i][j];
     }
     else
-        error->abort("unknown keyword for change_box: %s",args[iarg]);
+        Error::abort("unknown keyword for change_box: %s",args[iarg]);
     
     iarg++;
     
@@ -45,11 +45,11 @@ Command_change_box::Command_change_box(int nargs,char** args)
         if(sscanf(args[iarg],"H[%d][%d]",&icmp,&jcmp)==2)
         {
             if(icmp<0 || icmp>=__dim__ || jcmp<0 || jcmp>=__dim__)
-                error->abort("wrong component in change_box for H[%d][%d]",icmp,jcmp);
+                Error::abort("wrong component in change_box for H[%d][%d]",icmp,jcmp);
             iarg++;
             
             if(nargs-iarg<1)
-                error->abort("H[%d][%d] in change_box followed by 1 arguement",icmp,jcmp);
+                Error::abort("H[%d][%d] in change_box followed by 1 arguement",icmp,jcmp);
 
             
             if(icmp<=jcmp)
@@ -60,7 +60,7 @@ Command_change_box::Command_change_box(int nargs,char** args)
             
         }
         else
-            error->abort("unknown keyword for change_box: %s",args[iarg]);
+            Error::abort("unknown keyword for change_box: %s",args[iarg]);
     }    
     
     atoms->x2s_lcl();

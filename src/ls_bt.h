@@ -122,7 +122,6 @@ int LineSearch_backtrack<Func>::line_min(type0& nrgy
     {
         ideal_energy=nrgy+alpha*c*dfa;
         current_energy=func->F(alpha);
-        
         if(current_energy<=ideal_energy)
         {
             if(init_flag==1)

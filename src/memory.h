@@ -48,7 +48,7 @@ TYPE* Memory::create(TYPE*& array,long d0
     }
     catch(std::bad_alloc&)
     {
-        error->abort("memory allocation failure "
+        Error::abort("memory allocation failure "
         "in file  %s, function %s, line: %d for "
         "variable: %s",file,function,line_no,name);
     }
@@ -128,7 +128,7 @@ const char* file,const char* function)
         }
         catch (std::bad_alloc&)
         {
-            error->abort("reallocation "
+            Error::abort("reallocation "
             "failure in file  %s, function %s, "
             "line: %d for variable: %s",file,function,line_no,name);
         }

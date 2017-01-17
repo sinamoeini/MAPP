@@ -7,6 +7,7 @@
 #include "thermo_dynamics.h"
 #include "cmd.h"
 #include "ls.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
@@ -65,14 +66,14 @@ Min_cg::~Min_cg()
 void Min_cg::init()
 {
     Min::init();
-    atoms->init(vecs_comm,chng_box);
+    dynamic->init(chng_box);
     force_calc();
     curr_energy=nrgy_strss[0];
     if(output_flag)
     {
         thermo->init();
-        if(write)
-            write->init();
+        if(__write__)
+            __write__->init();
     }
 }
 /*--------------------------------------------
@@ -109,8 +110,8 @@ void Min_cg::run()
         if(output_flag)
         {
             thermo->thermo_print();
-            if(write)
-                write->write();
+            if(__write__)
+                __write__->write();
         }
         
         f_h=f*h;
@@ -157,12 +158,12 @@ void Min_cg::fin()
 {
     if(output_flag)
     {
-        if(write)
-            write->fin();
+        if(__write__)
+            __write__->fin();
         thermo->fin();
     }
         
-    atoms->fin();
+    dynamic->fin();
     Min::fin();
 }
 

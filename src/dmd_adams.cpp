@@ -5,7 +5,6 @@
 #include "ff.h"
 #include "error.h"
 #include "memory.h"
-#include "write.h"
 #include "thermo_dynamics.h"
 #include "xmath.h"
 #include "cmd.h"
@@ -160,17 +159,17 @@ inline void DMD_adams::start()
     type0 sum=forcefield_dmd->ddc_norm_timer()/sqrt(nc_dofs);
     dt=MIN(sqrt(2.0*a_tol/sum),1.0e-3*(t_fin-t_cur));
     type0 dt_max_lcl=std::numeric_limits<type0>::infinity(),dt_max;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
-    rectify(c_d);
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
+    rectify(c_dvec);
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            if(c_d[i]>0.0)
-                dt_max_lcl=MIN((1.0-c[i])/c_d[i],dt_max_lcl);
-            else if(c_d[i]<0.0)
-                dt_max_lcl=MIN(-c[i]/c_d[i],dt_max_lcl);
+            if(c_dvec[i]>0.0)
+                dt_max_lcl=MIN((1.0-cvec[i])/c_dvec[i],dt_max_lcl);
+            else if(c_dvec[i]<0.0)
+                dt_max_lcl=MIN(-cvec[i]/c_dvec[i],dt_max_lcl);
         }
     }
     MPI_Allreduce(&dt_max_lcl,&dt_max,1,MPI_TYPE0,MPI_MIN,world);
@@ -193,8 +192,8 @@ inline void DMD_adams::start()
         }
     }
     
-    memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
-    memcpy(dy[0],mapp->c_d->begin(),ncs*sizeof(type0));
+    memcpy(y,c->begin(),ncs*sizeof(type0));
+    memcpy(dy[0],c_d->begin(),ncs*sizeof(type0));
     for(int i=0;i<q_max;i++) t[i]=0.0;
     q=1;
 }
@@ -210,8 +209,8 @@ inline void DMD_adams::update_for_next()
         dy[i]=dy[i-1];
     }
     dy[0]=tmp_dy;
-    memcpy(y,mapp->c->begin(),ncs*sizeof(type0));
-    memcpy(dy[0],mapp->c_d->begin(),ncs*sizeof(type0));
+    memcpy(y,c->begin(),ncs*sizeof(type0));
+    memcpy(dy[0],c_d->begin(),ncs*sizeof(type0));
     for(int i=0;i<ncs;i++)
         if(y[i]>=0.0)
             e_n[i]=y[i]-y_0[i];
@@ -227,32 +226,32 @@ void DMD_adams::interpolate_fail()
     
     type0 dt_max_lcl=inf,dt_max;
     type0 dt_max_lcl_;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
     
     for(int i=0;i<ncs;i++)
     {
         
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            if(c_d[i]>0.0)
+            if(c_dvec[i]>0.0)
             {
-                dt_max_lcl_=(1.0-c[i])/c_d[i];
+                dt_max_lcl_=(1.0-cvec[i])/c_dvec[i];
                 if(dt_max_lcl_<dt_max_lcl)
                 {
-                    while(c[i]+c_d[i]*dt_max_lcl_>1.0)
+                    while(cvec[i]+c_dvec[i]*dt_max_lcl_>1.0)
                         dt_max_lcl_=nextafter(dt_max_lcl_,0.0);
                     
                     dt_max_lcl=dt_max_lcl_;
                 }
                 
             }
-            else if(c_d[i]<0.0)
+            else if(c_dvec[i]<0.0)
             {
-                dt_max_lcl_=-c[i]/c_d[i];
+                dt_max_lcl_=-cvec[i]/c_dvec[i];
                 if(dt_max_lcl_<dt_max_lcl)
                 {
-                    while(c[i]+c_d[i]*dt_max_lcl_<0.0)
+                    while(cvec[i]+c_dvec[i]*dt_max_lcl_<0.0)
                         dt_max_lcl_=nextafter(dt_max_lcl_,0.0);
                     
                     dt_max_lcl=dt_max_lcl_;
@@ -509,7 +508,7 @@ inline void DMD_adams::ord_dt(type0& r)
  --------------------------------------------*/
 inline void DMD_adams::ratio_calc(type0& lo_ratio,type0& hi_ratio)
 {
-    type0* c=mapp->c->begin();
+    type0* cvec=c->begin();
     type0 lo_err,hi_err,lo_err_lcl,hi_err_lcl;
     type0 tmp0;
     type0 k1;
@@ -553,9 +552,9 @@ inline void DMD_adams::ratio_calc(type0& lo_ratio,type0& hi_ratio)
         lo_err_lcl=0.0;
         for(int i=0;i<ncs;i++)
         {
-            if(c[i]>=0.0)
+            if(cvec[i]>=0.0)
             {
-                tmp0=c[i]-y_0[i];
+                tmp0=cvec[i]-y_0[i];
                 for(int j=0;j<q;j++)
                     tmp0+=a1*(1.0-t[j]/dt)*dalpha_dy[j]*dy[j][i];
                 
@@ -599,9 +598,9 @@ inline void DMD_adams::ratio_calc(type0& lo_ratio,type0& hi_ratio)
         hi_err_lcl=0.0;
         for(int i=0;i<ncs;i++)
         {
-            if(c[i]>=0.0)
+            if(cvec[i]>=0.0)
             {
-                tmp0=c[i]-y_0[i]+a1*e_n[i];
+                tmp0=cvec[i]-y_0[i]+a1*e_n[i];
                 hi_err_lcl+=tmp0*tmp0;
             }
         }
@@ -622,15 +621,15 @@ void DMD_adams::err_calc()
 {
     type0 tmp0,err_lcl=0.0,max_dy_lcl=0.0,max_dy;
     type0 c_d_norm_lcl=0.0;
-    type0* c=mapp->c->begin();
-    type0* c_d=mapp->c_d->begin();
+    type0* cvec=c->begin();
+    type0* c_dvec=c_d->begin();
     for(int i=0;i<ncs;i++)
     {
-        if(c[i]>=0.0)
+        if(cvec[i]>=0.0)
         {
-            c_d_norm_lcl+=c_d[i]*c_d[i];
-            tmp0=(y_0[i]-c[i]);
-            max_dy_lcl=MAX(max_dy_lcl,fabs(c_d[i]));
+            c_d_norm_lcl+=c_dvec[i]*c_dvec[i];
+            tmp0=(y_0[i]-cvec[i]);
+            max_dy_lcl=MAX(max_dy_lcl,fabs(c_dvec[i]));
             err_lcl+=tmp0*tmp0;
         }
     }

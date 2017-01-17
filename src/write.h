@@ -1,5 +1,6 @@
 #ifndef __MAPP__write__
 #define __MAPP__write__
+#include <mpi.h>
 namespace MAPP_NS
 {
     class Write
@@ -9,6 +10,8 @@ namespace MAPP_NS
         int write_step_tally;
         int write_step;
         int last_write_step;
+        class AtomTypes*& atom_types;
+        MPI_Comm& world;
     public:
         Write();
         virtual ~Write();

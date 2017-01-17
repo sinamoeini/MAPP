@@ -80,7 +80,7 @@ void Timer::start(int mode)
 void Timer::stop(int mode)
 {
     if(mode!=level2mode[curr_level])
-        error->abort("timer error");
+        Error::abort("timer error");
         
         
     type0 t=MPI_Wtime();

@@ -2,7 +2,7 @@
 #include "macros.h"
 #include "global.h"
 #include "error.h"
-#include "atoms.h"
+#include "comm.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  
@@ -92,7 +92,7 @@ bool ScriptReader::get_line_proc0(char*& buff,int& buff_sz,int& buff_cpcty)
 int ScriptReader::operator()(char**& args,int& args_cpcty)
 {
     int buff_sz=0;
-    if(atoms->my_p==0)
+    if(comm->my_p==0)
     {
         bool chk=get_line_proc0(line,buff_sz,line_len);
         if(!chk)
@@ -104,7 +104,7 @@ int ScriptReader::operator()(char**& args,int& args_cpcty)
         }
     }
     
-    MPI_Bcast(&buff_sz,1,MPI_INT,0,world);
+    MPI_Bcast(&buff_sz,1,MPI_INT,0,__world__);
     if (buff_sz<0)
         return buff_sz;
     
@@ -114,7 +114,7 @@ int ScriptReader::operator()(char**& args,int& args_cpcty)
         line=new char[buff_sz+1];
         line_len=buff_sz+1;
     }
-    MPI_Bcast(line,buff_sz+1,MPI_CHAR,0,world);
+    MPI_Bcast(line,buff_sz+1,MPI_CHAR,0,__world__);
     
     int nargs=0;
     char* p1=line;
@@ -418,15 +418,15 @@ void ScriptReader::open_file(FILE*& fp,const char* file_name,const char* id)
 {
     fp=NULL;
     int chk=1;
-    if(atoms->my_p==0)
+    if(comm->my_p==0)
     {
         fp=fopen(file_name,id);
         if(fp==NULL)
             chk=0;
     }
-    MPI_Bcast(&chk,1,MPI_INT,0,world);
+    MPI_Bcast(&chk,1,MPI_INT,0,__world__);
     if(!chk)
-        error->abort("file %s not found",file_name);
+        Error::abort("file %s not found",file_name);
 }
 /*--------------------------------------------
  read line and broadcast
@@ -434,22 +434,22 @@ void ScriptReader::open_file(FILE*& fp,const char* file_name,const char* id)
 int ScriptReader::read_line(FILE* file,char*& line)
 {
     int lenght=0;
-    if(atoms->my_p==0)
+    if(comm->my_p==0)
     {
         if(fgets(line,MAXCHAR,file)==NULL)
             lenght=-1;
     }
     
-    MPI_Bcast(&lenght,1,MPI_INT,0,world);
+    MPI_Bcast(&lenght,1,MPI_INT,0,__world__);
     if(lenght==-1)
         return -1;
     
-    if(atoms->my_p==0)
+    if(comm->my_p==0)
     {
         lenght=static_cast<int>(strlen(line))+1;
     }
-    MPI_Bcast(&lenght,1,MPI_INT,0,world);
-    MPI_Bcast(line,lenght,MPI_CHAR,0,world);
+    MPI_Bcast(&lenght,1,MPI_INT,0,__world__);
+    MPI_Bcast(line,lenght,MPI_CHAR,0,__world__);
     
     return lenght;
 }
@@ -461,7 +461,7 @@ int ScriptReader::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
     int ipos=0;
     bool file_cmplt=false;
     
-    if(atoms->my_p==0)
+    if(comm->my_p==0)
     {
         char* mark;
         bool cmd_cmplt=false;
@@ -517,12 +517,12 @@ int ScriptReader::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
         }
     }
     
-    MPI_Bcast(&file_cmplt,1,MPI_BYTE,0,world);
+    MPI_Bcast(&file_cmplt,1,MPI_BYTE,0,__world__);
     
-    MPI_Bcast(&ipos,1,MPI_INT,0,world);
+    MPI_Bcast(&ipos,1,MPI_INT,0,__world__);
     
     if(file_cmplt && ipos)
-        error->abort("file ended unexpectedly");
+        Error::abort("file ended unexpectedly");
     
     if(file_cmplt)
         return -1;
@@ -540,7 +540,7 @@ int ScriptReader::read_line(FILE* fp,char*& line,int& line_cpcty,int& chunk)
         
     }
     
-    MPI_Bcast(line,ipos+1,MPI_CHAR,0,world);
+    MPI_Bcast(line,ipos+1,MPI_CHAR,0,__world__);
     
     return ipos+1;
 }

@@ -1,11 +1,15 @@
 #include "write.h"
 #include "timer.h"
+#include "MAPP.h"
 #include "global.h"
+#include "comm.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Write::Write()
+Write::Write():
+atom_types(mapp->atom_types),
+world(comm->world)
 {
     last_write_step=-1;
 }
@@ -23,9 +27,9 @@ void Write::init()
 {
     if(last_write_step!=step_no)
     {
-        timer->start(WRITE_TIME_mode);
+        mapp->timer->start(WRITE_TIME_mode);
         write_file(step_no);
-        timer->stop(WRITE_TIME_mode);
+        mapp->timer->stop(WRITE_TIME_mode);
         last_write_step=step_no;
     }
     write_step=step_no+write_step_tally;
@@ -37,9 +41,9 @@ void Write::write()
 {
     if(write_step!=step_no)
         return;
-    timer->start(WRITE_TIME_mode);
+    mapp->timer->start(WRITE_TIME_mode);
     write_file(step_no);
-    timer->stop(WRITE_TIME_mode);
+    mapp->timer->stop(WRITE_TIME_mode);
     last_write_step=step_no;
     write_step=step_no+write_step_tally;
 }
@@ -51,9 +55,9 @@ void Write::fin()
 
     if(last_write_step!=step_no)
     {
-        timer->start(WRITE_TIME_mode);
+        mapp->timer->start(WRITE_TIME_mode);
         write_file(step_no);
-        timer->stop(WRITE_TIME_mode);
+        mapp->timer->stop(WRITE_TIME_mode);
     }
     last_write_step=step_no;
 }

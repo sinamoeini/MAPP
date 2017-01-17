@@ -5,13 +5,15 @@
 #include "memory.h"
 #include "xmath.h"
 #include "MAPP.h"
+#include "comm.h"
 #include "script_reader.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  read line and broadcast
  --------------------------------------------*/
-Group::Group(const char* _group_name)
-
+Group::Group(const char* _group_name):
+atom_types(mapp->atom_types),
+world(comm->world)
 {
     grp_sz=0;
     int lngth=static_cast<int>(strlen(_group_name))+1;
@@ -106,9 +108,9 @@ const char* group_name,int nfiles,char** files)
                 continue;
             
             if(sscanf(line,"%d",&iatm)!=1)
-                error->abort("every line of file %s can contain only 1 argument",files[ifile]);
+                Error::abort("every line of file %s can contain only 1 argument",files[ifile]);
             if(iatm<0 || iatm>=tot_natms)
-                error->abort("the id of atoms in file %s should be between 0 & %d",files[ifile],tot_natms);
+                Error::abort("the id of atoms in file %s should be between 0 & %d",files[ifile],tot_natms);
 
             found=binary_srch(iatm,id,rank,natms);
 
@@ -139,7 +141,7 @@ const char* group_name,int nfiles,char** files)
     delete [] list;
     for(int i=0;i<grp_sz;i++)
         grp_id[i]=id[grp_idx[i]];
-    atoms->xchng_chk(xchng_id);
+    xchng_id=comm->xchng_id;
 }
 /*--------------------------------------------
  destructor
@@ -154,7 +156,7 @@ Group_general::~Group_general()
  --------------------------------------------*/
 void Group_general::update()
 {
-    if(atoms->xchng_chk(xchng_id))
+    if(xchng_id==comm->xchng_id)
         return;
     
     int natms=atoms->natms;
@@ -284,7 +286,7 @@ void Group_type::update()
     grp_sz=0;
     if(mode==MD_mode)
     {
-        md_type* _type=mapp->type->begin();
+        atom_type* _type=mapp->type->begin();
         for(int i=0;i<natms;i++)
             if(type[_type[i]])
                 _grp_idx[grp_sz++]=i;
@@ -292,11 +294,11 @@ void Group_type::update()
     else if(mode==DMD_mode)
     {
         int c_dim=mapp->ctype->dim;
-        dmd_type* _type=mapp->ctype->begin();
+        atom_type* _type=mapp->ctype->begin();
         type0* c=mapp->c->begin();
         for(int i=0;i<natms;i++)
         {
-            if(type[atom_types->get_dmd_type(c_dim,_type,c)])
+            if(type[atom_types->get_atom_type(c_dim,_type,c)])
                 _grp_idx[grp_sz++]=i;
             c+=c_dim;
             _type+=c_dim;
@@ -314,7 +316,6 @@ void Group_type::update()
  read line and broadcast
  --------------------------------------------*/
 GroupCollection::GroupCollection()
-
 {
     ngrps=0;
 }
@@ -337,7 +338,7 @@ Group* GroupCollection::find_grp(const char* name)
         if(strcmp(name,grps[igrp]->name)==0)
             return grps[igrp];
     
-    error->abort("group %s does not exist",name);
+    Error::abort("group %s does not exist",name);
     
     return NULL;
 }
@@ -349,7 +350,7 @@ Group* GroupCollection::add_grp_file(const char* name,int nfiles,char** files)
     for(int igrp=0;igrp<ngrps;igrp++)
         if(strcmp(name,grps[igrp]->name)==0)
         {
-            error->abort("group %s already exists",name);
+            Error::abort("group %s already exists",name);
             return NULL;
         }
     
@@ -372,7 +373,7 @@ Group* GroupCollection::add_grp_type(const char* name,int ntypes,char** types)
     for(int igrp=0;igrp<ngrps;igrp++)
         if(strcmp(name,grps[igrp]->name)==0)
         {
-            error->abort("group %s already exists",name);
+            Error::abort("group %s already exists",name);
             return NULL;
         }
     
@@ -398,7 +399,7 @@ void GroupCollection::del_grp(Group* grp)
     while(grps[igrp]!=grp && igrp<ngrps)
         igrp++;
     if(igrp==ngrps)
-        error->abort("group was not found");
+        Error::abort("group was not found");
     
     Group** _grps=new Group*[ngrps-1];
     int j=0;

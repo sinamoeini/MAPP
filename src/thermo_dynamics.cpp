@@ -121,7 +121,7 @@ ThermoDynamics::ThermoDynamics(int nargs,char** args)
     mod_lngth=precision+9;    
     
     if(__dim__!=3)
-        error->abort("the thermodynamics "
+        Error::abort("the thermodynamics "
         "works only with box dimension 3");
 
     no_quantities=nargs;

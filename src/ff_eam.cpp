@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "neighbor.h"
+#include "neighbor_md.h"
 #include "ff_eam.h"
 #include "atom_types.h"
 #include "error.h"
@@ -9,6 +9,7 @@
 #include "MAPP.h"
 #include "eam_file_reader.h"
 #include "gcmc.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 
@@ -23,7 +24,7 @@ ForceField_eam():ForceFieldMD()
     gcmc_tag_enabled=true;
 
     if(mode!=MD_mode)
-        error->abort("ff eam works only "
+        Error::abort("ff eam works only "
         "for md mode");
 
     max_pairs=0;
@@ -55,10 +56,10 @@ force_calc(bool st_clc)
         CREATE1D(drhoj_dr,max_pairs);
     }
     
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* fvec=f->begin();
     type0* rho=rho_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     int iatm,jatm;
     
@@ -78,24 +79,22 @@ force_calc(bool st_clc)
         for(int i=1;i<7;i++)
             nrgy_strss_lcl[i]=0.0;
     
-    int natms=atoms->natms;
-    
     for(iatm=0;iatm<natms;iatm++) rho[iatm]=0.0;
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             drhoi_dr[istart]=drhoj_dr[istart]=0.0;
             if(rsq < cut_sq[itype][jtype])
@@ -168,7 +167,7 @@ force_calc(bool st_clc)
         m=MIN(m,nrho-2);
         p-=m;
         p=MIN(p,1.0);
-        itype=type[iatm];
+        itype=typevec[iatm];
         coef=F_arr[itype][m];
         tmp1=(coef[6]*p+coef[5])*p+coef[4];
         tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
@@ -180,26 +179,26 @@ force_calc(bool st_clc)
     }
     
     
-    atoms->update(rho_ptr);
+    dynamic->update(rho_ptr);
     
     istart=0;
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             if(drhoi_dr[istart]!=0.0 || drhoj_dr[istart]!=0.0)
             {
                 jatm=neighbor_list[iatm][j];
-                jtype=type[jatm];
+                jtype=typevec[jatm];
                 jcomp=3*jatm;
                 
                 fpair=rho[iatm]*drhoi_dr[istart]+rho[jatm]*drhoj_dr[istart];
                 
-                dx0=x[icomp]-x[jcomp];
-                dx1=x[icomp+1]-x[jcomp+1];
-                dx2=x[icomp+2]-x[jcomp+2];
+                dx0=xvec[icomp]-xvec[jcomp];
+                dx1=xvec[icomp+1]-xvec[jcomp+1];
+                dx2=xvec[icomp+2]-xvec[jcomp+2];
                 
                 fvec[icomp]+=dx0*fpair;
                 fvec[icomp+1]+=dx1*fpair;
@@ -248,9 +247,9 @@ force_calc(bool st_clc)
  --------------------------------------------*/
 type0 ForceField_eam::energy_calc()
 {
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* rho=rho_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     int iatm,jatm;
     
@@ -266,23 +265,21 @@ type0 ForceField_eam::energy_calc()
     type0 en=0.0;
     type0 en_tot=0.0;
     
-    int natms=atoms->natms;
-    
     for(iatm=0;iatm<natms;iatm++) rho[iatm]=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             if(rsq<cut_sq[itype][jtype])
@@ -318,7 +315,7 @@ type0 ForceField_eam::energy_calc()
         m=MIN(m,nrho-2);
         p-=m;
         p=MIN(p,1.0);
-        itype=type[iatm];
+        itype=typevec[iatm];
         coef=F_arr[itype][m];
         tmp0=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
         if(rho[iatm]>rho_max)
@@ -341,10 +338,10 @@ void ForceField_eam::pre_xchng_energy(GCMC* gcmc)
     type0 rho_iatm_lcl;
     
     int& iatm=gcmc->iatm;
-    md_type& itype=gcmc->itype;
+    atom_type& itype=gcmc->itype;
     
     int& jatm=gcmc->jatm;
-    md_type& jtype=gcmc->jtype;
+    atom_type& jtype=gcmc->jtype;
     
     type0&rsq=gcmc->rsq;
     
@@ -355,7 +352,6 @@ void ForceField_eam::pre_xchng_energy(GCMC* gcmc)
     
     type0* rho=rho_ptr->begin();
     type0* rho_xchng=rho_xchng_ptr->begin();
-    int natms=atoms->natms;
     int* tag=gcmc->tag_vec_p->begin();
     for(int i=0;i<natms;i++)
         rho_xchng[i]=rho[i];
@@ -398,7 +394,7 @@ void ForceField_eam::pre_xchng_energy(GCMC* gcmc)
         
         type0* F=F_ptr->begin();
         type0* F_xchng=F_xchng_ptr->begin();
-        md_type* type=mapp->type->begin();
+        atom_type* typevec=type->begin();
         
         type0 tmp0;
         en0=0.0;
@@ -411,7 +407,7 @@ void ForceField_eam::pre_xchng_energy(GCMC* gcmc)
                 m=MIN(m,nrho-2);
                 p-=m;
                 p=MIN(p,1.0);
-                coef=F_arr[type[i]][m];
+                coef=F_arr[typevec[i]][m];
                 F_xchng[i]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
                 if(tmp0>rho_max)
                     F_xchng[i]+=((coef[6]*p+coef[5])*p+coef[4])*(tmp0-rho_max);
@@ -476,7 +472,6 @@ void ForceField_eam::post_xchng_energy(GCMC* gcmc)
     
     type0* rho_xchng=rho_xchng_ptr->begin();
     type0* F_xchng=F_xchng_ptr->begin();
-    int natms=atoms->natms;
     for(int i=0;i<natms;i++)
         if(tag[i]==0)
         {
@@ -503,9 +498,7 @@ void ForceField_eam::post_xchng_energy(GCMC* gcmc)
  init before running
  --------------------------------------------*/
 void ForceField_eam::init()
-{
-    neighbor->pair_wise=true;
-    
+{    
     rho_ptr=new Vec<type0>(atoms,1);
 }
 /*--------------------------------------------
@@ -531,12 +524,12 @@ void ForceField_eam::init_xchng()
     rho_xchng_ptr=new Vec<type0>(atoms,1);
     F_xchng_ptr=new Vec<type0>(atoms,1);
     
-    type0* x=atoms->x->begin();
+    type0* xvec=x->begin();
     type0* rho=rho_ptr->begin();
     type0* F=F_ptr->begin();
     type0* rho_xchng=rho_xchng_ptr->begin();
     type0* F_xchng=F_xchng_ptr->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* typevec=type->begin();
     
     int iatm,jatm;
     
@@ -548,24 +541,22 @@ void ForceField_eam::init_xchng()
     
     int** neighbor_list=neighbor->neighbor_list;
     int* neighbor_list_size=neighbor->neighbor_list_size;
-    
-    int natms=atoms->natms;
-    
+        
     for(iatm=0;iatm<natms;iatm++) rho[iatm]=rho_xchng[iatm]=F_xchng[iatm]=0.0;
     
     for(iatm=0;iatm<natms;iatm++)
     {
-        itype=type[iatm];
+        itype=typevec[iatm];
         icomp=3*iatm;
         for(int j=0;j<neighbor_list_size[iatm];j++)
         {
             jatm=neighbor_list[iatm][j];
-            jtype=type[jatm];
+            jtype=typevec[jatm];
             
             jcomp=3*jatm;
-            dx0=x[icomp]-x[jcomp];
-            dx1=x[icomp+1]-x[jcomp+1];
-            dx2=x[icomp+2]-x[jcomp+2];
+            dx0=xvec[icomp]-xvec[jcomp];
+            dx1=xvec[icomp+1]-xvec[jcomp+1];
+            dx2=xvec[icomp+2]-xvec[jcomp+2];
             rsq=dx0*dx0+dx1*dx1+dx2*dx2;
             
             if(rsq<cut_sq[itype][jtype])
@@ -595,7 +586,7 @@ void ForceField_eam::init_xchng()
         m=MIN(m,nrho-2);
         p-=m;
         p=MIN(p,1.0);
-        itype=type[iatm];
+        itype=typevec[iatm];
         coef=F_arr[itype][m];
         F[iatm]=((coef[3]*p+coef[2])*p+coef[1])*p+coef[0];
     }

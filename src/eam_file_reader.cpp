@@ -4,14 +4,15 @@
 #include "memory.h"
 #include "error.h"
 #include "atoms.h"
+#include "MAPP.h"
 #include "script_reader.h"
 enum{NOT_SET,FUNC_FL,SET_FL,FINNIS_FL};
 using namespace MAPP_NS;
 /*--------------------------------------------
  
  --------------------------------------------*/
-EAMFileReader::EAMFileReader()
-
+EAMFileReader::EAMFileReader():
+atom_types(mapp->atom_types)
 {
     allocated=0;
     no_types=0;
@@ -52,14 +53,14 @@ void EAMFileReader::setup()
     if(eam_mode==FINNIS_FL)
     {
         if(nfiles!=1)
-            error->abort("number of files for "
+            Error::abort("number of files for "
             "FS should be one");
         set_fs();
     }
     else if(eam_mode==SET_FL)
     {
         if(nfiles!=1)
-            error->abort("number of files for "
+            Error::abort("number of files for "
             "SetFL should be one");
         
         set_setfl();
@@ -67,7 +68,7 @@ void EAMFileReader::setup()
     else if(eam_mode==FUNC_FL)
     {
         if(nfiles!=no_types)
-            error->abort("number of files for "
+            Error::abort("number of files for "
             "FuncFL should be euqal to number of "
             "atomic types");
         
@@ -79,7 +80,7 @@ void EAMFileReader::setup()
             while(types[ifile]==itype && ifile<nfiles)
                 ifile++;
             if(ifile==nfiles)
-                error->abort("file FuncFL for %s "
+                Error::abort("file FuncFL for %s "
                 "was not found",atom_types->atom_names[itype]);
 
             files_[itype]=files[itype];
@@ -119,7 +120,7 @@ void EAMFileReader::file_format(const char* format)
     else if(strcmp(format,"FuncFL")==0)
         eam_mode=FUNC_FL;
     else
-        error->abort("unknown file format "
+        Error::abort("unknown file format "
         "for ff eam_dmd: %s",format);
 }
 /*--------------------------------------------
@@ -128,7 +129,7 @@ void EAMFileReader::file_format(const char* format)
 void EAMFileReader::set_funcfl()
 {
     if(nfiles!=no_types)
-        error->abort("for FuncFL mode number of"
+        Error::abort("for FuncFL mode number of"
         " ff eam_dmd files should be equal to the number"
         " of atom types present in the system");
     
@@ -164,27 +165,27 @@ void EAMFileReader::set_funcfl()
         
         for(int i=0;i<2;i++)
             if(ScriptReader::read_line(fp,line)==-1)
-                error->abort("%s file ended immaturely",files[ityp]);
+                Error::abort("%s file ended immaturely",files[ityp]);
         
         nargs=ScriptReader::parse_line(line,args,args_cpcty);
         if(nargs!=4)
-            error->abort("invalid line in %s file: %s",files[ityp],line);
+            Error::abort("invalid line in %s file: %s",files[ityp],line);
         
         mass=atof(args[1]);
         
         if(mass!=atom_types->mass[ityp])
-            error->abort("mass of element %s in %s file (%lf) does not match "
+            Error::abort("mass of element %s in %s file (%lf) does not match "
             "the mass that is already assigned to the element (%lf), make "
             "sure that the right sequence of ff eam_dmd files are "
             "used",atom_types->atom_names[ityp],files[ityp],mass
             ,atom_types->mass[ityp]);
   
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[ityp]);
+            Error::abort("%s file ended immaturely",files[ityp]);
         
         nargs=ScriptReader::parse_line(line,args,args_cpcty);
         if(nargs!=5)
-            error->abort("invalid line in %s file: %s",files[ityp],line);
+            Error::abort("invalid line in %s file: %s",files[ityp],line);
         
         nrhos[ityp]=atoi(args[0]);
         nrs[ityp]=atoi(args[2]);
@@ -192,13 +193,13 @@ void EAMFileReader::set_funcfl()
         drs[ityp]=atof(args[3]);
         
         if(nrhos[ityp]<5)
-            error->abort("nrho in %s file should be larger than 5",files[ityp]);
+            Error::abort("nrho in %s file should be larger than 5",files[ityp]);
         if(nrs[ityp]<5)
-            error->abort("nr in %s file should be larger than 5",files[ityp]);
+            Error::abort("nr in %s file should be larger than 5",files[ityp]);
         if(drhos[ityp]<=0.0)
-            error->abort("drho in %s file should be larger than 0.0",files[ityp]);
+            Error::abort("drho in %s file should be larger than 0.0",files[ityp]);
         if(drs[ityp]<=0.0)
-            error->abort("dr in %s file should be larger than 0.0",files[ityp]);
+            Error::abort("dr in %s file should be larger than 0.0",files[ityp]);
         
         
         
@@ -210,12 +211,12 @@ void EAMFileReader::set_funcfl()
         while (ipos<tot)
         {
             if(ScriptReader::read_line(fp,line)==-1)
-                error->abort("%s file ended immaturely",files[ityp]);
+                Error::abort("%s file ended immaturely",files[ityp]);
             
             nargs=ScriptReader::parse_line(line,args,args_cpcty);
             
             if(ipos+nargs>tot)
-                error->abort("%s file ended immaturely",files[ityp]);
+                Error::abort("%s file ended immaturely",files[ityp]);
             
             for(int i=0;i<nargs;i++)
             {
@@ -359,7 +360,7 @@ void EAMFileReader::set_funcfl()
 void EAMFileReader::set_setfl()
 {
     if(nfiles!=1)
-        error->abort("for SetFL mode number of"
+        Error::abort("for SetFL mode number of"
         " ff eam_dmd files should be one");
 
     FILE* fp=NULL;
@@ -370,7 +371,7 @@ void EAMFileReader::set_setfl()
     
     for(int i=0;i<4;i++)
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
     
     char** args=NULL;
     int args_cpcty=0;
@@ -378,7 +379,7 @@ void EAMFileReader::set_setfl()
     
     nargs=ScriptReader::parse_line(line,args,args_cpcty);
     if(nargs<2 || nargs-1 < no_types)
-        error->abort("invalid line in %s file: %s",files[0],line);
+        Error::abort("invalid line in %s file: %s",files[0],line);
     
     int tot_no_types=nargs-1;
     
@@ -397,7 +398,7 @@ void EAMFileReader::set_setfl()
     
     for(int i=0;i<no_types;i++)
         if(tmp_type_ref[i]==-1)
-            error->abort("%s file does not contain "
+            Error::abort("%s file does not contain "
             "parameters for element %s",files[0]
             ,atom_types->atom_names[i]);
     if(no_types)
@@ -405,12 +406,12 @@ void EAMFileReader::set_setfl()
     
     
     if(ScriptReader::read_line(fp,line)==-1)
-        error->abort("%s file ended immaturely",files[0]);
+        Error::abort("%s file ended immaturely",files[0]);
     nargs=ScriptReader::parse_line(line,args,args_cpcty);
     
     
     if(nargs!=5)
-        error->abort("invalid line in %s file: %s",files[0],line);
+        Error::abort("invalid line in %s file: %s",files[0],line);
     
     nrho=atoi(args[0]);
     nr=atoi(args[2]);
@@ -418,13 +419,13 @@ void EAMFileReader::set_setfl()
     dr=atof(args[3]);
     
     if(nrho<5)
-        error->abort("nrho in %s file should be larger than 5",files[0]);
+        Error::abort("nrho in %s file should be larger than 5",files[0]);
     if(nr<5)
-        error->abort("nr in %s file should be larger than 5",files[0]);
+        Error::abort("nr in %s file should be larger than 5",files[0]);
     if(drho<=0.0)
-        error->abort("drho in %s file should be larger than 0.0",files[0]);
+        Error::abort("drho in %s file should be larger than 0.0",files[0]);
     if(dr<=0.0)
-        error->abort("dr in %s file should be larger than 0.0",files[0]);
+        Error::abort("dr in %s file should be larger than 0.0",files[0]);
     
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
@@ -436,12 +437,12 @@ void EAMFileReader::set_setfl()
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
         int lim=(ityp+1)*(nrho+nr);
         while (ipos<lim)
         {
             if(ScriptReader::read_line(fp,line)==-1)
-                error->abort("%s file ended immaturely",files[0]);
+                Error::abort("%s file ended immaturely",files[0]);
             
             nargs=ScriptReader::parse_line(line,args,args_cpcty);
             for(int i=0;i<nargs;i++)
@@ -451,13 +452,13 @@ void EAMFileReader::set_setfl()
             }
         }
         if(ipos!=lim)
-            error->abort("unknown line in file %s:",files[0],line);
+            Error::abort("unknown line in file %s:",files[0],line);
     }
     
     while (ipos<tot)
     {
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
         
         nargs=ScriptReader::parse_line(line,args,args_cpcty);
         for(int i=0;i<nargs;i++)
@@ -468,7 +469,7 @@ void EAMFileReader::set_setfl()
     }
     
     if(ipos!=tot)
-        error->abort("unknown line in file %s:",files[0],line);
+        Error::abort("unknown line in file %s:",files[0],line);
     
     delete [] line;
     if(args_cpcty)
@@ -547,7 +548,7 @@ void EAMFileReader::set_setfl()
 void EAMFileReader::set_fs()
 {
     if(nfiles!=1)
-        error->abort("one file is needed for eam");
+        Error::abort("one file is needed for eam");
     
     FILE* fp=NULL;
     char* line;
@@ -557,7 +558,7 @@ void EAMFileReader::set_fs()
     
     for(int i=0;i<4;i++)
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
     
     char** args=NULL;
     int args_cpcty=0;
@@ -565,7 +566,7 @@ void EAMFileReader::set_fs()
     
     nargs=ScriptReader::parse_line(line,args,args_cpcty);
     if(nargs<2 || nargs-1<no_types)
-        error->abort("invalid line in %s file: %s",files[0],line);
+        Error::abort("invalid line in %s file: %s",files[0],line);
     
     int tot_no_types=nargs-1;
     
@@ -586,7 +587,7 @@ void EAMFileReader::set_fs()
     
     for(int i=0;i<no_types;i++)
         if(tmp_type_ref[i]==-1)
-            error->abort("%s file does not contain "
+            Error::abort("%s file does not contain "
             "parameters for element %s",files[0]
             ,atom_types->atom_names[i]);
     
@@ -595,11 +596,11 @@ void EAMFileReader::set_fs()
     
     
     if(ScriptReader::read_line(fp,line)==-1)
-        error->abort("%s file ended immaturely",files[0]);
+        Error::abort("%s file ended immaturely",files[0]);
     nargs=ScriptReader::parse_line(line,args,args_cpcty);
     
     if(nargs!=5)
-        error->abort("invalid line in %s file: %s",files[0],line);
+        Error::abort("invalid line in %s file: %s",files[0],line);
     
     nrho=atoi(args[0]);
     nr=atoi(args[2]);
@@ -608,13 +609,13 @@ void EAMFileReader::set_fs()
     
     
     if(nrho<5)
-        error->abort("nrho in %s file should be larger than 5",files[0]);
+        Error::abort("nrho in %s file should be larger than 5",files[0]);
     if(nr<5)
-        error->abort("nr in %s file should be larger than 5",files[0]);
+        Error::abort("nr in %s file should be larger than 5",files[0]);
     if(drho<=0.0)
-        error->abort("drho in %s file should be larger than 0.0",files[0]);
+        Error::abort("drho in %s file should be larger than 0.0",files[0]);
     if(dr<=0.0)
-        error->abort("dr in %s file should be larger than 0.0",files[0]);
+        Error::abort("dr in %s file should be larger than 0.0",files[0]);
     
     dr_inv=1.0/dr;
     drho_inv=1.0/drho;
@@ -634,17 +635,17 @@ void EAMFileReader::set_fs()
     for(int ityp=0;ityp<tot_no_types;ityp++)
     {
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
         ipos_loc=0;
         while (ipos_loc<tot_loc)
         {
             if(ScriptReader::read_line(fp,line)==-1)
-                error->abort("%s file ended immaturely",files[0]);
+                Error::abort("%s file ended immaturely",files[0]);
             
             nargs=ScriptReader::parse_line(line,args,args_cpcty);
             
             if(ipos_loc+nargs>tot_loc)
-                error->abort("%s file ended immaturely",files[0]);
+                Error::abort("%s file ended immaturely",files[0]);
             
             for(int i=0;i<nargs;i++)
             {
@@ -660,12 +661,12 @@ void EAMFileReader::set_fs()
     while (ipos_loc<tot_loc)
     {
         if(ScriptReader::read_line(fp,line)==-1)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
         
         nargs=ScriptReader::parse_line(line,args,args_cpcty);
         
         if(ipos_loc+nargs>tot_loc)
-            error->abort("%s file ended immaturely",files[0]);
+            Error::abort("%s file ended immaturely",files[0]);
         
         for(int i=0;i<nargs;i++)
         {

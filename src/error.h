@@ -11,15 +11,16 @@ namespace MAPP_NS
     {
     private:
     protected:
-        int my_no;
     public:
+        static int my_p;
+
         Error();
         ~Error();
-        void abort(const char*,...);
-        void abort_sing(const char*,...);
-        void warning(const char*,...);
-        void print(const char*,...);
-        void abort();        
+        static void abort(const char*,...);
+        static void abort_sing(const char*,...);
+        static void warning(const char*,...);
+        static void print(const char*,...);
+        static void abort();        
     };
 }
 #endif

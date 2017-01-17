@@ -12,26 +12,30 @@
 #include "md.h"
 #include "MAPP.h"
 #include "atoms.h"
+#include "comm.h"
+#include "dynamic.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-GCMC::GCMC(dmd_type gas_type_,type0 mu_,type0 T_,int seed):
+GCMC::GCMC(Dynamic*& dynamic_,atom_type gas_type_,type0 mu_,type0 T_,int seed):
+world(comm->world),
+dynamic(dynamic_),
 gas_type(gas_type_),
 mu(mu_),
 T(T_),
 cut_sq(forcefield->cut_sq),
-s_hi(atoms->s_hi),
-s_lo(atoms->s_lo),
+s_hi(comm->s_hi),
+s_lo(comm->s_lo),
 natms(atoms->natms),
 natms_ph(atoms->natms_ph),
 itype(gas_type)
 {
     ff=dynamic_cast<ForceFieldMD*>(forcefield);
     if(!ff)
-        error->abort("gcmc requires an md type forcefield");
+        Error::abort("gcmc requires an md type forcefield");
     if(atoms->x->dim!=__dim__)
-        error->abort("x dimension must be %d for gcmc",__dim__);
+        Error::abort("x dimension must be %d for gcmc",__dim__);
     
     random=new Random(seed);
     s_trials=new type0*[__dim__];
@@ -87,10 +91,10 @@ int GCMC::get_new_id()
 void GCMC::init()
 {
     cut=forcefield->cut[itype][0];
-    for(int i=1;i<atom_types->no_types;i++)
+    for(int i=1;i<mapp->atom_types->no_types;i++)
         cut=MAX(cut,forcefield->cut[itype][i]);
     
-    gas_mass=atom_types->mass[gas_type];
+    gas_mass=mapp->atom_types->mass[gas_type];
     kbT=md->boltz*T;
     beta=1.0/kbT;
     lambda=md->hplanck/sqrt(2.0*M_PI*kbT*gas_mass);
@@ -110,7 +114,7 @@ void GCMC::init()
         max_id=MAX(max_id,del_ids[i]);
         
     ngas=0;
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     for(int i=0;i<natms;i++)
         if(type[i]==gas_type) ngas++;
     MPI_Allreduce(&ngas,&tot_ngas,1,MPI_INT,MPI_SUM,world);

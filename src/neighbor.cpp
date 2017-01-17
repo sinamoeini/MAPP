@@ -7,14 +7,16 @@
 #include "memory.h"
 #include "timer.h"
 #include "atoms.h"
+#include "comm.h"
 #include "xmath.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor::Neighbor()
+Neighbor::Neighbor(Atoms*& atoms_):
+atoms(atoms_),
+pair_wise(true)
 {
-    pair_wise=true;
     neighbor_list_size_size=0;
 }
 /*--------------------------------------------
@@ -41,7 +43,7 @@ void Neighbor::print_stats()
 void Neighbor::init()
 {
     no_neigh_lists=0;
-    cell=new Cell(1,atoms->max_cut_s);
+    cell=new Cell(1,atoms);
     create_list(true);
 }
 /*--------------------------------------------
@@ -76,14 +78,15 @@ void Neighbor::rename_atoms(int* old_2_new)
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-Neighbor::Cell::Cell(int m_,type0 (&cut_s_)[__dim__]):
+Neighbor::Cell::Cell(int m_,Atoms*& __atoms):
 m(m_),
-natms(atoms->natms),
-natms_ph(atoms->natms_ph),
-x(atoms->x),
-cut_s(cut_s_),
-s_lo(atoms->s_lo),
-s_hi(atoms->s_hi)
+atoms(__atoms),
+natms(__atoms->natms),
+natms_ph(__atoms->natms_ph),
+x(__atoms->x),
+cut_s(__atoms->max_cut_s),
+s_lo(__atoms->s_lo),
+s_hi(__atoms->s_hi)
 {
     ncells=0;
     head_atm=NULL;
@@ -253,6 +256,7 @@ void Neighbor::Cell::create(bool box_chng)
     }
     
     iatm=-1;
+    atoms->s2x_all();
     nxt_i();
 }
 /*--------------------------------------------
@@ -297,6 +301,7 @@ void Neighbor::Cell::nxt_i()
     }
     jx=x->begin()+jatm*x->dim;
     rsq=XMatrixVector::rsq<__dim__>(ix,jx);
+    
 }
 /*--------------------------------------------
  
@@ -320,7 +325,3 @@ void Neighbor::Cell::nxt_j()
     jx=x->begin()+jatm*x->dim;
     rsq=XMatrixVector::rsq<__dim__>(ix,jx);
 }
-
-
-
-

@@ -6,6 +6,7 @@ namespace MAPP_NS
     class EAMFileReader
     {
     private:
+        class AtomTypes*& atom_types;
         int no_types;
         int allocated;
         void allocate();

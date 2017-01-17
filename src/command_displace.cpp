@@ -2,7 +2,9 @@
 #include "memory.h"
 #include "error.h"
 #include "atoms.h"
+#include "comm.h"
 #include "group.h"
+#include "MAPP.h"
 #include <stdlib.h>
 using namespace MAPP_NS;
 enum {disp_x,disp_s};
@@ -14,13 +16,13 @@ Command_displace::Command_displace(int nargs,char** args)
     int mode=-1;
     int dim=__dim__;
     if(nargs<3+dim)
-        error->abort("incorrect displace command");
+        Error::abort("incorrect displace command");
     if(strcmp(args[1],"x")==0)
         mode=disp_x;
     else if(strcmp(args[1],"s")==0)
         mode=disp_s;
     else
-        error->abort("unknown keyword %s",args[1]);
+        Error::abort("unknown keyword %s",args[1]);
         
     type0* disp;
     CREATE1D(disp,dim);
@@ -33,7 +35,7 @@ Command_displace::Command_displace(int nargs,char** args)
     {
     }
     else
-        error->abort("unknown keyword %s",args[iarg]);
+        Error::abort("unknown keyword %s",args[iarg]);
     iarg++;
     
     int ngrps=nargs-iarg;
@@ -42,7 +44,7 @@ Command_displace::Command_displace(int nargs,char** args)
     
     for(int i=0;i<ngrps;i++)
     {
-        Group* grp=groups->find_grp(args[iarg]);
+        Group* grp=mapp->groups->find_grp(args[iarg]);
         grp->get_idx(grp_sz[i],grp_idx[i]);
         iarg++;
     }
@@ -71,7 +73,7 @@ Command_displace::Command_displace(int nargs,char** args)
     }
     delete [] disp;
     
-    atoms->reset();
+    comm->reset();
 }
 /*--------------------------------------------
  destructor

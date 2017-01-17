@@ -17,7 +17,7 @@
 #include "cmd.h"
 #include "pgcmc.h"
 #include "MAPP.h"
-
+#include "dynamic.h"
 
 using namespace MAPP_NS;
 enum {NONE,X,Y,XY,Z,ZX,YZ,XYZ,TAU};
@@ -49,7 +49,7 @@ MD_nh::MD_nh(int nargs,char** args):MD()
     cmd(nargs,args);
     if(xchng_seed)
     {
-        gcmc=new PGCMC(1,gas_type,mu,t_tar,xchng_seed);
+        gcmc=new PGCMC(dynamic,1,gas_type,mu,t_tar,xchng_seed);
         count_idx=thermo->add("count");
     }
 }
@@ -67,11 +67,11 @@ void MD_nh::init()
 {
     
     if(boltz==0.0)
-        error->abort("boltzmann should be set after md nh and before run");
+        Error::abort("boltzmann should be set after md nh and before run");
     if(gcmc && hplanck==0.0)
-        error->abort("plank should be set after md nh and before run");
+        Error::abort("plank should be set after md nh and before run");
     if(dt==0.0)
-        error->abort("time_step should be set after md nh and before run");
+        Error::abort("time_step should be set after md nh and before run");
     
     tdrag=1.0-dt*t_freq*drag/static_cast<type0>(no_ch_eta);
     
@@ -156,19 +156,18 @@ void MD_nh::init()
     ke_tar=t_tar*boltz*no_dof;
     
     if(no_dof==0.0)
-        error->abort("degrees of freedom shoud be greater than 0 for md nh");
-    
-    vecs_comm=new VecLst(atoms);
-    vecs_comm->add_updt(mapp->type);
-    vecs_comm->add_xchng(mapp->x_d);
+        Error::abort("degrees of freedom shoud be greater than 0 for md nh");
+
     
     if(mapp->x_dof)
-        vecs_comm->add_xchng(mapp->x_dof);
-    
-    if(stress_mode)
-        atoms->init(vecs_comm,true);
+    {
+        dynamic=new Dynamic(atoms,comm,{mapp->type},{mapp->x_d,mapp->x_dof});
+    }
     else
-        atoms->init(vecs_comm,false);
+        dynamic=new Dynamic(atoms,comm,{mapp->type},{mapp->x_d});
+    
+    dynamic->init(stress_mode);
+    
 
     if(crt_vel)
     {
@@ -190,7 +189,7 @@ void MD_nh::init()
         if(dof_xst) modify_vrial();
     }
 
-    
+    if(dof_xst) modify_stress();
     for(int j=0;j<6;j++)
     {
         nrgy_strss[1+j]*=-1.0;
@@ -247,11 +246,12 @@ void MD_nh::fin()
     if(write)
         write->fin();
     thermo->fin();
-    atoms->fin();
-    timer->print_stats();
-    neighbor->print_stats();
+    dynamic->fin();
+    mapp->timer->print_stats();
+    forcefield->neighbor->print_stats();
     
-    delete vecs_comm;
+    delete dynamic;
+    dynamic=NULL;
     
     delete [] eta_d;
     delete [] eta_dd;
@@ -283,7 +283,7 @@ void MD_nh::run(int no_stps)
             update_x_d(dt2);
             
             update_x(dt);
-            atoms->update(atoms->x);
+            dynamic->update(atoms->x);
             
             thermo->thermo_print();
             if(write) write->write();
@@ -338,10 +338,10 @@ void MD_nh::run(int no_stps)
                 ke_tar=t_tar*boltz*no_dof;
                 thermo->update(count_idx,static_cast<type0>(gcmc->tot_ngas));
                 if(no_dof<=0.0)
-                    error->abort("degrees of freedom shoud be greater than 0 for md nh");
+                    Error::abort("degrees of freedom shoud be greater than 0 for md nh");
             }
             else
-               atoms->update(atoms->x);
+               dynamic->update(atoms->x);
             
             memset(forcefield->f->begin(),0,atoms->natms*3*sizeof(type0));
             thermo->thermo_print();
@@ -359,6 +359,7 @@ void MD_nh::run(int no_stps)
             
             if(thermo->test_prev_step()|| i==no_stps-1)
             {
+                if(dof_xst) modify_stress();
                 for(int j=0;j<6;j++)
                 {
                     nrgy_strss[1+j]*=-1.0;
@@ -427,25 +428,13 @@ void MD_nh::update_H(type0 dlt)
         }
         
         if(H_dof[0])
-        {
-            exfac=exp(dlt*omega_d[0]);
-            H0[0][0]*=exfac;
-        }
+            H0[0][0]*=exp(dlt*omega_d[0]);
         
         if(H_dof[1])
-        {
-            exfac=exp(dlt*omega_d[1]);
-            H0[1][1]*=exfac;
-            H0[1][0]*=exfac;
-        }
+            H0[1][1]*=exp(dlt*omega_d[1]);
         
         if(H_dof[2])
-        {
-            exfac=exp(dlt*omega_d[2]);
-            H0[2][2]*=exfac;
-            H0[2][1]*=exfac;
-            H0[2][0]*=exfac;
-        }
+            H0[2][2]*=exp(dlt*omega_d[2]);
         
         if(H_dof[4])
         {
@@ -625,7 +614,7 @@ void MD_nh::update_x_d(type0 dlt)
     
     type0* x_d=mapp->x_d->begin();
     type0* f=forcefield->f->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     type0* mass=atom_types->mass;
     type0 m;
     int natms=atoms->natms;
@@ -818,9 +807,10 @@ void MD_nh::update_NH_tau(type0 dlt)
             if(ich==no_ch_peta-1) exfac=1.0;
             else exfac=exp(-dltm4*peta_d[ich+1]);
             
-            peta_d[ich]*=exfac;
             if(ich) peta_dd[ich]=(peta_m[ich-1]*peta_d[ich-1]*peta_d[ich-1]-boltz*t_tar)/peta_m[ich];
             else peta_dd[ich]=(kec-dof*boltz*t_tar)/peta_m[ich];
+            
+            peta_d[ich]*=exfac;
             peta_d[ich]+=peta_dd[ich]*dltm2;
             peta_d[ich]*=exfac;
         }
@@ -903,7 +893,7 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
     for(int i=0;i<6;i++) ke_vec_lcl[i]=0.0;
     
     type0* x_d=mapp->x_d->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     type0* mass=atom_types->mass;
     type0 m;
     
@@ -985,7 +975,7 @@ void MD_nh::update_x_d_xpnd(type0 dlt)
 void MD_nh::create_vel(int seed,type0 temperature)
 {
     type0* x_d=mapp->x_d->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     type0* mass=atom_types->mass;
     type0 m;
     
@@ -1073,7 +1063,7 @@ void MD_nh::init_vel(type0 temperature)
 {
 
     type0* x_d=mapp->x_d->begin();
-    md_type* type=mapp->type->begin();
+    atom_type* type=mapp->type->begin();
     type0* mass=atom_types->mass;
     type0 m;
     
@@ -1121,7 +1111,7 @@ void MD_nh::init_vel(type0 temperature)
     t_cur=ke_cur/(boltz*no_dof);
     
     if(ke_cur==0.0)
-        error->abort("kinetic energy of the system should be "
+        Error::abort("kinetic energy of the system should be "
         "greater than 0.0 for md nh, please assign velocities "
         "or use create_vel keyword");
     
@@ -1216,6 +1206,47 @@ void MD_nh::modify_vrial()
     
     for(int i=0;i<6;i++)
         virial_pe[i]-=st[i];
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+void MD_nh::modify_stress()
+{
+    type0* xvec=atoms->x->begin();
+    type0* fvec=forcefield->f->begin();
+    bool* dof=mapp->x_dof->begin();
+    type0 st_lcl[6];
+    type0 st[6];
+    for(int i=0;i<6;i++)
+        st_lcl[i]=0.0;
+    
+    for(int i=0;i<atoms->natms;i++)
+    {
+        if(!dof[0])
+        {
+            st_lcl[0]+=fvec[0]*xvec[0];
+            st_lcl[4]+=fvec[0]*xvec[2];
+            st_lcl[5]+=fvec[0]*xvec[1];
+        }
+        
+        if(!dof[1])
+        {
+            st_lcl[1]+=fvec[1]*xvec[1];
+            st_lcl[3]+=fvec[1]*xvec[2];
+        }
+        
+        if(!dof[2])
+            st_lcl[2]+=fvec[2]*xvec[2];
+        
+        fvec+=3;
+        xvec+=3;
+        dof+=3;
+    }
+    
+    MPI_Allreduce(st_lcl,st,6,MPI_TYPE0,MPI_SUM,world);
+    
+    for(int i=0;i<6;i++)
+        nrgy_strss[1+i]+=st[i]/vol;
 }
 /*--------------------------------------------
  
@@ -1428,4 +1459,88 @@ void MD_nh::cmd(int nargs,char** args)
     if(gcmc_type)
         gas_type=atom_types->find_type(gcmc_type);
 }
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ThermostatNHC::ThermostatNHC(const type0& __T,
+const type0 __dt,const type0 __freq,
+const int __nchain,const int __niter):
 
+T(__T),
+freq_sq(__freq*__freq),
+nchain(__nchain),
+niter(__niter),
+eta_d(NULL),
+eta_dd(NULL),
+ddt(__dt/static_cast<type0>(__niter)),
+ddt2(0.5*__dt/static_cast<type0>(__niter)),
+ddt4(0.25*__dt/static_cast<type0>(__niter))
+{
+    eta_d=new type0[nchain];
+    eta_dd=new type0[nchain];
+    for(int ich=0;ich<nchain;ich++) eta_d[ich]=0.0;
+    for(int ich=1;ich<nchain;ich++) eta_dd[ich]=-freq_sq;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ThermostatNHC::~ThermostatNHC()
+{
+    delete [] eta_dd;
+    delete [] eta_d;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+type0 ThermostatNHC::operator()(type0 T_curr,int ndof)
+{
+    eta_dd[0]=(T_curr/T-1.0)*freq_sq;
+    type0 fac,rescale=1.0;
+    
+    if(nchain==1)
+    {
+        for(int iter=0;iter<niter;iter++)
+        {
+            eta_d[0]+=eta_dd[0]*ddt2;
+            fac=exp(-ddt*eta_d[0]);
+            
+            T_curr*=fac*fac;
+            rescale*=fac;
+            
+            eta_dd[0]=(T_curr/T-1.0)*freq_sq;
+            eta_d[0]+=eta_dd[0]*ddt2;
+        }
+        return rescale;
+    }
+    
+    for(int iter=0;iter<niter;iter++)
+    {
+        fac=1.0;
+        for(int ich=nchain-1;ich>0;fac=exp(-ddt4*eta_d[ich--]))
+            eta_d[ich]=(eta_d[ich]*fac+eta_dd[ich]*ddt2)*fac;
+        
+        eta_d[0]=(eta_d[0]*fac+eta_dd[0]*ddt2)*fac;
+        fac=exp(-ddt*eta_d[0]);
+        
+        T_curr*=fac*fac;
+        rescale*=fac;
+        
+        eta_dd[0]=(T_curr/T-1.0)*freq_sq;
+        
+        
+        fac=exp(-ddt4*eta_d[1]);
+        eta_d[0]=(eta_d[0]*fac+eta_dd[0]*ddt2)*fac;
+        eta_dd[1]=ndof*eta_d[0]*eta_d[0]-freq_sq;
+        
+        for(int ich=1;ich<nchain-1;ich++)
+        {
+            fac=exp(-ddt4*eta_d[ich+1]);
+            eta_d[ich]=(eta_d[ich]*fac+eta_dd[ich]*ddt2)*fac;
+            eta_dd[ich+1]=eta_d[ich]*eta_d[ich]-freq_sq;
+        }
+        eta_d[nchain-1]+=eta_dd[nchain-1]*ddt2;
+    }
+    
+    
+    return rescale;
+}

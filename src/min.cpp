@@ -11,6 +11,10 @@
 #include "ls_styles.h"
 #include "MAPP.h"
 #include "script_reader.h"
+#include "dynamic.h"
+#include "ff.h"
+#include "xmath.h"
+#include "comm.h"
 #define INV_SQ_2 0.7071067811865475
 using namespace MAPP_NS;
 
@@ -18,11 +22,13 @@ using namespace MAPP_NS;
  constructor
  --------------------------------------------*/
 Min::Min():
-nrgy_strss(forcefield->nrgy_strss)
+nrgy_strss(forcefield->nrgy_strss),
+__write__(write),
+world(comm->world)
 {
     output_flag=true;
     if(forcefield==NULL)
-        error->abort("ff should be "
+        Error::abort("ff should be "
         "initiated before min");
     
     
@@ -459,7 +465,7 @@ void Min::init()
     
     ndofs=calc_ndofs();
     if(ndofs==0)
-        error->abort("for minimization to "
+        Error::abort("for minimization to "
         "perform the degrees of freedom "
         "must be greater than 0.0");
     
@@ -473,32 +479,32 @@ void Min::init()
     h.init(atoms,chng_box);
 
     
-    vecs_comm=new VecLst(atoms);
+    
 
     if(mode==MD_mode)
     {
-        vecs_comm->add_updt(mapp->type);
-        if(mapp->x_dof)
-            vecs_comm->add_xchng(mapp->x_dof);
+        if(mapp->x_dof && mapp->x_d)
+            dynamic=new Dynamic(atoms,comm,{mapp->type},{mapp->x_dof,h(),x0(),f0()},{mapp->x_d});
+        else if(mapp->x_dof && !mapp->x_d)
+            dynamic=new Dynamic(atoms,comm,{mapp->type},{mapp->x_dof,h(),x0(),f0()});
+        else if(!mapp->x_dof && mapp->x_d)
+            dynamic=new Dynamic(atoms,comm,{mapp->type},{h(),x0(),f0()},{mapp->x_d});
+        else
+            dynamic=new Dynamic(atoms,comm,{mapp->type},{h(),x0(),f0()},{});
+
     }
     else if(mode==DMD_mode)
     {
-        vecs_comm->add_updt(mapp->c);
-        vecs_comm->add_updt(mapp->ctype);
-        if(mapp->x_dof)
-        {
-            vecs_comm->add_xchng(mapp->x_dof);
-        }
-        if(mapp->c_dof)
-            vecs_comm->add_xchng(mapp->c_dof);
+        if(mapp->x_dof && mapp->c_dof)
+            dynamic=new Dynamic(atoms,comm,{mapp->c,mapp->ctype},{mapp->x_dof,mapp->c_dof,h(),x0(),f0()});
+        else if(mapp->x_dof && !mapp->c_dof)
+            dynamic=new Dynamic(atoms,comm,{mapp->c,mapp->ctype},{mapp->x_dof,h(),x0(),f0()});
+        else if(mapp->x_dof && mapp->c_dof)
+            dynamic=new Dynamic(atoms,comm,{mapp->c,mapp->ctype},{mapp->c_dof,h(),x0(),f0()});
+        else
+            dynamic=new Dynamic(atoms,comm,{mapp->c,mapp->ctype},{h(),x0(),f0()});
     }
-    
-    vecs_comm->add_xchng(h());
-    vecs_comm->add_xchng(x0());
-    vecs_comm->add_xchng(f0());
-    
-    if(mapp->x_d)
-        vecs_comm->add_arch(mapp->x_d);
+
     
     if(ls==NULL)
     {
@@ -520,12 +526,13 @@ void Min::fin()
     f.fin();
     f0.fin();
     h.fin();
-    delete vecs_comm;
+    delete dynamic;
+    dynamic=NULL;
     if(output_flag)
     {
         print_error();
-        timer->print_stats();
-        neighbor->print_stats();
+        mapp->timer->print_stats();
+        forcefield->neighbor->print_stats();
     }
 }
 /*--------------------------------------------
@@ -545,7 +552,7 @@ type0 Min::F(type0 alpha)
         
     }
     
-    atoms->update(atoms->x);
+    dynamic->update(atoms->x);
     return forcefield->energy_calc_timer();
 }
 /*--------------------------------------------
@@ -565,7 +572,7 @@ type0 Min::dF(type0 alpha,type0& drev)
             XMatrixVector::Mlt_inv<__dim__>(atoms->H,atoms->B);
     }
     
-    atoms->update(atoms->x);
+    dynamic->update(atoms->x);
     force_calc();
 
     if(affine)
@@ -709,7 +716,7 @@ void Min::ls_prep(type0& dfa,type0& h_norm,type0& max_a)
 void Min::F_reset()
 {
     x=x0;
-    atoms->update(atoms->x);
+    dynamic->update(atoms->x);
     if(chng_box)
     {
         if(__dim__==3)

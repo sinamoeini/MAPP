@@ -3,18 +3,27 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "ff.h"
+#include "MAPP.h"
 #include "atom_types.h"
 #include "timer.h"
 #include "error.h"
 #include "memory.h"
 #include "atoms.h"
+#include "comm.h"
+#include "neighbor_md.h"
+#include "neighbor_dmd.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-ForceField::
-ForceField()
+ForceField::ForceField():
+atom_types(mapp->atom_types),
+x(atoms->x),
+natms(atoms->natms),
+natms_ph(atoms->natms_ph),
+world(comm->world)
 {
+    neighbor=NULL;
     gcmc_tag_enabled=false;
     gcmc_n_vars=gcmc_n_cutoff=1;
     cut_sz=0;
@@ -25,14 +34,14 @@ ForceField()
     rsq_crd=NULL;
     
     if(atoms->tot_natms==0 || atom_types->no_types==0)
-        error->abort("system configuration "
+        Error::abort("system configuration "
         "should be loaded before initiating ff");
 
     if(__dim__!=3)
-        error->abort("the dimension of the box for ff");
+        Error::abort("the dimension of the box for ff");
     
     cut_off_alloc();
-    f=new Vec<type0>(atoms,atoms->x->dim);
+    f=new Vec<type0>(atoms,x->dim);
     CREATE1D(nrgy_strss,__dim__*(__dim__+1)/2+1);
     CREATE1D(nrgy_strss_lcl,__dim__*(__dim__+1)/2+1);
     ns_alloc=1;
@@ -91,7 +100,7 @@ void ForceField::cut_off_dealloc()
  --------------------------------------------*/
 type0 ForceField::max_cut()
 {
-    type0 skin=atoms->get_skin();
+    type0 skin=comm->skin;
     type0 tmp;
     type0 max_cut=0.0;
     for(int i=0;i<cut_sz;i++)
@@ -109,7 +118,7 @@ type0 ForceField::max_cut()
  --------------------------------------------*/
 void ForceField::force_calc_timer(bool flag)
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     force_calc(flag);
     if(flag)
     {
@@ -119,7 +128,7 @@ void ForceField::force_calc_timer(bool flag)
         for(int i=1;i<7;i++)
             nrgy_strss[i]/=vol;
     }
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
 }
 /*--------------------------------------------
  
@@ -127,28 +136,44 @@ void ForceField::force_calc_timer(bool flag)
 type0 ForceField::energy_calc_timer()
 {
     type0 en;
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     en=energy_calc();
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
     return en;
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ForceFieldMD::ForceFieldMD():
+ForceField(),
+type(mapp->type)
+{
+    neighbor=new NeighborMD(atoms,type,cut_sk_sq);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ForceFieldMD::~ForceFieldMD()
+{
+    delete neighbor;
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 void ForceFieldMD::pre_xchng_energy_timer(GCMC* gcmc)
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     pre_xchng_energy(gcmc);
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 type0 ForceFieldMD::xchng_energy_timer(GCMC* gcmc)
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     type0 en=xchng_energy(gcmc);
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
     return en;
 }
 /*--------------------------------------------
@@ -156,18 +181,37 @@ type0 ForceFieldMD::xchng_energy_timer(GCMC* gcmc)
  --------------------------------------------*/
 void ForceFieldMD::post_xchng_energy_timer(GCMC* gcmc)
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     post_xchng_energy(gcmc);
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ForceFieldDMD::ForceFieldDMD():
+ForceField(),
+type(mapp->ctype),
+c(mapp->c),
+c_d(mapp->c_d),
+dynamic_flag(true)
+{
+    neighbor=new NeighborDMD(atoms,type,c,cut_sk_sq,rsq_crd);
+}
+/*--------------------------------------------
+ 
+ --------------------------------------------*/
+ForceFieldDMD::~ForceFieldDMD()
+{
+    delete neighbor;
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
 type0 ForceFieldDMD::ddc_norm_timer()
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     type0 en=ddc_norm();
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
     return en;
 }
 /*--------------------------------------------
@@ -175,9 +219,9 @@ type0 ForceFieldDMD::ddc_norm_timer()
  --------------------------------------------*/
 void ForceFieldDMD::ddc_timer(type0* ddc_)
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     ddc(ddc_);
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
 
 }
 /*--------------------------------------------
@@ -185,8 +229,8 @@ void ForceFieldDMD::ddc_timer(type0* ddc_)
  --------------------------------------------*/
 void ForceFieldDMD::dc_timer()
 {
-    timer->start(FORCE_TIME_mode);
+    mapp->timer->start(FORCE_TIME_mode);
     dc();
-    timer->stop(FORCE_TIME_mode);
+    mapp->timer->stop(FORCE_TIME_mode);
 }
 

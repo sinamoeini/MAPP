@@ -146,7 +146,7 @@ namespace MAPP_NS
         
         
     public:
-        PGCMC(int,dmd_type,type0,type0,int);
+        PGCMC(class Dynamic*&,int,atom_type,type0,type0,int);
         ~PGCMC();
         
         void init();

@@ -7,10 +7,9 @@ namespace MAPP_NS
     class Min
     {
     private:
-        ForceFieldDMD* forcefield_dmd;
+        class ForceFieldDMD* forcefield_dmd;
         type0 max_dx;
     protected:
-        VecLst* vecs_comm;
         bool chng_box;
         int err;
         type0 f_h;
@@ -42,6 +41,8 @@ namespace MAPP_NS
         VecTens<type0> f;
         VecTens<type0> f0;
         
+        class Write*& __write__;
+        MPI_Comm& world;
     public:
         Min();
         virtual ~Min();
@@ -59,9 +60,8 @@ namespace MAPP_NS
         void ls_prep(type0&,type0&,type0&);
         void F_reset();
 
+        static LineSearch<Min>* ls;
     };
-
-
 }
 
 #endif
