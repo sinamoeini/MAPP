@@ -2,6 +2,7 @@
 #define MAPP_global_h
 #include "type_def.h"
 #include <mpi.h>
+#include <stdio.h>
 namespace MAPP_NS
 {
     enum {MD_mode,DMD_mode};
