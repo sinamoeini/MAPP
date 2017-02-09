@@ -197,9 +197,7 @@ type0& b,type0& c,type0& fa,type0& fb,type0& fc)
             fc=fu;
             
             if(fu>fc)
-            {
                 return B_S;
-            }
         }
         else
         {

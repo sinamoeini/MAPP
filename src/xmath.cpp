@@ -443,7 +443,7 @@ void XMath::quadrature_lg(int n,type0* x,type0* w)
     }
 }
 /*--------------------------------------------
- construct a legendre polynomial of degree n
+ construct a hermite-gauss polynomial of degree n
  --------------------------------------------*/
 void XMath::quadrature_hg(int n,type0* x,type0* w)
 {

@@ -235,7 +235,6 @@ force_calc(bool st_clc)
                         drho_phi_dr[phi_ij]*=r_inv;
                         drho_phi_dalpha[phi_ij]*=-tmp0/alpha_ij;
                         
-                        
                         E[ic_dim]+=cvec[jc_dim]*rho_phi[rho_ji];
                         
                         if(jatm<natms)
@@ -252,6 +251,7 @@ force_calc(bool st_clc)
             
             istart+=stride;
         }
+        //printf("%e %e %d\n",E[0],nrgy_strss_lcl[0],neighbor_list_size[0]);
         
         c_iv=1.0;
         for(int ic_dim=iatm*c_dim,itype;ic_dim<(iatm+1)*c_dim && cvec[ic_dim]>=0.0;ic_dim++)
